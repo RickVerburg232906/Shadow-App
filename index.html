@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leden QR</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background:#0b0c10; color:#e5e7eb; display:grid; place-items:center; min-height:100vh; }
+    .card { width:min(680px, 92vw); background:#111827; border:1px solid #1f2937; border-radius:16px; padding:22px; box-shadow: 0 10px 30px rgba(0,0,0,.35);}
+    h1 { margin: 6px 0 18px; font-size: 22px; font-weight: 700; letter-spacing:.2px;}
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    input[type="text"] { flex:1 1 260px; background:#0b1220; color:#e5e7eb; border:1px solid #23324a; border-radius:10px; padding:12px 14px; outline:none; }
+    button { background:#2563eb; color:#fff; border:0; border-radius:10px; padding:12px 16px; font-weight:600; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .hint { color:#9ca3af; font-size:13px; margin-top:8px; }
+    .result { margin-top:18px; display:grid; grid-template-columns: 1fr auto; gap:16px; align-items:start; }
+    .kv { background:#0b1220; border:1px solid #23324a; border-radius:12px; padding:14px; }
+    .kv div { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #23324a; }
+    .kv div:last-child { border-bottom:0; }
+    .label { color:#9ca3af; }
+    .value { color:#e5e7eb; font-weight:600; }
+    #qrCanvas { background:#fff; border-radius:12px; padding:8px; }
+    .error { color:#f87171; margin-top:10px; }
+    .small { font-size:12px; color:#9ca3af; margin-top:12px;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Jouw leden QR</h1>
+    <div class="row">
+      <input id="nameInput" type="text" placeholder="Vul jouw naam in (exact zoals bekend)" />
+      <button id="findBtn">Zoek & Genereer QR</button>
+    </div>
+    <div class="hint">We zoeken je profiel op naam. Bij dubbele namen vragen we je om te specificeren.</div>
+    <div id="error" class="error" style="display:none;"></div>
+
+    <div id="result" class="result" style="display:none;">
+      <div class="kv">
+        <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+        <div><span class="label">Lidnummer</span><span class="value" id="rMemberNo">—</span></div>
+        <div><span class="label">Status</span><span class="value" id="rStatus">—</span></div>
+      </div>
+      <canvas id="qrCanvas" width="220" height="220"></canvas>
+    </div>
+
+    <div class="small">Privacy: de QR bevat alleen een interne ID (uid), geen naam/nummer.</div>
+  </div>
+
+  <!-- QR generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+  <!-- Firebase SDKs (v10 modular) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getFirestore, collection, query, where, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+
+    // TODO: vul je eigen config in (Project settings → Web app)
+    const firebaseConfig = {
+      apiKey:        "YOUR_API_KEY",
+      authDomain:    "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId:     "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId:         "YOUR_APP_ID",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const $ = (id) => document.getElementById(id);
+    const nameInput = $("nameInput");
+    const findBtn   = $("findBtn");
+    const resultBox = $("result");
+    const errBox    = $("error");
+
+    const rName     = $("rName");
+    const rMemberNo = $("rMemberNo");
+    const rStatus   = $("rStatus");
+    const qrCanvas  = $("qrCanvas");
+
+    async function findMemberByName(name) {
+      // Zoek exact op displayName, max 5 hits om ambiguïteit te detecteren
+      const q = query(collection(db, "members"), where("displayName", "==", name), limit(5));
+      const snap = await getDocs(q);
+      const items = [];
+      snap.forEach(doc => items.push({ uid: doc.id, ...doc.data() }));
+      return items;
+    }
+
+    async function generateQR(payload) {
+      // payload = JSON string met uid
+      return new Promise((resolve, reject) => {
+        QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+    }
+
+    async function handleFind() {
+      errBox.style.display = "none";
+      resultBox.style.display = "none";
+      findBtn.disabled = true;
+
+      const name = (nameInput.value || "").trim();
+      if (!name) {
+        errBox.textContent = "Vul eerst je naam in.";
+        errBox.style.display = "block";
+        findBtn.disabled = false;
+        return;
+      }
+
+      try {
+        const matches = await findMemberByName(name);
+
+        if (matches.length === 0) {
+          errBox.textContent = "Geen lid gevonden met deze naam. Controleer de spelling.";
+          errBox.style.display = "block";
+          return;
+        }
+        if (matches.length > 1) {
+          // In simpele demo vragen we om exactere naam of om je lidnummer ook in te voeren
+          errBox.innerHTML = "Er zijn meerdere leden met deze naam. Voeg extra onderscheid toe (bijv. tweede naam) of vraag om hulp.";
+          errBox.style.display = "block";
+          return;
+        }
+
+        const m = matches[0];
+        rName.textContent = m.displayName || "—";
+        rMemberNo.textContent = m.memberNo ?? "—";
+        rStatus.textContent = (m.active === false) ? "Inactief" : "Actief";
+
+        // QR payload = veilig: alleen uid
+        const payload = JSON.stringify({ t: "member", uid: m.uid });
+        await generateQR(payload);
+
+        resultBox.style.display = "grid";
+      } catch (e) {
+        console.error(e);
+        errBox.textContent = "Er ging iets mis tijdens het ophalen. Probeer het opnieuw.";
+        errBox.style.display = "block";
+      } finally {
+        findBtn.disabled = false;
+      }
+    }
+
+    findBtn.addEventListener("click", handleFind);
+    // “Popup” experience: autofocus + Enter to search
+    nameInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") handleFind();
+    });
+
+    // Optional: automatisch focus bij laden
+    window.addEventListener("load", () => nameInput.focus());
+  </script>
+</body>
+</html>
