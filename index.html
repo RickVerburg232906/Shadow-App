@@ -1,186 +1,30 @@
 <!doctype html>
 <html lang="nl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Leden QR</title>
-  <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    body { margin: 0; background:#0b0c10; color:#e5e7eb; display:grid; place-items:center; min-height:100vh; }
-    .card { width:min(680px, 92vw); background:#111827; border:1px solid #1f2937; border-radius:16px; padding:22px; box-shadow: 0 10px 30px rgba(0,0,0,.35);}
-    h1 { margin: 6px 0 18px; font-size: 22px; font-weight: 700; letter-spacing:.2px;}
-    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
-    input[type="text"] { flex:1 1 260px; background:#0b1220; color:#e5e7eb; border:1px solid #23324a; border-radius:10px; padding:12px 14px; outline:none; }
-    button { background:#2563eb; color:#fff; border:0; border-radius:10px; padding:12px 16px; font-weight:600; cursor:pointer; }
-    button:disabled { opacity:.6; cursor:not-allowed; }
-    .hint { color:#9ca3af; font-size:13px; margin-top:8px; }
-    .result { margin-top:18px; display:grid; grid-template-columns: 1fr auto; gap:16px; align-items:start; }
-    .kv { background:#0b1220; border:1px solid #23324a; border-radius:12px; padding:14px; }
-    .kv div { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #23324a; }
-    .kv div:last-child { border-bottom:0; }
-    .label { color:#9ca3af; }
-    .value { color:#e5e7eb; font-weight:600; }
-    #qrCanvas { background:#fff; border-radius:12px; padding:8px; }
-    .error { color:#f87171; margin-top:10px; min-height:1.2em; }
-    .small { font-size:12px; color:#9ca3af; margin-top:12px;}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Jouw leden QR</h1>
-    <div class="row">
-      <input id="nameInput" type="text" placeholder="Vul jouw naam in (exact zoals bekend)" />
-      <button id="findBtn">Zoek & Genereer QR</button>
-    </div>
-    <div class="hint">We zoeken je profiel op naam (prototype). Bij dubbele namen graag specificeren.</div>
-    <div id="error" class="error" style="display:none;"></div>
-
-    <div id="result" class="result" style="display:none;">
-      <div class="kv">
-        <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-        <div><span class="label">Lidnummer</span><span class="value" id="rMemberNo">—</span></div>
-        <div><span class="label">Status</span><span class="value" id="rStatus">—</span></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leden QR</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <div class="card">
+      <h1>Jouw leden QR</h1>
+      <div class="row">
+        <input id="nameInput" type="text" placeholder="Vul jouw naam in (exact zoals bekend)" />
+        <button id="findBtn">Zoek & Genereer QR</button>
       </div>
-      <canvas id="qrCanvas" width="220" height="220"></canvas>
+      <div class="hint">We zoeken je profiel op naam (prototype). Bij dubbele namen graag specificeren.</div>
+      <div id="error" class="error" style="display:none;"></div>
+      <div id="result" class="result" style="display:none;">
+        <div class="kv">
+          <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+          <div><span class="label">Lidnummer</span><span class="value" id="rMemberNo">—</span></div>
+          <div><span class="label">Status</span><span class="value" id="rStatus">—</span></div>
+        </div>
+        <canvas id="qrCanvas" width="220" height="220"></canvas>
+      </div>
+      <div class="small">Privacy: de QR bevat alleen een interne ID (uid), geen naam/nummer.</div>
     </div>
-
-    <div class="small">Privacy: de QR bevat alleen een interne ID (uid), geen naam/nummer.</div>
-  </div>
-
-  <!-- QR generator -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-
-  <!-- Firebase SDKs (modular v10) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-    import {
-      initializeFirestore,
-      persistentLocalCache,
-      persistentMultipleTabManager,
-      collection, query, where, limit,
-      getDocsFromCache, getDocsFromServer
-    } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
-
-    // TODO: vul je eigen config in (Project settings → Web app)
-    const firebaseConfig = {
-    apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
-    authDomain: "shadow-app-b3fb3.firebaseapp.com",
-    projectId: "shadow-app-b3fb3",
-    storageBucket: "shadow-app-b3fb3.firebasestorage.app",
-    messagingSenderId: "38812973319",
-    appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
-    };
-
-    // App + Firestore met persistente cache (snellere eerste read)
-    const app = initializeApp(firebaseConfig);
-    const db  = initializeFirestore(app, {
-      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-    });
-
-    const $ = (id) => document.getElementById(id);
-    const nameInput = $("nameInput");
-    const findBtn   = $("findBtn");
-    const resultBox = $("result");
-    const errBox    = $("error");
-    const rName     = $("rName");
-    const rMemberNo = $("rMemberNo");
-    const rStatus   = $("rStatus");
-    const qrCanvas  = $("qrCanvas");
-
-    // Pre-warm Firestore zodra de pagina laadt (no-op read)
-    window.addEventListener("load", async () => {
-      nameInput.focus();
-      try {
-        const q = query(collection(db, "_warmup"), limit(1));
-        await getDocsFromServer(q);
-      } catch {}
-    });
-
-    function setLoading(on) {
-      findBtn.disabled = on;
-      findBtn.textContent = on ? "Zoeken..." : "Zoek & Genereer QR";
-    }
-
-    async function findMemberByNameFast(name) {
-      const q = query(collection(db, "members"), where("displayName", "==", name), limit(1));
-
-      // 1) ultrasnelle cache-check (retourneert meteen; kan leeg zijn)
-      try {
-        const snapCache = await getDocsFromCache(q);
-        const arr = [];
-        snapCache.forEach(d => arr.push({ uid: d.id, ...d.data() }));
-        if (arr.length > 0) return arr; // directe hit → klaar
-      } catch { /* geen cache beschikbaar → ga verder */ }
-
-      // 2) servervraag met korte UX-timeout (voor "Zoeken..." hint)
-      const serverPromise = (async () => {
-        const snap = await getDocsFromServer(q);
-        const arr = [];
-        snap.forEach(d => arr.push({ uid: d.id, ...d.data() }));
-        return arr;
-      })();
-
-      const timeout = new Promise((resolve) => setTimeout(() => resolve("__SLOW__"), 400));
-      const first = await Promise.race([serverPromise, timeout]);
-
-      if (first === "__SLOW__") {
-        // verbinding traag: toon zachte status en wacht echte resultaat af
-        errBox.textContent = "Zoeken…";
-        errBox.style.display = "block";
-        const real = await serverPromise;
-        errBox.style.display = "none";
-        return real;
-      }
-
-      return first;
-    }
-
-    async function handleFind() {
-      errBox.style.display = "none";
-      resultBox.style.display = "none";
-      setLoading(true);
-
-      const name = (nameInput.value || "").trim();
-      if (!name) {
-        errBox.textContent = "Vul eerst je naam in.";
-        errBox.style.display = "block";
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const matches = await findMemberByNameFast(name);
-
-        if (!matches || matches.length === 0) {
-          // Direct en duidelijk (ook bij lege Firestore)
-          errBox.textContent = "Je bent nog geen lid";
-          errBox.style.display = "block";
-          return;
-        }
-
-        const m = matches[0];
-        rName.textContent = m.displayName || "—";
-        rMemberNo.textContent = m.memberNo ?? "—";
-        rStatus.textContent = (m.active === false) ? "Inactief" : "Actief";
-
-        // QR payload = alleen uid
-        const payload = JSON.stringify({ t: "member", uid: m.uid });
-        await new Promise((resolve, reject) => {
-          QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => err ? reject(err) : resolve());
-        });
-
-        resultBox.style.display = "grid";
-      } catch (e) {
-        console.error(e);
-        errBox.textContent = "Er ging iets mis tijdens het ophalen. Probeer het opnieuw.";
-        errBox.style.display = "block";
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    findBtn.addEventListener("click", handleFind);
-    nameInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") handleFind(); });
-  </script>
-</body>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
