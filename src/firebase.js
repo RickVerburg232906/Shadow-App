@@ -1,60 +1,30 @@
 import { initializeApp } from "firebase/app";
 import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  collection, query, where, limit,
-  getDocsFromCache, getDocsFromServer
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, query, where, orderBy, startAt, endAt, limit,
+  getDocs, doc, writeBatch, setDoc
 } from "firebase/firestore";
+import { getStorage, ref, uploadBytes } from "firebase/storage";
 
-// VUL DIT IN (Firebase Console → Project settings → Your apps → Web → Config)
 export const firebaseConfig = {
   apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
   authDomain: "shadow-app-b3fb3.firebaseapp.com",
   projectId: "shadow-app-b3fb3",
-  storageBucket: "shadow-app-b3fb3.firebasestorage.app",
-  messagingSenderId: "38812973319",
-  appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
+  storageBucket: "shadow-app-b3fb3.appspot.com",
+  messagingSenderId: "725156533083",
+  appId: "1:725156533083:web:e372fd32d1d0abff4f3f92"
 };
 
 const app = initializeApp(firebaseConfig);
-export const db  = initializeFirestore(app, {
+
+// IMPORTANT FIX: initializeFirestore expects the Firebase App, not a Firestore instance
+export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
+export const storage = getStorage(app);
 
-// Kleine helper voor Firestore lookups
-export async function findMemberByNameFast(name) {
-  const qRef = query(collection(db, "members"), where("displayName", "==", name), limit(1));
-
-  // 1) ultrasnelle cache-check
-  try {
-    const snapCache = await getDocsFromCache(qRef);
-    const arr = [];
-    snapCache.forEach(d => arr.push({ uid: d.id, ...d.data() }));
-    if (arr.length > 0) return arr;
-  } catch {}
-
-  // 2) server met timeout-indicatie
-  const serverPromise = (async () => {
-    const snap = await getDocsFromServer(qRef);
-    const arr = [];
-    snap.forEach(d => arr.push({ uid: d.id, ...d.data() }));
-    return arr;
-  })();
-
-  const timeout = new Promise((resolve) => setTimeout(() => resolve("__SLOW__"), 400));
-  const first = await Promise.race([serverPromise, timeout]);
-
-  if (first === "__SLOW__") {
-    return await serverPromise;
-  }
-  return first;
-}
-
-// Pre-warm (no-op read) — call once on page load
-export async function prewarm() {
-  try {
-    const qRef = query(collection(db, "_warmup"), limit(1));
-    await getDocsFromServer(qRef);
-  } catch {}
-}
+// Re-export Firestore helpers
+export {
+  collection, query, where, orderBy, startAt, endAt, limit,
+  getDocs, doc, writeBatch, setDoc, ref, uploadBytes
+};

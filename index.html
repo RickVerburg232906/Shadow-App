@@ -3,28 +3,58 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Leden QR</title>
+    <title>Shadow App</title>
     <link rel="stylesheet" href="/style.css">
   </head>
   <body>
-    <div class="card">
-      <h1>Jouw leden QR</h1>
-      <div class="row">
-        <input id="nameInput" type="text" placeholder="Vul jouw naam in (exact zoals bekend)" />
-        <button id="findBtn">Zoek & Genereer QR</button>
-      </div>
-      <div class="hint">We zoeken je profiel op naam (prototype). Bij dubbele namen graag specificeren.</div>
-      <div id="error" class="error" style="display:none;"></div>
-      <div id="result" class="result" style="display:none;">
-        <div class="kv">
-          <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-          <div><span class="label">Lidnummer</span><span class="value" id="rMemberNo">—</span></div>
-          <div><span class="label">Status</span><span class="value" id="rStatus">—</span></div>
+    <header class="topbar">
+      <div class="brand">Shadow App</div>
+      <nav class="nav">
+        <button id="tabMember" class="tab active">Lid</button>
+        <button id="tabAdmin" class="tab">Admin</button>
+      </nav>
+    </header>
+
+    <main class="wrap">
+      <!-- MEMBER VIEW -->
+      <section id="viewMember" class="view active">
+        <div class="card">
+          <h1>Lid: QR tonen</h1>
+          <p class="hint">Zoek op achternaam (<code>Naam</code>) en toon jouw QR.</p>
+          <div class="row">
+            <input id="nameInput" placeholder="Achternaam..." />
+            <button id="findBtn">Toon QR</button>
+          </div>
+          <ul id="suggestions" class="suggest"></ul>
+          <div id="error" class="error" style="display:none"></div>
+          <div id="result" class="result" style="display:none">
+            <div class="grid">
+              <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+              <div><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+            </div>
+            <canvas id="qrCanvas" width="220" height="220"></canvas>
+          </div>
+          <div class="small">Privacy: de QR bevat alleen een interne ID (LidNr), geen naam.</div>
         </div>
-        <canvas id="qrCanvas" width="220" height="220"></canvas>
-      </div>
-      <div class="small">Privacy: de QR bevat alleen een interne ID (uid), geen naam/nummer.</div>
-    </div>
+      </section>
+
+      <!-- ADMIN VIEW -->
+      <section id="viewAdmin" class="view">
+        <div class="card">
+          <h1>Admin: Excel uploaden</h1>
+          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
+          <div class="row">
+            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
+            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
+            <span id="fileName" class="file-name">Geen bestand gekozen</span>
+            <button id="uploadBtn">Uploaden</button>
+          </div>
+          <div id="status" class="status"></div>
+          <div id="log" class="log"></div>
+        </div>
+      </section>
+    </main>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

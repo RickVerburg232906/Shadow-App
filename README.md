@@ -1,43 +1,26 @@
-# Leden QR (Vite + Firebase)
+# Shadow App (Fixed) — Excel upload werkt ✨
 
-Een minimalistische ledenpagina: lid vult naam in → app zoekt `members` in Firestore → toont naam, lidnummer en genereert een QR met alleen `uid`.
+Eenvoudige Vite + Firebase webapp:
+- **Lid**: zoek op achternaam (`Naam`) → toon naam/LidNr + QR (payload bevat alleen `uid` = LidNr).
+- **Admin**: upload Excel/CSV met verplichte kolommen → import naar Firestore-collectie `members` (document-id = `LidNr`). Het originele bestand wordt ook opgeslagen in Cloud Storage onder `imports/`.
 
 ## Snel starten
-1. **Firebase project** aanmaken → Firestore **aan**.
-2. In **Project settings → Your apps → Web → Config** kopieer je de config en plak je die in `src/firebase.js` bij `firebaseConfig`.
-3. (Voor demo) Firestore rules tijdelijk open voor read:
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{db}/documents {
-       match /members/{uid} {
-         allow read: if true;
-         allow write: if false;
-       }
-     }
-   }
-   ```
-4. Voeg in de collectie `members` bv. een doc toe:
-   - ID: `abc123`
-   - `displayName: "Jan Jansen"`
-   - `memberNo: "LID-001"`
-   - `active: true`
-
-## Runnen
 ```bash
 npm i
 npm run dev
 ```
-Open http://localhost:5173
+Open de URL die Vite toont.
 
-## Build (voor Vercel)
-```bash
-npm run build
-```
-Output komt in `dist/`.
+## Firebase configureren
+Pas eventueel `src/firebase.js` aan met je eigen `firebaseConfig`. De huidige config komt uit je ZIP.
 
-- **Vercel**: kies “Vite” preset, Build Command `npm run build`, Output `dist`.
-- Commit **één** lockfile (bv. `package-lock.json`).
+## Excel/CSV
+Verplichte kolommen (exact): `LidNr`, `Naam`, `Voor naam`, `Voor letters`, `Tussen voegsel`.
 
-## Opmerking
-Dit is de ledenkant. De admin-scanner (QR scannen + ritten verhogen via Cloud Function) kan later worden toegevoegd.
+## Waar komen de data?
+- **Firestore**: collectie `members`, doc-id = `LidNr`. Velden: dezelfde kolommen + `ridesCount` (default 0).
+- **Storage**: het geüploade bronbestand onder `imports/<timestamp>-<filename>`.
+
+## Opmerkingen
+- Geen App Check en geen admin-wachtwoord in deze minimale versie (simpelst zodat upload zeker werkt). Later kun je dit aanscherpen (claims/rules).
+- Batch-commit na max ~480 writes om onder de Firestore-limiet van 500 te blijven.
