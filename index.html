@@ -21,7 +21,7 @@
     .label { color:#9ca3af; }
     .value { color:#e5e7eb; font-weight:600; }
     #qrCanvas { background:#fff; border-radius:12px; padding:8px; }
-    .error { color:#f87171; margin-top:10px; }
+    .error { color:#f87171; margin-top:10px; min-height:1.2em; }
     .small { font-size:12px; color:#9ca3af; margin-top:12px;}
   </style>
 </head>
@@ -32,7 +32,7 @@
       <input id="nameInput" type="text" placeholder="Vul jouw naam in (exact zoals bekend)" />
       <button id="findBtn">Zoek & Genereer QR</button>
     </div>
-    <div class="hint">We zoeken je profiel op naam. Bij dubbele namen vragen we je om te specificeren.</div>
+    <div class="hint">We zoeken je profiel op naam (prototype). Bij dubbele namen graag specificeren.</div>
     <div id="error" class="error" style="display:none;"></div>
 
     <div id="result" class="result" style="display:none;">
@@ -50,78 +50,110 @@
   <!-- QR generator -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
-  <!-- Firebase SDKs (v10 modular) -->
+  <!-- Firebase SDKs (modular v10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-    import { getFirestore, collection, query, where, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+    import {
+      initializeFirestore,
+      persistentLocalCache,
+      persistentMultipleTabManager,
+      collection, query, where, limit,
+      getDocsFromCache, getDocsFromServer
+    } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
     // TODO: vul je eigen config in (Project settings → Web app)
     const firebaseConfig = {
-      apiKey:        "YOUR_API_KEY",
-      authDomain:    "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId:     "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId:         "YOUR_APP_ID",
+    apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
+    authDomain: "shadow-app-b3fb3.firebaseapp.com",
+    projectId: "shadow-app-b3fb3",
+    storageBucket: "shadow-app-b3fb3.firebasestorage.app",
+    messagingSenderId: "38812973319",
+    appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
     };
 
+    // App + Firestore met persistente cache (snellere eerste read)
     const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
+    const db  = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
 
     const $ = (id) => document.getElementById(id);
     const nameInput = $("nameInput");
     const findBtn   = $("findBtn");
     const resultBox = $("result");
     const errBox    = $("error");
-
     const rName     = $("rName");
     const rMemberNo = $("rMemberNo");
     const rStatus   = $("rStatus");
     const qrCanvas  = $("qrCanvas");
 
-    async function findMemberByName(name) {
-      // Zoek exact op displayName, max 5 hits om ambiguïteit te detecteren
-      const q = query(collection(db, "members"), where("displayName", "==", name), limit(5));
-      const snap = await getDocs(q);
-      const items = [];
-      snap.forEach(doc => items.push({ uid: doc.id, ...doc.data() }));
-      return items;
+    // Pre-warm Firestore zodra de pagina laadt (no-op read)
+    window.addEventListener("load", async () => {
+      nameInput.focus();
+      try {
+        const q = query(collection(db, "_warmup"), limit(1));
+        await getDocsFromServer(q);
+      } catch {}
+    });
+
+    function setLoading(on) {
+      findBtn.disabled = on;
+      findBtn.textContent = on ? "Zoeken..." : "Zoek & Genereer QR";
     }
 
-    async function generateQR(payload) {
-      // payload = JSON string met uid
-      return new Promise((resolve, reject) => {
-        QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
-          if (err) reject(err); else resolve();
-        });
-      });
+    async function findMemberByNameFast(name) {
+      const q = query(collection(db, "members"), where("displayName", "==", name), limit(1));
+
+      // 1) ultrasnelle cache-check (retourneert meteen; kan leeg zijn)
+      try {
+        const snapCache = await getDocsFromCache(q);
+        const arr = [];
+        snapCache.forEach(d => arr.push({ uid: d.id, ...d.data() }));
+        if (arr.length > 0) return arr; // directe hit → klaar
+      } catch { /* geen cache beschikbaar → ga verder */ }
+
+      // 2) servervraag met korte UX-timeout (voor "Zoeken..." hint)
+      const serverPromise = (async () => {
+        const snap = await getDocsFromServer(q);
+        const arr = [];
+        snap.forEach(d => arr.push({ uid: d.id, ...d.data() }));
+        return arr;
+      })();
+
+      const timeout = new Promise((resolve) => setTimeout(() => resolve("__SLOW__"), 400));
+      const first = await Promise.race([serverPromise, timeout]);
+
+      if (first === "__SLOW__") {
+        // verbinding traag: toon zachte status en wacht echte resultaat af
+        errBox.textContent = "Zoeken…";
+        errBox.style.display = "block";
+        const real = await serverPromise;
+        errBox.style.display = "none";
+        return real;
+      }
+
+      return first;
     }
 
     async function handleFind() {
       errBox.style.display = "none";
       resultBox.style.display = "none";
-      findBtn.disabled = true;
+      setLoading(true);
 
       const name = (nameInput.value || "").trim();
       if (!name) {
         errBox.textContent = "Vul eerst je naam in.";
         errBox.style.display = "block";
-        findBtn.disabled = false;
+        setLoading(false);
         return;
       }
 
       try {
-        const matches = await findMemberByName(name);
+        const matches = await findMemberByNameFast(name);
 
-        if (matches.length === 0) {
-        errBox.textContent = "Je bent nog geen lid";
-        errBox.style.display = "block";
-        return;
-        }
-        
-        if (matches.length > 1) {
-          // In simpele demo vragen we om exactere naam of om je lidnummer ook in te voeren
-          errBox.innerHTML = "Er zijn meerdere leden met deze naam. Voeg extra onderscheid toe (bijv. tweede naam) of vraag om hulp.";
+        if (!matches || matches.length === 0) {
+          // Direct en duidelijk (ook bij lege Firestore)
+          errBox.textContent = "Je bent nog geen lid";
           errBox.style.display = "block";
           return;
         }
@@ -131,9 +163,11 @@
         rMemberNo.textContent = m.memberNo ?? "—";
         rStatus.textContent = (m.active === false) ? "Inactief" : "Actief";
 
-        // QR payload = veilig: alleen uid
+        // QR payload = alleen uid
         const payload = JSON.stringify({ t: "member", uid: m.uid });
-        await generateQR(payload);
+        await new Promise((resolve, reject) => {
+          QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => err ? reject(err) : resolve());
+        });
 
         resultBox.style.display = "grid";
       } catch (e) {
@@ -141,18 +175,12 @@
         errBox.textContent = "Er ging iets mis tijdens het ophalen. Probeer het opnieuw.";
         errBox.style.display = "block";
       } finally {
-        findBtn.disabled = false;
+        setLoading(false);
       }
     }
 
     findBtn.addEventListener("click", handleFind);
-    // “Popup” experience: autofocus + Enter to search
-    nameInput.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") handleFind();
-    });
-
-    // Optional: automatisch focus bij laden
-    window.addEventListener("load", () => nameInput.focus());
+    nameInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") handleFind(); });
   </script>
 </body>
 </html>
