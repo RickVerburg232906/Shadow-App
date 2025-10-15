@@ -9,12 +9,12 @@ import {
 
 // VUL DIT IN (Firebase Console → Project settings → Your apps → Web → Config)
 export const firebaseConfig = {
-  apiKey:        "YOUR_API_KEY",
-  authDomain:    "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:     "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:         "YOUR_APP_ID",
+  apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
+  authDomain: "shadow-app-b3fb3.firebaseapp.com",
+  projectId: "shadow-app-b3fb3",
+  storageBucket: "shadow-app-b3fb3.firebasestorage.app",
+  messagingSenderId: "38812973319",
+  appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
 };
 
 const app = initializeApp(firebaseConfig);
