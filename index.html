@@ -114,10 +114,11 @@
         const matches = await findMemberByName(name);
 
         if (matches.length === 0) {
-          errBox.textContent = "Geen lid gevonden met deze naam. Controleer de spelling.";
-          errBox.style.display = "block";
-          return;
+        errBox.textContent = "Je bent nog geen lid";
+        errBox.style.display = "block";
+        return;
         }
+        
         if (matches.length > 1) {
           // In simpele demo vragen we om exactere naam of om je lidnummer ook in te voeren
           errBox.innerHTML = "Er zijn meerdere leden met deze naam. Voeg extra onderscheid toe (bijv. tweede naam) of vraag om hulp.";
