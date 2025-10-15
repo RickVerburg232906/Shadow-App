@@ -1,45 +1,43 @@
-# Admin Upload (Vite + Firebase)
+# Leden QR (Vite + Firebase)
 
-Eén-knops adminpagina om een Excel of CSV te uploaden naar **Firebase Storage** én te importeren in **Firestore** (`members`-collectie).
-
-## Verwacht bestand
-- Excel: `.xlsx` / `.xls` of `.csv`
-- Kolommen (case-insensitive): `displayName`, `memberNo` (verplicht), optioneel `active`, `ridesCount`, `uid`
-- Als `uid` ontbreekt, wordt `memberNo` als document-ID gebruikt (stabiel updaten).
+Een minimalistische ledenpagina: lid vult naam in → app zoekt `members` in Firestore → toont naam, lidnummer en genereert een QR met alleen `uid`.
 
 ## Snel starten
-1. Vul `src/firebase.js` met jouw Firebase config.
-2. (Tijdelijk) Firestore Rules toestaan voor admins of test eenvoudig:
+1. **Firebase project** aanmaken → Firestore **aan**.
+2. In **Project settings → Your apps → Web → Config** kopieer je de config en plak je die in `src/firebase.js` bij `firebaseConfig`.
+3. (Voor demo) Firestore rules tijdelijk open voor read:
    ```
    rules_version = '2';
    service cloud.firestore {
      match /databases/{db}/documents {
-       match /members/{id} {
-         allow read, write: if true; // alleen voor test!
+       match /members/{uid} {
+         allow read: if true;
+         allow write: if false;
        }
      }
    }
    ```
-   En Storage rule voor test:
-   ```
-   rules_version = '2';
-   service firebase.storage {
-     match /b/{bucket}/o {
-       match /{allPaths=**} {
-         allow read, write: if true; // alleen voor test!
-       }
-     }
-   }
-   ```
-   **Zet dit later scherp op alleen admins.**
+4. Voeg in de collectie `members` bv. een doc toe:
+   - ID: `abc123`
+   - `displayName: "Jan Jansen"`
+   - `memberNo: "LID-001"`
+   - `active: true`
 
 ## Runnen
 ```bash
 npm i
 npm run dev
 ```
+Open http://localhost:5173
 
-## Build (Vercel)
-- Preset: **Vite**
-- Build Command: `npm run build`
-- Output: `dist`
+## Build (voor Vercel)
+```bash
+npm run build
+```
+Output komt in `dist/`.
+
+- **Vercel**: kies “Vite” preset, Build Command `npm run build`, Output `dist`.
+- Commit **één** lockfile (bv. `package-lock.json`).
+
+## Opmerking
+Dit is de ledenkant. De admin-scanner (QR scannen + ritten verhogen via Cloud Function) kan later worden toegevoegd.

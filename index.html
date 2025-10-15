@@ -3,20 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Upload</title>
+    <title>Leden QR</title>
     <link rel="stylesheet" href="/style.css">
   </head>
   <body>
     <div class="card">
-      <h1>Admin: Excel uploaden</h1>
-      <p class="hint">Kies een Excel (.xlsx/.xls) of CSV met kolommen: <code>displayName</code>, <code>memberNo</code>, optioneel <code>active</code>, <code>ridesCount</code>, <code>uid</code>.</p>
+      <h1>Jouw leden QR</h1>
       <div class="row">
-        <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
-        <button id="uploadBtn">Uploaden</button>
+        <input id="nameInput" type="text" placeholder="Vul jouw naam in (exact zoals bekend)" />
+        <button id="findBtn">Zoek & Genereer QR</button>
       </div>
-      <div id="status" class="status"></div>
-      <div id="log" class="log"></div>
+      <div class="hint">We zoeken je profiel op naam (prototype). Bij dubbele namen graag specificeren.</div>
+      <div id="error" class="error" style="display:none;"></div>
+      <div id="result" class="result" style="display:none;">
+        <div class="kv">
+          <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+          <div><span class="label">Lidnummer</span><span class="value" id="rMemberNo">—</span></div>
+          <div><span class="label">Status</span><span class="value" id="rStatus">—</span></div>
+        </div>
+        <canvas id="qrCanvas" width="220" height="220"></canvas>
+      </div>
+      <div class="small">Privacy: de QR bevat alleen een interne ID (uid), geen naam/nummer.</div>
     </div>
-    <script type="module" src="/src/admin.js"></script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>
