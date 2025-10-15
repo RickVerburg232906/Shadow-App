@@ -1,4 +1,4 @@
-import QRCode from "qrcode";
+
 import { db } from "./firebase.js";
 import {
   collection, query, orderBy, startAt, endAt, limit, getDocs, doc
