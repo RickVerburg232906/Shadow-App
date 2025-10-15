@@ -19,22 +19,22 @@
       <!-- MEMBER VIEW -->
       <section id="viewMember" class="view active">
         <div class="card">
-          <h1>Lid: QR tonen</h1>
-          <p class="hint">Zoek op achternaam (<code>Naam</code>) en toon jouw QR.</p>
+          <h1>Inschrijven voor rit</h1>
+          <p class="hint">Zoek op achternaam en toon jouw QR.</p>
           <div class="row">
             <input id="nameInput" placeholder="Achternaam..." />
-            <button id="findBtn">Toon QR</button>
           </div>
           <ul id="suggestions" class="suggest"></ul>
           <div id="error" class="error" style="display:none"></div>
           <div id="result" class="result" style="display:none">
-            <div class="grid">
+            <div class="column">
               <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
               <div><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+              <p> Ga nu naar de inschrijf balie om in te checken voor de rit</p>
             </div>
             <canvas id="qrCanvas" width="220" height="220"></canvas>
           </div>
-          <div class="small">Privacy: de QR bevat alleen een interne ID (LidNr), geen naam.</div>
+          <div class="small">Privacy: de QR bevat alleen een LidNr, geen naam.</div>
         </div>
       </section>
 
