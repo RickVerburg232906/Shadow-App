@@ -1,12 +1,10 @@
 import QRCode from "qrcode";
 import { db } from "./firebase.js";
-import {
-  collection, query, orderBy, startAt, endAt, limit, getDocs
-} from "firebase/firestore";
+import { collection, query, orderBy, startAt, endAt, limit, getDocs } from "firebase/firestore";
 
 export function initMemberView() {
   const $ = (id) => document.getElementById(id);
-  const nameInput   = $("nameInput");     // search by last name (Naam)
+  const nameInput   = $("nameInput");
   const suggestList = $("suggestions");
   const resultBox   = $("result");
   const errBox      = $("error");
@@ -39,10 +37,10 @@ export function initMemberView() {
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
       li.addEventListener("click", () => {
         selectedDoc = it;
-        nameInput.value = it.data["Naam"]; // achternaam in veld houden
+        nameInput.value = it.data["Naam"]; // achternaam
         renderSelected(it);
         hideSuggestions();
-      });
+      }, { passive: true });
       suggestList.appendChild(li);
     }
     suggestList.style.display = items.length ? "block" : "none";
@@ -62,18 +60,25 @@ export function initMemberView() {
     return res;
   }
 
+  let inFlight = 0;
+  let lastTerm = "";
   async function onInputChanged() {
     selectedDoc = null;
-    resultBox.style.display = "none"; // verberg eerder resultaat bij nieuwe input
+    resultBox.style.display = "none";
     errBox.style.display = "none";
     const term = (nameInput.value || "").trim();
+    lastTerm = term;
     if (term.length < 2) { hideSuggestions(); return; }
     try {
+      inFlight++;
       const items = await queryByLastNamePrefix(term);
-      showSuggestions(items);
+      // Alleen tonen als term nog hetzelfde is (race condition voorkomen op trage netwerken)
+      if (term === lastTerm) showSuggestions(items);
     } catch (e) {
       console.error(e);
       hideSuggestions();
+    } finally {
+      inFlight--;
     }
   }
 
@@ -99,26 +104,31 @@ export function initMemberView() {
   function renderSelected(entry) {
     const data = entry.data;
     rName.textContent = fullNameFrom(data);
-    rMemberNo.textContent = entry.id; // LidNr is doc id
+    rMemberNo.textContent = entry.id;
     const payload = JSON.stringify({ t: "member", uid: entry.id });
-    QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
+    const size = Math.min(320, Math.floor(window.innerWidth * 0.7));
+    QRCode.toCanvas(qrCanvas, payload, { width: size, margin: 1 }, (err) => {
       if (err) {
         errBox.textContent = "QR genereren mislukte.";
         errBox.style.display = "block";
         return;
       }
       resultBox.style.display = "grid";
+      // Scroll QR in beeld op mobiel
+      if (window.innerWidth < 560) {
+        qrCanvas.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     });
   }
 
-  nameInput?.addEventListener("input", onInputChanged);
+  nameInput?.addEventListener("input", onInputChanged, { passive: true });
   nameInput?.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") hideSuggestions();
     if (ev.key === "Enter") { ev.preventDefault(); handleEnterToSelect(); }
   });
 }
 
-// [RIDESCOUNT_REALTIME] — realtime ridesCount updates via onSnapshot
+// Realtime ridesCount weergave
 import { doc as _doc3, onSnapshot as _onSnap3, collection as _col3 } from "firebase/firestore";
 
 (function augmentRidesCountRealtime(){
@@ -152,7 +162,6 @@ import { doc as _doc3, onSnapshot as _onSnap3, collection as _col3 } from "fireb
     });
   }
 
-  // Observe veranderingen in #rMemberNo om juiste doc te volgen
   const obs = new MutationObserver(() => {
     const raw = (lidLine.textContent || "").trim();
     const id = raw.replace(/^#/, "");
@@ -160,7 +169,6 @@ import { doc as _doc3, onSnapshot as _onSnap3, collection as _col3 } from "fireb
   });
   obs.observe(lidLine, { childList: true, characterData: true, subtree: true });
 
-  // Als er al een waarde staat bij load, luister meteen
   const initId = (lidLine.textContent || "").trim().replace(/^#/, "");
   if (initId) listen(initId);
 })();

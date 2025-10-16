@@ -16,6 +16,8 @@ function switchTo(which) {
   viewAdmin.classList.toggle("active", !isMember);
   tabMember.setAttribute("aria-pressed", String(isMember));
   tabAdmin.setAttribute("aria-pressed", String(!isMember));
+  // Scroll to top on small screens to avoid half-visible cards after tab switch
+  if (window.innerWidth < 560) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 tabMember?.addEventListener("click", () => switchTo("member"));

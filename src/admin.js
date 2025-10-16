@@ -4,7 +4,28 @@ import { collection, setDoc, increment, getDoc } from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel"];
-const ENABLE_STORAGE_UPLOAD = false; // alleen gebruiken als je Storage & rules goed hebt staan
+
+// Dynamisch laden van html5-qrcode pas als we echt gaan scannen
+let html5qrcodeLoading = false;
+function ensureHtml5Qrcode() {
+  return new Promise((resolve, reject) => {
+    if (window.Html5QrcodeScanner) return resolve(true);
+    if (html5qrcodeLoading) {
+      const int = setInterval(() => {
+        if (window.Html5QrcodeScanner) { clearInterval(int); resolve(true); }
+      }, 100);
+      setTimeout(() => { clearInterval(int); if (!window.Html5QrcodeScanner) reject(new Error("Timeout bij laden QR-lib")); }, 10000);
+      return;
+    }
+    html5qrcodeLoading = true;
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/html5-qrcode";
+    s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error("Kon QR-bibliotheek niet laden"));
+    document.head.appendChild(s);
+  });
+}
 
 // =====================================================
 // ===============  Admin hoofd-initialisatie  =========
@@ -53,15 +74,6 @@ export function initAdminView() {
     return rows.map((r, idx) => {
       const out = {};
       for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
-
-      // Validatie LidNr
-      const lidRaw = out["LidNr"];
-      const lidOk = /^\d{1,}$/.test(lidRaw);
-      if (!lidOk) {
-        // log alleen, import slaat rij over verderop
-        log(`Waarschuwing (rij ${idx + 2}): ongeldige LidNr "${lidRaw}"`, "err");
-      }
-
       const rc = r["ridesCount"];
       out["ridesCount"] = rc === "" || rc === undefined ? 0 : Number(rc);
       return out;
@@ -110,10 +122,12 @@ export function initAdminView() {
       const res = await importRowsToFirestore(rows);
       log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
       statusEl.textContent = "✅ Import voltooid";
+      showToast("Upload voltooid", true);
     } catch (e) {
       console.error(e);
       statusEl.textContent = "❌ Fout tijdens import";
       log(String(e?.message || e), "err");
+      showToast("Fout tijdens import", false);
     } finally {
       setLoading(false);
       uploading = false;
@@ -130,8 +144,7 @@ export function initAdminView() {
 // ===============  Helpers (Admin)  ===================
 // =====================================================
 
-// Boek rit: ridesCount +1 voor members/{LidNr}
-// LET OP: voor productie is een Cloud Function veiliger.
+// Boek rit: ridesCount +1 voor members/{LidNr} (client-side; voor productie → Cloud Function)
 async function bookRide(lid, naam) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
@@ -142,55 +155,31 @@ async function bookRide(lid, naam) {
 // Extract LidNr uit QR-tekst of URL
 function extractLidFromText(text) {
   if (!text) return null;
-  // "LidNr: 12345"
   const m1 = text.match(/lidnr\s*:\s*([\w-]+)/i);
   if (m1) return m1[1].trim();
-
-  // URL ?lid= / ?lidnr= / ?member= / ?id=
   try {
     const u = new URL(text);
     const lid = u.searchParams.get("lid") || u.searchParams.get("lidnr") ||
                 u.searchParams.get("member") || u.searchParams.get("id");
     if (lid) return lid.trim();
   } catch (_) {}
-
-  // Anders: eerste numerieke token (≥3 cijfers)
   const m2 = text.match(/\b(\d{3,})\b/);
   if (m2) return m2[1];
-
   return null;
 }
 
-// Kleine toast (1 seconde) bij succes/fout
+// Toast via #toast-root (safe area aware)
 function showToast(msg, ok = true) {
-  let el = document.createElement("div");
+  const root = document.getElementById("toast-root") || document.body;
+  const el = document.createElement("div");
   el.className = "toast";
   el.textContent = msg;
-  Object.assign(el.style, {
-    position: "fixed", left: "50%", transform: "translateX(-50%)",
-    bottom: "20px", background: ok ? "#16a34a" : "#ef4444", color: "#0b0c10",
-    padding: "10px 14px", borderRadius: "10px", fontWeight: "600",
-    zIndex: 200, boxShadow: "0 8px 24px rgba(0,0,0,.35)"
-  });
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1000);
+  if (!ok) el.style.background = "#ef4444";
+  root.appendChild(el);
+  setTimeout(() => el.remove(), 1200);
 }
 
-// Tijdstempel -> “HH:MM:SS”
-function hhmmss(d = new Date()) {
-  return d.toTimeString().slice(0, 8);
-}
-
-// Persistente cooldown store (tab-overschrijdend, 30s)
-const COOL_KEY = "qr_cooldowns_v1";
-function getCooldownMap() {
-  try { return new Map(Object.entries(JSON.parse(sessionStorage.getItem(COOL_KEY) || "{}"))); }
-  catch { return new Map(); }
-}
-function setCooldownMap(map) {
-  const obj = Object.fromEntries(map);
-  sessionStorage.setItem(COOL_KEY, JSON.stringify(obj));
-}
+function hhmmss(d = new Date()) { return d.toTimeString().slice(0, 8); }
 
 // =====================================================
 // ===============  QR SCANNER (Admin)  ================
@@ -203,7 +192,6 @@ function initAdminQRScanner() {
   const readerEl = $("adminQRReader");
   const resultEl = $("adminQRResult");
 
-  // Maak/zoek log container onder de QR sectie
   function ensureLogContainer() {
     let log = document.getElementById("adminQRLog");
     if (!log) {
@@ -218,22 +206,8 @@ function initAdminQRScanner() {
   const qrLogList = ensureLogContainer();
 
   let scanner = null;
-  let lastScanByText = getCooldownMap(); // decodedText -> timestamp(ms)
+  let lastScanByText = new Map(); // decodedText -> timestamp(ms)
   const COOLDOWN_MS = 30000; // 30 seconden
-
-  function ensureLib() {
-    if (!window.Html5QrcodeScanner) {
-      statusEl && (statusEl.textContent = "Bibliotheek niet geladen — controleer je internet.");
-      return false;
-    }
-    return true;
-  }
-
-  function parseText(text) {
-    const mNaam = text.match(/naam\s*:\s*([^;]+)/i);
-    const mLid  = text.match(/lidnr\s*:\s*([^;]+)/i);
-    return { naam: mNaam ? mNaam[1].trim() : null, lid: mLid ? mLid[1].trim() : null, raw: text };
-  }
 
   function appendLog({ naam, lid, ok, reason, ridesTotal }) {
     if (!qrLogList) return;
@@ -241,9 +215,9 @@ function initAdminQRScanner() {
     row.style.display = "flex";
     row.style.justifyContent = "space-between";
     row.style.gap = "8px";
-    row.style.padding = "6px 8px";
+    row.style.padding = "10px 12px";
     row.style.border = "1px solid #1f2937";
-    row.style.borderRadius = "8px";
+    row.style.borderRadius = "12px";
     row.style.marginBottom = "6px";
     row.style.background = ok ? "#0f1d12" : "#1a0f0f";
 
@@ -261,15 +235,12 @@ function initAdminQRScanner() {
 
   async function processScan(decodedText) {
     const now = Date.now();
-    // Cooldown per exact dezelfde QR-tekst — stil: geen toast/status/log
-    const prev = Number(lastScanByText.get(decodedText) || 0);
+    const prev = lastScanByText.get(decodedText) || 0;
     if (now - prev < COOLDOWN_MS) return;
     lastScanByText.set(decodedText, now);
-    setCooldownMap(lastScanByText);
 
-    const p = parseText(decodedText || "");
-    let lid = p.lid || extractLidFromText(decodedText || "");
-    let naam = p.naam || "";
+    let lid = extractLidFromText(decodedText || "");
+    let naam = "";
     let beforeCount = null;
 
     if (!lid) {
@@ -280,14 +251,13 @@ function initAdminQRScanner() {
     }
 
     try {
-      // Optioneel: haal naam en huidige ridesCount op
       try {
         const snap = await getDoc(doc(db, "members", String(lid)));
         if (snap.exists()) {
           const d = snap.data();
           const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
             .replace(/\s+/g, " ").trim();
-          naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
+          naam = composed || (d["Naam"] || d["name"] || d["naam"] || "");
           const rc = Number(d?.ridesCount);
           beforeCount = Number.isFinite(rc) ? rc : 0;
         } else {
@@ -297,13 +267,12 @@ function initAdminQRScanner() {
         beforeCount = (beforeCount ?? 0);
       }
 
-      // Boek direct (geen popup)
       await bookRide(lid, naam || "");
       const newTotal = (beforeCount ?? 0) + 1;
 
       statusEl && (statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`);
       resultEl && (resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`);
-      showToast(`✅ QR-code gescand (LidNr ${lid})`, true);
+      showToast(`✅ QR-code gescand`, true);
       appendLog({ naam: naam || "", lid, ok: true, ridesTotal: newTotal });
     } catch (e) {
       console.error(e);
@@ -313,16 +282,16 @@ function initAdminQRScanner() {
     }
   }
 
-  function onScanSuccess(decodedText) {
-    // html5-qrcode kan meerdere callbacks in korte tijd triggeren → throttle via cooldown/Map
-    processScan(decodedText);
-  }
-
+  function onScanSuccess(decodedText) { processScan(decodedText); }
   function onScanError(_) { /* stil */ }
 
   async function start() {
-    if (!ensureLib()) return;
     statusEl && (statusEl.textContent = "Camera openen…");
+    try { await ensureHtml5Qrcode(); } catch(e) {
+      statusEl && (statusEl.textContent = "Bibliotheek niet geladen.");
+      showToast("Bibliotheek niet geladen", false);
+      return;
+    }
     try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
     readerEl && (readerEl.innerHTML = "");
     scanner = new Html5QrcodeScanner("adminQRReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, false);
