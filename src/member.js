@@ -1,12 +1,137 @@
-import { getDocs, limit, endAt, startAt, orderBy, query, collection, db, doc, getDoc } from "./firebase.js";
-const $ = (id) => document.getElementById(id);
+import QRCode from "qrcode";
+import { db } from "./firebase.js";
+import {
+  collection, query, orderBy, startAt, endAt, limit, getDocs, doc
+} from "firebase/firestore";
 
-const rName = $("rName");
-const rMemberNo = $("rMemberNo");
-const rRidesCount = $("rRidesCount");
-const resultBox = $("resultBox") || document.querySelector("#resultBox, .resultBox");
-const errBox = $("errBox") || document.querySelector("#errBox, .errBox");
-const findBtn = $("findBtn");
+export function initMemberView() {
+  const $ = (id) => document.getElementById(id);
+  const nameInput   = $("nameInput");     // search by last name (Naam)
+  const suggestList = $("suggestions");
+  const findBtn     = $("findBtn");
+  const resultBox   = $("result");
+  const errBox      = $("error");
+  const rName       = $("rName");
+  const rMemberNo   = $("rMemberNo");
+  const qrCanvas    = $("qrCanvas");
+
+  let selectedDoc = null;
+
+  function setLoading(on) {
+    findBtn.disabled = on;
+    findBtn.textContent = on ? "Zoeken..." : "Toon QR";
+  }
+
+  function fullNameFrom(docData) {
+    const tussen = (docData["Tussen voegsel"] || "").trim();
+    const parts = [
+      docData["Voor naam"] || "",
+      docData["Voor letters"] ? `(${docData["Voor letters"]})` : "",
+      tussen ? tussen : "",
+      docData["Naam"] || ""
+    ].filter(Boolean);
+    return parts.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function hideSuggestions() {
+    suggestList.innerHTML = "";
+    suggestList.style.display = "none";
+  }
+
+  function showSuggestions(items) {
+    suggestList.innerHTML = "";
+    for (const it of items) {
+      const li = document.createElement("li");
+      li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
+      li.addEventListener("click", () => {
+        selectedDoc = it;
+        nameInput.value = it.data["Naam"]; // keep achternaam in field
+        renderSelected(it);
+        hideSuggestions();
+      });
+      suggestList.appendChild(li);
+    }
+    suggestList.style.display = items.length ? "block" : "none";
+  }
+
+  async function queryByLastNamePrefix(prefix) {
+    const qRef = query(
+      collection(db, "members"),
+      orderBy("Naam"),
+      startAt(prefix),
+      endAt(prefix + "\uf8ff"),
+      limit(8)
+    );
+    const snap = await getDocs(qRef);
+    const res = [];
+    snap.forEach(d => res.push({ id: d.id, data: d.data() }));
+    return res;
+  }
+
+  async function onInputChanged() {
+    selectedDoc = null;
+    resultBox.style.display = "none";
+    errBox.style.display = "none";
+    const term = (nameInput.value || "").trim();
+    if (term.length < 2) { hideSuggestions(); return; }
+    try {
+      const items = await queryByLastNamePrefix(term);
+      showSuggestions(items);
+    } catch (e) {
+      console.error(e);
+      hideSuggestions();
+    }
+  }
+
+  async function handleFind() {
+    errBox.style.display = "none";
+    setLoading(true);
+    try {
+      if (selectedDoc) {
+        renderSelected(selectedDoc);
+        hideSuggestions();
+        return;
+      }
+      const term = (nameInput.value || "").trim();
+      if (!term) return;
+      const items = await queryByLastNamePrefix(term);
+      if (!items.length) {
+        errBox.textContent = "Geen leden gevonden met deze achternaam.";
+        errBox.style.display = "block";
+        return;
+      }
+      renderSelected(items[0]);
+      hideSuggestions();
+    } catch (e) {
+      console.error(e);
+      errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer opnieuw.";
+      errBox.style.display = "block";
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderSelected(entry) {
+    const data = entry.data;
+    rName.textContent = fullNameFrom(data);
+    rMemberNo.textContent = entry.id; // LidNr is doc id
+    const payload = JSON.stringify({ t: "member", uid: entry.id });
+    QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
+      if (err) {
+        errBox.textContent = "QR genereren mislukte.";
+        errBox.style.display = "block";
+        return;
+      }
+      resultBox.style.display = "grid";
+    });
+  }
+
+  nameInput?.addEventListener("input", onInputChanged);
+  nameInput?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") hideSuggestions();
+    if (ev.key === "Enter") { ev.preventDefault(); handleFind(); }
+  });
+  
   // --- QR SCANNER ---
   const scanBtn  = $("scanBtn");
   const qrModal  = $("qrModal");
@@ -16,33 +141,9 @@ const findBtn = $("findBtn");
 
   let scanner = null;
 
-  async function fetchRidesCount(lid) {
-    try {
-      const snap = await getDoc(doc(db, "members", String(lid)));
-      if (!snap.exists()) return 0;
-      const data = snap.data();
-      const rc = Number(data?.ridesCount);
-      return Number.isFinite(rc) ? rc : 0;
-    } catch (e) {
-      console.warn("ridesCount ophalen mislukt:", e);
-      return null; // toon "—" bij fout
-    }
-  }
-
-  function setRidesCount(count) {
-    const el = $("rRidesCount");
-    if (!el) return;
-    if (count === null || count === undefined || Number.isNaN(count)) {
-      el.textContent = "—";
-    } else {
-      el.textContent = String(count);
-    }
-  }
-
   function openScanner() {
     if (!window.Html5QrcodeScanner) {
-      // Zacht falen in de UI i.p.v. alert
-      if (qrStatus) qrStatus.textContent = "Scanner niet geladen. Controleer internetverbinding.";
+      alert("Scanner bibliotheek niet geladen. Controleer je internetverbinding.");
       return;
     }
     qrModal.style.display = "flex";
@@ -69,31 +170,15 @@ const findBtn = $("findBtn");
     //  - or just raw text/URL
     const mNaam = text.match(/naam\s*:\s*([^;]+)/i);
     const mLid  = text.match(/lidnr\s*:\s*([^;]+)/i);
-
-    // Extra: pak numeriek token als fallback (bijv. alleen "12345" of URL)
-    let lid = mLid ? mLid[1].trim() : null;
-    if (!lid) {
-      try {
-        // Querystring als fallback
-        const u = new URL(text);
-        lid = u.searchParams.get("lid") || u.searchParams.get("lidnr") || u.searchParams.get("member") || u.searchParams.get("id");
-      } catch(_) {}
-      if (!lid) {
-        const m2 = text.match(/\b(\d{3,})\b/);
-        if (m2) lid = m2[1];
-      }
-    }
-
     return {
       naam: mNaam ? mNaam[1].trim() : null,
-      lid: lid || null,
+      lid: mLid ? mLid[1].trim() : null,
       raw: text
     };
   }
 
-  async function onScanSuccess(decodedText, decodedResult) {
+  function onScanSuccess(decodedText, decodedResult) {
     const parsed = parseScannedText(decodedText || "");
-
     if (parsed.naam) rName.textContent = parsed.naam;
     if (parsed.lid)  rMemberNo.textContent = parsed.lid;
 
@@ -101,20 +186,7 @@ const findBtn = $("findBtn");
     resultBox.style.display = "grid";
     // Also show raw value for visibility
     errBox.style.display = "none";
-    qrStatus.textContent = "Gescand: " + (
-      parsed.naam || parsed.lid
-        ? `${parsed.naam || ""} ${parsed.lid ? "(LidNr: " + parsed.lid + ")" : ""}`.trim()
-        : parsed.raw
-    );
-
-    // >>> Nieuw: ridesCount ophalen en tonen
-    if (parsed.lid) {
-      setRidesCount("…");
-      const count = await fetchRidesCount(parsed.lid);
-      setRidesCount(count);
-    } else {
-      setRidesCount(null);
-    }
+    qrStatus.textContent = "Gescand: " + (parsed.naam || parsed.lid ? `${parsed.naam || ""} ${parsed.lid ? "(LidNr: " + parsed.lid + ")" : ""}` : parsed.raw);
 
     // Optional: auto-close after a short delay
     setTimeout(closeScanner, 800);
@@ -132,166 +204,4 @@ const findBtn = $("findBtn");
   });
 
   findBtn?.addEventListener("click", handleFind);
-
-function parseLidFromText(text) {
-  if (!text) return null;
-  const t = String(text).trim();
-  if (/^\d{1,}$/.test(t)) return t;
-  const m = t.match(/lidnr\s*:\s*(\d{1,})/i);
-  if (m) return m[1];
-  const m2 = t.match(/(\d{2,})\b/);
-  if (m2) return m2[1];
-  return null;
-}
-
-export function initMemberView() {
-  try { initLastNameAutocomplete(); } catch(_) {}
-
-  // Bij laden: als er al een LidNr staat, haal direct ridesCount op
-  const initial = parseLidFromText(rMemberNo?.textContent || "");
-  if (initial) {
-    const el = document.getElementById("rRidesCount");
-    if (el) el.textContent = "…";
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, "members", String(initial)));
-        const data = snap.exists() ? snap.data() : null;
-        const rc = Number(data?.ridesCount);
-        const val = Number.isFinite(rc) ? rc : 0;
-        if (el) el.textContent = String(val);
-      } catch (_) {
-        if (el) el.textContent = "—";
-      }
-    })();
-  }
-
-  // Observe wijzigingen in rMemberNo (bv. na QR-scan)
-  if (rMemberNo && window.MutationObserver) {
-    const obs = new MutationObserver(() => {
-      const lid = parseLidFromText(rMemberNo.textContent || "");
-      const el = document.getElementById("rRidesCount");
-      if (lid) {
-        if (el) el.textContent = "…";
-        (async () => {
-          try {
-            const snap = await getDoc(doc(db, "members", String(lid)));
-            const data = snap.exists() ? snap.data() : null;
-            const rc = Number(data?.ridesCount);
-            const val = Number.isFinite(rc) ? rc : 0;
-            if (el) el.textContent = String(val);
-          } catch (_) {
-            if (el) el.textContent = "—";
-          }
-        })();
-      } else if (el) {
-        el.textContent = "—";
-      }
-    });
-    obs.observe(rMemberNo, { childList: true, characterData: true, subtree: true });
-  }
-}
-
-async function refreshRidesCount(lid) {
-  setRidesCount("…");
-  const c = await fetchRidesCount(lid);
-  setRidesCount(c);
-}
-
-
-function initLastNameAutocomplete() {
-  const input = document.getElementById("findInput")
-             || document.getElementById("lastName")
-             || document.getElementById("searchName")
-             || document.querySelector('input[name="lastName"]');
-  if (!input) return;
-
-  let list = document.getElementById("findList");
-  if (!list) {
-    list = document.createElement("div");
-    list.id = "findList";
-    Object.assign(list.style, {
-      position: "absolute",
-      background: "#0f172a",
-      border: "1px solid #1f2937",
-      borderRadius: "10px",
-      boxShadow: "0 10px 30px rgba(0,0,0,.35)",
-      marginTop: "4px",
-      zIndex: 100,
-      minWidth: "260px",
-      display: "none",
-      maxHeight: "260px",
-      overflowY: "auto",
-      padding: "6px"
-    });
-    input.parentElement?.appendChild(list);
-    if (!list.parentElement || list.parentElement === document.body) {
-      document.body.appendChild(list);
-      const rect = input.getBoundingClientRect();
-      list.style.left = rect.left + "px";
-      list.style.top  = rect.bottom + window.scrollY + "px";
-      list.style.minWidth = rect.width + "px";
-    }
-  }
-
-  let lastQuery = "";
-  let debounceId = 0;
-
-  async function search(prefix) {
-    if (!prefix || prefix.trim().length < 2) { list.style.display = "none"; list.innerHTML = ""; return; }
-    lastQuery = prefix;
-
-    const q = query(
-      collection(db, "members"),
-      orderBy("Naam"),
-      startAt(prefix),
-      endAt(prefix + "\uf8ff"),
-      limit(8)
-    );
-
-    const snap = await getDocs(q);
-    if (lastQuery !== prefix) return;
-
-    list.innerHTML = "";
-    if (snap.empty) { list.style.display = "none"; return; }
-
-    snap.forEach(docSnap => {
-      const d = docSnap.data();
-      const voor = (d["Voor naam"] || "").toString().trim();
-      const tus  = (d["Tussen voegsel"] || "").toString().trim();
-      const ach  = (d["Naam"] || "").toString().trim();
-      const lid  = (d["LidNr"] || "").toString().trim();
-      const naam = [voor, tus, ach].filter(Boolean).join(" ");
-
-      const item = document.createElement("div");
-      item.textContent = `${naam}  (${lid || "geen LidNr"})`;
-      Object.assign(item.style, {
-        padding: "8px 10px",
-        borderRadius: "8px",
-        cursor: "pointer"
-      });
-      item.onmouseenter = () => item.style.background = "#111827";
-      item.onmouseleave = () => item.style.background = "transparent";
-      item.onclick = () => {
-        const rName = document.getElementById("rName");
-        const rMemberNo = document.getElementById("rMemberNo");
-        if (rName) rName.textContent = naam || "—";
-        if (rMemberNo) rMemberNo.textContent = lid || "—";
-        list.style.display = "none";
-        list.innerHTML = "";
-        if (lid) refreshRidesCount(lid);
-      };
-      list.appendChild(item);
-    });
-    list.style.display = "block";
-  }
-
-  input.addEventListener("input", () => {
-    clearTimeout(debounceId);
-    debounceId = setTimeout(() => search(input.value.trim()), 180);
-  });
-
-  document.addEventListener("click", (e) => {
-    if (e.target === input || list.contains(e.target)) return;
-    list.style.display = "none";
-  });
 }
