@@ -53,24 +53,19 @@
           <div id="status" class="status"></div>
           <div id="log" class="log"></div>
         </div>
-      </section>
-    
-    <!-- QR Scanner Modal -->
-    <div id="qrModal" class="qr-modal" style="display:none;">
-      <div class="qr-dialog">
-        <div class="qr-header">
-          <h3>QR-code scannen</h3>
-          <button id="qrClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
+      
+        <div class="card">
+          <h3>QR code scannen</h3>
+          <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
+          <div class="row" style="gap:12px; align-items:center;">
+            <button id="adminScanStart" class="btn">📷 Start scanner</button>
+            <button id="adminScanStop" class="btn btn-ghost">⏸️ Stop</button>
+            <span id="adminQRStatus" class="status"></span>
+          </div>
+          <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
+          <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
-        <div id="qrReader" class="qr-reader"></div>
-        <div id="qrStatus" class="qr-status"></div>
-      </div>
-    </div>
-
-    <!-- Floating Scan Button -->
-    <button id="scanBtn" class="fab-scan" title="Scan QR">📷</button>
-
-    </main>
+    </section></main>
 
     <script type="module" src="/src/main.js"></script>
   </body>
