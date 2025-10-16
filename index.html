@@ -6,83 +6,145 @@
     <title>Shadow App</title>
     <link rel="stylesheet" href="/style.css">
     <script src="https://unpkg.com/html5-qrcode" defer></script>
-</head>
+  </head>
   <body>
-    <header class="topbar">
-      <div class="brand">Shadow App</div>
-      <nav class="nav">
-        <button id="tabMember" class="tab active">Lid</button>
-        <button id="tabAdmin" class="tab">Admin</button>
+    <!-- Header / Navbar -->
+    <header class="sa-topbar">
+      <div class="sa-brand">
+        <div class="sa-logo" aria-hidden="true">◆</div>
+        <div class="sa-title">
+          <strong>Shadow App</strong>
+          <span class="sa-sub">QR ritregistratie</span>
+        </div>
+      </div>
+      <nav class="sa-tabs" role="tablist" aria-label="Navigatie">
+        <button id="tabMember" class="sa-tab active" role="tab" aria-controls="viewMember" aria-selected="true">Lid</button>
+        <button id="tabAdmin" class="sa-tab" role="tab" aria-controls="viewAdmin" aria-selected="false">Admin</button>
       </nav>
     </header>
 
-    <main class="wrap">
-      <!-- MEMBER VIEW -->
-      <section id="viewMember" class="view active">
-        <div class="card">
-          <h1>Inschrijven voor rit</h1>
-          <p class="hint">Zoek op achternaam en toon jouw QR.</p>
-          <div class="row">
-            <input id="nameInput" placeholder="Achternaam..." />
-          </div>
-          <ul id="suggestions" class="suggest"></ul>
-          <div id="error" class="error" style="display:none"></div>
-          <div id="result" class="result" style="display:none">
-            <div class="column">
-              <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-              <div><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <p> Ga nu naar de inschrijf balie om in te checken voor de rit</p>
+    <main class="sa-wrap">
+      <!-- LID VIEW -->
+      <section id="viewMember" class="sa-view active" role="tabpanel" aria-labelledby="tabMember">
+        <div class="sa-grid">
+          <div class="sa-card">
+            <div class="sa-card-head">
+              <div>
+                <h2>Inschrijven voor rit</h2>
+                <p class="sa-muted">Zoek op achternaam en toon jouw QR. De QR bevat alleen je <b>LidNr</b> (geen naam).</p>
+              </div>
             </div>
-            <canvas id="qrCanvas" width="220" height="220"></canvas>
+
+            <div class="sa-row">
+              <div class="sa-input-wrap">
+                <label for="nameInput">Achternaam</label>
+                <input id="nameInput" class="sa-input" placeholder="Bijv. Verburg" autocomplete="off"/>
+                <div id="suggestions" class="sa-dropdown" role="listbox" aria-label="Suggesties"></div>
+              </div>
+
+              <div class="sa-actions">
+                <button id="findBtn" class="sa-btn sa-btn-primary">Selecteer</button>
+              </div>
+            </div>
+
+            <div id="error" class="sa-alert sa-alert-error" style="display:none;"></div>
+
+            <div id="result" class="sa-result" style="display:none;">
+              <div class="sa-result-left">
+                <div class="sa-field">
+                  <div class="sa-label">Naam</div>
+                  <div id="rName" class="sa-value">—</div>
+                </div>
+                <div class="sa-field">
+                  <div class="sa-label">Lidnummer</div>
+                  <div id="rMemberNo" class="sa-value">—</div>
+                </div>
+                <!-- ridesCount wordt dynamisch direct onder rMemberNo geplaatst door JS -->
+              </div>
+
+              <div class="sa-result-right">
+                <div class="sa-qrbox">
+                  <canvas id="qrCanvas" aria-label="QR-code voor inschrijving"></canvas>
+                  <div class="sa-small sa-muted">Laat deze QR scannen door de admin.</div>
+                </div>
+              </div>
+            </div>
+
+            <div id="ridesWrap" class="sa-rides" style="display:none;">
+              <h3>Geregistreerde ritten</h3>
+              <div class="sa-small sa-muted" style="margin-top:-8px;">Laatste 20 registraties</div>
+              <div id="rideList" class="sa-ride-list"></div>
+            </div>
           </div>
-          <div class="small">Privacy: de QR bevat alleen een LidNr, geen naam.</div>
         </div>
       </section>
 
       <!-- ADMIN VIEW -->
-      <section id="viewAdmin" class="view">
-        <div class="card">
-          <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
-          <div class="row">
-            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
-            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-            <span id="fileName" class="file-name">Geen bestand gekozen</span>
-            <button id="uploadBtn">Uploaden</button>
-          </div>
-          <div id="status" class="status"></div>
-          <div id="log" class="log"></div>
-        </div>
-      
-        <div class="card">
-          <h3>QR code scannen</h3>
-          <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
-          <div class="row" style="gap:12px; align-items:center;">
-            <button id="adminScanStart" class="btn">📷 Start scanner</button>
-            <button id="adminScanStop" class="btn btn-ghost">⏸️ Stop</button>
-            <span id="adminQRStatus" class="status"></span>
-          </div>
-          <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
-          <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
-        </div>
-    
-        <!-- Boek rit modal -->
-        <div id="adminBookModal" class="modal" style="display:none;">
-          <div class="modal-dialog">
-            <div class="modal-header">
-              <h3>Rit opboeken</h3>
-              <button id="adminBookClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
+      <section id="viewAdmin" class="sa-view" role="tabpanel" aria-labelledby="tabAdmin">
+        <div class="sa-grid">
+          <!-- Upload-kaart -->
+          <div class="sa-card">
+            <div class="sa-card-head">
+              <div>
+                <h2>Admin: Excel uploaden</h2>
+                <p class="sa-muted">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
+              </div>
             </div>
-            <div class="modal-body">
-              <p id="adminBookMsg">Wilt u een rit opboeken?</p>
+
+            <div class="sa-row">
+              <label class="sa-file">
+                <input id="fileInput" type="file" class="sa-file-input" accept=".xlsx,.xls,.csv">
+                <span class="sa-btn">Kies bestand</span>
+                <span id="fileName" class="sa-file-name">Geen bestand gekozen</span>
+              </label>
+              <button id="uploadBtn" class="sa-btn sa-btn-primary">Uploaden</button>
             </div>
-            <div class="modal-actions">
-              <button id="adminBookYes" class="btn">Ja</button>
-              <button id="adminBookNo" class="btn btn-ghost">Nee</button>
+            <div id="uploadStatus" class="sa-status"></div>
+          </div>
+
+          <!-- QR Scanner-kaart -->
+          <div class="sa-card">
+            <div class="sa-card-head">
+              <div>
+                <h2>QR-code scannen</h2>
+                <p class="sa-muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
+              </div>
+              <div class="sa-actions">
+                <button id="qrStart" class="sa-btn sa-btn-primary">Start scanner</button>
+                <button id="qrStop" class="sa-btn sa-btn-ghost">Stop</button>
+              </div>
             </div>
+
+            <div class="sa-scanner">
+              <div id="qrReader" class="sa-reader" aria-live="polite"></div>
+              <div id="qrStatus" class="sa-status sa-small">⏸️ Inactief</div>
+            </div>
+
+            <h3 class="sa-section-title">Registraties</h3>
+            <div id="adminLogs" class="sa-ride-list"></div>
           </div>
         </div>
-        </section></main>
+      </section>
+    </main>
+
+    <!-- Modal bevestigen rit boeken -->
+    <div id="confirmModal" class="sa-modal sa-hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="sa-modal-card">
+        <div class="sa-modal-head">
+          <h3 id="confirmTitle">Rit boeken</h3>
+        </div>
+        <div class="sa-modal-body">
+          <p id="adminBookMsg">Wilt u een rit opboeken?</p>
+        </div>
+        <div class="sa-modal-actions">
+          <button id="adminBookYes" class="sa-btn sa-btn-primary">Ja</button>
+          <button id="adminBookNo" class="sa-btn sa-btn-ghost">Nee</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="sa-toast sa-hidden" role="status" aria-live="polite"></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>
