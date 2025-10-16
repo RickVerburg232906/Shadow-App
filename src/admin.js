@@ -1,6 +1,8 @@
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
-import { collection, setDoc, increment, getDoc } from "firebase/firestore";
+import {
+  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit, startAfter
+} from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel"];
@@ -26,7 +28,6 @@ function ensureHtml5Qrcode() {
     document.head.appendChild(s);
   });
 }
-
 
 // =====================================================
 // ===============  Admin hoofd-initialisatie  =========
@@ -138,7 +139,10 @@ export function initAdminView() {
 
   $("uploadBtn")?.addEventListener("click", handleUpload);
 
-   // Init QR-scanner sectie (Admin)
+  // ===== Reset-alle-ritten UI (alleen koppelen als die in index.html aanwezig is) =====
+  wireResetUI();
+
+  // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
 }
 
@@ -311,4 +315,64 @@ function initAdminQRScanner() {
 
   startBtn?.addEventListener("click", start);
   stopBtn?.addEventListener("click", stop);
+}
+
+// ===== Reset-alle-ritten wiring (werkt als de knoppen in index.html bestaan) =====
+function wireResetUI() {
+  const resetBtn = document.getElementById("resetRidesBtn");
+  const resetModal = document.getElementById("resetModal");
+  const resetConfirm = document.getElementById("resetConfirm");
+  const resetCancel = document.getElementById("resetCancel");
+  const resetClose = document.getElementById("resetClose");
+  const resetStatus = document.getElementById("resetStatus");
+
+  if (!resetBtn || !resetModal) return; // niets te doen als UI niet aanwezig is
+
+  function openModal() { if (resetModal) resetModal.style.display = "flex"; }
+  function closeModal() { if (resetModal) resetModal.style.display = "none"; }
+
+  resetBtn?.addEventListener("click", openModal);
+  resetCancel?.addEventListener("click", closeModal);
+  resetClose?.addEventListener("click", closeModal);
+
+  resetConfirm?.addEventListener("click", async () => {
+    closeModal();
+    await resetAllRidesCount(resetStatus);
+  });
+}
+
+// ===== Firestore helper: reset alle ridesCount in batches ======
+async function resetAllRidesCount(statusEl) {
+  if (!statusEl) return;
+  statusEl.textContent = "Voorbereiden…";
+  let total = 0;
+
+  try {
+    let last = null;
+    const pageSize = 400; // veilig onder batch-limiet
+
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) break;
+
+      let batch = writeBatch(db);
+      snapshot.forEach((docSnap) => {
+        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
+      });
+      await batch.commit();
+      total += snapshot.size;
+      statusEl.textContent = `Gerest: ${total} leden…`;
+
+      last = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < pageSize) break;
+    }
+
+    statusEl.textContent = `✅ Klaar. Alle ridesCount naar 0 gezet voor ${total} leden.`;
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
+  }
 }
