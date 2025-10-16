@@ -151,32 +151,53 @@ function initAdminQRScanner() {
 
   function onScanSuccess(decodedText) {
     const p = parseText(decodedText || "");
-    const summary = (p.naam || p.lid)
-      ? `${p.naam ? "Naam: " + p.naam : ""} ${p.lid ? "(LidNr: " + p.lid + ")" : ""}`.trim()
-      : p.raw;
-    resultEl.textContent = "Gescand: " + summary;
-    statusEl.textContent = "✅ Succes";
-    // Stop scanner tijdelijk zodat er niet doorlopend gescand wordt
-    (async () => { try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {} })();
-    readerEl.innerHTML = "";
-    // Toon bevestigingsmodal
-    const naam = p.naam || "(onbekend)";
-    const lid  = p.lid  || "(onbekend)";
-    openBookModal(`Wilt u een rit opboeken van ${naam} ${lid}?`,
-      async () => {
-        try {
-          await bookRide(lid, naam);
-          statusEl.textContent = `✅ Rit +1 voor ${naam} ${lid}`;
-        } catch (e) {
-          console.error(e);
-          statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`;
+    let lid = p.lid || extractLidFromText(decodedText || "");
+    let naam = p.naam || "";
+
+    (async () => {
+      try {
+        if (lid) {
+          const snap = await getDoc(doc(db, "members", String(lid)));
+          if (snap.exists()) {
+            const d = snap.data();
+            const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`.replace(/\s+/g, " ").trim();
+            naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
+          }
         }
-      },
-      () => {
-        statusEl.textContent = "⏸️ Geannuleerd";
+      } catch (e) {
+        console.warn("Lookup mislukt:", e);
       }
-    );
+
+      const summary = (naam || lid)
+        ? `${naam ? "Naam: " + naam : ""} ${lid ? "(LidNr: " + lid + ")" : ""}`.trim()
+        : (p.raw || "—");
+      resultEl.textContent = "Gescand: " + summary;
+      statusEl.textContent = (lid ? "✅ Succes" : "⚠️ Geen LidNr in QR");
+
+      // Stop scanner tijdelijk zodat er niet doorlopend gescand wordt
+      try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
+      readerEl.innerHTML = "";
+
+      // Toon bevestigingsmodal
+      const finalNaam = naam || "(onbekend)";
+      const finalLid  = lid  || "(onbekend)";
+      openBookModal(`Wilt u een rit opboeken van ${finalNaam} ${finalLid}?`,
+        async () => {
+          if (!lid) { statusEl.textContent = "❌ Geen LidNr — kan niet boeken"; return; }
+          try {
+            await bookRide(lid, finalNaam);
+            statusEl.textContent = `✅ Rit +1 voor ${finalNaam} ${finalLid}`;
+          } catch (e) {
+            console.error(e);
+            statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`;
+          }
+        },
+        () => { statusEl.textContent = "⏸️ Geannuleerd"; }
+      );
+    })();
   }
+  function onScanError(_) { /* stil */ }
+}
   function onScanError(_) { /* stil */ }
 
   async function start() {
