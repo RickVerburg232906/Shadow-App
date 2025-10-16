@@ -1,14 +1,13 @@
 import QRCode from "qrcode";
 import { db } from "./firebase.js";
 import {
-  collection, query, orderBy, startAt, endAt, limit, getDocs, doc
+  collection, query, orderBy, startAt, endAt, limit, getDocs
 } from "firebase/firestore";
 
 export function initMemberView() {
   const $ = (id) => document.getElementById(id);
   const nameInput   = $("nameInput");     // search by last name (Naam)
   const suggestList = $("suggestions");
-  const findBtn     = $("findBtn");
   const resultBox   = $("result");
   const errBox      = $("error");
   const rName       = $("rName");
@@ -16,11 +15,6 @@ export function initMemberView() {
   const qrCanvas    = $("qrCanvas");
 
   let selectedDoc = null;
-
-  function setLoading(on) {
-    findBtn.disabled = on;
-    findBtn.textContent = on ? "Zoeken..." : "Toon QR";
-  }
 
   function fullNameFrom(docData) {
     const tussen = (docData["Tussen voegsel"] || "").trim();
@@ -45,7 +39,7 @@ export function initMemberView() {
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
       li.addEventListener("click", () => {
         selectedDoc = it;
-        nameInput.value = it.data["Naam"]; // keep achternaam in field
+        nameInput.value = it.data["Naam"]; // achternaam in veld houden
         renderSelected(it);
         hideSuggestions();
       });
@@ -70,7 +64,7 @@ export function initMemberView() {
 
   async function onInputChanged() {
     selectedDoc = null;
-    resultBox.style.display = "none";
+    resultBox.style.display = "none"; // verberg eerder resultaat bij nieuwe input
     errBox.style.display = "none";
     const term = (nameInput.value || "").trim();
     if (term.length < 2) { hideSuggestions(); return; }
@@ -83,17 +77,10 @@ export function initMemberView() {
     }
   }
 
-  async function handleFind() {
-    errBox.style.display = "none";
-    setLoading(true);
+  async function handleEnterToSelect() {
+    const term = (nameInput.value || "").trim();
+    if (!term) return;
     try {
-      if (selectedDoc) {
-        renderSelected(selectedDoc);
-        hideSuggestions();
-        return;
-      }
-      const term = (nameInput.value || "").trim();
-      if (!term) return;
       const items = await queryByLastNamePrefix(term);
       if (!items.length) {
         errBox.textContent = "Geen leden gevonden met deze achternaam.";
@@ -106,8 +93,6 @@ export function initMemberView() {
       console.error(e);
       errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer opnieuw.";
       errBox.style.display = "block";
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -129,83 +114,9 @@ export function initMemberView() {
   nameInput?.addEventListener("input", onInputChanged);
   nameInput?.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") hideSuggestions();
-    if (ev.key === "Enter") { ev.preventDefault(); handleFind(); }
+    if (ev.key === "Enter") { ev.preventDefault(); handleEnterToSelect(); }
   });
-  
-  // --- QR SCANNER ---
-  const scanBtn  = $("scanBtn");
-  const qrModal  = $("qrModal");
-  const qrClose  = $("qrClose");
-  const qrReader = $("qrReader");
-  const qrStatus = $("qrStatus");
-
-  let scanner = null;
-
-  function openScanner() {
-    if (!window.Html5QrcodeScanner) {
-      alert("Scanner bibliotheek niet geladen. Controleer je internetverbinding.");
-      return;
-    }
-    qrModal.style.display = "flex";
-    // Build scanner with reasonable options
-    scanner = new Html5QrcodeScanner("qrReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, false);
-    scanner.render(onScanSuccess, onScanError);
-    qrStatus.textContent = "Richt je camera op de QR-code…";
-  }
-
-  function closeScanner() {
-    try {
-      if (scanner && scanner.clear) scanner.clear();
-    } catch(_) {}
-    scanner = null;
-    // Clear container for a clean re-render next time
-    if (qrReader) qrReader.innerHTML = "";
-    qrModal.style.display = "none";
-  }
-
-  function parseScannedText(text) {
-    // Accept formats like:
-    //  - "Naam: John Doe; LidNr: 12345"
-    //  - "LidNr: 12345; Naam: Jane Doe"
-    //  - or just raw text/URL
-    const mNaam = text.match(/naam\s*:\s*([^;]+)/i);
-    const mLid  = text.match(/lidnr\s*:\s*([^;]+)/i);
-    return {
-      naam: mNaam ? mNaam[1].trim() : null,
-      lid: mLid ? mLid[1].trim() : null,
-      raw: text
-    };
-  }
-
-  function onScanSuccess(decodedText, decodedResult) {
-    const parsed = parseScannedText(decodedText || "");
-    if (parsed.naam) rName.textContent = parsed.naam;
-    if (parsed.lid)  rMemberNo.textContent = parsed.lid;
-
-    // Show result box if hidden
-    resultBox.style.display = "grid";
-    // Also show raw value for visibility
-    errBox.style.display = "none";
-    qrStatus.textContent = "Gescand: " + (parsed.naam || parsed.lid ? `${parsed.naam || ""} ${parsed.lid ? "(LidNr: " + parsed.lid + ")" : ""}` : parsed.raw);
-
-    // Optional: auto-close after a short delay
-    setTimeout(closeScanner, 800);
-  }
-
-  function onScanError(err) {
-    // No spam; only show occasional status
-    // console.debug(err);
-  }
-
-  scanBtn?.addEventListener("click", openScanner);
-  qrClose?.addEventListener("click", closeScanner);
-  qrModal?.addEventListener("click", (e) => {
-    if (e.target === qrModal) closeScanner();
-  });
-
-  findBtn?.addEventListener("click", handleFind);
 }
-
 
 // [RIDESCOUNT_REALTIME] — realtime ridesCount updates via onSnapshot
 import { doc as _doc3, onSnapshot as _onSnap3, collection as _col3 } from "firebase/firestore";

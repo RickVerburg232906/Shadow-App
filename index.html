@@ -3,59 +3,63 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a">
     <title>Shadow App</title>
     <link rel="stylesheet" href="/style.css">
     <script src="https://unpkg.com/html5-qrcode" defer></script>
-</head>
+  </head>
   <body>
     <header class="topbar">
       <div class="brand">Shadow App</div>
       <nav class="nav">
-        <button id="tabMember" class="tab active">Lid</button>
-        <button id="tabAdmin" class="tab">Admin</button>
+        <button id="tabMember" class="tab active" aria-pressed="true">Lid</button>
+        <button id="tabAdmin" class="tab" aria-pressed="false">Admin</button>
       </nav>
     </header>
 
     <main class="wrap">
       <!-- MEMBER VIEW -->
-      <section id="viewMember" class="view active">
+      <section id="viewMember" class="view active" aria-labelledby="memberTitle">
         <div class="card">
-          <h1>Inschrijven voor rit</h1>
+          <h1 id="memberTitle">Inschrijven voor rit</h1>
           <p class="hint">Zoek op achternaam en toon jouw QR.</p>
           <div class="row">
-            <input id="nameInput" placeholder="Achternaam..." />
+            <input id="nameInput" placeholder="Achternaam..." autocomplete="off" />
           </div>
-          <ul id="suggestions" class="suggest"></ul>
+          <ul id="suggestions" class="suggest" role="listbox" aria-label="Suggesties"></ul>
           <div id="error" class="error" style="display:none"></div>
           <div id="result" class="result" style="display:none">
             <div class="column">
               <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
               <div><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <p> Ga nu naar de inschrijf balie om in te checken voor de rit</p>
+              <p class="muted">Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
             </div>
-            <canvas id="qrCanvas" width="220" height="220"></canvas>
+            <div class="qr-wrap">
+              <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
+              <div class="small muted" id="qrCaption">QR bevat alleen het LidNr (geen naam).</div>
+            </div>
           </div>
           <div class="small">Privacy: de QR bevat alleen een LidNr, geen naam.</div>
         </div>
       </section>
 
       <!-- ADMIN VIEW -->
-      <section id="viewAdmin" class="view">
+      <section id="viewAdmin" class="view" aria-labelledby="adminTitle">
         <div class="card">
-          <h1>Admin: Excel uploaden</h1>
+          <h1 id="adminTitle">Admin: Excel uploaden</h1>
           <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
           <div class="row">
             <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
             <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
             <span id="fileName" class="file-name">Geen bestand gekozen</span>
-            <button id="uploadBtn">Uploaden</button>
+            <button id="uploadBtn" class="btn">Uploaden</button>
           </div>
           <div id="status" class="status"></div>
           <div id="log" class="log"></div>
         </div>
       
         <div class="card">
-          <h3>QR code scannen</h3>
+          <h3>QR-code scannen</h3>
           <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
           <div class="row" style="gap:12px; align-items:center;">
             <button id="adminScanStart" class="btn">📷 Start scanner</button>
@@ -65,8 +69,8 @@
           <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
           <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
-    
-        <!-- Boek rit modal -->
+
+        <!-- (Optioneel) bevestigingsmodal; nu niet actief gebruikt -->
         <div id="adminBookModal" class="modal" style="display:none;">
           <div class="modal-dialog">
             <div class="modal-header">
@@ -82,8 +86,9 @@
             </div>
           </div>
         </div>
-        </section></main>
+      </section>
+    </main>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="./main.js"></script>
   </body>
 </html>

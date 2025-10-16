@@ -50,9 +50,18 @@ export function initAdminView() {
   }
 
   function normalizeRows(rows) {
-    return rows.map((r) => {
+    return rows.map((r, idx) => {
       const out = {};
       for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
+
+      // Validatie LidNr
+      const lidRaw = out["LidNr"];
+      const lidOk = /^\d{1,}$/.test(lidRaw);
+      if (!lidOk) {
+        // log alleen, import slaat rij over verderop
+        log(`Waarschuwing (rij ${idx + 2}): ongeldige LidNr "${lidRaw}"`, "err");
+      }
+
       const rc = r["ridesCount"];
       out["ridesCount"] = rc === "" || rc === undefined ? 0 : Number(rc);
       return out;
@@ -67,7 +76,7 @@ export function initAdminView() {
     for (const r of rows) {
       total++;
       const id = String(r["LidNr"] || "").trim();
-      if (!id) { skipped++; continue; }
+      if (!/^\d+$/.test(id)) { skipped++; continue; }
 
       const clean = {};
       for (const k of REQUIRED_COLS) clean[k] = r[k];
@@ -82,9 +91,12 @@ export function initAdminView() {
     return { total, updated, skipped };
   }
 
+  let uploading = false;
   async function handleUpload() {
+    if (uploading) return; // eenvoudige debounce
     const file = fileInput?.files?.[0];
     if (!file) { statusEl.textContent = "❗ Kies eerst een bestand"; return; }
+    uploading = true;
     setLoading(true);
     statusEl.textContent = "Bezig met inlezen…";
     logEl && (logEl.innerHTML = "");
@@ -104,6 +116,7 @@ export function initAdminView() {
       log(String(e?.message || e), "err");
     } finally {
       setLoading(false);
+      uploading = false;
     }
   }
 
@@ -118,6 +131,7 @@ export function initAdminView() {
 // =====================================================
 
 // Boek rit: ridesCount +1 voor members/{LidNr}
+// LET OP: voor productie is een Cloud Function veiliger.
 async function bookRide(lid, naam) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
@@ -167,6 +181,17 @@ function hhmmss(d = new Date()) {
   return d.toTimeString().slice(0, 8);
 }
 
+// Persistente cooldown store (tab-overschrijdend, 30s)
+const COOL_KEY = "qr_cooldowns_v1";
+function getCooldownMap() {
+  try { return new Map(Object.entries(JSON.parse(sessionStorage.getItem(COOL_KEY) || "{}"))); }
+  catch { return new Map(); }
+}
+function setCooldownMap(map) {
+  const obj = Object.fromEntries(map);
+  sessionStorage.setItem(COOL_KEY, JSON.stringify(obj));
+}
+
 // =====================================================
 // ===============  QR SCANNER (Admin)  ================
 // =====================================================
@@ -193,7 +218,7 @@ function initAdminQRScanner() {
   const qrLogList = ensureLogContainer();
 
   let scanner = null;
-  let lastScanByText = new Map(); // decodedText -> timestamp(ms)
+  let lastScanByText = getCooldownMap(); // decodedText -> timestamp(ms)
   const COOLDOWN_MS = 30000; // 30 seconden
 
   function ensureLib() {
@@ -237,9 +262,10 @@ function initAdminQRScanner() {
   async function processScan(decodedText) {
     const now = Date.now();
     // Cooldown per exact dezelfde QR-tekst — stil: geen toast/status/log
-    const prev = lastScanByText.get(decodedText) || 0;
+    const prev = Number(lastScanByText.get(decodedText) || 0);
     if (now - prev < COOLDOWN_MS) return;
     lastScanByText.set(decodedText, now);
+    setCooldownMap(lastScanByText);
 
     const p = parseText(decodedText || "");
     let lid = p.lid || extractLidFromText(decodedText || "");
