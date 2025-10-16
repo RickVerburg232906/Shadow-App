@@ -14,6 +14,8 @@ function switchTo(which) {
   tabAdmin.classList.toggle("active", !isMember);
   viewMember.classList.toggle("active", isMember);
   viewAdmin.classList.toggle("active", !isMember);
+  tabMember.setAttribute("aria-pressed", String(isMember));
+  tabAdmin.setAttribute("aria-pressed", String(!isMember));
 }
 
 tabMember?.addEventListener("click", () => switchTo("member"));
