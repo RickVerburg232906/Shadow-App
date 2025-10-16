@@ -1,207 +1,98 @@
-import QRCode from "qrcode";
-import { db } from "./firebase.js";
-import {
-  collection, query, orderBy, startAt, endAt, limit, getDocs, doc
-} from "firebase/firestore";
+import { db, doc, getDoc } from "./firebase.js";
 
+function $(id) {
+  return document.getElementById(id);
+}
+
+const rName = $("rName");
+const rMemberNo = $("rMemberNo");
+const rRidesCount = $("rRidesCount");
+
+// Leesbaar formatteren (fallback "—")
+function fmt(val) {
+  if (val === null || val === undefined || val === "" || Number.isNaN(val)) return "—";
+  return String(val);
+}
+
+// Haal ridesCount uit Firestore: members/{LidNr}
+async function fetchRidesCount(lid) {
+  try {
+    const snap = await getDoc(doc(db, "members", String(lid)));
+    if (!snap.exists()) return 0;
+    const data = snap.data();
+    const rc = Number(data?.ridesCount);
+    return Number.isFinite(rc) ? rc : 0;
+  } catch (e) {
+    console.warn("ridesCount ophalen mislukt:", e);
+    return null; // zodat we "—" tonen bij fout
+  }
+}
+
+// Toon ritten-aantal in de UI
+async function refreshRidesCount(lid) {
+  if (!rRidesCount) return;
+  rRidesCount.textContent = "…";
+  const count = await fetchRidesCount(lid);
+  rRidesCount.textContent = fmt(count);
+}
+
+// Helper om LidNr te parsen uit tekst (b.v. "12345" of "LidNr: 12345")
+function parseLidFromText(text) {
+  if (!text) return null;
+  const t = String(text).trim();
+  // Als het al puur numeriek is
+  if (/^\d{1,}$/.test(t)) return t;
+  // Zoeken naar "LidNr: 12345"
+  const m = t.match(/lidnr\s*:\s*(\d{1,})/i);
+  if (m) return m[1];
+  // Probeer laatste numerieke token
+  const m2 = t.match(/(\d{2,})\b/);
+  if (m2) return m2[1];
+  return null;
+}
+
+// Publieke API om vanuit elders het lid te zetten (optioneel te gebruiken)
+// - vult Naam en LidNr
+// - triggert het ophalen van ridesCount
+export function setMemberInView({ naam, lid }) {
+  if (rName && naam) rName.textContent = naam;
+  if (rMemberNo && lid) rMemberNo.textContent = String(lid);
+  if (lid) refreshRidesCount(lid);
+}
+
+// Init Member view:
+// - als er al een LidNr staat bij laden → meteen ophalen
+// - luister op wijzigingen van #rMemberNo (bv. wanneer QR gemaakt wordt)
 export function initMemberView() {
-  const $ = (id) => document.getElementById(id);
-  const nameInput   = $("nameInput");     // search by last name (Naam)
-  const suggestList = $("suggestions");
-  const findBtn     = $("findBtn");
-  const resultBox   = $("result");
-  const errBox      = $("error");
-  const rName       = $("rName");
-  const rMemberNo   = $("rMemberNo");
-  const qrCanvas    = $("qrCanvas");
-
-  let selectedDoc = null;
-
-  function setLoading(on) {
-    findBtn.disabled = on;
-    findBtn.textContent = on ? "Zoeken..." : "Toon QR";
+  // 1) Direct bij start als er al iets staat
+  const initialLid = parseLidFromText(rMemberNo?.textContent || "");
+  if (initialLid) {
+    refreshRidesCount(initialLid);
+  } else if (rRidesCount) {
+    rRidesCount.textContent = "—";
   }
 
-  function fullNameFrom(docData) {
-    const tussen = (docData["Tussen voegsel"] || "").trim();
-    const parts = [
-      docData["Voor naam"] || "",
-      docData["Voor letters"] ? `(${docData["Voor letters"]})` : "",
-      tussen ? tussen : "",
-      docData["Naam"] || ""
-    ].filter(Boolean);
-    return parts.join(" ").replace(/\s+/g, " ").trim();
-  }
-
-  function hideSuggestions() {
-    suggestList.innerHTML = "";
-    suggestList.style.display = "none";
-  }
-
-  function showSuggestions(items) {
-    suggestList.innerHTML = "";
-    for (const it of items) {
-      const li = document.createElement("li");
-      li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
-      li.addEventListener("click", () => {
-        selectedDoc = it;
-        nameInput.value = it.data["Naam"]; // keep achternaam in field
-        renderSelected(it);
-        hideSuggestions();
-      });
-      suggestList.appendChild(li);
-    }
-    suggestList.style.display = items.length ? "block" : "none";
-  }
-
-  async function queryByLastNamePrefix(prefix) {
-    const qRef = query(
-      collection(db, "members"),
-      orderBy("Naam"),
-      startAt(prefix),
-      endAt(prefix + "\uf8ff"),
-      limit(8)
-    );
-    const snap = await getDocs(qRef);
-    const res = [];
-    snap.forEach(d => res.push({ id: d.id, data: d.data() }));
-    return res;
-  }
-
-  async function onInputChanged() {
-    selectedDoc = null;
-    resultBox.style.display = "none";
-    errBox.style.display = "none";
-    const term = (nameInput.value || "").trim();
-    if (term.length < 2) { hideSuggestions(); return; }
-    try {
-      const items = await queryByLastNamePrefix(term);
-      showSuggestions(items);
-    } catch (e) {
-      console.error(e);
-      hideSuggestions();
-    }
-  }
-
-  async function handleFind() {
-    errBox.style.display = "none";
-    setLoading(true);
-    try {
-      if (selectedDoc) {
-        renderSelected(selectedDoc);
-        hideSuggestions();
-        return;
+  // 2) Observeer wijzigingen in rMemberNo.textContent
+  if (rMemberNo && window.MutationObserver) {
+    const obs = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === "childList" || m.type === "characterData" || m.type === "subtree") {
+          const lid = parseLidFromText(rMemberNo.textContent || "");
+          if (lid) {
+            refreshRidesCount(lid);
+          } else if (rRidesCount) {
+            rRidesCount.textContent = "—";
+          }
+        }
       }
-      const term = (nameInput.value || "").trim();
-      if (!term) return;
-      const items = await queryByLastNamePrefix(term);
-      if (!items.length) {
-        errBox.textContent = "Geen leden gevonden met deze achternaam.";
-        errBox.style.display = "block";
-        return;
-      }
-      renderSelected(items[0]);
-      hideSuggestions();
-    } catch (e) {
-      console.error(e);
-      errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer opnieuw.";
-      errBox.style.display = "block";
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function renderSelected(entry) {
-    const data = entry.data;
-    rName.textContent = fullNameFrom(data);
-    rMemberNo.textContent = entry.id; // LidNr is doc id
-    const payload = JSON.stringify({ t: "member", uid: entry.id });
-    QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
-      if (err) {
-        errBox.textContent = "QR genereren mislukte.";
-        errBox.style.display = "block";
-        return;
-      }
-      resultBox.style.display = "grid";
     });
+    obs.observe(rMemberNo, { childList: true, characterData: true, subtree: true });
   }
+}
 
-  nameInput?.addEventListener("input", onInputChanged);
-  nameInput?.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") hideSuggestions();
-    if (ev.key === "Enter") { ev.preventDefault(); handleFind(); }
-  });
-  
-  // --- QR SCANNER ---
-  const scanBtn  = $("scanBtn");
-  const qrModal  = $("qrModal");
-  const qrClose  = $("qrClose");
-  const qrReader = $("qrReader");
-  const qrStatus = $("qrStatus");
-
-  let scanner = null;
-
-  function openScanner() {
-    if (!window.Html5QrcodeScanner) {
-      alert("Scanner bibliotheek niet geladen. Controleer je internetverbinding.");
-      return;
-    }
-    qrModal.style.display = "flex";
-    // Build scanner with reasonable options
-    scanner = new Html5QrcodeScanner("qrReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, false);
-    scanner.render(onScanSuccess, onScanError);
-    qrStatus.textContent = "Richt je camera op de QR-code…";
-  }
-
-  function closeScanner() {
-    try {
-      if (scanner && scanner.clear) scanner.clear();
-    } catch(_) {}
-    scanner = null;
-    // Clear container for a clean re-render next time
-    if (qrReader) qrReader.innerHTML = "";
-    qrModal.style.display = "none";
-  }
-
-  function parseScannedText(text) {
-    // Accept formats like:
-    //  - "Naam: John Doe; LidNr: 12345"
-    //  - "LidNr: 12345; Naam: Jane Doe"
-    //  - or just raw text/URL
-    const mNaam = text.match(/naam\s*:\s*([^;]+)/i);
-    const mLid  = text.match(/lidnr\s*:\s*([^;]+)/i);
-    return {
-      naam: mNaam ? mNaam[1].trim() : null,
-      lid: mLid ? mLid[1].trim() : null,
-      raw: text
-    };
-  }
-
-  function onScanSuccess(decodedText, decodedResult) {
-    const parsed = parseScannedText(decodedText || "");
-    if (parsed.naam) rName.textContent = parsed.naam;
-    if (parsed.lid)  rMemberNo.textContent = parsed.lid;
-
-    // Show result box if hidden
-    resultBox.style.display = "grid";
-    // Also show raw value for visibility
-    errBox.style.display = "none";
-    qrStatus.textContent = "Gescand: " + (parsed.naam || parsed.lid ? `${parsed.naam || ""} ${parsed.lid ? "(LidNr: " + parsed.lid + ")" : ""}` : parsed.raw);
-
-    // Optional: auto-close after a short delay
-    setTimeout(closeScanner, 800);
-  }
-
-  function onScanError(err) {
-    // No spam; only show occasional status
-    // console.debug(err);
-  }
-
-  scanBtn?.addEventListener("click", openScanner);
-  qrClose?.addEventListener("click", closeScanner);
-  qrModal?.addEventListener("click", (e) => {
-    if (e.target === qrModal) closeScanner();
-  });
-
-  findBtn?.addEventListener("click", handleFind);
+// Optioneel: auto-init als dit script los staat
+try {
+  initMemberView();
+} catch (_e) {
+  // negeer; kan ook via app router apart aangeroepen worden
 }

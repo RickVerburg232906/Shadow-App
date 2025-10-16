@@ -226,7 +226,7 @@ function initAdminQRScanner() {
     left.textContent = `${hhmmss()} — ${naam ? naam + " " : ""}${lid ? "(LidNr: " + lid + ")" : "(onbekend)"}`;
     const right = document.createElement("div");
     right.textContent = ok
-      ? `✓ bijgewerkt${(ridesTotal ?? ridesTotal === 0) ? " — totaal: " + ridesTotal : ""}`
+      ? `✓ bijgewerkt${(ridesTotal ?? ridesTotal === 0) ? "Geregistreerde ritten: " + ridesTotal : ""}`
       : `✗ ${reason || "geweigerd"}`;
     row.appendChild(left);
     row.appendChild(right);
