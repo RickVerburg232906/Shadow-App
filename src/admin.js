@@ -148,18 +148,23 @@ function extractLidFromText(text) {
 }
 
 // Kleine toast (1 seconde)
-function showToast(msg) {
+function showToast(msg, ok = true) {
   let el = document.createElement("div");
   el.className = "toast";
   el.textContent = msg;
   Object.assign(el.style, {
     position: "fixed", left: "50%", transform: "translateX(-50%)",
-    bottom: "20px", background: "#16a34a", color: "#0b0c10",
+    bottom: "20px", background: ok ? "#16a34a" : "#ef4444", color: "#0b0c10",
     padding: "10px 14px", borderRadius: "10px", fontWeight: "600",
     zIndex: 200, boxShadow: "0 8px 24px rgba(0,0,0,.35)"
   });
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1000);
+}
+
+// Tijdstempel -> “HH:MM:SS”
+function hhmmss(d = new Date()) {
+  return d.toTimeString().slice(0, 8);
 }
 
 // =====================================================
@@ -173,9 +178,24 @@ function initAdminQRScanner() {
   const readerEl = $("adminQRReader");
   const resultEl = $("adminQRResult");
 
+  // Maak/zoek log container onder de QR sectie
+  function ensureLogContainer() {
+    let log = document.getElementById("adminQRLog");
+    if (!log) {
+      log = document.createElement("div");
+      log.id = "adminQRLog";
+      log.style.marginTop = "10px";
+      log.innerHTML = `<h4 style="margin:6px 0 6px;">Registraties</h4><div id="adminQRLogList" class="qr-log-list"></div>`;
+      // Plaats onder resultEl als die bestaat, anders onder readerEl
+      (resultEl?.parentElement || readerEl?.parentElement || readerEl)?.appendChild(log);
+    }
+    return document.getElementById("adminQRLogList");
+  }
+  const qrLogList = ensureLogContainer();
+
   let scanner = null;
-  let lastScanText = "";
-  let lastScanTime = 0; // ms
+  let lastScanByText = new Map(); // decodedText -> timestamp(ms)
+  const COOLDOWN_MS = 30000; // 30 seconden
 
   function ensureLib() {
     if (!window.Html5QrcodeScanner) {
@@ -191,12 +211,44 @@ function initAdminQRScanner() {
     return { naam: mNaam ? mNaam[1].trim() : null, lid: mLid ? mLid[1].trim() : null, raw: text };
   }
 
+  function appendLog({ naam, lid, ok, reason }) {
+    if (!qrLogList) return;
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.justifyContent = "space-between";
+    row.style.gap = "8px";
+    row.style.padding = "6px 8px";
+    row.style.border = "1px solid #1f2937";
+    row.style.borderRadius = "8px";
+    row.style.marginBottom = "6px";
+    row.style.background = ok ? "#0f1d12" : "#1a0f0f";
+
+    const left = document.createElement("div");
+    left.textContent = `${hhmmss()} — ${naam ? naam + " " : ""}${lid ? "(LidNr: " + lid + ")" : "(onbekend)"}`;
+    const right = document.createElement("div");
+    right.textContent = ok ? "✓ bijgewerkt" : `✗ ${reason || "geweigerd"}`;
+    row.appendChild(left);
+    row.appendChild(right);
+
+    qrLogList.prepend(row);
+  }
+
   async function processScan(decodedText) {
-    // Dedupe: negeer identieke scantekst binnen 1.5s
     const now = Date.now();
-    if (decodedText === lastScanText && (now - lastScanTime) < 1500) return;
-    lastScanText = decodedText;
-    lastScanTime = now;
+    // Cooldown per exact dezelfde QR-tekst
+    const prev = lastScanByText.get(decodedText) || 0;
+    if (now - prev < COOLDOWN_MS) {
+      const sec = Math.ceil((COOLDOWN_MS - (now - prev)) / 1000);
+      statusEl && (statusEl.textContent = `⏸️ Cooldown: nog ${sec}s voor dezelfde QR`);
+      showToast(`⏸️ Cooldown actief (${sec}s)`, false);
+      // Log afwijzing
+      const p0 = parseText(decodedText || "");
+      const lid0 = p0.lid || extractLidFromText(decodedText || "");
+      appendLog({ naam: p0.naam || "", lid: lid0 || "", ok: false, reason: `cooldown ${sec}s` });
+      return;
+    }
+
+    lastScanByText.set(decodedText, now);
 
     const p = parseText(decodedText || "");
     let lid = p.lid || extractLidFromText(decodedText || "");
@@ -204,40 +256,39 @@ function initAdminQRScanner() {
 
     if (!lid) {
       statusEl && (statusEl.textContent = "⚠️ Geen LidNr in QR");
-      showToast("⚠️ Onbekende QR (geen LidNr)");
+      showToast("⚠️ Onbekende QR (geen LidNr)", false);
+      appendLog({ naam: "", lid: "", ok: false, reason: "geen LidNr" });
       return;
     }
 
-    // Probeer naam op te halen (non-blocking voor UX, maar we wachten wel kort voor netheid)
     try {
-      const snap = await getDoc(doc(db, "members", String(lid)));
-      if (snap.exists()) {
-        const d = snap.data();
-        const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
-          .replace(/\s+/g, " ").trim();
-        naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
-      }
-    } catch (e) {
-      console.warn("Lookup mislukt:", e);
-    }
+      // Optioneel: haal naam op
+      try {
+        const snap = await getDoc(doc(db, "members", String(lid)));
+        if (snap.exists()) {
+          const d = snap.data();
+          const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
+            .replace(/\s+/g, " ").trim();
+          naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
+        }
+      } catch (e) { /* soft fail */ }
 
-    // Boek direct (geen popup)
-    try {
+      // Boek direct (geen popup)
       await bookRide(lid, naam || "");
       statusEl && (statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`);
       resultEl && (resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`);
-      showToast(`✅ QR-code gescand (LidNr ${lid})`);
+      showToast(`✅ QR-code gescand (LidNr ${lid})`, true);
+      appendLog({ naam: naam || "", lid, ok: true });
     } catch (e) {
       console.error(e);
       statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);
-      showToast("❌ Fout bij updaten");
+      showToast("❌ Fout bij updaten", false);
+      appendLog({ naam: naam || "", lid, ok: false, reason: "update fout" });
     }
-
-    // Camera blijft open; geen clear(), geen reader reset
   }
 
   function onScanSuccess(decodedText) {
-    // html5-qrcode kan meerdere callbacks in korte tijd triggeren → throttle
+    // html5-qrcode kan meerdere callbacks in korte tijd triggeren → throttle via cooldown/Map
     processScan(decodedText);
   }
 

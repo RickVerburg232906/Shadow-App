@@ -61,3 +61,6 @@ input { padding:8px 10px; border-radius:8px; border:1px solid #334155; backgroun
   z-index: 200;
   box-shadow: 0 8px 24px rgba(0,0,0,.35);
 }
+
+.qr-log-list > div { transition: background .2s ease; }
+.qr-log-list > div:hover { filter: brightness(1.05); }
