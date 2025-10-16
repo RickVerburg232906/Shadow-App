@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shadow App</title>
     <link rel="stylesheet" href="/style.css">
-  </head>
+    <script src="https://unpkg.com/html5-qrcode" defer></script>
+</head>
   <body>
     <header class="topbar">
       <div class="brand">Shadow App</div>
@@ -53,6 +54,22 @@
           <div id="log" class="log"></div>
         </div>
       </section>
+    
+    <!-- QR Scanner Modal -->
+    <div id="qrModal" class="qr-modal" style="display:none;">
+      <div class="qr-dialog">
+        <div class="qr-header">
+          <h3>QR-code scannen</h3>
+          <button id="qrClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
+        </div>
+        <div id="qrReader" class="qr-reader"></div>
+        <div id="qrStatus" class="qr-status"></div>
+      </div>
+    </div>
+
+    <!-- Floating Scan Button -->
+    <button id="scanBtn" class="fab-scan" title="Scan QR">📷</button>
+
     </main>
 
     <script type="module" src="/src/main.js"></script>

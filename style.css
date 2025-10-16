@@ -29,3 +29,27 @@ body { margin: 0; background:#0b0c10; color:#e5e7eb; }
 .suggest li:hover { background:#1f2937; }
 .small { opacity:.7; font-size:.9rem; }
 input { padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0b1220; color:#e5e7eb; }
+
+
+/* QR modal + floating scan button */
+.fab-scan {
+  position: fixed; right: 20px; bottom: 20px; z-index: 60;
+  border: none; border-radius: 50%; width: 56px; height: 56px;
+  font-size: 22px; cursor: pointer; background:#22c55e; color:#0b0c10;
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+}
+.fab-scan:hover { filter: brightness(1.05); }
+
+.qr-modal {
+  position: fixed; inset: 0; background: rgba(2,6,23,.6);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.qr-dialog {
+  width: min(92vw, 520px);
+  background: #0f172a; border: 1px solid #1f2937; border-radius: 16px;
+  padding: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.qr-header { display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px; }
+.qr-reader { width: 100%; }
+.qr-status { margin-top: 8px; font-size: 14px; color: #94a3b8; }
+.btn-ghost { background: transparent; color: #e5e7eb; border: 1px solid #334155; padding: 6px 10px; border-radius: 10px; cursor: pointer; }
