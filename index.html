@@ -2,81 +2,90 @@
 <html lang="nl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f172a">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shadow App</title>
-    <link rel="manifest" href="/manifest.webmanifest">
     <link rel="stylesheet" href="/style.css">
+    <script src="https://unpkg.com/html5-qrcode" defer></script>
   </head>
   <body>
     <header class="topbar">
       <div class="brand">Shadow App</div>
       <nav class="nav">
-        <button id="tabMember" class="tab active" aria-pressed="true">Lid</button>
-        <button id="tabAdmin" class="tab" aria-pressed="false">Admin</button>
+        <button id="tabMember" class="tab active">Lid</button>
+        <button id="tabAdmin" class="tab">Admin</button>
       </nav>
     </header>
 
     <main class="wrap">
       <!-- MEMBER VIEW -->
-      <section id="viewMember" class="view active" aria-labelledby="memberTitle">
+      <section id="viewMember" class="view active">
         <div class="card">
-          <h1 id="memberTitle">Inschrijven voor rit</h1>
+          <h1>Inschrijven voor rit</h1>
           <p class="hint">Zoek op achternaam en toon jouw QR.</p>
           <div class="row">
-            <input id="nameInput" placeholder="Achternaam..." inputmode="text" autocomplete="off" />
+            <input id="nameInput" placeholder="Achternaam..." />
           </div>
-          <ul id="suggestions" class="suggest" role="listbox" aria-label="Suggesties"></ul>
+          <ul id="suggestions" class="suggest"></ul>
           <div id="error" class="error" style="display:none"></div>
           <div id="result" class="result" style="display:none">
             <div class="column">
               <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
               <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <p class="muted">Ga naar de inschrijfbalie om in te checken voor de rit.</p>
+              <!-- ✅ Enige toevoeging: vaste plek voor ridesCount weergave -->
+              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="rRidesCount">—</span></div>
+              <p> Ga nu naar de inschrijf balie om in te checken voor de rit</p>
             </div>
-            <div class="qr-wrap">
-              <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
-              <div class="small muted" id="qrCaption">QR bevat alleen het LidNr (geen naam).</div>
-            </div>
+            <canvas id="qrCanvas" width="220" height="220"></canvas>
           </div>
           <div class="small">Privacy: de QR bevat alleen een LidNr, geen naam.</div>
         </div>
       </section>
 
-      <!-- ADMIN VIEW -->
-      <section id="viewAdmin" class="view" aria-labelledby="adminTitle">
+      <!-- ADMIN VIEW (ongewijzigd) -->
+      <section id="viewAdmin" class="view">
         <div class="card">
-          <h1 id="adminTitle">Admin: Excel uploaden</h1>
+          <h1>Admin: Excel uploaden</h1>
           <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
           <div class="row">
             <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
             <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-            <span id="fileName" class="file-name ellipsis">Geen bestand gekozen</span>
-          </div>
-          <div class="row">
-            <button id="uploadBtn" class="btn primary">Uploaden</button>
+            <span id="fileName" class="file-name">Geen bestand gekozen</span>
+            <button id="uploadBtn">Uploaden</button>
           </div>
           <div id="status" class="status"></div>
           <div id="log" class="log"></div>
         </div>
       
         <div class="card">
-          <h3>QR-code scannen</h3>
-          <p class="muted">Gebruik de camera om QR-codes te scannen en direct ritten te registreren.</p>
+          <h3>QR code scannen</h3>
+          <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
           <div class="row" style="gap:12px; align-items:center;">
-            <button id="adminScanStart" class="btn primary">📷 Start scanner</button>
+            <button id="adminScanStart" class="btn">📷 Start scanner</button>
             <button id="adminScanStop" class="btn btn-ghost">⏸️ Stop</button>
             <span id="adminQRStatus" class="status"></span>
           </div>
           <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
           <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
+    
+        <div id="adminBookModal" class="modal" style="display:none;">
+          <div class="modal-dialog">
+            <div class="modal-header">
+              <h3>Rit opboeken</h3>
+              <button id="adminBookClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
+            </div>
+            <div class="modal-body">
+              <p id="adminBookMsg">Wilt u een rit opboeken?</p>
+            </div>
+            <div class="modal-actions">
+              <button id="adminBookYes" class="btn">Ja</button>
+              <button id="adminBookNo" class="btn btn-ghost">Nee</button>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
 
-    <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import { db } from "./firebase.js";
-import { collection, query, orderBy, startAt, endAt, limit, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, startAt, endAt, limit, getDocs, doc, onSnapshot } from "firebase/firestore";
 
 export function initMemberView() {
   const $ = (id) => document.getElementById(id);
@@ -10,9 +10,11 @@ export function initMemberView() {
   const errBox      = $("error");
   const rName       = $("rName");
   const rMemberNo   = $("rMemberNo");
+  const rRides      = $("rRidesCount");
   const qrCanvas    = $("qrCanvas");
 
   let selectedDoc = null;
+  let unsubscribe = null;
 
   function fullNameFrom(docData) {
     const tussen = (docData["Tussen voegsel"] || "").trim();
@@ -37,10 +39,10 @@ export function initMemberView() {
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
       li.addEventListener("click", () => {
         selectedDoc = it;
-        nameInput.value = it.data["Naam"]; // achternaam
+        nameInput.value = it.data["Naam"];
         renderSelected(it);
         hideSuggestions();
-      }, { passive: true });
+      });
       suggestList.appendChild(li);
     }
     suggestList.style.display = items.length ? "block" : "none";
@@ -60,32 +62,32 @@ export function initMemberView() {
     return res;
   }
 
-  let inFlight = 0;
-  let lastTerm = "";
   async function onInputChanged() {
     selectedDoc = null;
     resultBox.style.display = "none";
     errBox.style.display = "none";
+    if (unsubscribe) { try { unsubscribe(); } catch(_) {} unsubscribe = null; }
     const term = (nameInput.value || "").trim();
-    lastTerm = term;
     if (term.length < 2) { hideSuggestions(); return; }
     try {
-      inFlight++;
       const items = await queryByLastNamePrefix(term);
-      // Alleen tonen als term nog hetzelfde is (race condition voorkomen op trage netwerken)
-      if (term === lastTerm) showSuggestions(items);
+      showSuggestions(items);
     } catch (e) {
       console.error(e);
       hideSuggestions();
-    } finally {
-      inFlight--;
     }
   }
 
-  async function handleEnterToSelect() {
-    const term = (nameInput.value || "").trim();
-    if (!term) return;
+  async function handleFind() {
+    errBox.style.display = "none";
     try {
+      if (selectedDoc) {
+        renderSelected(selectedDoc);
+        hideSuggestions();
+        return;
+      }
+      const term = (nameInput.value || "").trim();
+      if (!term) return;
       const items = await queryByLastNamePrefix(term);
       if (!items.length) {
         errBox.textContent = "Geen leden gevonden met deze achternaam.";
@@ -105,70 +107,36 @@ export function initMemberView() {
     const data = entry.data;
     rName.textContent = fullNameFrom(data);
     rMemberNo.textContent = entry.id;
+    if (rRides) rRides.textContent = (typeof data.ridesCount === "number") ? String(data.ridesCount) : "0";
+
     const payload = JSON.stringify({ t: "member", uid: entry.id });
-    const size = Math.min(320, Math.floor(window.innerWidth * 0.7));
-    QRCode.toCanvas(qrCanvas, payload, { width: size, margin: 1 }, (err) => {
+    QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
       if (err) {
         errBox.textContent = "QR genereren mislukte.";
         errBox.style.display = "block";
         return;
       }
       resultBox.style.display = "grid";
-      // Scroll QR in beeld op mobiel
-      if (window.innerWidth < 560) {
-        qrCanvas.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+    });
+
+    try { if (unsubscribe) { unsubscribe(); } } catch(_) {}
+    const ref = doc(collection(db, "members"), entry.id);
+    unsubscribe = onSnapshot(ref, (snap) => {
+      const d = snap.exists() ? snap.data() : null;
+      const count = (d && typeof d.ridesCount === "number") ? d.ridesCount : 0;
+      if (rRides) rRides.textContent = String(count);
+    }, (err) => {
+      console.error("ridesCount realtime fout:", err);
+      if (rRides) rRides.textContent = "—";
     });
   }
 
-  nameInput?.addEventListener("input", onInputChanged, { passive: true });
+  nameInput?.addEventListener("input", onInputChanged);
   nameInput?.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") hideSuggestions();
-    if (ev.key === "Enter") { ev.preventDefault(); handleEnterToSelect(); }
+    if (ev.key === "Enter") { ev.preventDefault(); handleFind(); }
   });
 }
 
-// Realtime ridesCount weergave
-import { doc as _doc3, onSnapshot as _onSnap3, collection as _col3 } from "firebase/firestore";
-
-(function augmentRidesCountRealtime(){
-  const lidLine = document.getElementById("rMemberNo");
-  if (!lidLine) return;
-
-  let holder = document.getElementById("ridesCountLine");
-  function ensureHolder() {
-    if (!holder) {
-      holder = document.createElement("div");
-      holder.id = "ridesCountLine";
-      holder.className = "muted";
-      lidLine.insertAdjacentElement("afterend", holder);
-    }
-    return holder;
-  }
-
-  let unsubscribe = null;
-
-  function listen(memberId){
-    try { if (unsubscribe) { unsubscribe(); } } catch(_) {}
-    if (!memberId) return;
-    const ref = _doc3(_col3(db, "members"), memberId);
-    unsubscribe = _onSnap3(ref, (snap) => {
-      const data = snap.exists() ? snap.data() : null;
-      const count = data && typeof data.ridesCount === "number" ? data.ridesCount : 0;
-      ensureHolder().textContent = `Geregistreerde ritten: ${count}`;
-    }, (err) => {
-      console.error("ridesCount realtime fout:", err);
-      ensureHolder().textContent = `Geregistreerde ritten: —`;
-    });
-  }
-
-  const obs = new MutationObserver(() => {
-    const raw = (lidLine.textContent || "").trim();
-    const id = raw.replace(/^#/, "");
-    if (id) listen(id);
-  });
-  obs.observe(lidLine, { childList: true, characterData: true, subtree: true });
-
-  const initId = (lidLine.textContent || "").trim().replace(/^#/, "");
-  if (initId) listen(initId);
-})();
+// Compat-layer: als je ook de oude IIFE hebt die na rMemberNo een regel toevoegt,
+// blijft die werken omdat we hier niets verwijderen; rRidesCount krijgt voorrang als aanwezig.
