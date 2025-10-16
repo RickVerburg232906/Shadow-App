@@ -120,3 +120,11 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 @media (prefers-reduced-motion: reduce) {
   .nav .tab, .btn { transition: none; }
 }
+
+
+/* --- RidesCount as stars --- */
+#rRidesCount {
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
