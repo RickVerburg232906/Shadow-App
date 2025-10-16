@@ -207,10 +207,10 @@ export function initMemberView() {
 }
 
 
-// [RIDESCOUNT_AUGMENT] — toon ridesCount direct onder "Lidnummer"
-import { doc as _doc2, getDoc as _getDoc2, collection as _col2 } from "firebase/firestore";
+// [RIDESCOUNT_REALTIME] — realtime ridesCount updates via onSnapshot
+import { doc as _doc3, onSnapshot as _onSnap3, collection as _col3 } from "firebase/firestore";
 
-(function augmentRidesCount(){
+(function augmentRidesCountRealtime(){
   const lidLine = document.getElementById("rMemberNo");
   if (!lidLine) return;
 
@@ -220,34 +220,36 @@ import { doc as _doc2, getDoc as _getDoc2, collection as _col2 } from "firebase/
       holder = document.createElement("div");
       holder.id = "ridesCountLine";
       holder.className = "muted";
-      // Plaats direct NA lidnummer
-      const parent = lidLine.parentElement || document.body;
       lidLine.insertAdjacentElement("afterend", holder);
     }
     return holder;
   }
 
-  async function updateRidesCount(memberId) {
-    try {
-      const ref = _doc2(_col2(db, "members"), memberId);
-      const snap = await _getDoc2(ref);
+  let unsubscribe = null;
+
+  function listen(memberId){
+    try { if (unsubscribe) { unsubscribe(); } } catch(_) {}
+    if (!memberId) return;
+    const ref = _doc3(_col3(db, "members"), memberId);
+    unsubscribe = _onSnap3(ref, (snap) => {
       const data = snap.exists() ? snap.data() : null;
       const count = data && typeof data.ridesCount === "number" ? data.ridesCount : 0;
       ensureHolder().textContent = `Geregistreerde ritten: ${count}`;
-    } catch (e) {
-      console.error("ridesCount ophalen mislukt:", e);
+    }, (err) => {
+      console.error("ridesCount realtime fout:", err);
       ensureHolder().textContent = `Geregistreerde ritten: —`;
-    }
+    });
   }
 
+  // Observe veranderingen in #rMemberNo om juiste doc te volgen
   const obs = new MutationObserver(() => {
     const raw = (lidLine.textContent || "").trim();
     const id = raw.replace(/^#/, "");
-    if (id) updateRidesCount(id);
+    if (id) listen(id);
   });
   obs.observe(lidLine, { childList: true, characterData: true, subtree: true });
 
-  // Probeer ook direct bij load (als al ingevuld)
+  // Als er al een waarde staat bij load, luister meteen
   const initId = (lidLine.textContent || "").trim().replace(/^#/, "");
-  if (initId) updateRidesCount(initId);
+  if (initId) listen(initId);
 })();
