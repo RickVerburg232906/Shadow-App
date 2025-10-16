@@ -50,7 +50,6 @@ export function initAdminView() {
   }
 
   function normalizeRows(rows) {
-    // Zorgt dat vereiste kolommen bestaan; zet ridesCount (optioneel) naar nummer
     return rows.map((r) => {
       const out = {};
       for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
@@ -148,37 +147,19 @@ function extractLidFromText(text) {
   return null;
 }
 
-// Bevestigingsmodal aansturen
-function openBookModal(message, onYes, onNo) {
-  const $ = (id) => document.getElementById(id);
-  const modal = $("adminBookModal");
-  const msgEl = $("adminBookMsg");
-  const btnYes = $("adminBookYes");
-  const btnNo  = $("adminBookNo");
-  const btnX   = $("adminBookClose");
-  if (!modal) { console.warn("Modal ontbreekt in DOM"); onNo && onNo(); return; }
-
-  let handled = false;
-  function cleanup() {
-    btnYes && (btnYes.onclick = null);
-    btnNo  && (btnNo.onclick  = null);
-    btnX   && (btnX.onclick   = null);
-    modal.style.display = "none";
-  }
-
-  msgEl && (msgEl.textContent = message);
-  modal.style.display = "flex";
-
-  const resolve = (isNo) => {
-    if (handled) return;
-    handled = true;
-    cleanup();
-    if (isNo) { onNo && onNo(); } else { onYes && onYes(); }
-  };
-
-  btnYes && (btnYes.onclick = () => resolve(false));
-  btnNo  && (btnNo.onclick  = () => resolve(true));
-  btnX   && (btnX.onclick   = btnNo?.onclick);
+// Kleine toast (1 seconde)
+function showToast(msg) {
+  let el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  Object.assign(el.style, {
+    position: "fixed", left: "50%", transform: "translateX(-50%)",
+    bottom: "20px", background: "#16a34a", color: "#0b0c10",
+    padding: "10px 14px", borderRadius: "10px", fontWeight: "600",
+    zIndex: 200, boxShadow: "0 8px 24px rgba(0,0,0,.35)"
+  });
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
 }
 
 // =====================================================
@@ -193,6 +174,8 @@ function initAdminQRScanner() {
   const resultEl = $("adminQRResult");
 
   let scanner = null;
+  let lastScanText = "";
+  let lastScanTime = 0; // ms
 
   function ensureLib() {
     if (!window.Html5QrcodeScanner) {
@@ -208,55 +191,54 @@ function initAdminQRScanner() {
     return { naam: mNaam ? mNaam[1].trim() : null, lid: mLid ? mLid[1].trim() : null, raw: text };
   }
 
-  function onScanSuccess(decodedText) {
+  async function processScan(decodedText) {
+    // Dedupe: negeer identieke scantekst binnen 1.5s
+    const now = Date.now();
+    if (decodedText === lastScanText && (now - lastScanTime) < 1500) return;
+    lastScanText = decodedText;
+    lastScanTime = now;
+
     const p = parseText(decodedText || "");
     let lid = p.lid || extractLidFromText(decodedText || "");
     let naam = p.naam || "";
 
-    (async () => {
-      try {
-        if (lid) {
-          const snap = await getDoc(doc(db, "members", String(lid)));
-          if (snap.exists()) {
-            const d = snap.data();
-            const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
-              .replace(/\s+/g, " ").trim();
-            naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
-          }
-        }
-      } catch (e) {
-        console.warn("Lookup mislukt:", e);
+    if (!lid) {
+      statusEl && (statusEl.textContent = "⚠️ Geen LidNr in QR");
+      showToast("⚠️ Onbekende QR (geen LidNr)");
+      return;
+    }
+
+    // Probeer naam op te halen (non-blocking voor UX, maar we wachten wel kort voor netheid)
+    try {
+      const snap = await getDoc(doc(db, "members", String(lid)));
+      if (snap.exists()) {
+        const d = snap.data();
+        const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
+          .replace(/\s+/g, " ").trim();
+        naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
       }
+    } catch (e) {
+      console.warn("Lookup mislukt:", e);
+    }
 
-      const summary = (naam || lid)
-        ? `${naam ? "Naam: " + naam : ""} ${lid ? "(LidNr: " + lid + ")" : ""}`.trim()
-        : (p.raw || "—");
-      resultEl && (resultEl.textContent = "Gescand: " + summary);
-      statusEl && (statusEl.textContent = (lid ? "✅ Succes" : "⚠️ Geen LidNr in QR"));
+    // Boek direct (geen popup)
+    try {
+      await bookRide(lid, naam || "");
+      statusEl && (statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`);
+      resultEl && (resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`);
+      showToast(`✅ QR-code gescand (LidNr ${lid})`);
+    } catch (e) {
+      console.error(e);
+      statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);
+      showToast("❌ Fout bij updaten");
+    }
 
-      // Stop tijdelijk om doorlopend scannen te voorkomen
-      try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
-      readerEl && (readerEl.innerHTML = "");
+    // Camera blijft open; geen clear(), geen reader reset
+  }
 
-      // Modal vragen
-      const finalNaam = naam || "(onbekend)";
-      const finalLid  = lid  || "(onbekend)";
-      openBookModal(`Wilt u een rit opboeken van ${finalNaam} ${finalLid}?`,
-        async () => {
-          if (!lid) { statusEl && (statusEl.textContent = "❌ Geen LidNr — kan niet boeken"); return; }
-          try {
-            await bookRide(lid, finalNaam);
-            statusEl && (statusEl.textContent = `✅ Rit +1 voor ${finalNaam} ${finalLid}`);
-          } catch (e) {
-            console.error(e);
-            statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);
-          }
-        },
-        () => {
-          statusEl && (statusEl.textContent = "⏸️ Geannuleerd");
-        }
-      );
-    })();
+  function onScanSuccess(decodedText) {
+    // html5-qrcode kan meerdere callbacks in korte tijd triggeren → throttle
+    processScan(decodedText);
   }
 
   function onScanError(_) { /* stil */ }

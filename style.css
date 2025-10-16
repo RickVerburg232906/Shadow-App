@@ -47,3 +47,17 @@ input { padding:8px 10px; border-radius:8px; border:1px solid #334155; backgroun
 .modal-body { margin: 8px 0 12px; color:#e5e7eb; }
 .modal-actions { display:flex; gap:10px; justify-content:flex-end; }
 .qr-reader { width:100%; border:1px dashed #334155; border-radius:12px; padding:8px; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 20px;
+  background: #16a34a;
+  color: #0b0c10;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
