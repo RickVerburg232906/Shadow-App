@@ -2,6 +2,15 @@ import QRCode from "qrcode";
 import { db } from "./firebase.js";
 import { collection, query, orderBy, startAt, endAt, limit, getDocs, doc, onSnapshot } from "firebase/firestore";
 
+/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–10 */
+function ridesToStars(count) {
+  const max = 5;
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  const filled = Math.min(n, max);
+  const empty = Math.max(0, max - filled);
+  return "★".repeat(filled) + "☆".repeat(empty);
+}
+
 export function initMemberView() {
   const $ = (id) => document.getElementById(id);
   const nameInput   = $("nameInput");
@@ -107,28 +116,40 @@ export function initMemberView() {
     const data = entry.data;
     rName.textContent = fullNameFrom(data);
     rMemberNo.textContent = entry.id;
-    if (rRides) rRides.textContent = (typeof data.ridesCount === "number") ? String(data.ridesCount) : "0";
+
+    // Initieel ridesCount als sterren tonen (fallback 0)
+    const initCount = (typeof data.ridesCount === "number") ? data.ridesCount : 0;
+    if (rRides) {
+      rRides.textContent = ridesToStars(initCount);
+      rRides.setAttribute("title", `Geregistreerde ritten: ${initCount}`);
+      rRides.setAttribute("aria-label", `Geregistreerde ritten: ${initCount}`);
+    }
 
     const payload = JSON.stringify({ t: "member", uid: entry.id });
     QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
-      const privacyEl = document.getElementById("qrPrivacy");
-      if (privacyEl) privacyEl.style.display = "block";
       if (err) {
         errBox.textContent = "QR genereren mislukte.";
         errBox.style.display = "block";
         return;
       }
+      // QR gelukt → resultaat tonen
       resultBox.style.display = "grid";
+      // En privacyregel tonen (als aanwezig)
+      const privacyEl = document.getElementById("qrPrivacy");
+      if (privacyEl) privacyEl.style.display = "block";
     });
 
-
-
+    // Realtime updates voor ridesCount
     try { if (unsubscribe) { unsubscribe(); } } catch(_) {}
     const ref = doc(collection(db, "members"), entry.id);
     unsubscribe = onSnapshot(ref, (snap) => {
       const d = snap.exists() ? snap.data() : null;
       const count = (d && typeof d.ridesCount === "number") ? d.ridesCount : 0;
-      if (rRides) rRides.textContent = String(count);
+      if (rRides) {
+        rRides.textContent = ridesToStars(count);
+        rRides.setAttribute("title", `Geregistreerde ritten: ${count}`);
+        rRides.setAttribute("aria-label", `Geregistreerde ritten: ${count}`);
+      }
     }, (err) => {
       console.error("ridesCount realtime fout:", err);
       if (rRides) rRides.textContent = "—";
@@ -142,5 +163,5 @@ export function initMemberView() {
   });
 }
 
-// Compat-layer: als je ook de oude IIFE hebt die na rMemberNo een regel toevoegt,
-// blijft die werken omdat we hier niets verwijderen; rRidesCount krijgt voorrang als aanwezig.
+// Compat-layer: als je ook de oude IIFE had, dit bestand vervangt die noodzaak doordat
+// we nu direct #rRidesCount updaten en toegankelijk maken met title/aria-label.
