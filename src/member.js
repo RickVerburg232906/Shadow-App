@@ -205,3 +205,92 @@ export function initMemberView() {
 
   findBtn?.addEventListener("click", handleFind);
 }
+
+
+// [RIDES_AUGMENT] — minimale toevoeging zonder bestaande code te wijzigen
+// Voegt dynamisch een sectie "Geregistreerde ritten" toe zodra rMemberNo gevuld is.
+// Verwacht Firestore collectie: rideLogs { memberUid, ts, delta, context }
+import { collection as _c, query as _q, orderBy as _o, limit as _l, getDocs as _g } from "firebase/firestore";
+
+(function augmentRides(){
+  function ensureRidesUI() {
+    const result = document.getElementById("result");
+    if (!result) return null;
+    let wrap = document.getElementById("ridesWrap");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "ridesWrap";
+      wrap.style.marginTop = "14px";
+      const title = document.createElement("h3");
+      title.textContent = "Geregistreerde ritten (laatste 20)";
+      const list = document.createElement("div");
+      list.id = "rideList";
+      list.className = "qr-log-list";
+      wrap.appendChild(title);
+      wrap.appendChild(list);
+      result.insertAdjacentElement("afterend", wrap);
+    }
+    return wrap;
+  }
+
+  async function loadRideLogs(memberId) {
+    try {
+      const col = _c(db, "rideLogs");
+      const qy = _q(col, _o("ts","desc"), _l(20));
+      const snap = await _g(qy);
+      const items = [];
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.memberUid === memberId) items.push({ id: d.id, ...data });
+      });
+      return items;
+    } catch (e) {
+      console.error("Rides laden mislukt:", e);
+      return [];
+    }
+  }
+
+  async function renderRidesFor(memberId) {
+    const wrap = ensureRidesUI();
+    if (!wrap) return;
+    const list = document.getElementById("rideList");
+    if (!list) return;
+    list.innerHTML = "";
+    const items = await loadRideLogs(memberId);
+    if (!items.length) {
+      list.innerHTML = '<div class="muted">Geen ritten gevonden.</div>';
+      return;
+    }
+    for (const r of items) {
+      const dt = r.ts && r.ts.toDate ? r.ts.toDate() : null;
+      const row = document.createElement("div");
+      row.className = "qr-log-row";
+      row.innerHTML = `<div>${dt ? dt.toLocaleString() : "—"}</div>
+                       <div><b>${r.delta ? (r.delta>0? "+"+r.delta:r.delta) : "+1"}</b></div>
+                       <div class="muted">${r.context || "scan"}</div>`;
+      list.appendChild(row);
+    }
+  }
+
+  const target = document.getElementById("rMemberNo");
+  if (!target) return;
+
+  // Observe tekstverandering van rMemberNo → laad ritten
+  const obs = new MutationObserver(() => {
+    const raw = (target.textContent || "").trim();
+    const id = raw.replace(/^#/, "");
+    if (id) renderRidesFor(id);
+  });
+  obs.observe(target, { childList: true, characterData: true, subtree: true });
+
+  // fallback: klik op "Kies" of Enter -> probeer na een korte delay
+  const tryTrigger = () => setTimeout(() => {
+    const raw = (target.textContent || "").trim();
+    const id = raw.replace(/^#/, "");
+    if (id) renderRidesFor(id);
+  }, 200);
+  document.getElementById("findBtn")?.addEventListener("click", tryTrigger);
+  document.getElementById("nameInput")?.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") tryTrigger();
+  });
+})();

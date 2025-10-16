@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, query, where, orderBy, startAt, endAt, limit,
-  getDocs, getDoc, doc, writeBatch, setDoc
+  getDocs, getDoc, doc, writeBatch, setDoc, addDoc, serverTimestamp, increment
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes } from "firebase/storage";
 
@@ -25,5 +25,5 @@ export const storage = getStorage(app);
 // Re-export helpers
 export {
   collection, query, where, orderBy, startAt, endAt, limit,
-  getDocs, getDoc, doc, writeBatch, setDoc, ref, uploadBytes
+  getDocs, getDoc, doc, writeBatch, setDoc, addDoc, serverTimestamp, increment, ref, uploadBytes
 };
