@@ -29,3 +29,7 @@ body { margin: 0; background:#0b0c10; color:#e5e7eb; }
 .suggest li:hover { background:#1f2937; }
 .small { opacity:.7; font-size:.9rem; }
 input { padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0b1220; color:#e5e7eb; }
+
+
+
+.qr-reader{ width:100%; border:1px dashed #334155; border-radius:12px; padding:8px; }

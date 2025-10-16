@@ -100,4 +100,76 @@ export function initAdminView() {
   }
 
   $("uploadBtn")?.addEventListener("click", handleUpload);
+  // Init QR scanner sectie
+  try { initAdminQRScanner(); } catch(_) {}
+
 }
+
+
+/** =====================
+ *  QR SCANNER (Admin tab)
+ *  - Renders Html5QrcodeScanner inside #adminQRReader
+ *  - Start/Stop via buttons; shows last result in #adminQRResult
+ *  ===================== */
+function initAdminQRScanner() {
+  const $ = (id) => document.getElementById(id);
+  const startBtn = $("adminScanStart");
+  const stopBtn  = $("adminScanStop");
+  const statusEl = $("adminQRStatus");
+  const readerEl = $("adminQRReader");
+  const resultEl = $("adminQRResult");
+
+  let scanner = null;
+
+  function ensureLib() {
+    if (!window.Html5QrcodeScanner) {
+      statusEl.textContent = "Bibliotheek niet geladen — controleer je internet.";
+      return false;
+    }
+    return true;
+  }
+
+  function parseText(text) {
+    const mNaam = text.match(/naam\s*:\s*([^;]+)/i);
+    const mLid  = text.match(/lidnr\s*:\s*([^;]+)/i);
+    return {
+      naam: mNaam ? mNaam[1].trim() : null,
+      lid : mLid ? mLid[1].trim() : null,
+      raw : text
+    };
+  }
+
+  function onScanSuccess(decodedText) {
+    const p = parseText(decodedText || "");
+        const summary = (p.naam || p.lid)
+      ? `${p.naam ? "Naam: " + p.naam : ""} ${p.lid ? "(LidNr: " + p.lid + ")" : ""}`.trim()
+      : p.raw;
+    resultEl.textContent = "Gescand: " + summary;
+    statusEl.textContent = "✅ Succes";
+    // TODO: optioneel: direct zoeken of updaten in Firestore
+  }
+  function onScanError(_) { /* stil */ }
+
+  async function start() {
+    if (!ensureLib()) return;
+    statusEl.textContent = "Camera openen…";
+    // Clear old instance
+    try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
+    readerEl.innerHTML = "";
+    scanner = new Html5QrcodeScanner("adminQRReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, false);
+    scanner.render(onScanSuccess, onScanError);
+    statusEl.textContent = "Richt je camera op de QR-code…";
+  }
+
+  async function stop() {
+    statusEl.textContent = "Stoppen…";
+    try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
+    scanner = null;
+    readerEl.innerHTML = "";
+    statusEl.textContent = "⏸️ Gestopt";
+  }
+
+  startBtn?.addEventListener("click", start);
+  stopBtn?.addEventListener("click", stop);
+}
+
