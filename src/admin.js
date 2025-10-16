@@ -141,7 +141,9 @@ function initAdminQRScanner() {
 
   function onScanSuccess(decodedText) {
     const p = parseText(decodedText || "");
-    const summary = p.naam || p.lid ? \`\${p.naam ? "Naam: " + p.naam : ""} \${p.lid ? "(LidNr: " + p.lid + ")" : ""}\` : p.raw;
+        const summary = (p.naam || p.lid)
+      ? `${p.naam ? "Naam: " + p.naam : ""} ${p.lid ? "(LidNr: " + p.lid + ")" : ""}`.trim()
+      : p.raw;
     resultEl.textContent = "Gescand: " + summary;
     statusEl.textContent = "✅ Succes";
     // TODO: optioneel: direct zoeken of updaten in Firestore
