@@ -195,3 +195,7 @@ body{
   border: 1px solid #1e3a8a;
   box-shadow: 0 12px 26px var(--shadow);
 }
+
+
+/* FIX: modal should be hidden when .sa-hidden is present */
+.sa-modal.sa-hidden { display: none !important; }
