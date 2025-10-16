@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
-import { collection, setDoc } from "firebase/firestore";
+import { collection, setDoc, increment } from "firebase/firestore";
 
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel"];
 // Toggle: set to true if you configure Firebase Auth + Storage rules correctly.
@@ -111,6 +111,16 @@ export function initAdminView() {
  *  - Renders Html5QrcodeScanner inside #adminQRReader
  *  - Start/Stop via buttons; shows last result in #adminQRResult
  *  ===================== */
+
+// Admin: rides +1 helper
+async function bookRide(lid, naam) {
+  const id = String(lid || "").trim();
+  if (!id) throw new Error("Geen LidNr meegegeven");
+  // Gebruik setDoc + increment zodat het ook werkt als het document nog niet bestaat
+  await setDoc(doc(db, "members", id), { ridesCount: increment(1) }, { merge: true });
+  return id;
+}
+
 function initAdminQRScanner() {
   const $ = (id) => document.getElementById(id);
   const startBtn = $("adminScanStart");
@@ -153,12 +163,16 @@ function initAdminQRScanner() {
     const naam = p.naam || "(onbekend)";
     const lid  = p.lid  || "(onbekend)";
     openBookModal(`Wilt u een rit opboeken van ${naam} ${lid}?`,
-      () => {
-        // JA: hier kun je een Firestore-actie of navigatie doen
-        statusEl.textContent = `🚗 Rit opboeken gestart voor ${naam} ${lid}`;
+      async () => {
+        try {
+          await bookRide(lid, naam);
+          statusEl.textContent = `✅ Rit +1 voor ${naam} ${lid}`;
+        } catch (e) {
+          console.error(e);
+          statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`;
+        }
       },
       () => {
-        // NEE: niets doen, scanner kan desgewenst opnieuw starten
         statusEl.textContent = "⏸️ Geannuleerd";
       }
     );
