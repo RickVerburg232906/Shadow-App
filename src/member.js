@@ -111,6 +111,8 @@ export function initMemberView() {
 
     const payload = JSON.stringify({ t: "member", uid: entry.id });
     QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
+      const privacyEl = document.getElementById("qrPrivacy");
+      if (privacyEl) privacyEl.style.display = "block";
       if (err) {
         errBox.textContent = "QR genereren mislukte.";
         errBox.style.display = "block";
@@ -118,6 +120,8 @@ export function initMemberView() {
       }
       resultBox.style.display = "grid";
     });
+
+
 
     try { if (unsubscribe) { unsubscribe(); } } catch(_) {}
     const ref = doc(collection(db, "members"), entry.id);
