@@ -86,7 +86,33 @@
           <div id="log" class="log"></div>
         </div>
         
-      </section>
+      
+        <!-- Reset alle ridesCount sectie -->
+        <div class="card" id="resetRidesCard">
+          <h3>Beheer: Ritten resetten</h3>
+          <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (ridesCount) terug naar 0 voor alle leden.</p>
+          <button id="resetRidesBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset alle ritten</button>
+          <div id="resetStatus" class="status"></div>
+        </div>
+
+        <!-- Bevestigingsmodal -->
+        <div id="resetModal" class="modal" style="display:none;">
+          <div class="modal-dialog">
+            <div class="modal-header">
+              <h3>Reset alle ritten?</h3>
+              <button id="resetClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
+            </div>
+            <div class="modal-body">
+              <p>Weet je zeker dat je <strong>alle</strong> <code>ridesCount</code> waardes naar <strong>0</strong> wilt zetten?</p>
+              <p class="muted">Deze actie geldt voor alle leden en kan niet ongedaan worden gemaakt.</p>
+            </div>
+            <div class="modal-actions">
+              <button id="resetConfirm" class="btn" style="border-color:#ef4444;">Ja, reset alles</button>
+              <button id="resetCancel" class="btn btn-ghost">Nee, annuleren</button>
+            </div>
+          </div>
+        </div>
+</section>
     </main>
 
     <script type="module" src="/src/main.js"></script>

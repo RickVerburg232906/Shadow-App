@@ -1,6 +1,8 @@
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
-import { collection, setDoc, increment, getDoc } from "firebase/firestore";
+import {
+  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit, startAfter
+} from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel"];
@@ -70,12 +72,13 @@ export function initAdminView() {
     return rows;
   }
 
+  // ⚠️ Belangrijk: we negeren elke 'ridesCount' uit het bestand
+  // zodat bestaande waarden niet overschreven worden.
   function normalizeRows(rows) {
-    return rows.map((r, idx) => {
+    return rows.map((r) => {
       const out = {};
       for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
-      const rc = r["ridesCount"];
-      out["ridesCount"] = rc === "" || rc === undefined ? 0 : Number(rc);
+      // GEEN ridesCount hier!
       return out;
     });
   }
@@ -90,9 +93,11 @@ export function initAdminView() {
       const id = String(r["LidNr"] || "").trim();
       if (!/^\d+$/.test(id)) { skipped++; continue; }
 
+      // Alleen profielvelden schrijven; ridesCount NIET overschrijven.
+      // Gebruik increment(0): behoudt bestaande waarde; als veld ontbreekt → wordt 0.
       const clean = {};
       for (const k of REQUIRED_COLS) clean[k] = r[k];
-      clean["ridesCount"] = Number(r["ridesCount"] ?? 0);
+      clean["ridesCount"] = increment(0);
 
       batch.set(doc(db, "members", id), clean, { merge: true });
       updated++;
@@ -121,13 +126,11 @@ export function initAdminView() {
       statusEl.textContent = "Importeren naar Firestore…";
       const res = await importRowsToFirestore(rows);
       log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
-      statusEl.textContent = "✅ Import voltooid";
-      showToast("Upload voltooid", true);
+      statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
     } catch (e) {
       console.error(e);
       statusEl.textContent = "❌ Fout tijdens import";
       log(String(e?.message || e), "err");
-      showToast("Fout tijdens import", false);
     } finally {
       setLoading(false);
       uploading = false;
@@ -135,6 +138,15 @@ export function initAdminView() {
   }
 
   $("uploadBtn")?.addEventListener("click", handleUpload);
+
+  // ===== Reset-alle-ritten (popup bevestiging) =====
+  const resetBtn = document.getElementById("resetRidesBtn");
+  const resetStatus = document.getElementById("resetStatus");
+  resetBtn?.addEventListener("click", async () => {
+    const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
+    if (!ok) return;
+    await resetAllRidesCount(resetStatus);
+  });
 
   // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
@@ -309,4 +321,40 @@ function initAdminQRScanner() {
 
   startBtn?.addEventListener("click", start);
   stopBtn?.addEventListener("click", stop);
+}
+
+// ===== Firestore helper: reset alle ridesCount in batches ======
+async function resetAllRidesCount(statusEl) {
+  if (!statusEl) return;
+  statusEl.textContent = "Voorbereiden…";
+  let total = 0;
+
+  try {
+    let last = null;
+    const pageSize = 400; // veilig onder batch-limiet
+
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) break;
+
+      let batch = writeBatch(db);
+      snapshot.forEach((docSnap) => {
+        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
+      });
+      await batch.commit();
+      total += snapshot.size;
+      statusEl.textContent = `Gerest: ${total} leden…`;
+
+      last = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < pageSize) break;
+    }
+
+    statusEl.textContent = `✅ Klaar. Alle ridesCount naar 0 gezet voor ${total} leden.`;
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
+  }
 }
