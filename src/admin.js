@@ -50,7 +50,6 @@ export function initAdminView() {
   }
 
   function normalizeRows(rows) {
-    // Zorgt dat vereiste kolommen bestaan; zet ridesCount (optioneel) naar nummer
     return rows.map((r) => {
       const out = {};
       for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
@@ -148,37 +147,24 @@ function extractLidFromText(text) {
   return null;
 }
 
-// Bevestigingsmodal aansturen
-function openBookModal(message, onYes, onNo) {
-  const $ = (id) => document.getElementById(id);
-  const modal = $("adminBookModal");
-  const msgEl = $("adminBookMsg");
-  const btnYes = $("adminBookYes");
-  const btnNo  = $("adminBookNo");
-  const btnX   = $("adminBookClose");
-  if (!modal) { console.warn("Modal ontbreekt in DOM"); onNo && onNo(); return; }
+// Kleine toast (1 seconde)
+function showToast(msg, ok = true) {
+  let el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  Object.assign(el.style, {
+    position: "fixed", left: "50%", transform: "translateX(-50%)",
+    bottom: "20px", background: ok ? "#16a34a" : "#ef4444", color: "#0b0c10",
+    padding: "10px 14px", borderRadius: "10px", fontWeight: "600",
+    zIndex: 200, boxShadow: "0 8px 24px rgba(0,0,0,.35)"
+  });
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
 
-  let handled = false;
-  function cleanup() {
-    btnYes && (btnYes.onclick = null);
-    btnNo  && (btnNo.onclick  = null);
-    btnX   && (btnX.onclick   = null);
-    modal.style.display = "none";
-  }
-
-  msgEl && (msgEl.textContent = message);
-  modal.style.display = "flex";
-
-  const resolve = (isNo) => {
-    if (handled) return;
-    handled = true;
-    cleanup();
-    if (isNo) { onNo && onNo(); } else { onYes && onYes(); }
-  };
-
-  btnYes && (btnYes.onclick = () => resolve(false));
-  btnNo  && (btnNo.onclick  = () => resolve(true));
-  btnX   && (btnX.onclick   = btnNo?.onclick);
+// Tijdstempel -> “HH:MM:SS”
+function hhmmss(d = new Date()) {
+  return d.toTimeString().slice(0, 8);
 }
 
 // =====================================================
@@ -192,7 +178,24 @@ function initAdminQRScanner() {
   const readerEl = $("adminQRReader");
   const resultEl = $("adminQRResult");
 
+  // Maak/zoek log container onder de QR sectie
+  function ensureLogContainer() {
+    let log = document.getElementById("adminQRLog");
+    if (!log) {
+      log = document.createElement("div");
+      log.id = "adminQRLog";
+      log.style.marginTop = "10px";
+      log.innerHTML = `<h4 style="margin:6px 0 6px;">Registraties</h4><div id="adminQRLogList" class="qr-log-list"></div>`;
+      // Plaats onder resultEl als die bestaat, anders onder readerEl
+      (resultEl?.parentElement || readerEl?.parentElement || readerEl)?.appendChild(log);
+    }
+    return document.getElementById("adminQRLogList");
+  }
+  const qrLogList = ensureLogContainer();
+
   let scanner = null;
+  let lastScanByText = new Map(); // decodedText -> timestamp(ms)
+  const COOLDOWN_MS = 30000; // 30 seconden
 
   function ensureLib() {
     if (!window.Html5QrcodeScanner) {
@@ -208,55 +211,80 @@ function initAdminQRScanner() {
     return { naam: mNaam ? mNaam[1].trim() : null, lid: mLid ? mLid[1].trim() : null, raw: text };
   }
 
-  function onScanSuccess(decodedText) {
+  function appendLog({ naam, lid, ok, reason }) {
+    if (!qrLogList) return;
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.justifyContent = "space-between";
+    row.style.gap = "8px";
+    row.style.padding = "6px 8px";
+    row.style.border = "1px solid #1f2937";
+    row.style.borderRadius = "8px";
+    row.style.marginBottom = "6px";
+    row.style.background = ok ? "#0f1d12" : "#1a0f0f";
+
+    const left = document.createElement("div");
+    left.textContent = `${hhmmss()} — ${naam ? naam + " " : ""}${lid ? "(LidNr: " + lid + ")" : "(onbekend)"}`;
+    const right = document.createElement("div");
+    right.textContent = ok ? "✓ bijgewerkt" : `✗ ${reason || "geweigerd"}`;
+    row.appendChild(left);
+    row.appendChild(right);
+
+    qrLogList.prepend(row);
+  }
+
+  async function processScan(decodedText) {
+    const now = Date.now();
+    // Cooldown per exact dezelfde QR-tekst
+    const prev = lastScanByText.get(decodedText) || 0;
+    if (now - prev < COOLDOWN_MS) {
+      // Stil terugkeren: geen popup, geen status, geen log
+      return;
+    }
+
+
+    lastScanByText.set(decodedText, now);
+
     const p = parseText(decodedText || "");
     let lid = p.lid || extractLidFromText(decodedText || "");
     let naam = p.naam || "";
 
-    (async () => {
+    if (!lid) {
+      statusEl && (statusEl.textContent = "⚠️ Geen LidNr in QR");
+      showToast("⚠️ Onbekende QR (geen LidNr)", false);
+      appendLog({ naam: "", lid: "", ok: false, reason: "geen LidNr" });
+      return;
+    }
+
+    try {
+      // Optioneel: haal naam op
       try {
-        if (lid) {
-          const snap = await getDoc(doc(db, "members", String(lid)));
-          if (snap.exists()) {
-            const d = snap.data();
-            const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
-              .replace(/\s+/g, " ").trim();
-            naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
-          }
+        const snap = await getDoc(doc(db, "members", String(lid)));
+        if (snap.exists()) {
+          const d = snap.data();
+          const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
+            .replace(/\s+/g, " ").trim();
+          naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
         }
-      } catch (e) {
-        console.warn("Lookup mislukt:", e);
-      }
+      } catch (e) { /* soft fail */ }
 
-      const summary = (naam || lid)
-        ? `${naam ? "Naam: " + naam : ""} ${lid ? "(LidNr: " + lid + ")" : ""}`.trim()
-        : (p.raw || "—");
-      resultEl && (resultEl.textContent = "Gescand: " + summary);
-      statusEl && (statusEl.textContent = (lid ? "✅ Succes" : "⚠️ Geen LidNr in QR"));
+      // Boek direct (geen popup)
+      await bookRide(lid, naam || "");
+      statusEl && (statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`);
+      resultEl && (resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`);
+      showToast(`✅ QR-code gescand (LidNr ${lid})`, true);
+      appendLog({ naam: naam || "", lid, ok: true });
+    } catch (e) {
+      console.error(e);
+      statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);
+      showToast("❌ Fout bij updaten", false);
+      appendLog({ naam: naam || "", lid, ok: false, reason: "update fout" });
+    }
+  }
 
-      // Stop tijdelijk om doorlopend scannen te voorkomen
-      try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
-      readerEl && (readerEl.innerHTML = "");
-
-      // Modal vragen
-      const finalNaam = naam || "(onbekend)";
-      const finalLid  = lid  || "(onbekend)";
-      openBookModal(`Wilt u een rit opboeken van ${finalNaam} ${finalLid}?`,
-        async () => {
-          if (!lid) { statusEl && (statusEl.textContent = "❌ Geen LidNr — kan niet boeken"); return; }
-          try {
-            await bookRide(lid, finalNaam);
-            statusEl && (statusEl.textContent = `✅ Rit +1 voor ${finalNaam} ${finalLid}`);
-          } catch (e) {
-            console.error(e);
-            statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);
-          }
-        },
-        () => {
-          statusEl && (statusEl.textContent = "⏸️ Geannuleerd");
-        }
-      );
-    })();
+  function onScanSuccess(decodedText) {
+    // html5-qrcode kan meerdere callbacks in korte tijd triggeren → throttle via cooldown/Map
+    processScan(decodedText);
   }
 
   function onScanError(_) { /* stil */ }
