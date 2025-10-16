@@ -238,15 +238,10 @@ function initAdminQRScanner() {
     // Cooldown per exact dezelfde QR-tekst
     const prev = lastScanByText.get(decodedText) || 0;
     if (now - prev < COOLDOWN_MS) {
-      const sec = Math.ceil((COOLDOWN_MS - (now - prev)) / 1000);
-      statusEl && (statusEl.textContent = `⏸️ Cooldown: nog ${sec}s voor dezelfde QR`);
-      showToast(`⏸️ Cooldown actief (${sec}s)`, false);
-      // Log afwijzing
-      const p0 = parseText(decodedText || "");
-      const lid0 = p0.lid || extractLidFromText(decodedText || "");
-      appendLog({ naam: p0.naam || "", lid: lid0 || "", ok: false, reason: `cooldown ${sec}s` });
+      // Stil terugkeren: geen popup, geen status, geen log
       return;
     }
+
 
     lastScanByText.set(decodedText, now);
 
