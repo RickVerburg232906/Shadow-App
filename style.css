@@ -33,3 +33,10 @@ input { padding:8px 10px; border-radius:8px; border:1px solid #334155; backgroun
 
 
 .qr-reader{ width:100%; border:1px dashed #334155; border-radius:12px; padding:8px; }
+
+/* Simple modal */
+.modal { position: fixed; inset: 0; background: rgba(2,6,23,.6); display:flex; align-items:center; justify-content:center; z-index: 120; }
+.modal-dialog { width: min(92vw, 520px); background:#0f172a; border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+.modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.modal-body { margin: 8px 0 12px; color:#e5e7eb; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; }

@@ -141,12 +141,27 @@ function initAdminQRScanner() {
 
   function onScanSuccess(decodedText) {
     const p = parseText(decodedText || "");
-        const summary = (p.naam || p.lid)
+    const summary = (p.naam || p.lid)
       ? `${p.naam ? "Naam: " + p.naam : ""} ${p.lid ? "(LidNr: " + p.lid + ")" : ""}`.trim()
       : p.raw;
     resultEl.textContent = "Gescand: " + summary;
     statusEl.textContent = "✅ Succes";
-    // TODO: optioneel: direct zoeken of updaten in Firestore
+    // Stop scanner tijdelijk zodat er niet doorlopend gescand wordt
+    (async () => { try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {} })();
+    readerEl.innerHTML = "";
+    // Toon bevestigingsmodal
+    const naam = p.naam || "(onbekend)";
+    const lid  = p.lid  || "(onbekend)";
+    openBookModal(`Wilt u een rit opboeken van ${naam} ${lid}?`,
+      () => {
+        // JA: hier kun je een Firestore-actie of navigatie doen
+        statusEl.textContent = `🚗 Rit opboeken gestart voor ${naam} ${lid}`;
+      },
+      () => {
+        // NEE: niets doen, scanner kan desgewenst opnieuw starten
+        statusEl.textContent = "⏸️ Geannuleerd";
+      }
+    );
   }
   function onScanError(_) { /* stil */ }
 
@@ -173,3 +188,35 @@ function initAdminQRScanner() {
   stopBtn?.addEventListener("click", stop);
 }
 
+
+
+/** Admin: Boek rit modal helpers */
+function openBookModal(message, onYes, onNo) {
+  const $ = (id) => document.getElementById(id);
+  const modal = $("adminBookModal");
+  const msgEl = $("adminBookMsg");
+  const btnYes = $("adminBookYes");
+  const btnNo  = $("adminBookNo");
+  const btnX   = $("adminBookClose");
+
+  let handled = false;
+  function cleanup() {
+    btnYes.onclick = null;
+    btnNo.onclick = null;
+    btnX.onclick = null;
+    modal.style.display = "none";
+  }
+
+  msgEl.textContent = message;
+  modal.style.display = "flex";
+  btnYes.onclick = () => { if (!handled) { handled = TrueFalse(false); } };
+  btnNo.onclick  = () => { if (!handled) { handled = TrueFalse(true); } };
+  btnX.onclick   = btnNo.onclick;
+
+  function TrueFalse(isNo){
+    cleanup();
+    if (isNo){ onNo && onNo(); }
+    else { onYes && onYes(); }
+    return true;
+  }
+}
