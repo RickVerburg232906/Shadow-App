@@ -139,8 +139,14 @@ export function initAdminView() {
 
   $("uploadBtn")?.addEventListener("click", handleUpload);
 
-  // ===== Reset-alle-ritten UI (alleen koppelen als die in index.html aanwezig is) =====
-  wireResetUI();
+  // ===== Reset-alle-ritten (popup bevestiging) =====
+  const resetBtn = document.getElementById("resetRidesBtn");
+  const resetStatus = document.getElementById("resetStatus");
+  resetBtn?.addEventListener("click", async () => {
+    const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
+    if (!ok) return;
+    await resetAllRidesCount(resetStatus);
+  });
 
   // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
@@ -315,30 +321,6 @@ function initAdminQRScanner() {
 
   startBtn?.addEventListener("click", start);
   stopBtn?.addEventListener("click", stop);
-}
-
-// ===== Reset-alle-ritten wiring (werkt als de knoppen in index.html bestaan) =====
-function wireResetUI() {
-  const resetBtn = document.getElementById("resetRidesBtn");
-  const resetModal = document.getElementById("resetModal");
-  const resetConfirm = document.getElementById("resetConfirm");
-  const resetCancel = document.getElementById("resetCancel");
-  const resetClose = document.getElementById("resetClose");
-  const resetStatus = document.getElementById("resetStatus");
-
-  if (!resetBtn || !resetModal) return; // niets te doen als UI niet aanwezig is
-
-  function openModal() { if (resetModal) resetModal.style.display = "flex"; }
-  function closeModal() { if (resetModal) resetModal.style.display = "none"; }
-
-  resetBtn?.addEventListener("click", openModal);
-  resetCancel?.addEventListener("click", closeModal);
-  resetClose?.addEventListener("click", closeModal);
-
-  resetConfirm?.addEventListener("click", async () => {
-    closeModal();
-    await resetAllRidesCount(resetStatus);
-  });
 }
 
 // ===== Firestore helper: reset alle ridesCount in batches ======
