@@ -65,7 +65,24 @@
           <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
           <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
-    </section></main>
+    
+        <!-- Boek rit modal -->
+        <div id="adminBookModal" class="modal" style="display:none;">
+          <div class="modal-dialog">
+            <div class="modal-header">
+              <h3>Rit opboeken</h3>
+              <button id="adminBookClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
+            </div>
+            <div class="modal-body">
+              <p id="adminBookMsg">Wilt u een rit opboeken?</p>
+            </div>
+            <div class="modal-actions">
+              <button id="adminBookYes" class="btn">Ja</button>
+              <button id="adminBookNo" class="btn btn-ghost">Nee</button>
+            </div>
+          </div>
+        </div>
+        </section></main>
 
     <script type="module" src="/src/main.js"></script>
   </body>

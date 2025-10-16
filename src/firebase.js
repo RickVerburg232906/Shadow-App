@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, query, where, orderBy, startAt, endAt, limit,
-  getDocs, doc, writeBatch, setDoc
+  getDocs, getDoc, doc, writeBatch, setDoc
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes } from "firebase/storage";
 
@@ -17,14 +17,13 @@ export const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// IMPORTANT FIX: initializeFirestore expects the Firebase App, not a Firestore instance
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 export const storage = getStorage(app);
 
-// Re-export Firestore helpers
+// Re-export helpers
 export {
   collection, query, where, orderBy, startAt, endAt, limit,
-  getDocs, doc, writeBatch, setDoc, ref, uploadBytes
+  getDocs, getDoc, doc, writeBatch, setDoc, ref, uploadBytes
 };
