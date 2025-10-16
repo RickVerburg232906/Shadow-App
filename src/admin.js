@@ -147,7 +147,7 @@ function extractLidFromText(text) {
   return null;
 }
 
-// Kleine toast (1 seconde)
+// Kleine toast (1 seconde) bij succes/fout
 function showToast(msg, ok = true) {
   let el = document.createElement("div");
   el.className = "toast";
@@ -186,7 +186,6 @@ function initAdminQRScanner() {
       log.id = "adminQRLog";
       log.style.marginTop = "10px";
       log.innerHTML = `<h4 style="margin:6px 0 6px;">Registraties</h4><div id="adminQRLogList" class="qr-log-list"></div>`;
-      // Plaats onder resultEl als die bestaat, anders onder readerEl
       (resultEl?.parentElement || readerEl?.parentElement || readerEl)?.appendChild(log);
     }
     return document.getElementById("adminQRLogList");
@@ -211,7 +210,7 @@ function initAdminQRScanner() {
     return { naam: mNaam ? mNaam[1].trim() : null, lid: mLid ? mLid[1].trim() : null, raw: text };
   }
 
-  function appendLog({ naam, lid, ok, reason }) {
+  function appendLog({ naam, lid, ok, reason, ridesTotal }) {
     if (!qrLogList) return;
     const row = document.createElement("div");
     row.style.display = "flex";
@@ -226,7 +225,9 @@ function initAdminQRScanner() {
     const left = document.createElement("div");
     left.textContent = `${hhmmss()} — ${naam ? naam + " " : ""}${lid ? "(LidNr: " + lid + ")" : "(onbekend)"}`;
     const right = document.createElement("div");
-    right.textContent = ok ? "✓ bijgewerkt" : `✗ ${reason || "geweigerd"}`;
+    right.textContent = ok
+      ? `✓ bijgewerkt${(ridesTotal ?? ridesTotal === 0) ? " — totaal: " + ridesTotal : ""}`
+      : `✗ ${reason || "geweigerd"}`;
     row.appendChild(left);
     row.appendChild(right);
 
@@ -235,19 +236,15 @@ function initAdminQRScanner() {
 
   async function processScan(decodedText) {
     const now = Date.now();
-    // Cooldown per exact dezelfde QR-tekst
+    // Cooldown per exact dezelfde QR-tekst — stil: geen toast/status/log
     const prev = lastScanByText.get(decodedText) || 0;
-    if (now - prev < COOLDOWN_MS) {
-      // Stil terugkeren: geen popup, geen status, geen log
-      return;
-    }
-
-
+    if (now - prev < COOLDOWN_MS) return;
     lastScanByText.set(decodedText, now);
 
     const p = parseText(decodedText || "");
     let lid = p.lid || extractLidFromText(decodedText || "");
     let naam = p.naam || "";
+    let beforeCount = null;
 
     if (!lid) {
       statusEl && (statusEl.textContent = "⚠️ Geen LidNr in QR");
@@ -257,7 +254,7 @@ function initAdminQRScanner() {
     }
 
     try {
-      // Optioneel: haal naam op
+      // Optioneel: haal naam en huidige ridesCount op
       try {
         const snap = await getDoc(doc(db, "members", String(lid)));
         if (snap.exists()) {
@@ -265,15 +262,23 @@ function initAdminQRScanner() {
           const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
             .replace(/\s+/g, " ").trim();
           naam = composed || naam || (d["Naam"] || d["name"] || d["naam"] || "");
+          const rc = Number(d?.ridesCount);
+          beforeCount = Number.isFinite(rc) ? rc : 0;
+        } else {
+          beforeCount = 0;
         }
-      } catch (e) { /* soft fail */ }
+      } catch (e) {
+        beforeCount = (beforeCount ?? 0);
+      }
 
       // Boek direct (geen popup)
       await bookRide(lid, naam || "");
+      const newTotal = (beforeCount ?? 0) + 1;
+
       statusEl && (statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`);
       resultEl && (resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`);
       showToast(`✅ QR-code gescand (LidNr ${lid})`, true);
-      appendLog({ naam: naam || "", lid, ok: true });
+      appendLog({ naam: naam || "", lid, ok: true, ridesTotal: newTotal });
     } catch (e) {
       console.error(e);
       statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);

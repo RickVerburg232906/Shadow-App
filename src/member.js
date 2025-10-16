@@ -205,3 +205,51 @@ export function initMemberView() {
 
   findBtn?.addEventListener("click", handleFind);
 }
+
+
+// [RIDESCOUNT_REALTIME] — realtime ridesCount updates via onSnapshot
+import { doc as _doc3, onSnapshot as _onSnap3, collection as _col3 } from "firebase/firestore";
+
+(function augmentRidesCountRealtime(){
+  const lidLine = document.getElementById("rMemberNo");
+  if (!lidLine) return;
+
+  let holder = document.getElementById("ridesCountLine");
+  function ensureHolder() {
+    if (!holder) {
+      holder = document.createElement("div");
+      holder.id = "ridesCountLine";
+      holder.className = "muted";
+      lidLine.insertAdjacentElement("afterend", holder);
+    }
+    return holder;
+  }
+
+  let unsubscribe = null;
+
+  function listen(memberId){
+    try { if (unsubscribe) { unsubscribe(); } } catch(_) {}
+    if (!memberId) return;
+    const ref = _doc3(_col3(db, "members"), memberId);
+    unsubscribe = _onSnap3(ref, (snap) => {
+      const data = snap.exists() ? snap.data() : null;
+      const count = data && typeof data.ridesCount === "number" ? data.ridesCount : 0;
+      ensureHolder().textContent = `Geregistreerde ritten: ${count}`;
+    }, (err) => {
+      console.error("ridesCount realtime fout:", err);
+      ensureHolder().textContent = `Geregistreerde ritten: —`;
+    });
+  }
+
+  // Observe veranderingen in #rMemberNo om juiste doc te volgen
+  const obs = new MutationObserver(() => {
+    const raw = (lidLine.textContent || "").trim();
+    const id = raw.replace(/^#/, "");
+    if (id) listen(id);
+  });
+  obs.observe(lidLine, { childList: true, characterData: true, subtree: true });
+
+  // Als er al een waarde staat bij load, luister meteen
+  const initId = (lidLine.textContent || "").trim().replace(/^#/, "");
+  if (initId) listen(initId);
+})();
