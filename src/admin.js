@@ -196,7 +196,30 @@ function initAdminQRScanner() {
       );
     })();
   }
+
   function onScanError(_) { /* stil */ }
+
+  async function start() {
+    if (!ensureLib()) return;
+    statusEl.textContent = "Camera openen…";
+    // Clear old instance
+    try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
+    readerEl.innerHTML = "";
+    scanner = new Html5QrcodeScanner("adminQRReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, false);
+    scanner.render(onScanSuccess, onScanError);
+    statusEl.textContent = "Richt je camera op de QR-code…";
+  }
+
+  async function stop() {
+    statusEl.textContent = "Stoppen…";
+    try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
+    scanner = null;
+    readerEl.innerHTML = "";
+    statusEl.textContent = "⏸️ Gestopt";
+  }
+
+  startBtn?.addEventListener("click", start);
+  stopBtn?.addEventListener("click", stop);
 }
   function onScanError(_) { /* stil */ }
 
