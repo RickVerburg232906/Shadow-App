@@ -27,6 +27,7 @@ function ensureHtml5Qrcode() {
   });
 }
 
+
 // =====================================================
 // ===============  Admin hoofd-initialisatie  =========
 // =====================================================
@@ -70,12 +71,13 @@ export function initAdminView() {
     return rows;
   }
 
+  // ⚠️ Belangrijk: we negeren elke 'ridesCount' uit het bestand
+  // zodat bestaande waarden niet overschreven worden.
   function normalizeRows(rows) {
-    return rows.map((r, idx) => {
+    return rows.map((r) => {
       const out = {};
       for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
-      const rc = r["ridesCount"];
-      out["ridesCount"] = rc === "" || rc === undefined ? 0 : Number(rc);
+      // GEEN ridesCount hier!
       return out;
     });
   }
@@ -90,9 +92,11 @@ export function initAdminView() {
       const id = String(r["LidNr"] || "").trim();
       if (!/^\d+$/.test(id)) { skipped++; continue; }
 
+      // Alleen profielvelden schrijven; ridesCount NIET overschrijven.
+      // Gebruik increment(0): behoudt bestaande waarde; als veld ontbreekt → wordt 0.
       const clean = {};
       for (const k of REQUIRED_COLS) clean[k] = r[k];
-      clean["ridesCount"] = Number(r["ridesCount"] ?? 0);
+      clean["ridesCount"] = increment(0);
 
       batch.set(doc(db, "members", id), clean, { merge: true });
       updated++;
@@ -121,13 +125,11 @@ export function initAdminView() {
       statusEl.textContent = "Importeren naar Firestore…";
       const res = await importRowsToFirestore(rows);
       log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
-      statusEl.textContent = "✅ Import voltooid";
-      showToast("Upload voltooid", true);
+      statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
     } catch (e) {
       console.error(e);
       statusEl.textContent = "❌ Fout tijdens import";
       log(String(e?.message || e), "err");
-      showToast("Fout tijdens import", false);
     } finally {
       setLoading(false);
       uploading = false;
@@ -136,7 +138,7 @@ export function initAdminView() {
 
   $("uploadBtn")?.addEventListener("click", handleUpload);
 
-  // Init QR-scanner sectie (Admin)
+   // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
 }
 
