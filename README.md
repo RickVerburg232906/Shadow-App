@@ -1,26 +1,18 @@
-# Shadow App (Fixed) — Excel upload werkt ✨
+# Shadow App — Mobile Optimized 📱
 
-Eenvoudige Vite + Firebase webapp:
-- **Lid**: zoek op achternaam (`Naam`) → toon naam/LidNr + QR (payload bevat alleen `uid` = LidNr).
-- **Admin**: upload Excel/CSV met verplichte kolommen → import naar Firestore-collectie `members` (document-id = `LidNr`). Het originele bestand wordt ook opgeslagen in Cloud Storage onder `imports/`.
+Deze versie is geoptimaliseerd voor telefoons:
+- Grote touch targets (≥44px), duidelijke knoppen en invoervelden.
+- QR-bibliotheek wordt **lazy** geladen bij starten van de scanner (snellere eerste load).
+- QR-grootte schaalt mee met schermbreedte (tot 320px).
+- Suggestielijst is scrolbaar en 'tap-vriendelijk'.
+- Safe-area aware (iOS): toasts en topbar houden rekening met notch.
+- `viewport-fit=cover` en PWA-manifest aanwezig.
 
-## Snel starten
+## Gebruik
 ```bash
 npm i
 npm run dev
 ```
 Open de URL die Vite toont.
 
-## Firebase configureren
-Pas eventueel `src/firebase.js` aan met je eigen `firebaseConfig`. De huidige config komt uit je ZIP.
-
-## Excel/CSV
-Verplichte kolommen (exact): `LidNr`, `Naam`, `Voor naam`, `Voor letters`, `Tussen voegsel`.
-
-## Waar komen de data?
-- **Firestore**: collectie `members`, doc-id = `LidNr`. Velden: dezelfde kolommen + `ridesCount` (default 0).
-- **Storage**: het geüploade bronbestand onder `imports/<timestamp>-<filename>`.
-
-## Opmerkingen
-- Geen App Check en geen admin-wachtwoord in deze minimale versie (simpelst zodat upload zeker werkt). Later kun je dit aanscherpen (claims/rules).
-- Batch-commit na max ~480 writes om onder de Firestore-limiet van 500 te blijven.
+> Productie-tip: verplaats het +1 zetten van `ridesCount` naar een Cloud Function en beveilig Firestore met rules.

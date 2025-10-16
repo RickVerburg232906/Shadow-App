@@ -18,7 +18,8 @@ export const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  experimentalAutoDetectLongPolling: true
 });
 export const storage = getStorage(app);
 

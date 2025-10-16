@@ -6,7 +6,7 @@
     <title>Shadow App</title>
     <link rel="stylesheet" href="/style.css">
     <script src="https://unpkg.com/html5-qrcode" defer></script>
-</head>
+  </head>
   <body>
     <header class="topbar">
       <div class="brand">Shadow App</div>
@@ -29,8 +29,10 @@
           <div id="error" class="error" style="display:none"></div>
           <div id="result" class="result" style="display:none">
             <div class="column">
-              <div><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-              <div><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+              <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+              <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+              <!-- ✅ Enige toevoeging: vaste plek voor ridesCount weergave -->
+              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="rRidesCount">—</span></div>
               <p> Ga nu naar de inschrijf balie om in te checken voor de rit</p>
             </div>
             <canvas id="qrCanvas" width="220" height="220"></canvas>
@@ -39,7 +41,7 @@
         </div>
       </section>
 
-      <!-- ADMIN VIEW -->
+      <!-- ADMIN VIEW (ongewijzigd) -->
       <section id="viewAdmin" class="view">
         <div class="card">
           <h1>Admin: Excel uploaden</h1>
@@ -66,7 +68,6 @@
           <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
     
-        <!-- Boek rit modal -->
         <div id="adminBookModal" class="modal" style="display:none;">
           <div class="modal-dialog">
             <div class="modal-header">
@@ -82,7 +83,8 @@
             </div>
           </div>
         </div>
-        </section></main>
+      </section>
+    </main>
 
     <script type="module" src="/src/main.js"></script>
   </body>
