@@ -44,18 +44,6 @@
 
       <!-- ADMIN VIEW (ongewijzigd) -->
       <section id="viewAdmin" class="view">
-        <div class="card">
-          <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
-          <div class="row">
-            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
-            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-            <span id="fileName" class="file-name">Geen bestand gekozen</span>
-            <button id="uploadBtn">Uploaden</button>
-          </div>
-          <div id="status" class="status"></div>
-          <div id="log" class="log"></div>
-        </div>
       
         <div class="card">
           <h3>QR code scannen</h3>
@@ -84,6 +72,20 @@
             </div>
           </div>
         </div>
+
+        <div class="card">
+          <h1>Admin: Excel uploaden</h1>
+          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
+          <div class="row">
+            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
+            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
+            <span id="fileName" class="file-name">Geen bestand gekozen</span>
+            <button id="uploadBtn">Uploaden</button>
+          </div>
+          <div id="status" class="status"></div>
+          <div id="log" class="log"></div>
+        </div>
+        
       </section>
     </main>
 
