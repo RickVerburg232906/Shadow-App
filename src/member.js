@@ -74,15 +74,48 @@ export function initMemberView() {
     return res;
   }
 
+  function hideResultBox() {
+    if (resultBox) resultBox.style.display = "none";
+    const privacyEl = document.getElementById("qrPrivacy");
+    if (privacyEl) privacyEl.style.display = "none";
+  }
+
+  function resetSelection() {
+    selectedDoc = null;
+    hideResultBox();
+    if (errBox) errBox.style.display = "none";
+    try { if (unsubscribe) unsubscribe(); } catch(_) {}
+    unsubscribe = null;
+  }
+
+  // On focus: direct QR/resultaat verbergen en (indien 1+ chars) meteen suggesties tonen
+  async function handleFocus() {
+    resetSelection();
+    const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
+    if (term.length >= 1) {
+      try {
+        const items = await queryByLastNamePrefix(term);
+        if (items && items.length) {
+          showSuggestions(items);
+        } else {
+          hideSuggestions();
+        }
+      } catch (e) {
+        console.error(e);
+        hideSuggestions();
+      }
+    } else {
+      // geen tekst → lijst verbergen
+      hideSuggestions();
+    }
+  }
+
   async function onInputChanged() {
     // Debounce snelle typbewegingen
     if (_debounceHandle) clearTimeout(_debounceHandle);
     _debounceHandle = setTimeout(async () => {
       try {
-        selectedDoc = null;
-        if (resultBox) resultBox.style.display = "none";
-        if (errBox) errBox.style.display = "none";
-        if (unsubscribe) { try { unsubscribe(); } catch(_) {} unsubscribe = null; }
+        resetSelection();
 
         const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
         if (term.length < 2) { hideSuggestions(); return; }
@@ -98,7 +131,7 @@ export function initMemberView() {
           return;
         }
 
-        // GEEN auto-select meer: altijd suggesties tonen, gebruiker kiest zelf.
+        // GEEN auto-select: altijd suggesties tonen
         showSuggestions(items);
       } catch (e) {
         console.error(e);
@@ -112,11 +145,11 @@ export function initMemberView() {
   }
 
   async function handleFind() {
-    // Geen auto-select bij Enter: alleen (opnieuw) suggesties tonen
+    // Enter → geen auto-select: alleen (opnieuw) suggesties tonen
     if (errBox) errBox.style.display = "none";
     try {
       const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
-      if (!term) return;
+      if (!term) { hideSuggestions(); return; }
       const items = await queryByLastNamePrefix(term);
       if (!items.length) {
         if (errBox) {
@@ -126,13 +159,7 @@ export function initMemberView() {
         hideSuggestions();
         return;
       }
-      // Als er al iets expliciet gekozen was (via klik), dan tonen; anders alleen lijst tonen
-      if (selectedDoc) {
-        renderSelected(selectedDoc);
-        hideSuggestions();
-      } else {
-        showSuggestions(items);
-      }
+      showSuggestions(items);
     } catch (e) {
       console.error(e);
       if (errBox) {
@@ -188,6 +215,7 @@ export function initMemberView() {
     });
   }
 
+  nameInput?.addEventListener("focus", handleFocus);
   nameInput?.addEventListener("input", onInputChanged);
   nameInput?.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") hideSuggestions();
