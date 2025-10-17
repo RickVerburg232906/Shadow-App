@@ -115,7 +115,7 @@ export function initAdminView() {
     const file = fileInput?.files?.[0];
     if (!file) { if (statusEl) statusEl.textContent = "❗ Kies eerst een bestand"; return; }
     uploading = true;
-    setLoading(True)
+    setLoading(true);
     if (statusEl) statusEl.textContent = "Bezig met inlezen…";
     if (logEl) logEl.innerHTML = "";
 
@@ -133,8 +133,8 @@ export function initAdminView() {
       if (statusEl) statusEl.textContent = "❌ Fout tijdens import";
       log(String(e?.message || e), "err");
     } finally {
-      setLoading(False)
-      uploading = False
+      setLoading(false);
+      uploading = false;
     }
   }
 
@@ -215,16 +215,16 @@ function initManualRideSection() {
 
   if (!input || !list || !box || !btn) return; // UI niet aanwezig
 
-  let selected = Null
-  let unsub = Null
+  let selected = null;
+  let unsub = null;
 
   function fullNameFrom(d) {
-    const tussen = (d["Tussen voegsel"] || "").trim();
+    const tussen = (d?.["Tussen voegsel"] || "").toString().trim();
     const parts = [
-      d["Voor naam"] || "",
-      d["Voor letters"] ? `(${d["Voor letters"]})` : "",
-      tussen ? tussen : "",
-      d["Naam"] || ""
+      (d?.["Voor naam"] || "").toString().trim(),
+      d?.["Voor letters"] ? `(${(d["Voor letters"]+"").trim()})` : "",
+      tussen,
+      (d?.["Naam"] || d?.["name"] || d?.["naam"] || "").toString().trim()
     ].filter(Boolean);
     return parts.join(" ").replace(/\s+/g, " ").trim();
   }
@@ -234,7 +234,7 @@ function initManualRideSection() {
     list.innerHTML = "";
     for (const it of items) {
       const li = document.createElement("li");
-      li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
+      li.textContent = `${fullNameFrom(it.data)} — ${it.id}`;
       li.addEventListener("click", () => {
         selectMember(it);
         hideSuggest();
@@ -244,32 +244,46 @@ function initManualRideSection() {
     list.style.display = items.length ? "block" : "none";
   }
 
+  // Zoeken: probeer "Naam" → "naam" → "name", anders fallback
   async function queryByLastNamePrefix(prefix) {
-    const qRef = query(
-      collection(db, "members"),
-      orderBy("Naam"),
-      startAt(prefix),
-      endAt(prefix + "\uf8ff"),
-      limit(8)
-    );
-    const snap = await getDocs(qRef);
-    const res = [];
-    snap.forEach(d => res.push({ id: d.id, data: d.data() }));
-    return res;
+    const fields = ["Naam", "naam", "name"];
+    for (const fld of fields) {
+      try {
+        const qRef = query(collection(db, "members"), orderBy(fld), startAt(prefix), endAt(prefix + "\uf8ff"), limit(10));
+        const snap = await getDocs(qRef);
+        const rows = [];
+        snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
+        if (rows.length) return rows;
+      } catch (_) {}
+    }
+    // Fallback: eerste 200 documenten en client-side filter
+    try {
+      const qRef = query(collection(db, "members"), orderBy("__name__"), limit(200));
+      const snap = await getDocs(qRef);
+      const rows = [];
+      snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
+      const p = prefix.toLowerCase();
+      return rows.filter(r => {
+        const ln = (r.data?.["Naam"] || r.data?.["name"] || r.data?.["naam"] || "").toString().toLowerCase();
+        return ln.startsWith(p);
+      }).slice(0, 10);
+    } catch (_) {
+      return [];
+    }
   }
 
   async function onInput() {
-    selected = Null
+    selected = null;
     box.style.display = "none";
     err.style.display = "none";
-    if (unsub) { try { unsub(); } catch(_) {} unsub = Null }
+    if (unsub) { try { unsub(); } catch(_) {} unsub = null; }
     const term = (input.value || "").trim();
     if (term.length < 2) { hideSuggest(); return; }
     try {
       const items = await queryByLastNamePrefix(term);
       showSuggest(items);
     } catch (e) {
-      print(e)
+      console.error(e);
       hideSuggest();
     }
   }
@@ -278,7 +292,7 @@ function initManualRideSection() {
     selected = entry;
     sName.textContent = fullNameFrom(entry.data);
     sId.textContent = entry.id;
-    const v = typeof entry.data.ridesCount === "number" ? entry.data.ridesCount : 0;
+    const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
     sCount.textContent = String(v);
     box.style.display = "grid";
 
@@ -289,12 +303,10 @@ function initManualRideSection() {
       const d = snap.exists() ? snap.data() : null;
       const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
       sCount.textContent = String(c);
-    }, (e) => {
-      console.error(e);
-    });
+    }, (e) => console.error(e));
   }
 
-  input.addEventListener("input", onInput, { passive: True })
+  input.addEventListener("input", onInput, { passive: true });
   input.addEventListener("keydown", async (ev) => {
     if (ev.key === "Escape") hideSuggest();
     if (ev.key === "Enter") {
@@ -315,7 +327,7 @@ function initManualRideSection() {
     box.style.display = "none";
     err.style.display = "none";
     status.textContent = "";
-    selected = Null
+    selected = null;
     try { if (unsub) unsub(); } catch(_) {}
   });
 
@@ -357,8 +369,8 @@ function initAdminQRScanner() {
   const qrLogList = ensureLogContainer();
 
   let scanner = null;
-  let lastScanByText = new Map();
-  const COOLDOWN_MS = 30000;
+  let lastScanByText = new Map(); // decodedText -> timestamp(ms)
+  const COOLDOWN_MS = 30000; // 30 seconden
 
   function appendLog({ naam, lid, ok, reason, ridesTotal }) {
     if (!qrLogList) return;
@@ -386,7 +398,7 @@ function initAdminQRScanner() {
 
   async function processScan(decodedText) {
     const now = Date.now();
-    const prev = lastScanByText.get(decodedText) || 0
+    const prev = lastScanByText.get(decodedText) || 0;
     if (now - prev < COOLDOWN_MS) return;
     lastScanByText.set(decodedText, now);
 
@@ -395,9 +407,9 @@ function initAdminQRScanner() {
     let beforeCount = null;
 
     if (!lid) {
-      statusEl && (statusEl.textContent = "⚠️ Geen LidNr in QR");
-      showToast("⚠️ Onbekende QR (geen LidNr)", False);
-      appendLog({ naam: "", lid: "", ok: False, reason: "geen LidNr" });
+      if (statusEl) statusEl.textContent = "⚠️ Geen LidNr in QR";
+      showToast("⚠️ Onbekende QR (geen LidNr)", false);
+      appendLog({ naam: "", lid: "", ok: false, reason: "geen LidNr" });
       return;
     }
 
@@ -421,15 +433,15 @@ function initAdminQRScanner() {
       await bookRide(lid, naam || "");
       const newTotal = (beforeCount ?? 0) + 1;
 
-      statusEl && (statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`);
-      resultEl && (resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`);
-      showToast(`✅ QR-code gescand`, True);
-      appendLog({ naam: naam || "", lid, ok: True, ridesTotal: newTotal });
+      if (statusEl) statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`;
+      if (resultEl) resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`;
+      showToast(`✅ QR-code gescand`, true);
+      appendLog({ naam: naam || "", lid, ok: true, ridesTotal: newTotal });
     } catch (e) {
       console.error(e);
-      statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);
-      showToast("❌ Fout bij updaten", False);
-      appendLog({ naam: naam || "", lid, ok: False, reason: "update fout" });
+      if (statusEl) statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`;
+      showToast("❌ Fout bij updaten", false);
+      appendLog({ naam: naam || "", lid, ok: false, reason: "update fout" });
     }
   }
 
@@ -437,25 +449,26 @@ function initAdminQRScanner() {
   function onScanError(_) { /* stil */ }
 
   async function start() {
-    statusEl && (statusEl.textContent = "Camera openen…");
+    if (statusEl) statusEl.textContent = "Camera openen…";
     try { await ensureHtml5Qrcode(); } catch(e) {
-      statusEl && (statusEl.textContent = "Bibliotheek niet geladen.");
-      showToast("Bibliotheek niet geladen", False);
+      if (statusEl) statusEl.textContent = "Bibliotheek niet geladen.";
+      showToast("Bibliotheek niet geladen", false);
       return;
     }
     try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
-    readerEl && (readerEl.innerHTML = "");
-    scanner = new Html5QrcodeScanner("adminQRReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, False);
+    if (readerEl) readerEl.innerHTML = "";
+    // eslint-disable-next-line no-undef
+    scanner = new Html5QrcodeScanner("adminQRReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, false);
     scanner.render(onScanSuccess, onScanError);
-    statusEl && (statusEl.textContent = "Richt je camera op de QR-code…");
+    if (statusEl) statusEl.textContent = "Richt je camera op de QR-code…";
   }
 
   async function stop() {
-    statusEl && (statusEl.textContent = "Stoppen…");
+    if (statusEl) statusEl.textContent = "Stoppen…";
     try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
     scanner = null;
-    readerEl && (readerEl.innerHTML = "");
-    statusEl && (statusEl.textContent = "⏸️ Gestopt");
+    if (readerEl) readerEl.innerHTML = "";
+    if (statusEl) statusEl.textContent = "⏸️ Gestopt";
   }
 
   startBtn?.addEventListener("click", start);
@@ -470,9 +483,9 @@ async function resetAllRidesCount(statusEl) {
 
   try {
     let last = null;
-    const pageSize = 400;
+    const pageSize = 400; // veilig onder batch-limiet
 
-    while (True) {
+    while (true) {
       let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
       if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
 

@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import { db } from "./firebase.js";
 import { collection, query, orderBy, startAt, endAt, limit, getDocs, doc, onSnapshot } from "firebase/firestore";
 
-/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–10 */
+/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–5 */
 function ridesToStars(count) {
   const max = 5;
   const n = Math.max(0, Math.floor(Number(count) || 0));
