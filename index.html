@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shadow App</title>
     <link rel="stylesheet" href="/style.css">
-    <!-- QR library laadt pas bij admin scanner start via admin.js, maar deze is ok als fallback -->
     <script src="https://unpkg.com/html5-qrcode" defer></script>
   </head>
   <body>
@@ -18,7 +17,6 @@
     </header>
 
     <main class="wrap">
-      <!-- MEMBER VIEW -->
       <section id="viewMember" class="view active">
         <div class="card">
           <h1>Inschrijven voor rit</h1>
@@ -41,13 +39,11 @@
                 Privacy: de QR bevat alleen een LidNr, geen naam.
               </div>
             </div>
-          </div><!-- /#result -->
-        </div><!-- /.card -->
-      </section><!-- /#viewMember -->
+          </div>
+        </div>
+      </section>
 
-      <!-- ADMIN VIEW -->
       <section id="viewAdmin" class="view">
-        <!-- QR scannen -->
         <div class="card">
           <h3>QR code scannen</h3>
           <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
@@ -60,7 +56,6 @@
           <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
 
-        <!-- Admin: bevestigingsmodal voor QR-boekingen (optioneel gebruikt door admin.js) -->
         <div id="adminBookModal" class="modal" style="display:none;">
           <div class="modal-dialog">
             <div class="modal-header">
@@ -77,28 +72,28 @@
           </div>
         </div>
 
-        <!-- Handmatig rit registreren -->
-        <section id="viewMember" class="view active">
-        <div class="card">
-          <h1>Inschrijven voor rit</h1>
-          <p class="hint">Zoek op achternaam en toon jouw QR.</p>
+        <div class="card" id="manualRideCard">
+          <h3>Handmatig rit registreren</h3>
+          <p class="muted">Zoek op achternaam, kies het juiste lid, en klik op <em>Rit registreren</em>.</p>
           <div class="row">
-            <input id="nameInput" placeholder="Achternaam..." />
+            <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
+            <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
           </div>
-          <ul id="suggestions" class="suggest"></ul>
-          <div id="error" class="error" style="display:none"></div>
-          <div id="result" class="result" style="display:none">
+          <ul id="adminManualSuggest" class="suggest" role="listbox" aria-label="Suggesties"></ul>
+          <div id="adminManualError" class="error" style="display:none"></div>
+          <div id="adminManualResult" class="result" style="display:none">
             <div class="column">
-              <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-              <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="rRidesCount">—</span></div>
-              <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
+              <div class="kv"><span class="label">Naam</span><span class="value" id="adminMName">—</span></div>
+              <div class="kv"><span class="label">LidNr</span><span class="value" id="adminMMemberNo">—</span></div>
+              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMRidesCount">—</span></div>
+              <div class="row" style="margin-top:8px; gap:12px;">
+                <button id="adminManualBookBtn" class="btn">Rit registreren</button>
+              </div>
             </div>
-          </div><!-- /#result -->
-        </div><!-- /.card -->
-      </section><!-- /#viewMember -->
+          </div>
+          <div id="adminManualStatus" class="status"></div>
+        </div>
 
-        <!-- Admin: Excel uploaden -->
         <div class="card">
           <h1>Admin: Excel uploaden</h1>
           <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
@@ -112,7 +107,6 @@
           <div id="log" class="log"></div>
         </div>
 
-        <!-- Reset alle ridesCount sectie -->
         <div class="card" id="resetRidesCard">
           <h3>Beheer: Ritten resetten</h3>
           <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (ridesCount) terug naar 0 voor alle leden.</p>
@@ -120,7 +114,6 @@
           <div id="resetStatus" class="status"></div>
         </div>
 
-        <!-- Bevestigingsmodal voor reset -->
         <div id="resetModal" class="modal" style="display:none;">
           <div class="modal-dialog">
             <div class="modal-header">
@@ -137,10 +130,9 @@
             </div>
           </div>
         </div>
-      </section><!-- /#viewAdmin -->
+      </section>
     </main>
 
-    <!-- Toast root -->
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/src/main.js"></script>
