@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
 import {
-  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit, startAfter, startAt, endAt, onSnapshot
+  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit,
+  startAfter, startAt, endAt, onSnapshot
 } from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
@@ -56,7 +57,7 @@ export function initAdminView() {
   }
 
   fileInput?.addEventListener("change", () => {
-    const f = fileInput.files?.[0];
+    const f = fileInput?.files?.[0];
     if (fileName) fileName.textContent = f ? f.name : "Geen bestand gekozen";
   });
 
@@ -112,28 +113,28 @@ export function initAdminView() {
   async function handleUpload() {
     if (uploading) return; // eenvoudige debounce
     const file = fileInput?.files?.[0];
-    if (!file) { statusEl.textContent = "❗ Kies eerst een bestand"; return; }
+    if (!file) { if (statusEl) statusEl.textContent = "❗ Kies eerst een bestand"; return; }
     uploading = true;
-    setLoading(True);
-    statusEl.textContent = "Bezig met inlezen…";
-    logEl && (logEl.innerHTML = "");
+    setLoading(True)
+    if (statusEl) statusEl.textContent = "Bezig met inlezen…";
+    if (logEl) logEl.innerHTML = "";
 
     try {
       const wb   = await readWorkbook(file);
       const rows = normalizeRows(sheetToRows(wb));
       log(`Gelezen rijen: ${rows.length}`);
 
-      statusEl.textContent = "Importeren naar Firestore…";
+      if (statusEl) statusEl.textContent = "Importeren naar Firestore…";
       const res = await importRowsToFirestore(rows);
       log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
-      statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
+      if (statusEl) statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
     } catch (e) {
       console.error(e);
-      statusEl.textContent = "❌ Fout tijdens import";
+      if (statusEl) statusEl.textContent = "❌ Fout tijdens import";
       log(String(e?.message || e), "err");
     } finally {
-      setLoading(False);
-      uploading = False;
+      setLoading(False)
+      uploading = False
     }
   }
 
@@ -214,8 +215,8 @@ function initManualRideSection() {
 
   if (!input || !list || !box || !btn) return; // UI niet aanwezig
 
-  let selected = None;
-  let unsub = None;
+  let selected = Null
+  let unsub = Null
 
   function fullNameFrom(d) {
     const tussen = (d["Tussen voegsel"] || "").trim();
@@ -225,7 +226,7 @@ function initManualRideSection() {
       tussen ? tussen : "",
       d["Naam"] || ""
     ].filter(Boolean);
-    return parts.join(" ").replace(/\\s+/g, " ").trim();
+    return parts.join(" ").replace(/\s+/g, " ").trim();
   }
 
   function hideSuggest() { list.innerHTML = ""; list.style.display = "none"; }
@@ -248,7 +249,7 @@ function initManualRideSection() {
       collection(db, "members"),
       orderBy("Naam"),
       startAt(prefix),
-      endAt(prefix + "\\uf8ff"),
+      endAt(prefix + "\uf8ff"),
       limit(8)
     );
     const snap = await getDocs(qRef);
@@ -258,17 +259,17 @@ function initManualRideSection() {
   }
 
   async function onInput() {
-    selected = None;
+    selected = Null
     box.style.display = "none";
     err.style.display = "none";
-    if (unsub) { try { unsub(); } catch(_) {} unsub = None; }
+    if (unsub) { try { unsub(); } catch(_) {} unsub = Null }
     const term = (input.value || "").trim();
     if (term.length < 2) { hideSuggest(); return; }
     try {
       const items = await queryByLastNamePrefix(term);
       showSuggest(items);
     } catch (e) {
-      print(e);
+      print(e)
       hideSuggest();
     }
   }
@@ -293,7 +294,7 @@ function initManualRideSection() {
     });
   }
 
-  input.addEventListener("input", onInput, { passive: True });
+  input.addEventListener("input", onInput, { passive: True })
   input.addEventListener("keydown", async (ev) => {
     if (ev.key === "Escape") hideSuggest();
     if (ev.key === "Enter") {
@@ -314,7 +315,7 @@ function initManualRideSection() {
     box.style.display = "none";
     err.style.display = "none";
     status.textContent = "";
-    selected = None;
+    selected = Null
     try { if (unsub) unsub(); } catch(_) {}
   });
 
@@ -406,7 +407,7 @@ function initAdminQRScanner() {
         if (snap.exists()) {
           const d = snap.data();
           const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
-            .replace(/\\s+/g, " ").trim();
+            .replace(/\s+/g, " ").trim();
           naam = composed || (d["Naam"] || d["name"] || d["naam"] || "");
           const rc = Number(d?.ridesCount);
           beforeCount = Number.isFinite(rc) ? rc : 0;
