@@ -78,27 +78,25 @@
         </div>
 
         <!-- Handmatig rit registreren -->
-        <div class="card" id="manualRideCard">
-          <h3>Handmatig rit registreren</h3>
-          <p class="muted">Zoek op achternaam, kies het juiste lid, en klik op <em>Rit registreren</em>.</p>
+        <section id="viewMember" class="view active">
+        <div class="card">
+          <h1>Inschrijven voor rit</h1>
+          <p class="hint">Zoek op achternaam en toon jouw QR.</p>
           <div class="row">
-            <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
-            <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
+            <input id="nameInput" placeholder="Achternaam..." />
           </div>
-          <ul id="adminManualSuggest" class="suggest" role="listbox" aria-label="Suggesties"></ul>
-          <div id="adminManualError" class="error" style="display:none"></div>
-          <div id="adminManualResult" class="result" style="display:none">
+          <ul id="suggestions" class="suggest"></ul>
+          <div id="error" class="error" style="display:none"></div>
+          <div id="result" class="result" style="display:none">
             <div class="column">
-              <div class="kv"><span class="label">Naam</span><span class="value" id="adminMName">—</span></div>
-              <div class="kv"><span class="label">LidNr</span><span class="value" id="adminMMemberNo">—</span></div>
-              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMRidesCount">—</span></div>
-              <div class="row" style="margin-top:8px; gap:12px;">
-                <button id="adminManualBookBtn" class="btn">Rit registreren</button>
-              </div>
+              <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+              <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="rRidesCount">—</span></div>
+              <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
             </div>
-          </div>
-          <div id="adminManualStatus" class="status"></div>
-        </div>
+          </div><!-- /#result -->
+        </div><!-- /.card -->
+      </section><!-- /#viewMember -->
 
         <!-- Admin: Excel uploaden -->
         <div class="card">
