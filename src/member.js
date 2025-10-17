@@ -14,6 +14,7 @@ function ridesToStars(count) {
 export function initMemberView() {
   const $ = (id) => document.getElementById(id);
   const nameInput   = $("nameInput");
+  let _debounceHandle = null;
   const suggestList = $("suggestions");
   const resultBox   = $("result");
   const errBox      = $("error");
@@ -37,18 +38,20 @@ export function initMemberView() {
   }
 
   function hideSuggestions() {
+    if (!suggestList) return;
     suggestList.innerHTML = "";
     suggestList.style.display = "none";
   }
 
   function showSuggestions(items) {
+    if (!suggestList) return;
     suggestList.innerHTML = "";
     for (const it of items) {
       const li = document.createElement("li");
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
       li.addEventListener("click", () => {
         selectedDoc = it;
-        nameInput.value = it.data["Naam"];
+        if (nameInput) nameInput.value = it.data["Naam"] || "";
         renderSelected(it);
         hideSuggestions();
       });
@@ -72,50 +75,77 @@ export function initMemberView() {
   }
 
   async function onInputChanged() {
-    selectedDoc = null;
-    resultBox.style.display = "none";
-    errBox.style.display = "none";
-    if (unsubscribe) { try { unsubscribe(); } catch(_) {} unsubscribe = null; }
-    const term = (nameInput.value || "").trim();
-    if (term.length < 2) { hideSuggestions(); return; }
-    try {
-      const items = await queryByLastNamePrefix(term);
-      showSuggestions(items);
-    } catch (e) {
-      console.error(e);
-      hideSuggestions();
-    }
+    // Debounce snelle typbewegingen
+    if (_debounceHandle) clearTimeout(_debounceHandle);
+    _debounceHandle = setTimeout(async () => {
+      try {
+        selectedDoc = null;
+        if (resultBox) resultBox.style.display = "none";
+        if (errBox) errBox.style.display = "none";
+        if (unsubscribe) { try { unsubscribe(); } catch(_) {} unsubscribe = null; }
+
+        const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
+        if (term.length < 2) { hideSuggestions(); return; }
+
+        const items = await queryByLastNamePrefix(term);
+
+        if (!items || !items.length) {
+          if (errBox) {
+            errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.";
+            errBox.style.display = "block";
+          }
+          hideSuggestions();
+          return;
+        }
+
+        // GEEN auto-select meer: altijd suggesties tonen, gebruiker kiest zelf.
+        showSuggestions(items);
+      } catch (e) {
+        console.error(e);
+        hideSuggestions();
+        if (errBox) {
+          errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie.";
+          errBox.style.display = "block";
+        }
+      }
+    }, 250);
   }
 
   async function handleFind() {
-    errBox.style.display = "none";
+    // Geen auto-select bij Enter: alleen (opnieuw) suggesties tonen
+    if (errBox) errBox.style.display = "none";
     try {
-      if (selectedDoc) {
-        renderSelected(selectedDoc);
-        hideSuggestions();
-        return;
-      }
-      const term = (nameInput.value || "").trim();
+      const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
       if (!term) return;
       const items = await queryByLastNamePrefix(term);
       if (!items.length) {
-        errBox.textContent = "Geen leden gevonden met deze achternaam.";
-        errBox.style.display = "block";
+        if (errBox) {
+          errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.";
+          errBox.style.display = "block";
+        }
+        hideSuggestions();
         return;
       }
-      renderSelected(items[0]);
-      hideSuggestions();
+      // Als er al iets expliciet gekozen was (via klik), dan tonen; anders alleen lijst tonen
+      if (selectedDoc) {
+        renderSelected(selectedDoc);
+        hideSuggestions();
+      } else {
+        showSuggestions(items);
+      }
     } catch (e) {
       console.error(e);
-      errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer opnieuw.";
-      errBox.style.display = "block";
+      if (errBox) {
+        errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie.";
+        errBox.style.display = "block";
+      }
     }
   }
 
   function renderSelected(entry) {
-    const data = entry.data;
-    rName.textContent = fullNameFrom(data);
-    rMemberNo.textContent = entry.id;
+    const data = entry.data || {};
+    if (rName) rName.textContent = fullNameFrom(data);
+    if (rMemberNo) rMemberNo.textContent = entry.id;
 
     // Initieel ridesCount als sterren tonen (fallback 0)
     const initCount = (typeof data.ridesCount === "number") ? data.ridesCount : 0;
@@ -128,12 +158,14 @@ export function initMemberView() {
     const payload = JSON.stringify({ t: "member", uid: entry.id });
     QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
       if (err) {
-        errBox.textContent = "QR genereren mislukte.";
-        errBox.style.display = "block";
+        if (errBox) {
+          errBox.textContent = "QR genereren mislukte.";
+          errBox.style.display = "block";
+        }
         return;
       }
       // QR gelukt → resultaat tonen
-      resultBox.style.display = "grid";
+      if (resultBox) resultBox.style.display = "grid";
       // En privacyregel tonen (als aanwezig)
       const privacyEl = document.getElementById("qrPrivacy");
       if (privacyEl) privacyEl.style.display = "block";
