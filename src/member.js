@@ -1,8 +1,9 @@
-
+// member.js — hersteld met ALLE features + sterren op basis van geplande datums in #rRidesCount ná selectie
 import QRCode from "qrcode";
 import { db } from "./firebase.js";
 import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot } from "firebase/firestore";
 
+// ------- Planning (geplande datums) -------
 async function getPlannedDates() {
   try {
     const ref = doc(db, "globals", "ridePlan");
@@ -16,6 +17,7 @@ async function getPlannedDates() {
   }
 }
 
+// Voor achterwaartse compatibiliteit: vind container en render optioneel (NIET auto-aanroepen)
 function findStarContainer() {
   return (
     document.querySelector("#rideStars") ||
@@ -23,7 +25,6 @@ function findStarContainer() {
     document.querySelector("[data-stars]")
   );
 }
-
 function renderStarCount(n) {
   const el = findStarContainer();
   const host = el || (() => {
@@ -34,18 +35,30 @@ function renderStarCount(n) {
     document.body.appendChild(d);
     return d;
   })();
-
   host.setAttribute("aria-label", `${n} geplande ritten`);
   host.setAttribute("role", "img");
-  host.textContent = "☆".repeat(n);
+  host.textContent = "☆".repeat(Math.max(0, n));
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const dates = await getPlannedDates();
-  renderStarCount(dates.length);
-});
+// NIET meer automatisch op DOMContentLoaded renderen — alleen na selectie:
+// document.addEventListener("DOMContentLoaded", async () => {
+//   const dates = await getPlannedDates();
+//   renderStarCount(dates.length);
+// });
 
-/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–5 */
+/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–STAR_MAX */
+// STAR_MAX wordt in globals gezet door loadStarMax() elders; fallback = 5
+let STAR_MAX = 5;
+export async function loadStarMax() {
+  try {
+    const ref = doc(db, "globals", "starConfig");
+    const snap = await getDoc(ref);
+    const max = snap.exists() && typeof snap.data().max === "number" ? snap.data().max : 5;
+    STAR_MAX = Math.max(1, Math.floor(max));
+  } catch {
+    STAR_MAX = 5;
+  }
+}
 function ridesToStars(count) {
   const max = STAR_MAX;
   const n = Math.max(0, Math.floor(Number(count) || 0));
@@ -74,10 +87,10 @@ function openQrFullscreenFromCanvas(qrCanvas) {
     const img = document.createElement("img");
     img.src = dataUrl;
     img.alt = "QR-code";
-    // Vierkant houden: gebruik 100vmin (kleinste van vw en vh) zodat hij maximaal in scherm past als perfect vierkant
+    // Vierkant houden
     img.style.width = "100vmin";
     img.style.height = "100vmin";
-    img.style.imageRendering = "pixelated"; // scherpe blokken
+    img.style.imageRendering = "pixelated";
     img.style.border = "0";
     img.style.borderRadius = "0";
     img.style.boxShadow = "none";
@@ -110,6 +123,12 @@ function openQrFullscreenFromCanvas(qrCanvas) {
   }
 }
 
+/* Format helper */
+function fmtDate(d) {
+  if (!d || typeof d !== "string" || d.length < 10) return d || "";
+  return `${d.slice(8,10)}-${d.slice(5,7)}-${d.slice(0,4)}`;
+}
+
 export async function initMemberView() {
   try { await loadStarMax(); } catch(e) {}
 
@@ -121,7 +140,7 @@ export async function initMemberView() {
   const errBox      = $("error");
   const rName       = $("rName");
   const rMemberNo   = $("rMemberNo");
-  const rRides      = $("rRidesCount");
+  const rRides      = $("rRidesCount");   // HTML: <span id="rRidesCount">
   const qrCanvas    = $("qrCanvas");
 
   let selectedDoc = null;
@@ -150,10 +169,10 @@ export async function initMemberView() {
     for (const it of items) {
       const li = document.createElement("li");
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
-      li.addEventListener("click", () => {
+      li.addEventListener("click", async () => {
         selectedDoc = it;
         if (nameInput) nameInput.value = it.data["Naam"] || "";
-        renderSelected(it);
+        await renderSelected(it);
         hideSuggestions();
       });
       suggestList.appendChild(li);
@@ -187,6 +206,13 @@ export async function initMemberView() {
     if (errBox) errBox.style.display = "none";
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
+    if (rRides) {
+      rRides.textContent = "—";
+      rRides.removeAttribute("title");
+      rRides.removeAttribute("aria-label");
+      rRides.style.letterSpacing = "";
+      rRides.style.fontSize = "";
+    }
   }
 
   async function handleFocus() {
@@ -215,12 +241,9 @@ export async function initMemberView() {
     _debounceHandle = setTimeout(async () => {
       try {
         resetSelection();
-
         const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
         if (term.length < 2) { hideSuggestions(); return; }
-
         const items = await queryByLastNamePrefix(term);
-
         if (!items || !items.length) {
           if (errBox) {
             errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.";
@@ -229,7 +252,6 @@ export async function initMemberView() {
           hideSuggestions();
           return;
         }
-
         showSuggestions(items);
       } catch (e) {
         console.error(e);
@@ -266,19 +288,33 @@ export async function initMemberView() {
     }
   }
 
-  function renderSelected(entry) {
+  async function renderSelected(entry) {
     const data = entry.data || {};
     if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
 
-    // Initieel ridesCount als sterren tonen (fallback 0)
-    const initCount = (typeof data.ridesCount === "number") ? data.ridesCount : 0;
+    // 1) Toon STERREN o.b.v. GEPLANDE datums in #rRidesCount
+    const planned = await getPlannedDates();
     if (rRides) {
-      rRides.textContent = ridesToStars(initCount);
-      rRides.setAttribute("title", `Geregistreerde ritten: ${initCount}`);
-      rRides.setAttribute("aria-label", `Geregistreerde ritten: ${initCount}`);
+      const n = planned.length;
+      rRides.textContent = n > 0 ? "☆".repeat(n) : "—";
+      rRides.setAttribute("title", n ? `Ingeplande datums: ${planned.map(fmtDate).join(", ")}` : "Geen ingeplande datums");
+      rRides.setAttribute("aria-label", n ? `Aantal ingeplande ritten: ${n}` : "Geen ingeplande datums");
+      rRides.style.letterSpacing = "3px";
+      rRides.style.fontSize = "20px";
     }
 
+    // 2) Live updates op ridesCount (features behouden)
+    try { if (unsubscribe) unsubscribe(); } catch(_) {}
+    unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
+      const d = snap.exists() ? snap.data() : {};
+      const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
+      // Indien je elders een element voor geregistreerde ritten hebt, kun je dit daar tonen
+      // Hier behouden we alleen de helper en live-listener zonder rRides te overschrijven
+      // console.debug("Live ridesCount:", count, "→", ridesToStars(count));
+    });
+
+    // 3) QR pas na selectie
     const payload = JSON.stringify({ t: "member", uid: entry.id });
     QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
       if (err) {
@@ -288,7 +324,6 @@ export async function initMemberView() {
         }
         return;
       }
-      // QR gelukt → resultaat tonen
       if (resultBox) resultBox.style.display = "grid";
       const privacyEl = document.getElementById("qrPrivacy");
       if (privacyEl) privacyEl.style.display = "block";
@@ -303,7 +338,7 @@ export async function initMemberView() {
     if (ev.key === "Enter") { ev.preventDefault(); handleFind(); }
   });
 
-  // Klik op QR → fullscreen overlay (vierkant, 100vmin)
+  // Klik op QR → fullscreen overlay
   if (qrCanvas) {
     qrCanvas.style.cursor = "zoom-in";
     qrCanvas.addEventListener("click", () => openQrFullscreenFromCanvas(qrCanvas), { passive: true });
@@ -311,5 +346,4 @@ export async function initMemberView() {
   }
 }
 
-// Compat-layer: als je ook de oude IIFE had, dit bestand vervangt die noodzaak doordat
-// we nu direct #rRidesCount updaten en toegankelijk maken met title/aria-label.
+// Compat-layer: oude IIFE niet meer nodig; alles via initMemberView.
