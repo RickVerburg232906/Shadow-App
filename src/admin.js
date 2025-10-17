@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
-import { db, writeBatch, doc } from "./firebase.js";
+import { db, writeBatch, doc, getDoc, setDoc, serverTimestamp } from "./firebase.js";
 import {
-  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit,
+  collection, increment, getDocs, query, orderBy, limit,
   startAfter, startAt, endAt, onSnapshot
 } from "firebase/firestore";
 
@@ -152,8 +152,92 @@ export function initAdminView() {
   // ===== Handmatig rit registreren =====
   initManualRideSection();
 
+  // ===== Ritten plannen (globaal) =====
+  initRidePlannerSection();
+
   // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
+}
+
+// =====================================================
+// ===============  Ritten plannen (globaal) ===========
+// =====================================================
+function initRidePlannerSection() {
+  const $ = (id) => document.getElementById(id);
+  const card = $("ridePlannerCard");
+  if (!card) return;
+
+  const d1 = $("rideDate1");
+  const d2 = $("rideDate2");
+  const d3 = $("rideDate3");
+  const d4 = $("rideDate4");
+  const d5 = $("rideDate5");
+  const d6 = $("rideDate6");
+  const saveBtn = $("saveRidePlanBtn");
+  const reloadBtn = $("reloadRidePlanBtn");
+  const statusEl = $("ridePlanStatus");
+
+  const planRef = doc(db, "globals", "ridePlan");
+
+  function setStatus(msg, ok = true) {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.style.color = ok ? "#9ca3af" : "#ef4444";
+  }
+
+  function setInputs(dates) {
+    const arr = Array.isArray(dates) ? dates : [];
+    const vals = (arr.slice(0,6).concat(Array(6))).slice(0,6).map(v => v || "");
+    [d1,d2,d3,d4,d5,d6].forEach((el, i) => { if (el) el.value = vals[i] || ""; });
+  }
+
+  async function loadPlan() {
+    try {
+      setStatus("Laden…");
+      const snap = await getDoc(planRef);
+      if (snap.exists()) {
+        const data = snap.data() || {};
+        const dates = Array.isArray(data.plannedDates) ? data.plannedDates : [];
+        setInputs(dates);
+        setStatus(`✅ ${dates.length} datums geladen`);
+      } else {
+        setInputs([]);
+        setStatus("Nog geen planning opgeslagen.");
+      }
+    } catch (e) {
+      console.error("[ridePlan] loadPlan error", e);
+      setStatus("❌ Laden mislukt (check regels/verbinding)", false);
+    }
+  }
+
+  function collectDates() {
+    const vals = [d1,d2,d3,d4,d5,d6].map(el => (el && el.value || "").trim()).filter(Boolean);
+    const uniq = Array.from(new Set(vals));
+    uniq.sort(); // YYYY-MM-DD sort
+    return uniq;
+  }
+
+  async function savePlan() {
+    try {
+      const dates = collectDates();
+      if (dates.length < 5) {
+        setStatus("❗ Vul minimaal 5 datums in.", false);
+        return;
+      }
+      setStatus("Opslaan…");
+      await setDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }, { merge: true });
+      setStatus("✅ Planning opgeslagen");
+    } catch (e) {
+      console.error("[ridePlan] savePlan error", e);
+      setStatus("❌ Opslaan mislukt (check regels/verbinding)", false);
+    }
+  }
+
+  saveBtn?.addEventListener("click", savePlan);
+  reloadBtn?.addEventListener("click", loadPlan);
+
+  // Auto-load bij openen Admin tab
+  loadPlan();
 }
 
 // =====================================================

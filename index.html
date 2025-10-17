@@ -78,6 +78,25 @@
           <div id="adminManualStatus" class="status"></div>
         </div>
 
+        
+        <div class="card" id="ridePlannerCard">
+          <h3>Ritten plannen</h3>
+          <p class="muted">Vul minimaal 5 datums in (6e is optioneel). Dit wordt opgeslagen als globale instelling in Firestore.</p>
+          <div class="row" style="flex-wrap:wrap; gap:10px;">
+            <input type="date" id="rideDate1" />
+            <input type="date" id="rideDate2" />
+            <input type="date" id="rideDate3" />
+            <input type="date" id="rideDate4" />
+            <input type="date" id="rideDate5" />
+            <input type="date" id="rideDate6" />
+          </div>
+          <div class="row" style="gap:12px; align-items:center;">
+            <button id="saveRidePlanBtn" class="btn">Opslaan</button>
+            <button id="reloadRidePlanBtn" class="btn btn-ghost">Herladen</button>
+            <span id="ridePlanStatus" class="status"></span>
+          </div>
+        </div>
+
         <div class="card">
           <h1>Admin: Excel uploaden</h1>
           <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
