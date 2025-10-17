@@ -73,6 +73,29 @@
           </div>
         </div>
 
+        <!-- Handmatig rit registreren -->
+        <div class="card" id="manualRideCard">
+          <h3>Handmatig rit registreren</h3>
+          <p class="muted">Zoek op achternaam, kies het juiste lid, en klik op <em>Rit registreren</em>.</p>
+          <div class="row">
+            <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
+            <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
+          </div>
+          <ul id="adminManualSuggest" class="suggest" role="listbox" aria-label="Suggesties"></ul>
+          <div id="adminManualError" class="error" style="display:none"></div>
+          <div id="adminManualResult" class="result" style="display:none">
+            <div class="column">
+              <div class="kv"><span class="label">Naam</span><span class="value" id="adminMName">—</span></div>
+              <div class="kv"><span class="label">LidNr</span><span class="value" id="adminMMemberNo">—</span></div>
+              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMRidesCount">—</span></div>
+              <div class="row" style="margin-top:8px; gap:12px;">
+                <button id="adminManualBookBtn" class="btn">Rit registreren</button>
+              </div>
+            </div>
+          </div>
+          <div id="adminManualStatus" class="status"></div>
+        </div>
+
         <div class="card">
           <h1>Admin: Excel uploaden</h1>
           <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
@@ -86,8 +109,7 @@
           <div id="log" class="log"></div>
         </div>
         
-      
-        <!-- Reset alle ridesCount sectie -->
+                <!-- Reset alle ridesCount sectie -->
         <div class="card" id="resetRidesCard">
           <h3>Beheer: Ritten resetten</h3>
           <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (ridesCount) terug naar 0 voor alle leden.</p>
@@ -110,8 +132,7 @@
               <button id="resetConfirm" class="btn" style="border-color:#ef4444;">Ja, reset alles</button>
               <button id="resetCancel" class="btn btn-ghost">Nee, annuleren</button>
             </div>
-          </div>
-        </div>
+
 </section>
     </main>
 

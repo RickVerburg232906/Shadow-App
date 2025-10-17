@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
 import {
-  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit, startAfter
+  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit, startAfter, startAt, endAt, onSnapshot
 } from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
@@ -114,7 +114,7 @@ export function initAdminView() {
     const file = fileInput?.files?.[0];
     if (!file) { statusEl.textContent = "❗ Kies eerst een bestand"; return; }
     uploading = true;
-    setLoading(true);
+    setLoading(True);
     statusEl.textContent = "Bezig met inlezen…";
     logEl && (logEl.innerHTML = "");
 
@@ -132,8 +132,8 @@ export function initAdminView() {
       statusEl.textContent = "❌ Fout tijdens import";
       log(String(e?.message || e), "err");
     } finally {
-      setLoading(false);
-      uploading = false;
+      setLoading(False);
+      uploading = False;
     }
   }
 
@@ -148,6 +148,9 @@ export function initAdminView() {
     await resetAllRidesCount(resetStatus);
   });
 
+  // ===== Handmatig rit registreren =====
+  initManualRideSection();
+
   // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
 }
@@ -156,7 +159,7 @@ export function initAdminView() {
 // ===============  Helpers (Admin)  ===================
 // =====================================================
 
-// Boek rit: ridesCount +1 voor members/{LidNr} (client-side; voor productie → Cloud Function)
+// Boek rit: ridesCount +1 voor members/{LidNr}
 async function bookRide(lid, naam) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
@@ -194,6 +197,141 @@ function showToast(msg, ok = true) {
 function hhmmss(d = new Date()) { return d.toTimeString().slice(0, 8); }
 
 // =====================================================
+// ============ Handmatig rit registreren  =============
+// =====================================================
+function initManualRideSection() {
+  const $ = (id) => document.getElementById(id);
+  const input   = $("adminManualSearchInput");
+  const clear   = $("adminManualClear");
+  const list    = $("adminManualSuggest");
+  const box     = $("adminManualResult");
+  const err     = $("adminManualError");
+  const sName   = $("adminMName");
+  const sId     = $("adminMMemberNo");
+  const sCount  = $("adminMRidesCount");
+  const btn     = $("adminManualBookBtn");
+  const status  = $("adminManualStatus");
+
+  if (!input || !list || !box || !btn) return; // UI niet aanwezig
+
+  let selected = None;
+  let unsub = None;
+
+  function fullNameFrom(d) {
+    const tussen = (d["Tussen voegsel"] || "").trim();
+    const parts = [
+      d["Voor naam"] || "",
+      d["Voor letters"] ? `(${d["Voor letters"]})` : "",
+      tussen ? tussen : "",
+      d["Naam"] || ""
+    ].filter(Boolean);
+    return parts.join(" ").replace(/\\s+/g, " ").trim();
+  }
+
+  function hideSuggest() { list.innerHTML = ""; list.style.display = "none"; }
+  function showSuggest(items) {
+    list.innerHTML = "";
+    for (const it of items) {
+      const li = document.createElement("li");
+      li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
+      li.addEventListener("click", () => {
+        selectMember(it);
+        hideSuggest();
+      }, { passive: true });
+      list.appendChild(li);
+    }
+    list.style.display = items.length ? "block" : "none";
+  }
+
+  async function queryByLastNamePrefix(prefix) {
+    const qRef = query(
+      collection(db, "members"),
+      orderBy("Naam"),
+      startAt(prefix),
+      endAt(prefix + "\\uf8ff"),
+      limit(8)
+    );
+    const snap = await getDocs(qRef);
+    const res = [];
+    snap.forEach(d => res.push({ id: d.id, data: d.data() }));
+    return res;
+  }
+
+  async function onInput() {
+    selected = None;
+    box.style.display = "none";
+    err.style.display = "none";
+    if (unsub) { try { unsub(); } catch(_) {} unsub = None; }
+    const term = (input.value || "").trim();
+    if (term.length < 2) { hideSuggest(); return; }
+    try {
+      const items = await queryByLastNamePrefix(term);
+      showSuggest(items);
+    } catch (e) {
+      print(e);
+      hideSuggest();
+    }
+  }
+
+  function selectMember(entry) {
+    selected = entry;
+    sName.textContent = fullNameFrom(entry.data);
+    sId.textContent = entry.id;
+    const v = typeof entry.data.ridesCount === "number" ? entry.data.ridesCount : 0;
+    sCount.textContent = String(v);
+    box.style.display = "grid";
+
+    // realtime teller
+    try { if (unsub) unsub(); } catch(_) {}
+    const ref = doc(collection(db, "members"), entry.id);
+    unsub = onSnapshot(ref, (snap) => {
+      const d = snap.exists() ? snap.data() : null;
+      const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
+      sCount.textContent = String(c);
+    }, (e) => {
+      console.error(e);
+    });
+  }
+
+  input.addEventListener("input", onInput, { passive: True });
+  input.addEventListener("keydown", async (ev) => {
+    if (ev.key === "Escape") hideSuggest();
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      const term = (input.value || "").trim();
+      if (!term) return;
+      try {
+        const items = await queryByLastNamePrefix(term);
+        if (items.length) { selectMember(items[0]); hideSuggest(); }
+        else { err.textContent = "Geen leden gevonden."; err.style.display = "block"; }
+      } catch (e) { err.textContent = "Zoeken mislukt."; err.style.display = "block"; }
+    }
+  });
+
+  clear?.addEventListener("click", () => {
+    input.value = "";
+    hideSuggest();
+    box.style.display = "none";
+    err.style.display = "none";
+    status.textContent = "";
+    selected = None;
+    try { if (unsub) unsub(); } catch(_) {}
+  });
+
+  btn.addEventListener("click", async () => {
+    if (!selected) { status.textContent = "Kies eerst een lid."; return; }
+    status.textContent = "Bezig met registreren…";
+    try {
+      await bookRide(selected.id, sName.textContent || "");
+      status.textContent = "✅ Rit geregistreerd";
+    } catch (e) {
+      console.error(e);
+      status.textContent = "❌ Fout bij registreren";
+    }
+  });
+}
+
+// =====================================================
 // ===============  QR SCANNER (Admin)  ================
 // =====================================================
 function initAdminQRScanner() {
@@ -218,8 +356,8 @@ function initAdminQRScanner() {
   const qrLogList = ensureLogContainer();
 
   let scanner = null;
-  let lastScanByText = new Map(); // decodedText -> timestamp(ms)
-  const COOLDOWN_MS = 30000; // 30 seconden
+  let lastScanByText = new Map();
+  const COOLDOWN_MS = 30000;
 
   function appendLog({ naam, lid, ok, reason, ridesTotal }) {
     if (!qrLogList) return;
@@ -247,7 +385,7 @@ function initAdminQRScanner() {
 
   async function processScan(decodedText) {
     const now = Date.now();
-    const prev = lastScanByText.get(decodedText) || 0;
+    const prev = lastScanByText.get(decodedText) || 0
     if (now - prev < COOLDOWN_MS) return;
     lastScanByText.set(decodedText, now);
 
@@ -257,8 +395,8 @@ function initAdminQRScanner() {
 
     if (!lid) {
       statusEl && (statusEl.textContent = "⚠️ Geen LidNr in QR");
-      showToast("⚠️ Onbekende QR (geen LidNr)", false);
-      appendLog({ naam: "", lid: "", ok: false, reason: "geen LidNr" });
+      showToast("⚠️ Onbekende QR (geen LidNr)", False);
+      appendLog({ naam: "", lid: "", ok: False, reason: "geen LidNr" });
       return;
     }
 
@@ -268,7 +406,7 @@ function initAdminQRScanner() {
         if (snap.exists()) {
           const d = snap.data();
           const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
-            .replace(/\s+/g, " ").trim();
+            .replace(/\\s+/g, " ").trim();
           naam = composed || (d["Naam"] || d["name"] || d["naam"] || "");
           const rc = Number(d?.ridesCount);
           beforeCount = Number.isFinite(rc) ? rc : 0;
@@ -284,13 +422,13 @@ function initAdminQRScanner() {
 
       statusEl && (statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`);
       resultEl && (resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`);
-      showToast(`✅ QR-code gescand`, true);
-      appendLog({ naam: naam || "", lid, ok: true, ridesTotal: newTotal });
+      showToast(`✅ QR-code gescand`, True);
+      appendLog({ naam: naam || "", lid, ok: True, ridesTotal: newTotal });
     } catch (e) {
       console.error(e);
       statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);
-      showToast("❌ Fout bij updaten", false);
-      appendLog({ naam: naam || "", lid, ok: false, reason: "update fout" });
+      showToast("❌ Fout bij updaten", False);
+      appendLog({ naam: naam || "", lid, ok: False, reason: "update fout" });
     }
   }
 
@@ -301,12 +439,12 @@ function initAdminQRScanner() {
     statusEl && (statusEl.textContent = "Camera openen…");
     try { await ensureHtml5Qrcode(); } catch(e) {
       statusEl && (statusEl.textContent = "Bibliotheek niet geladen.");
-      showToast("Bibliotheek niet geladen", false);
+      showToast("Bibliotheek niet geladen", False);
       return;
     }
     try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
     readerEl && (readerEl.innerHTML = "");
-    scanner = new Html5QrcodeScanner("adminQRReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, false);
+    scanner = new Html5QrcodeScanner("adminQRReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, False);
     scanner.render(onScanSuccess, onScanError);
     statusEl && (statusEl.textContent = "Richt je camera op de QR-code…");
   }
@@ -331,9 +469,9 @@ async function resetAllRidesCount(statusEl) {
 
   try {
     let last = null;
-    const pageSize = 400; // veilig onder batch-limiet
+    const pageSize = 400;
 
-    while (true) {
+    while (True) {
       let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
       if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
 
