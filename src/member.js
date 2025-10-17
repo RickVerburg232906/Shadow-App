@@ -1,10 +1,33 @@
 import QRCode from "qrcode";
-import { db } from "./firebase.js";
-import { collection, query, orderBy, startAt, endAt, limit, getDocs, doc, onSnapshot } from "firebase/firestore";
+import { db, getDoc, doc } from "./firebase.js";
+import { collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot } from "firebase/firestore";
+
+// Dynamisch maximum sterren: afgeleid van aantal geplande datums in Firestore
+let STAR_MAX = 5;
+async function loadStarMax() {
+  try {
+    const planRef = doc(db, "globals", "ridePlan");
+    const snap = await getDoc(planRef);
+    if (snap.exists()) {
+      const data = snap.data() || {};
+      const dates = Array.isArray(data.plannedDates) ? data.plannedDates : [];
+      if (dates.length >= 1) {
+        STAR_MAX = dates.length; // Max = aantal geplande datums
+      } else {
+        STAR_MAX = 5; // fallback
+      }
+    } else {
+      STAR_MAX = 5;
+    }
+  } catch (e) {
+    console.warn("[stars] kon STAR_MAX niet laden:", e);
+    STAR_MAX = 5;
+  }
+}
 
 /* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–5 */
 function ridesToStars(count) {
-  const max = 5;
+  const max = STAR_MAX;
   const n = Math.max(0, Math.floor(Number(count) || 0));
   const filled = Math.min(n, max);
   const empty = Math.max(0, max - filled);
@@ -67,7 +90,9 @@ function openQrFullscreenFromCanvas(qrCanvas) {
   }
 }
 
-export function initMemberView() {
+export async function initMemberView() {
+  try { await loadStarMax(); } catch(e) {}
+
   const $ = (id) => document.getElementById(id);
   const nameInput   = $("nameInput");
   let _debounceHandle = null;

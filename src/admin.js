@@ -1,9 +1,6 @@
 import * as XLSX from "xlsx";
-import { db, writeBatch, doc, getDoc, setDoc, serverTimestamp } from "./firebase.js";
-import {
-  collection, increment, getDocs, query, orderBy, limit,
-  startAfter, startAt, endAt, onSnapshot
-} from "firebase/firestore";
+import { db, writeBatch, doc } from "./firebase.js";
+import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt } from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel"];
@@ -206,7 +203,7 @@ function initRidePlannerSection() {
       }
     } catch (e) {
       console.error("[ridePlan] loadPlan error", e);
-      setStatus("❌ Laden mislukt (check regels/verbinding)", false);
+      setStatus("❌ Laden mislukt (controleer regels/verbinding)", false);
     }
   }
 
@@ -229,7 +226,7 @@ function initRidePlannerSection() {
       setStatus("✅ Planning opgeslagen");
     } catch (e) {
       console.error("[ridePlan] savePlan error", e);
-      setStatus("❌ Opslaan mislukt (check regels/verbinding)", false);
+      setStatus("❌ Opslaan mislukt (controleer regels/verbinding)", false);
     }
   }
 
@@ -248,7 +245,21 @@ function initRidePlannerSection() {
 async function bookRide(lid, naam) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
-  await setDoc(doc(db, "members", id), { ridesCount: increment(1) }, { merge: true });
+
+  // Datumstring (YYYY-MM-DD) voor ScanDatums
+  const today = (function(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  })();
+
+  await setDoc(doc(db, "members", id), {
+    ridesCount: increment(1),
+    ScanDatums: arrayUnion(today)
+  }, { merge: true });
+
   return id;
 }
 
