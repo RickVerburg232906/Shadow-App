@@ -1,29 +1,49 @@
-import QRCode from "qrcode";
-import { db, getDoc, doc } from "./firebase.js";
-import { collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot } from "firebase/firestore";
 
-// Dynamisch maximum sterren: afgeleid van aantal geplande datums in Firestore
-let STAR_MAX = 5;
-async function loadStarMax() {
+import QRCode from "qrcode";
+import { db } from "./firebase.js";
+import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot } from "firebase/firestore";
+
+async function getPlannedDates() {
   try {
-    const planRef = doc(db, "globals", "ridePlan");
-    const snap = await getDoc(planRef);
-    if (snap.exists()) {
-      const data = snap.data() || {};
-      const dates = Array.isArray(data.plannedDates) ? data.plannedDates : [];
-      if (dates.length >= 1) {
-        STAR_MAX = dates.length; // Max = aantal geplande datums
-      } else {
-        STAR_MAX = 5; // fallback
-      }
-    } else {
-      STAR_MAX = 5;
-    }
+    const ref = doc(db, "globals", "ridePlan");
+    const snap = await getDoc(ref);
+    const data = snap.exists() ? snap.data() : {};
+    const arr = Array.isArray(data.plannedDates) ? data.plannedDates : [];
+    return arr.filter(Boolean);
   } catch (e) {
-    console.warn("[stars] kon STAR_MAX niet laden:", e);
-    STAR_MAX = 5;
+    console.error("Kon plannedDates niet laden:", e);
+    return [];
   }
 }
+
+function findStarContainer() {
+  return (
+    document.querySelector("#rideStars") ||
+    document.querySelector("#stars") ||
+    document.querySelector("[data-stars]")
+  );
+}
+
+function renderStarCount(n) {
+  const el = findStarContainer();
+  const host = el || (() => {
+    const d = document.createElement("div");
+    d.id = "rideStars";
+    d.style.fontSize = "24px";
+    d.style.letterSpacing = "4px";
+    document.body.appendChild(d);
+    return d;
+  })();
+
+  host.setAttribute("aria-label", `${n} geplande ritten`);
+  host.setAttribute("role", "img");
+  host.textContent = "☆".repeat(n);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const dates = await getPlannedDates();
+  renderStarCount(dates.length);
+});
 
 /* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–5 */
 function ridesToStars(count) {
