@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shadow App</title>
     <link rel="stylesheet" href="/style.css">
+    <!-- QR library laadt pas bij admin scanner start via admin.js, maar deze is ok als fallback -->
     <script src="https://unpkg.com/html5-qrcode" defer></script>
   </head>
   <body>
@@ -31,20 +32,22 @@
             <div class="column">
               <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
               <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <!-- ✅ Enige toevoeging: vaste plek voor ridesCount weergave -->
               <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="rRidesCount">—</span></div>
-              <p> Ga nu naar de inschrijf balie om in te checken voor de rit</p>
+              <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
             </div>
-            <canvas id="qrCanvas" width="220" height="220"></canvas>
-          <div class="small muted" id="qrPrivacy" style="display:none">
-            Privacy: de QR bevat alleen een LidNr, geen naam.
-          </div>
+            <div class="column" style="align-items:center; gap:8px;">
+              <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
+              <div class="small muted" id="qrPrivacy" style="display:none">
+                Privacy: de QR bevat alleen een LidNr, geen naam.
+              </div>
+            </div>
+          </div><!-- /#result -->
+        </div><!-- /.card -->
+      </section><!-- /#viewMember -->
 
-      </section>
-
-      <!-- ADMIN VIEW (ongewijzigd) -->
+      <!-- ADMIN VIEW -->
       <section id="viewAdmin" class="view">
-      
+        <!-- QR scannen -->
         <div class="card">
           <h3>QR code scannen</h3>
           <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
@@ -56,7 +59,8 @@
           <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
           <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
-    
+
+        <!-- Admin: bevestigingsmodal voor QR-boekingen (optioneel gebruikt door admin.js) -->
         <div id="adminBookModal" class="modal" style="display:none;">
           <div class="modal-dialog">
             <div class="modal-header">
@@ -96,6 +100,7 @@
           <div id="adminManualStatus" class="status"></div>
         </div>
 
+        <!-- Admin: Excel uploaden -->
         <div class="card">
           <h1>Admin: Excel uploaden</h1>
           <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
@@ -108,8 +113,8 @@
           <div id="status" class="status"></div>
           <div id="log" class="log"></div>
         </div>
-        
-                <!-- Reset alle ridesCount sectie -->
+
+        <!-- Reset alle ridesCount sectie -->
         <div class="card" id="resetRidesCard">
           <h3>Beheer: Ritten resetten</h3>
           <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (ridesCount) terug naar 0 voor alle leden.</p>
@@ -117,7 +122,7 @@
           <div id="resetStatus" class="status"></div>
         </div>
 
-        <!-- Bevestigingsmodal -->
+        <!-- Bevestigingsmodal voor reset -->
         <div id="resetModal" class="modal" style="display:none;">
           <div class="modal-dialog">
             <div class="modal-header">
@@ -132,9 +137,13 @@
               <button id="resetConfirm" class="btn" style="border-color:#ef4444;">Ja, reset alles</button>
               <button id="resetCancel" class="btn btn-ghost">Nee, annuleren</button>
             </div>
-
-</section>
+          </div>
+        </div>
+      </section><!-- /#viewAdmin -->
     </main>
+
+    <!-- Toast root -->
+    <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>
