@@ -11,6 +11,62 @@ function ridesToStars(count) {
   return "★".repeat(filled) + "☆".repeat(empty);
 }
 
+// === QR Fullscreen overlay ===
+function openQrFullscreenFromCanvas(qrCanvas) {
+  try {
+    const dataUrl = qrCanvas.toDataURL("image/png");
+    const overlay = document.createElement("div");
+    overlay.id = "qrFullscreenOverlay";
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.background = "rgba(0,0,0,0.95)";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.zIndex = "9999";
+    overlay.style.cursor = "zoom-out";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", "QR-code fullscreen");
+
+    const img = document.createElement("img");
+    img.src = dataUrl;
+    img.alt = "QR-code";
+    // Vierkant houden: gebruik 100vmin (kleinste van vw en vh) zodat hij maximaal in scherm past als perfect vierkant
+    img.style.width = "100vmin";
+    img.style.height = "100vmin";
+    img.style.imageRendering = "pixelated"; // scherpe blokken
+    img.style.border = "0";
+    img.style.borderRadius = "0";
+    img.style.boxShadow = "none";
+
+    const hint = document.createElement("div");
+    hint.textContent = "Klik of druk op Esc om te sluiten";
+    hint.style.position = "fixed";
+    hint.style.bottom = "24px";
+    hint.style.left = "50%";
+    hint.style.transform = "translateX(-50%)";
+    hint.style.color = "#e5e7eb";
+    hint.style.fontSize = "14px";
+    hint.style.opacity = "0.8";
+
+    function close() {
+      try { document.removeEventListener("keydown", onKey); } catch(_) {}
+      overlay.remove();
+    }
+    function onKey(e) {
+      if (e.key === "Escape") close();
+    }
+    overlay.addEventListener("click", close, { passive: true });
+    document.addEventListener("keydown", onKey);
+
+    overlay.appendChild(img);
+    overlay.appendChild(hint);
+    document.body.appendChild(overlay);
+  } catch (e) {
+    console.error("QR fullscreen overlay faalde:", e);
+  }
+}
+
 export function initMemberView() {
   const $ = (id) => document.getElementById(id);
   const nameInput   = $("nameInput");
@@ -88,7 +144,6 @@ export function initMemberView() {
     unsubscribe = null;
   }
 
-  // On focus: direct QR/resultaat verbergen en (indien 1+ chars) meteen suggesties tonen
   async function handleFocus() {
     resetSelection();
     const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
@@ -105,7 +160,6 @@ export function initMemberView() {
         hideSuggestions();
       }
     } else {
-      // geen tekst → lijst verbergen
       hideSuggestions();
     }
   }
@@ -131,7 +185,6 @@ export function initMemberView() {
           return;
         }
 
-        // GEEN auto-select: altijd suggesties tonen
         showSuggestions(items);
       } catch (e) {
         console.error(e);
@@ -145,7 +198,6 @@ export function initMemberView() {
   }
 
   async function handleFind() {
-    // Enter → geen auto-select: alleen (opnieuw) suggesties tonen
     if (errBox) errBox.style.display = "none";
     try {
       const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
@@ -193,34 +245,25 @@ export function initMemberView() {
       }
       // QR gelukt → resultaat tonen
       if (resultBox) resultBox.style.display = "grid";
-      // En privacyregel tonen (als aanwezig)
       const privacyEl = document.getElementById("qrPrivacy");
       if (privacyEl) privacyEl.style.display = "block";
     });
-
-    // Realtime updates voor ridesCount
-    try { if (unsubscribe) { unsubscribe(); } } catch(_) {}
-    const ref = doc(collection(db, "members"), entry.id);
-    unsubscribe = onSnapshot(ref, (snap) => {
-      const d = snap.exists() ? snap.data() : null;
-      const count = (d && typeof d.ridesCount === "number") ? d.ridesCount : 0;
-      if (rRides) {
-        rRides.textContent = ridesToStars(count);
-        rRides.setAttribute("title", `Geregistreerde ritten: ${count}`);
-        rRides.setAttribute("aria-label", `Geregistreerde ritten: ${count}`);
-      }
-    }, (err) => {
-      console.error("ridesCount realtime fout:", err);
-      if (rRides) rRides.textContent = "—";
-    });
   }
 
+  // === Event listeners ===
   nameInput?.addEventListener("focus", handleFocus);
   nameInput?.addEventListener("input", onInputChanged);
   nameInput?.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") hideSuggestions();
     if (ev.key === "Enter") { ev.preventDefault(); handleFind(); }
   });
+
+  // Klik op QR → fullscreen overlay (vierkant, 100vmin)
+  if (qrCanvas) {
+    qrCanvas.style.cursor = "zoom-in";
+    qrCanvas.addEventListener("click", () => openQrFullscreenFromCanvas(qrCanvas), { passive: true });
+    qrCanvas.setAttribute("title", "Klik om fullscreen te openen");
+  }
 }
 
 // Compat-layer: als je ook de oude IIFE had, dit bestand vervangt die noodzaak doordat

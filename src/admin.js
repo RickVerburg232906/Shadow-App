@@ -272,11 +272,33 @@ function initManualRideSection() {
     }
   }
 
-  async function onInput() {
+  function resetSelection() {
     selected = null;
     box.style.display = "none";
     err.style.display = "none";
-    if (unsub) { try { unsub(); } catch(_) {} unsub = null; }
+    status.textContent = "";
+    try { if (unsub) unsub(); } catch(_) {}
+    unsub = null;
+  }
+
+  async function onFocus() {
+    resetSelection();           // QR/kaart direct verbergen
+    const term = (input.value || "").trim();
+    if (term.length >= 1) {
+      try {
+        const items = await queryByLastNamePrefix(term);
+        if (items && items.length) showSuggest(items);
+        else hideSuggest();
+      } catch {
+        hideSuggest();
+      }
+    } else {
+      hideSuggest();
+    }
+  }
+
+  async function onInput() {
+    resetSelection();
     const term = (input.value || "").trim();
     if (term.length < 2) { hideSuggest(); return; }
     try {
@@ -306,29 +328,30 @@ function initManualRideSection() {
     }, (e) => console.error(e));
   }
 
+  input.addEventListener("focus", onFocus, { passive: true });
   input.addEventListener("input", onInput, { passive: true });
   input.addEventListener("keydown", async (ev) => {
     if (ev.key === "Escape") hideSuggest();
     if (ev.key === "Enter") {
       ev.preventDefault();
       const term = (input.value || "").trim();
-      if (!term) return;
+      if (!term) { hideSuggest(); return; }
       try {
         const items = await queryByLastNamePrefix(term);
-        if (items.length) { selectMember(items[0]); hideSuggest(); }
-        else { err.textContent = "Geen leden gevonden."; err.style.display = "block"; }
-      } catch (e) { err.textContent = "Zoeken mislukt."; err.style.display = "block"; }
+        // GEEN auto-select meer: alleen suggesties verversen
+        if (items && items.length) showSuggest(items);
+        else { err.textContent = "Geen leden gevonden."; err.style.display = "block"; hideSuggest(); }
+      } catch (e) {
+        err.textContent = "Zoeken mislukt."; err.style.display = "block";
+        hideSuggest();
+      }
     }
   });
 
   clear?.addEventListener("click", () => {
     input.value = "";
     hideSuggest();
-    box.style.display = "none";
-    err.style.display = "none";
-    status.textContent = "";
-    selected = null;
-    try { if (unsub) unsub(); } catch(_) {}
+    resetSelection();
   });
 
   btn.addEventListener("click", async () => {
