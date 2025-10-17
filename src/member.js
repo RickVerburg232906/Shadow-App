@@ -1,4 +1,4 @@
-// member.js — hersteld met ALLE features + sterren op basis van geplande datums in #rRidesCount ná selectie
+// member.js — sterren oplichten o.b.v. ScanDatums vergeleken met globale geplande datums
 import QRCode from "qrcode";
 import { db } from "./firebase.js";
 import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot } from "firebase/firestore";
@@ -17,37 +17,40 @@ async function getPlannedDates() {
   }
 }
 
-// Voor achterwaartse compatibiliteit: vind container en render optioneel (NIET auto-aanroepen)
-function findStarContainer() {
-  return (
-    document.querySelector("#rideStars") ||
-    document.querySelector("#stars") ||
-    document.querySelector("[data-stars]")
-  );
-}
-function renderStarCount(n) {
-  const el = findStarContainer();
-  const host = el || (() => {
-    const d = document.createElement("div");
-    d.id = "rideStars";
-    d.style.fontSize = "24px";
-    d.style.letterSpacing = "4px";
-    document.body.appendChild(d);
-    return d;
-  })();
-  host.setAttribute("aria-label", `${n} geplande ritten`);
-  host.setAttribute("role", "img");
-  host.textContent = "☆".repeat(Math.max(0, n));
+/* Helper: normaliseer naar 'YYYY-MM-DD' */
+function toYMD(value) {
+  try {
+    if (!value) return "";
+    // Firestore Timestamp?
+    if (typeof value === "object" && value.seconds) {
+      const d = new Date(value.seconds * 1000);
+      return d.toISOString().slice(0,10);
+    }
+    // String of Date
+    const d = new Date(value);
+    if (isNaN(d.getTime())) {
+      // fallback: probeer direct YYYY-MM-DD uit string te knippen
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+        return value.slice(0,10);
+      }
+      return "";
+    }
+    return d.toISOString().slice(0,10);
+  } catch {
+    return "";
+  }
 }
 
-// NIET meer automatisch op DOMContentLoaded renderen — alleen na selectie:
-// document.addEventListener("DOMContentLoaded", async () => {
-//   const dates = await getPlannedDates();
-//   renderStarCount(dates.length);
-// });
+/* Helper: maak sterstring + tooltip op basis van geplande datums en scanDatums */
+function plannedStarsWithHighlights(plannedDates, scanDates) {
+  const planned = plannedDates.map(toYMD).filter(Boolean);
+  const scans = new Set(scanDates.map(toYMD).filter(Boolean));
+  const stars = planned.map(d => scans.has(d) ? "★" : "☆").join("");
+  const tooltip = planned.map((d, i) => `${i+1}: ${d} — ${scans.has(d) ? "Geregistreerd" : "Niet geregistreerd"}`).join("\n");
+  return { stars, tooltip };
+}
 
-/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–STAR_MAX */
-// STAR_MAX wordt in globals gezet door loadStarMax() elders; fallback = 5
+/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–STAR_MAX ) */
 let STAR_MAX = 5;
 export async function loadStarMax() {
   try {
@@ -87,7 +90,6 @@ function openQrFullscreenFromCanvas(qrCanvas) {
     const img = document.createElement("img");
     img.src = dataUrl;
     img.alt = "QR-code";
-    // Vierkant houden
     img.style.width = "100vmin";
     img.style.height = "100vmin";
     img.style.imageRendering = "pixelated";
@@ -140,7 +142,7 @@ export async function initMemberView() {
   const errBox      = $("error");
   const rName       = $("rName");
   const rMemberNo   = $("rMemberNo");
-  const rRides      = $("rRidesCount");   // HTML: <span id="rRidesCount">
+  const rRides      = $("rGereden_Ritten");   // HTML: <span id="rGereden_Ritten">
   const qrCanvas    = $("qrCanvas");
 
   let selectedDoc = null;
@@ -236,14 +238,16 @@ export async function initMemberView() {
   }
 
   async function onInputChanged() {
-    // Debounce snelle typbewegingen
     if (_debounceHandle) clearTimeout(_debounceHandle);
     _debounceHandle = setTimeout(async () => {
       try {
         resetSelection();
+
         const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
         if (term.length < 2) { hideSuggestions(); return; }
+
         const items = await queryByLastNamePrefix(term);
+
         if (!items || !items.length) {
           if (errBox) {
             errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.";
@@ -252,6 +256,7 @@ export async function initMemberView() {
           hideSuggestions();
           return;
         }
+
         showSuggestions(items);
       } catch (e) {
         console.error(e);
@@ -293,25 +298,24 @@ export async function initMemberView() {
     if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
 
-    // 1) Toon STERREN o.b.v. GEPLANDE datums in #rRidesCount
+    // 1) Sterren o.b.v. GEPLANDE datums, oplichten bij match met ScanDatums
     const planned = await getPlannedDates();
+    const scanDatums = Array.isArray(data.ScanDatums) ? data.ScanDatums : []; // verwacht array
+    const { stars, tooltip } = plannedStarsWithHighlights(planned, scanDatums);
     if (rRides) {
-      const n = planned.length;
-      rRides.textContent = n > 0 ? "☆".repeat(n) : "—";
-      rRides.setAttribute("title", n ? `Ingeplande datums: ${planned.map(fmtDate).join(", ")}` : "Geen ingeplande datums");
-      rRides.setAttribute("aria-label", n ? `Aantal ingeplande ritten: ${n}` : "Geen ingeplande datums");
+      rRides.textContent = stars || "—";
+      rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
+      rRides.setAttribute("aria-label", stars ? `Sterren per datum (geplande=${planned.length})` : "Geen ingeplande datums");
       rRides.style.letterSpacing = "3px";
       rRides.style.fontSize = "20px";
     }
 
-    // 2) Live updates op ridesCount (features behouden)
+    // 2) Live updates op Gereden_Ritten blijven actief (features behouden)
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
       const d = snap.exists() ? snap.data() : {};
-      const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
-      // Indien je elders een element voor geregistreerde ritten hebt, kun je dit daar tonen
-      // Hier behouden we alleen de helper en live-listener zonder rRides te overschrijven
-      // console.debug("Live ridesCount:", count, "→", ridesToStars(count));
+      const count = typeof d.Gereden_Ritten === "number" ? d.Gereden_Ritten : 0;
+      // hier zou je desgewenst een ander element kunnen updaten met ridesToStars(count)
     });
 
     // 3) QR pas na selectie
@@ -345,5 +349,3 @@ export async function initMemberView() {
     qrCanvas.setAttribute("title", "Klik om fullscreen te openen");
   }
 }
-
-// Compat-layer: oude IIFE niet meer nodig; alles via initMemberView.
