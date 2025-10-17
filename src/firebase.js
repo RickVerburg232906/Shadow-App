@@ -1,9 +1,8 @@
 import { initializeApp } from "firebase/app";
-import {
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, query, where, orderBy, startAt, endAt, limit,
-  getDocs, getDoc, doc, writeBatch, setDoc, addDoc, serverTimestamp, increment
-} from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, orderBy, startAt, endAt, limit, getDocs, getDoc, doc, writeBatch, setDoc, addDoc, serverTimestamp, increment, arrayUnion } from "firebase/firestore";
+// arrayUnion exporteren voor gemak
+// (optioneel, admin.js importeert direct uit firebase/firestore)
+
 import { getStorage, ref, uploadBytes } from "firebase/storage";
 
 export const firebaseConfig = {
@@ -24,7 +23,4 @@ export const db = initializeFirestore(app, {
 export const storage = getStorage(app);
 
 // Re-export helpers
-export {
-  collection, query, where, orderBy, startAt, endAt, limit,
-  getDocs, getDoc, doc, writeBatch, setDoc, addDoc, serverTimestamp, increment, ref, uploadBytes
-};
+export {addDoc, arrayUnion, collection, doc, endAt, getDoc, getDocs, increment, limit, orderBy, query, ref, serverTimestamp, setDoc, startAt, uploadBytes, where, writeBatch};

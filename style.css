@@ -78,6 +78,10 @@ body { margin: 0; background:var(--bg); color:var(--text); -webkit-tap-highlight
 .value { font-weight:700; }
 
 .suggest {
+  position: relative;
+  z-index: 9999;
+  pointer-events: auto;
+
   list-style:none; margin: 8px 0 0; padding: 0; border:1px solid #334155; border-radius:12px;
   overflow:hidden; display:none; max-height: 40vh; overflow-y: auto;
 }
@@ -122,8 +126,8 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 }
 
 
-/* --- RidesCount as stars --- */
-#rRidesCount {
+/* --- Gereden_Ritten as stars --- */
+#rGereden_Ritten {
   font-size: 1.2rem;
   letter-spacing: 2px;
   white-space: nowrap;
@@ -145,3 +149,13 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .file-input{display:none}
 .file-btn{cursor:pointer}
 .status{color:#9ca3af}
+
+/* Date-mapped stars */
+.stars .star { display:inline-block; font-size:1.2rem; margin-right:2px; }
+.stars .star.filled { filter: none; }
+.stars .star.empty { opacity: 0.65; }
+.star-dates { font-size: 0.8rem; margin-top: 4px; display:flex; gap:8px; flex-wrap:wrap; color:#9ca3af; }
+.star-date { white-space:nowrap; }
+
+/* Ensure suggestion dropdowns are not clipped */
+.card { position: relative; overflow: visible; }

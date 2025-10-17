@@ -1,9 +1,6 @@
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
-import {
-  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit,
-  startAfter, startAt, endAt, onSnapshot
-} from "firebase/firestore";
+import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt } from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel"];
@@ -73,13 +70,13 @@ export function initAdminView() {
     return rows;
   }
 
-  // ⚠️ Belangrijk: we negeren elke 'ridesCount' uit het bestand
+  // ⚠️ Belangrijk: we negeren elke 'Gereden_Ritten' uit het bestand
   // zodat bestaande waarden niet overschreven worden.
   function normalizeRows(rows) {
     return rows.map((r) => {
       const out = {};
       for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
-      // GEEN ridesCount hier!
+      // GEEN Gereden_Ritten hier!
       return out;
     });
   }
@@ -94,11 +91,11 @@ export function initAdminView() {
       const id = String(r["LidNr"] || "").trim();
       if (!/^\d+$/.test(id)) { skipped++; continue; }
 
-      // Alleen profielvelden schrijven; ridesCount NIET overschrijven.
+      // Alleen profielvelden schrijven; Gereden_Ritten NIET overschrijven.
       // Gebruik increment(0): behoudt bestaande waarde; als veld ontbreekt → wordt 0.
       const clean = {};
       for (const k of REQUIRED_COLS) clean[k] = r[k];
-      clean["ridesCount"] = increment(0);
+      clean["Gereden_Ritten"] = increment(0);
 
       batch.set(doc(db, "members", id), clean, { merge: true });
       updated++;
@@ -127,7 +124,7 @@ export function initAdminView() {
       if (statusEl) statusEl.textContent = "Importeren naar Firestore…";
       const res = await importRowsToFirestore(rows);
       log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
-      if (statusEl) statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
+      if (statusEl) statusEl.textContent = "✅ Import voltooid (Gereden_Ritten behouden)";
     } catch (e) {
       console.error(e);
       if (statusEl) statusEl.textContent = "❌ Fout tijdens import";
@@ -144,27 +141,125 @@ export function initAdminView() {
   const resetBtn = document.getElementById("resetRidesBtn");
   const resetStatus = document.getElementById("resetStatus");
   resetBtn?.addEventListener("click", async () => {
-    const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
+    const ok = window.confirm("Weet je zeker dat je ALLE Gereden_Ritten waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
     if (!ok) return;
-    await resetAllRidesCount(resetStatus);
+    await resetAllGereden_Ritten(resetStatus);
   });
 
   // ===== Handmatig rit registreren =====
   initManualRideSection();
+
+  // ===== Ritten plannen (globaal) =====
+  initRidePlannerSection();
 
   // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
 }
 
 // =====================================================
+// ===============  Ritten plannen (globaal) ===========
+// =====================================================
+function initRidePlannerSection() {
+  const $ = (id) => document.getElementById(id);
+  const card = $("ridePlannerCard");
+  if (!card) return;
+
+  const d1 = $("rideDate1");
+  const d2 = $("rideDate2");
+  const d3 = $("rideDate3");
+  const d4 = $("rideDate4");
+  const d5 = $("rideDate5");
+  const d6 = $("rideDate6");
+  const saveBtn = $("saveRidePlanBtn");
+  const reloadBtn = $("reloadRidePlanBtn");
+  const statusEl = $("ridePlanStatus");
+
+  const planRef = doc(db, "globals", "ridePlan");
+
+  function setStatus(msg, ok = true) {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.style.color = ok ? "#9ca3af" : "#ef4444";
+  }
+
+  function setInputs(dates) {
+    const arr = Array.isArray(dates) ? dates : [];
+    const vals = (arr.slice(0,6).concat(Array(6))).slice(0,6).map(v => v || "");
+    [d1,d2,d3,d4,d5,d6].forEach((el, i) => { if (el) el.value = vals[i] || ""; });
+  }
+
+  async function loadPlan() {
+    try {
+      setStatus("Laden…");
+      const snap = await getDoc(planRef);
+      if (snap.exists()) {
+        const data = snap.data() || {};
+        const dates = Array.isArray(data.plannedDates) ? data.plannedDates : [];
+        setInputs(dates);
+        setStatus(`✅ ${dates.length} datums geladen`);
+      } else {
+        setInputs([]);
+        setStatus("Nog geen planning opgeslagen.");
+      }
+    } catch (e) {
+      console.error("[ridePlan] loadPlan error", e);
+      setStatus("❌ Laden mislukt (controleer regels/verbinding)", false);
+    }
+  }
+
+  function collectDates() {
+    const vals = [d1,d2,d3,d4,d5,d6].map(el => (el && el.value || "").trim()).filter(Boolean);
+    const uniq = Array.from(new Set(vals));
+    uniq.sort(); // YYYY-MM-DD sort
+    return uniq;
+  }
+
+  async function savePlan() {
+    try {
+      const dates = collectDates();
+      if (dates.length < 5) {
+        setStatus("❗ Vul minimaal 5 datums in.", false);
+        return;
+      }
+      setStatus("Opslaan…");
+      await setDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }, { merge: true });
+      setStatus("✅ Planning opgeslagen");
+    } catch (e) {
+      console.error("[ridePlan] savePlan error", e);
+      setStatus("❌ Opslaan mislukt (controleer regels/verbinding)", false);
+    }
+  }
+
+  saveBtn?.addEventListener("click", savePlan);
+  reloadBtn?.addEventListener("click", loadPlan);
+
+  // Auto-load bij openen Admin tab
+  loadPlan();
+}
+
+// =====================================================
 // ===============  Helpers (Admin)  ===================
 // =====================================================
 
-// Boek rit: ridesCount +1 voor members/{LidNr}
+// Boek rit: Gereden_Ritten +1 voor members/{LidNr}
 async function bookRide(lid, naam) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
-  await setDoc(doc(db, "members", id), { ridesCount: increment(1) }, { merge: true });
+
+  // Datumstring (YYYY-MM-DD) voor ScanDatums
+  const today = (function(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  })();
+
+  await setDoc(doc(db, "members", id), {
+    Gereden_Ritten: increment(1),
+    ScanDatums: arrayUnion(today)
+  }, { merge: true });
+
   return id;
 }
 
@@ -209,7 +304,7 @@ function initManualRideSection() {
   const err     = $("adminManualError");
   const sName   = $("adminMName");
   const sId     = $("adminMMemberNo");
-  const sCount  = $("adminMRidesCount");
+  const sCount  = $("adminMGereden_Ritten");
   const btn     = $("adminManualBookBtn");
   const status  = $("adminManualStatus");
 
@@ -314,7 +409,7 @@ function initManualRideSection() {
     selected = entry;
     sName.textContent = fullNameFrom(entry.data);
     sId.textContent = entry.id;
-    const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
+    const v = typeof entry.data?.Gereden_Ritten === "number" ? entry.data.Gereden_Ritten : 0;
     sCount.textContent = String(v);
     box.style.display = "grid";
 
@@ -323,7 +418,7 @@ function initManualRideSection() {
     const ref = doc(collection(db, "members"), entry.id);
     unsub = onSnapshot(ref, (snap) => {
       const d = snap.exists() ? snap.data() : null;
-      const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
+      const c = d && typeof d.Gereden_Ritten === "number" ? d.Gereden_Ritten : 0;
       sCount.textContent = String(c);
     }, (e) => console.error(e));
   }
@@ -444,7 +539,7 @@ function initAdminQRScanner() {
           const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
             .replace(/\s+/g, " ").trim();
           naam = composed || (d["Naam"] || d["name"] || d["naam"] || "");
-          const rc = Number(d?.ridesCount);
+          const rc = Number(d?.Gereden_Ritten);
           beforeCount = Number.isFinite(rc) ? rc : 0;
         } else {
           beforeCount = 0;
@@ -498,8 +593,8 @@ function initAdminQRScanner() {
   stopBtn?.addEventListener("click", stop);
 }
 
-// ===== Firestore helper: reset alle ridesCount in batches ======
-async function resetAllRidesCount(statusEl) {
+// ===== Firestore helper: reset alle Gereden_Ritten in batches ======
+async function resetAllGereden_Ritten(statusEl) {
   if (!statusEl) return;
   statusEl.textContent = "Voorbereiden…";
   let total = 0;
@@ -517,7 +612,7 @@ async function resetAllRidesCount(statusEl) {
 
       let batch = writeBatch(db);
       snapshot.forEach((docSnap) => {
-        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
+        batch.set(doc(db, "members", docSnap.id), { Gereden_Ritten: 0 }, { merge: true });
       });
       await batch.commit();
       total += snapshot.size;
@@ -527,7 +622,7 @@ async function resetAllRidesCount(statusEl) {
       if (snapshot.size < pageSize) break;
     }
 
-    statusEl.textContent = `✅ Klaar. Alle ridesCount naar 0 gezet voor ${total} leden.`;
+    statusEl.textContent = `✅ Klaar. Alle Gereden_Ritten naar 0 gezet voor ${total} leden.`;
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
