@@ -1,18 +1,29 @@
-# Shadow App — Mobile Optimized 📱
+# Fix localhost:5173 (Vite) – Troubleshooting Pack
 
-Deze versie is geoptimaliseerd voor telefoons:
-- Grote touch targets (≥44px), duidelijke knoppen en invoervelden.
-- QR-bibliotheek wordt **lazy** geladen bij starten van de scanner (snellere eerste load).
-- QR-grootte schaalt mee met schermbreedte (tot 320px).
-- Suggestielijst is scrolbaar en 'tap-vriendelijk'.
-- Safe-area aware (iOS): toasts en topbar houden rekening met notch.
-- `viewport-fit=cover` en PWA-manifest aanwezig.
+Gebruik deze stappen wanneer `http://localhost:5173` niet laadt (ERR_CONNECTION_REFUSED).
 
-## Gebruik
-```bash
-npm i
-npm run dev
-```
-Open de URL die Vite toont.
+## Snelcheck (meest voorkomend)
+1) **Start de dev-server** in je projectmap:
+   - `npm run dev` of `pnpm dev` of `yarn dev` (zie output; er moet "Local: http://localhost:5173" staan).
+2) **Forceer Vite om goed te binden** (IPv4/IPv6/proxy issues):
+   - Pas je *dev* script aan naar: `vite --host --port 5173 --strictPort`
+   - Of gebruik de meegeleverde `templates/package.json` en `templates/vite.config.ts` als referentie.
+3) **Poort bezet?** Kill proces op poort 5173 en start opnieuw
+   - Windows: `scripts/kill-port-5173.ps1`
+   - macOS/Linux: `scripts/kill-port-5173.sh`
+4) **Firewall/Antivirus/Proxy/VPN**
+   - Sta Node/Vite toe in je firewall.
+   - Zet browser/opera proxy uit (geen LAN-proxy).
+   - Zet VPN tijdelijk uit om te testen.
+5) **Andere terminal al in gebruik?**
+   - Eén Vite-instantie tegelijk. Sluit dubbelen of gebruik `--strictPort` om error te zien bij conflict.
 
-> Productie-tip: verplaats het +1 zetten van `ridesCount` naar een Cloud Function en beveilig Firestore met rules.
+## Extra checks
+- **Kijk naar de terminal-output** van Vite: errors bij build/TS/ESLint blokkeren de server soms.
+- **Clear node-modules cache**: `rm -rf node_modules .vite` en `npm i` (of `pnpm i`, `yarn`), daarna `npm run dev`.
+- **WSL/Docker**: Start met `--host` (of `0.0.0.0`) en open via `http://localhost:5173`. Soms is `--host` vereist.
+- **HMR in Opera**: voeg `server.hmr.clientPort = 5173` toe in `vite.config.ts` (zie template).
+
+## Hoe deze pack te gebruiken
+- **NIETS hoeft overschreven te worden**. Gebruik de templates ter referentie of kopieer gericht.
+- Draai een kill-script als de poort vastzit, pas je `package.json` dev-script aan en probeer opnieuw.
