@@ -17,11 +17,10 @@
     </header>
 
     <main class="wrap">
-      <!-- MEMBER VIEW -->
       <section id="viewMember" class="view active">
         <div class="card">
-          <h1>Inschrijven voor rit</h1>
-          <p class="hint">Zoek op achternaam en toon jouw QR.</p>
+          <h1>Inschrijven voor Landelijke rit</h1>
+          <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
           <div class="row">
             <input id="nameInput" placeholder="Achternaam..." />
           </div>
@@ -31,20 +30,20 @@
             <div class="column">
               <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
               <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <!-- ✅ Enige toevoeging: vaste plek voor ridesCount weergave -->
               <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="rRidesCount">—</span></div>
-              <p> Ga nu naar de inschrijf balie om in te checken voor de rit</p>
+              <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
             </div>
-            <canvas id="qrCanvas" width="220" height="220"></canvas>
-          <div class="small muted" id="qrPrivacy" style="display:none">
-            Privacy: de QR bevat alleen een LidNr, geen naam.
+            <div class="column" style="align-items:center; gap:8px;">
+              <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
+              <div class="small muted" id="qrPrivacy" style="display:none">
+                Privacy: de QR bevat alleen een LidNr, geen naam.
+              </div>
+            </div>
           </div>
-
+        </div>
       </section>
 
-      <!-- ADMIN VIEW (ongewijzigd) -->
       <section id="viewAdmin" class="view">
-      
         <div class="card">
           <h3>QR code scannen</h3>
           <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
@@ -56,21 +55,27 @@
           <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
           <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
-    
-        <div id="adminBookModal" class="modal" style="display:none;">
-          <div class="modal-dialog">
-            <div class="modal-header">
-              <h3>Rit opboeken</h3>
-              <button id="adminBookClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
-            </div>
-            <div class="modal-body">
-              <p id="adminBookMsg">Wilt u een rit opboeken?</p>
-            </div>
-            <div class="modal-actions">
-              <button id="adminBookYes" class="btn">Ja</button>
-              <button id="adminBookNo" class="btn btn-ghost">Nee</button>
+
+        <div class="card" id="manualRideCard">
+          <h3>Handmatig rit registreren</h3>
+          <p class="muted">Zoek op achternaam (Hoofletter gevoelig), kies het juiste lid, en klik op <em>Rit registreren</em>.</p>
+          <div class="row">
+            <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
+            <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
+          </div>
+          <ul id="adminManualSuggest" class="suggest" role="listbox" aria-label="Suggesties"></ul>
+          <div id="adminManualError" class="error" style="display:none"></div>
+          <div id="adminManualResult" class="result" style="display:none">
+            <div class="column">
+              <div class="kv"><span class="label">Naam</span><span class="value" id="adminMName">—</span></div>
+              <div class="kv"><span class="label">LidNr</span><span class="value" id="adminMMemberNo">—</span></div>
+              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMRidesCount">—</span></div>
+              <div class="row" style="margin-top:8px; gap:12px;">
+                <button id="adminManualBookBtn" class="btn">Rit registreren</button>
+              </div>
             </div>
           </div>
+          <div id="adminManualStatus" class="status"></div>
         </div>
 
         <div class="card">
@@ -85,9 +90,7 @@
           <div id="status" class="status"></div>
           <div id="log" class="log"></div>
         </div>
-        
-      
-        <!-- Reset alle ridesCount sectie -->
+
         <div class="card" id="resetRidesCard">
           <h3>Beheer: Ritten resetten</h3>
           <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (ridesCount) terug naar 0 voor alle leden.</p>
@@ -95,7 +98,6 @@
           <div id="resetStatus" class="status"></div>
         </div>
 
-        <!-- Bevestigingsmodal -->
         <div id="resetModal" class="modal" style="display:none;">
           <div class="modal-dialog">
             <div class="modal-header">
@@ -112,8 +114,10 @@
             </div>
           </div>
         </div>
-</section>
+      </section>
     </main>
+
+    <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

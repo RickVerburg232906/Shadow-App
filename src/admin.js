@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
 import {
-  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit, startAfter
+  collection, setDoc, increment, getDoc, getDocs, query, orderBy, limit,
+  startAfter, startAt, endAt, onSnapshot
 } from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
@@ -56,7 +57,7 @@ export function initAdminView() {
   }
 
   fileInput?.addEventListener("change", () => {
-    const f = fileInput.files?.[0];
+    const f = fileInput?.files?.[0];
     if (fileName) fileName.textContent = f ? f.name : "Geen bestand gekozen";
   });
 
@@ -112,24 +113,24 @@ export function initAdminView() {
   async function handleUpload() {
     if (uploading) return; // eenvoudige debounce
     const file = fileInput?.files?.[0];
-    if (!file) { statusEl.textContent = "❗ Kies eerst een bestand"; return; }
+    if (!file) { if (statusEl) statusEl.textContent = "❗ Kies eerst een bestand"; return; }
     uploading = true;
     setLoading(true);
-    statusEl.textContent = "Bezig met inlezen…";
-    logEl && (logEl.innerHTML = "");
+    if (statusEl) statusEl.textContent = "Bezig met inlezen…";
+    if (logEl) logEl.innerHTML = "";
 
     try {
       const wb   = await readWorkbook(file);
       const rows = normalizeRows(sheetToRows(wb));
       log(`Gelezen rijen: ${rows.length}`);
 
-      statusEl.textContent = "Importeren naar Firestore…";
+      if (statusEl) statusEl.textContent = "Importeren naar Firestore…";
       const res = await importRowsToFirestore(rows);
       log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
-      statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
+      if (statusEl) statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
     } catch (e) {
       console.error(e);
-      statusEl.textContent = "❌ Fout tijdens import";
+      if (statusEl) statusEl.textContent = "❌ Fout tijdens import";
       log(String(e?.message || e), "err");
     } finally {
       setLoading(false);
@@ -148,6 +149,9 @@ export function initAdminView() {
     await resetAllRidesCount(resetStatus);
   });
 
+  // ===== Handmatig rit registreren =====
+  initManualRideSection();
+
   // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
 }
@@ -156,7 +160,7 @@ export function initAdminView() {
 // ===============  Helpers (Admin)  ===================
 // =====================================================
 
-// Boek rit: ridesCount +1 voor members/{LidNr} (client-side; voor productie → Cloud Function)
+// Boek rit: ridesCount +1 voor members/{LidNr}
 async function bookRide(lid, naam) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
@@ -192,6 +196,176 @@ function showToast(msg, ok = true) {
 }
 
 function hhmmss(d = new Date()) { return d.toTimeString().slice(0, 8); }
+
+// =====================================================
+// ============ Handmatig rit registreren  =============
+// =====================================================
+function initManualRideSection() {
+  const $ = (id) => document.getElementById(id);
+  const input   = $("adminManualSearchInput");
+  const clear   = $("adminManualClear");
+  const list    = $("adminManualSuggest");
+  const box     = $("adminManualResult");
+  const err     = $("adminManualError");
+  const sName   = $("adminMName");
+  const sId     = $("adminMMemberNo");
+  const sCount  = $("adminMRidesCount");
+  const btn     = $("adminManualBookBtn");
+  const status  = $("adminManualStatus");
+
+  if (!input || !list || !box || !btn) return; // UI niet aanwezig
+
+  let selected = null;
+  let unsub = null;
+
+  function fullNameFrom(d) {
+    const tussen = (d?.["Tussen voegsel"] || "").toString().trim();
+    const parts = [
+      (d?.["Voor naam"] || "").toString().trim(),
+      d?.["Voor letters"] ? `(${(d["Voor letters"]+"").trim()})` : "",
+      tussen,
+      (d?.["Naam"] || d?.["name"] || d?.["naam"] || "").toString().trim()
+    ].filter(Boolean);
+    return parts.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function hideSuggest() { list.innerHTML = ""; list.style.display = "none"; }
+  function showSuggest(items) {
+    list.innerHTML = "";
+    for (const it of items) {
+      const li = document.createElement("li");
+      li.textContent = `${fullNameFrom(it.data)} — ${it.id}`;
+      li.addEventListener("click", () => {
+        selectMember(it);
+        hideSuggest();
+      }, { passive: true });
+      list.appendChild(li);
+    }
+    list.style.display = items.length ? "block" : "none";
+  }
+
+  // Zoeken: probeer "Naam" → "naam" → "name", anders fallback
+  async function queryByLastNamePrefix(prefix) {
+    const fields = ["Naam", "naam", "name"];
+    for (const fld of fields) {
+      try {
+        const qRef = query(collection(db, "members"), orderBy(fld), startAt(prefix), endAt(prefix + "\uf8ff"), limit(10));
+        const snap = await getDocs(qRef);
+        const rows = [];
+        snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
+        if (rows.length) return rows;
+      } catch (_) {}
+    }
+    // Fallback: eerste 200 documenten en client-side filter
+    try {
+      const qRef = query(collection(db, "members"), orderBy("__name__"), limit(200));
+      const snap = await getDocs(qRef);
+      const rows = [];
+      snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
+      const p = prefix.toLowerCase();
+      return rows.filter(r => {
+        const ln = (r.data?.["Naam"] || r.data?.["name"] || r.data?.["naam"] || "").toString().toLowerCase();
+        return ln.startsWith(p);
+      }).slice(0, 10);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function resetSelection() {
+    selected = null;
+    box.style.display = "none";
+    err.style.display = "none";
+    status.textContent = "";
+    try { if (unsub) unsub(); } catch(_) {}
+    unsub = null;
+  }
+
+  async function onFocus() {
+    resetSelection();           // QR/kaart direct verbergen
+    const term = (input.value || "").trim();
+    if (term.length >= 1) {
+      try {
+        const items = await queryByLastNamePrefix(term);
+        if (items && items.length) showSuggest(items);
+        else hideSuggest();
+      } catch {
+        hideSuggest();
+      }
+    } else {
+      hideSuggest();
+    }
+  }
+
+  async function onInput() {
+    resetSelection();
+    const term = (input.value || "").trim();
+    if (term.length < 2) { hideSuggest(); return; }
+    try {
+      const items = await queryByLastNamePrefix(term);
+      showSuggest(items);
+    } catch (e) {
+      console.error(e);
+      hideSuggest();
+    }
+  }
+
+  function selectMember(entry) {
+    selected = entry;
+    sName.textContent = fullNameFrom(entry.data);
+    sId.textContent = entry.id;
+    const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
+    sCount.textContent = String(v);
+    box.style.display = "grid";
+
+    // realtime teller
+    try { if (unsub) unsub(); } catch(_) {}
+    const ref = doc(collection(db, "members"), entry.id);
+    unsub = onSnapshot(ref, (snap) => {
+      const d = snap.exists() ? snap.data() : null;
+      const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
+      sCount.textContent = String(c);
+    }, (e) => console.error(e));
+  }
+
+  input.addEventListener("focus", onFocus, { passive: true });
+  input.addEventListener("input", onInput, { passive: true });
+  input.addEventListener("keydown", async (ev) => {
+    if (ev.key === "Escape") hideSuggest();
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      const term = (input.value || "").trim();
+      if (!term) { hideSuggest(); return; }
+      try {
+        const items = await queryByLastNamePrefix(term);
+        // GEEN auto-select meer: alleen suggesties verversen
+        if (items && items.length) showSuggest(items);
+        else { err.textContent = "Geen leden gevonden."; err.style.display = "block"; hideSuggest(); }
+      } catch (e) {
+        err.textContent = "Zoeken mislukt."; err.style.display = "block";
+        hideSuggest();
+      }
+    }
+  });
+
+  clear?.addEventListener("click", () => {
+    input.value = "";
+    hideSuggest();
+    resetSelection();
+  });
+
+  btn.addEventListener("click", async () => {
+    if (!selected) { status.textContent = "Kies eerst een lid."; return; }
+    status.textContent = "Bezig met registreren…";
+    try {
+      await bookRide(selected.id, sName.textContent || "");
+      status.textContent = "✅ Rit geregistreerd";
+    } catch (e) {
+      console.error(e);
+      status.textContent = "❌ Fout bij registreren";
+    }
+  });
+}
 
 // =====================================================
 // ===============  QR SCANNER (Admin)  ================
@@ -256,7 +430,7 @@ function initAdminQRScanner() {
     let beforeCount = null;
 
     if (!lid) {
-      statusEl && (statusEl.textContent = "⚠️ Geen LidNr in QR");
+      if (statusEl) statusEl.textContent = "⚠️ Geen LidNr in QR";
       showToast("⚠️ Onbekende QR (geen LidNr)", false);
       appendLog({ naam: "", lid: "", ok: false, reason: "geen LidNr" });
       return;
@@ -282,13 +456,13 @@ function initAdminQRScanner() {
       await bookRide(lid, naam || "");
       const newTotal = (beforeCount ?? 0) + 1;
 
-      statusEl && (statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`);
-      resultEl && (resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`);
+      if (statusEl) statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`;
+      if (resultEl) resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`;
       showToast(`✅ QR-code gescand`, true);
       appendLog({ naam: naam || "", lid, ok: true, ridesTotal: newTotal });
     } catch (e) {
       console.error(e);
-      statusEl && (statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`);
+      if (statusEl) statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`;
       showToast("❌ Fout bij updaten", false);
       appendLog({ naam: naam || "", lid, ok: false, reason: "update fout" });
     }
@@ -298,25 +472,26 @@ function initAdminQRScanner() {
   function onScanError(_) { /* stil */ }
 
   async function start() {
-    statusEl && (statusEl.textContent = "Camera openen…");
+    if (statusEl) statusEl.textContent = "Camera openen…";
     try { await ensureHtml5Qrcode(); } catch(e) {
-      statusEl && (statusEl.textContent = "Bibliotheek niet geladen.");
+      if (statusEl) statusEl.textContent = "Bibliotheek niet geladen.";
       showToast("Bibliotheek niet geladen", false);
       return;
     }
     try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
-    readerEl && (readerEl.innerHTML = "");
+    if (readerEl) readerEl.innerHTML = "";
+    // eslint-disable-next-line no-undef
     scanner = new Html5QrcodeScanner("adminQRReader", { fps: 10, qrbox: 250, aspectRatio: 1.333 }, false);
     scanner.render(onScanSuccess, onScanError);
-    statusEl && (statusEl.textContent = "Richt je camera op de QR-code…");
+    if (statusEl) statusEl.textContent = "Richt je camera op de QR-code…";
   }
 
   async function stop() {
-    statusEl && (statusEl.textContent = "Stoppen…");
+    if (statusEl) statusEl.textContent = "Stoppen…";
     try { if (scanner && scanner.clear) await scanner.clear(); } catch(_) {}
     scanner = null;
-    readerEl && (readerEl.innerHTML = "");
-    statusEl && (statusEl.textContent = "⏸️ Gestopt");
+    if (readerEl) readerEl.innerHTML = "";
+    if (statusEl) statusEl.textContent = "⏸️ Gestopt";
   }
 
   startBtn?.addEventListener("click", start);

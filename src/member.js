@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import { db } from "./firebase.js";
 import { collection, query, orderBy, startAt, endAt, limit, getDocs, doc, onSnapshot } from "firebase/firestore";
 
-/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–10 */
+/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–5 */
 function ridesToStars(count) {
   const max = 5;
   const n = Math.max(0, Math.floor(Number(count) || 0));
@@ -11,9 +11,66 @@ function ridesToStars(count) {
   return "★".repeat(filled) + "☆".repeat(empty);
 }
 
+// === QR Fullscreen overlay ===
+function openQrFullscreenFromCanvas(qrCanvas) {
+  try {
+    const dataUrl = qrCanvas.toDataURL("image/png");
+    const overlay = document.createElement("div");
+    overlay.id = "qrFullscreenOverlay";
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.background = "rgba(0,0,0,0.95)";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.zIndex = "9999";
+    overlay.style.cursor = "zoom-out";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", "QR-code fullscreen");
+
+    const img = document.createElement("img");
+    img.src = dataUrl;
+    img.alt = "QR-code";
+    // Vierkant houden: gebruik 100vmin (kleinste van vw en vh) zodat hij maximaal in scherm past als perfect vierkant
+    img.style.width = "100vmin";
+    img.style.height = "100vmin";
+    img.style.imageRendering = "pixelated"; // scherpe blokken
+    img.style.border = "0";
+    img.style.borderRadius = "0";
+    img.style.boxShadow = "none";
+
+    const hint = document.createElement("div");
+    hint.textContent = "Klik of druk op Esc om te sluiten";
+    hint.style.position = "fixed";
+    hint.style.bottom = "24px";
+    hint.style.left = "50%";
+    hint.style.transform = "translateX(-50%)";
+    hint.style.color = "#e5e7eb";
+    hint.style.fontSize = "14px";
+    hint.style.opacity = "0.8";
+
+    function close() {
+      try { document.removeEventListener("keydown", onKey); } catch(_) {}
+      overlay.remove();
+    }
+    function onKey(e) {
+      if (e.key === "Escape") close();
+    }
+    overlay.addEventListener("click", close, { passive: true });
+    document.addEventListener("keydown", onKey);
+
+    overlay.appendChild(img);
+    overlay.appendChild(hint);
+    document.body.appendChild(overlay);
+  } catch (e) {
+    console.error("QR fullscreen overlay faalde:", e);
+  }
+}
+
 export function initMemberView() {
   const $ = (id) => document.getElementById(id);
   const nameInput   = $("nameInput");
+  let _debounceHandle = null;
   const suggestList = $("suggestions");
   const resultBox   = $("result");
   const errBox      = $("error");
@@ -37,18 +94,20 @@ export function initMemberView() {
   }
 
   function hideSuggestions() {
+    if (!suggestList) return;
     suggestList.innerHTML = "";
     suggestList.style.display = "none";
   }
 
   function showSuggestions(items) {
+    if (!suggestList) return;
     suggestList.innerHTML = "";
     for (const it of items) {
       const li = document.createElement("li");
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
       li.addEventListener("click", () => {
         selectedDoc = it;
-        nameInput.value = it.data["Naam"];
+        if (nameInput) nameInput.value = it.data["Naam"] || "";
         renderSelected(it);
         hideSuggestions();
       });
@@ -71,51 +130,101 @@ export function initMemberView() {
     return res;
   }
 
-  async function onInputChanged() {
+  function hideResultBox() {
+    if (resultBox) resultBox.style.display = "none";
+    const privacyEl = document.getElementById("qrPrivacy");
+    if (privacyEl) privacyEl.style.display = "none";
+  }
+
+  function resetSelection() {
     selectedDoc = null;
-    resultBox.style.display = "none";
-    errBox.style.display = "none";
-    if (unsubscribe) { try { unsubscribe(); } catch(_) {} unsubscribe = null; }
-    const term = (nameInput.value || "").trim();
-    if (term.length < 2) { hideSuggestions(); return; }
-    try {
-      const items = await queryByLastNamePrefix(term);
-      showSuggestions(items);
-    } catch (e) {
-      console.error(e);
+    hideResultBox();
+    if (errBox) errBox.style.display = "none";
+    try { if (unsubscribe) unsubscribe(); } catch(_) {}
+    unsubscribe = null;
+  }
+
+  async function handleFocus() {
+    resetSelection();
+    const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
+    if (term.length >= 1) {
+      try {
+        const items = await queryByLastNamePrefix(term);
+        if (items && items.length) {
+          showSuggestions(items);
+        } else {
+          hideSuggestions();
+        }
+      } catch (e) {
+        console.error(e);
+        hideSuggestions();
+      }
+    } else {
       hideSuggestions();
     }
   }
 
+  async function onInputChanged() {
+    // Debounce snelle typbewegingen
+    if (_debounceHandle) clearTimeout(_debounceHandle);
+    _debounceHandle = setTimeout(async () => {
+      try {
+        resetSelection();
+
+        const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
+        if (term.length < 2) { hideSuggestions(); return; }
+
+        const items = await queryByLastNamePrefix(term);
+
+        if (!items || !items.length) {
+          if (errBox) {
+            errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.";
+            errBox.style.display = "block";
+          }
+          hideSuggestions();
+          return;
+        }
+
+        showSuggestions(items);
+      } catch (e) {
+        console.error(e);
+        hideSuggestions();
+        if (errBox) {
+          errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie.";
+          errBox.style.display = "block";
+        }
+      }
+    }, 250);
+  }
+
   async function handleFind() {
-    errBox.style.display = "none";
+    if (errBox) errBox.style.display = "none";
     try {
-      if (selectedDoc) {
-        renderSelected(selectedDoc);
+      const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
+      if (!term) { hideSuggestions(); return; }
+      const items = await queryByLastNamePrefix(term);
+      if (!items.length) {
+        if (errBox) {
+          errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.";
+          errBox.style.display = "block";
+        }
         hideSuggestions();
         return;
       }
-      const term = (nameInput.value || "").trim();
-      if (!term) return;
-      const items = await queryByLastNamePrefix(term);
-      if (!items.length) {
-        errBox.textContent = "Geen leden gevonden met deze achternaam.";
-        errBox.style.display = "block";
-        return;
-      }
-      renderSelected(items[0]);
-      hideSuggestions();
+      showSuggestions(items);
     } catch (e) {
       console.error(e);
-      errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer opnieuw.";
-      errBox.style.display = "block";
+      if (errBox) {
+        errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie.";
+        errBox.style.display = "block";
+      }
     }
   }
 
   function renderSelected(entry) {
-    const data = entry.data;
-    rName.textContent = fullNameFrom(data);
-    rMemberNo.textContent = entry.id;
+    const data = entry.data || {};
+    if (rName) rName.textContent = fullNameFrom(data);
+    if (rMemberNo) rMemberNo.textContent = entry.id;
 
     // Initieel ridesCount als sterren tonen (fallback 0)
     const initCount = (typeof data.ridesCount === "number") ? data.ridesCount : 0;
@@ -128,39 +237,33 @@ export function initMemberView() {
     const payload = JSON.stringify({ t: "member", uid: entry.id });
     QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
       if (err) {
-        errBox.textContent = "QR genereren mislukte.";
-        errBox.style.display = "block";
+        if (errBox) {
+          errBox.textContent = "QR genereren mislukte.";
+          errBox.style.display = "block";
+        }
         return;
       }
       // QR gelukt → resultaat tonen
-      resultBox.style.display = "grid";
-      // En privacyregel tonen (als aanwezig)
+      if (resultBox) resultBox.style.display = "grid";
       const privacyEl = document.getElementById("qrPrivacy");
       if (privacyEl) privacyEl.style.display = "block";
     });
-
-    // Realtime updates voor ridesCount
-    try { if (unsubscribe) { unsubscribe(); } } catch(_) {}
-    const ref = doc(collection(db, "members"), entry.id);
-    unsubscribe = onSnapshot(ref, (snap) => {
-      const d = snap.exists() ? snap.data() : null;
-      const count = (d && typeof d.ridesCount === "number") ? d.ridesCount : 0;
-      if (rRides) {
-        rRides.textContent = ridesToStars(count);
-        rRides.setAttribute("title", `Geregistreerde ritten: ${count}`);
-        rRides.setAttribute("aria-label", `Geregistreerde ritten: ${count}`);
-      }
-    }, (err) => {
-      console.error("ridesCount realtime fout:", err);
-      if (rRides) rRides.textContent = "—";
-    });
   }
 
+  // === Event listeners ===
+  nameInput?.addEventListener("focus", handleFocus);
   nameInput?.addEventListener("input", onInputChanged);
   nameInput?.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") hideSuggestions();
     if (ev.key === "Enter") { ev.preventDefault(); handleFind(); }
   });
+
+  // Klik op QR → fullscreen overlay (vierkant, 100vmin)
+  if (qrCanvas) {
+    qrCanvas.style.cursor = "zoom-in";
+    qrCanvas.addEventListener("click", () => openQrFullscreenFromCanvas(qrCanvas), { passive: true });
+    qrCanvas.setAttribute("title", "Klik om fullscreen te openen");
+  }
 }
 
 // Compat-layer: als je ook de oude IIFE had, dit bestand vervangt die noodzaak doordat
