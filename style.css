@@ -126,8 +126,6 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 }
 
 
-/* --- Gereden_Ritten as stars --- */
-#rGereden_Ritten {
   font-size: 1.2rem;
   letter-spacing: 2px;
   white-space: nowrap;
@@ -159,3 +157,8 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 
 /* Ensure suggestion dropdowns are not clipped */
 .card { position: relative; overflow: visible; }
+
+
+/* Shadow MC logo header */
+.site-header{display:flex;justify-content:center;align-items:center;padding:12px 0}
+#clubLogo{max-width:100%;height:auto;image-rendering:auto}

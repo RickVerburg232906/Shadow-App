@@ -17,10 +17,12 @@
     </header>
 
     <main class="wrap">
+<header id="siteHeader" class="site-header">
+      <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="300" height="137" />
+    </header>
+
       <section id="viewMember" class="view active">
         <div class="card">
-          <h1>Aanmelden Landelijke rit</h1>
-          <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR bij de inschrijftafel.</p>
           <div class="row">
             <input id="nameInput" placeholder="Achternaam..." />
           </div>
@@ -30,13 +32,10 @@
             <div class="column">
               <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
               <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rGereden ritten">—</span></div>
-              <p>Ga nu naar de inschrijftafel om je aan te melden voor de rit.</p>
             </div>
             <div class="column" style="align-items:center; gap:8px;">
               <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
               <div class="small muted" id="qrPrivacy" style="display:none">
-                Privacy: de QR bevat alleen een lidnummer, geen naam.
               </div>
             </div>
           </div>
@@ -45,8 +44,6 @@
 
       <section id="viewAdmin" class="view">
         <div class="card">
-          <h3>QR-code scannen</h3>
-          <p class="muted">Gebruik de camera om QR-codes te scannen.</p>
           <div class="row" style="gap:12px; align-items:center;">
             <button id="adminScanStart" class="btn">📷 Start scanner</button>
             <button id="adminScanStop" class="btn btn-ghost">⏸️ Stop</button>
@@ -58,7 +55,6 @@
 
         <div class="card" id="manualRideCard">
           <h3>Handmatig rit registreren</h3>
-          <p class="muted">Zoek op achternaam (Hoofdletter gevoelig), kies het juiste lid, en klik op <em>Rit registreren</em>.</p>
           <div class="row">
             <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
             <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
@@ -69,7 +65,6 @@
             <div class="column">
               <div class="kv"><span class="label">Naam</span><span class="value" id="adminMName">—</span></div>
               <div class="kv"><span class="label">LidNr</span><span class="value" id="adminMMemberNo">—</span></div>
-              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMGereden ritten">—</span></div>
               <div class="row" style="margin-top:8px; gap:12px;">
                 <button id="adminManualBookBtn" class="btn">Rit registreren</button>
               </div>
@@ -81,7 +76,6 @@
         
         <div class="card" id="ridePlannerCard">
           <h3>Ritten plannen</h3>
-          <p class="muted">Vul minimaal 5 datums in (6e is optioneel).</p>
           <div class="row" style="flex-wrap:wrap; gap:10px;">
             <input type="date" id="rideDate1" />
             <input type="date" id="rideDate2" />
@@ -98,8 +92,6 @@
         </div>
 
         <div class="card">
-          <h1>Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio</code>.</p>
           <div class="row">
             <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
             <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
@@ -112,7 +104,6 @@
 
         <div class="card" id="resetRidesCard">
           <h3>Beheer: Ritten resetten</h3>
-          <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (Gereden ritten) terug naar 0 voor alle leden.</p>
           <button id="resetRidesBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset alle ritten</button>
           <div id="resetStatus" class="status"></div>
         </div>
@@ -124,7 +115,6 @@
               <button id="resetClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
             </div>
             <div class="modal-body">
-              <p>Weet je zeker dat je <strong>alle</strong> <code>Gereden ritten</code> waardes naar <strong>0</strong> wilt zetten?</p>
               <p class="muted">Deze actie geldt voor alle leden en kan niet ongedaan worden gemaakt.</p>
             </div>
             <div class="modal-actions">
