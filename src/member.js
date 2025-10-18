@@ -132,6 +132,7 @@ export async function initMemberView() {
   const rMemberNo   = $("rMemberNo");
   const rRides      = $("rRidesCount");
   const qrCanvas    = $("qrCanvas");
+  const rRegion    = $("rRegion");
 
   let selectedDoc = null;
   let unsubscribe = null;
@@ -194,6 +195,8 @@ export async function initMemberView() {
       rRides.style.letterSpacing = "";
       rRides.style.fontSize = "";
     }
+  
+    if (rRegion) rRegion.textContent = "—";
   }
 
   async function handleFocus() {
@@ -242,7 +245,8 @@ export async function initMemberView() {
 
   async function renderSelected(entry) {
     const data = entry.data || {};
-    if (rName) rName.textContent = fullNameFrom(data);
+        if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
+if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
 
     // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index

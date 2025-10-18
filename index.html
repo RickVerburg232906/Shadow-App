@@ -45,6 +45,7 @@
               <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
               <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
               <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
+              <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
               <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
             </div>
             <div class="column" style="align-items:center; gap:8px;">
@@ -113,7 +114,7 @@
 
         <div class="card">
           <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
+          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
           <div class="row">
             <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
             <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
@@ -152,6 +153,6 @@
 
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="src/main.js"></script>
   </body>
 </html>
