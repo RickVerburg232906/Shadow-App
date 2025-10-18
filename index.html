@@ -17,6 +17,12 @@
     </header>
 
     <main class="wrap">
+
+
+      <header id="siteHeader" class="site-header">
+      <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="300" height="137" />
+    </header>
+      <section id="viewMember" class="view active">
 <section id="rideConsentGate" class="consent card" aria-labelledby="rideConsentTitle">
   <div class="consent__header">
     <h2 id="rideConsentTitle">Voorwaarden deelname</h2>
@@ -27,17 +33,14 @@
   </div>
   <p id="rideConsentWarn" class="msg" role="status" aria-live="polite"></p>
 </section>
-
-      <header id="siteHeader" class="site-header">
-      <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="300" height="137" />
-    </header>
-      <section id="viewMember" class="view active">
-        <div class="card">
+        <section id="landelijkeSignup" data-ride-signup="true" hidden>
+<div class="card">
           <h1>Inschrijven voor Landelijke rit</h1>
           <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
           <div class="row">
             <input id="nameInput" placeholder="Achternaam..." />
           </div>
+</section>
           <ul id="suggestions" class="suggest"></ul>
           <div id="error" class="error" style="display:none"></div>
           <div id="result" class="result" style="display:none">
@@ -153,6 +156,6 @@
 
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
-    <script type="module" src="src/main.js"></script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>

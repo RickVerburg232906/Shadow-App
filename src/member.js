@@ -293,3 +293,18 @@ if (rName) rName.textContent = fullNameFrom(data);
     qrCanvas.setAttribute("title", "Klik om fullscreen te openen");
   }
 }
+
+
+function ensureMemberConsent(){
+  const accepted = window.sessionStorage.getItem(CONSENT_KEY) === "1";
+  const gate = document.getElementById("rideConsentGate");
+  const enrolls = document.querySelectorAll('#viewMember [data-requires-consent="1"]');
+  if (!gate) return;
+  if (accepted){
+    gate.setAttribute("hidden",""); gate.style.display="none";
+    enrolls.forEach(el=>el.removeAttribute("hidden"));
+  } else {
+    gate.removeAttribute("hidden"); gate.style.display="";
+    enrolls.forEach(el=>el.setAttribute("hidden",""));
+  }
+}
