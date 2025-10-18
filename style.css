@@ -163,4 +163,7 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 
 /* Shadow MC logo header */
 .site-header{display:flex;justify-content:center;align-items:center;padding:12px 0}
-#clubLogo{max-width:100%;height:auto;image-rendering:auto}
+#clubLogo{max-width:100%;height:auto;image-rendering:auto}/* Consent gate styles */
+.consent-gate{margin:16px 0;padding:16px;border:1px solid #e5e7eb;border-radius:14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.consent-row{display:flex;align-items:center;gap:10px;margin:10px 0}
+.consent-gate .btn[disabled]{opacity:.6;cursor:not-allowed}
