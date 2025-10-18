@@ -10,6 +10,7 @@
   <body>
     <header class="topbar">
       <div class="brand">Shadow App</div>
+      <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="100" height="30"  />
       <nav class="nav">
         <button id="tabMember" class="tab active">Lid</button>
         <button id="tabAdmin" class="tab">Admin</button>
@@ -17,6 +18,12 @@
     </header>
 
     <main class="wrap">
+
+
+      <header id="siteHeader" class="site-header">
+      
+    </header>
+      <section id="viewMember" class="view active">
 <section id="rideConsentGate" class="consent card" aria-labelledby="rideConsentTitle">
   <div class="consent__header">
     <h2 id="rideConsentTitle">Voorwaarden deelname</h2>
@@ -27,17 +34,14 @@
   </div>
   <p id="rideConsentWarn" class="msg" role="status" aria-live="polite"></p>
 </section>
-
-      <header id="siteHeader" class="site-header">
-      <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="300" height="137" />
-    </header>
-      <section id="viewMember" class="view active">
-        <div class="card">
+        <section id="landelijkeSignup" data-ride-signup="true" hidden>
+<div class="card">
           <h1>Inschrijven voor Landelijke rit</h1>
           <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
           <div class="row">
             <input id="nameInput" placeholder="Achternaam..." />
           </div>
+
           <ul id="suggestions" class="suggest"></ul>
           <div id="error" class="error" style="display:none"></div>
           <div id="result" class="result" style="display:none">
@@ -45,6 +49,7 @@
               <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
               <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
               <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
+              <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
               <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
             </div>
             <div class="column" style="align-items:center; gap:8px;">
@@ -55,6 +60,7 @@
             </div>
           </div>
         </div>
+        </section>
       </section>
 
       <section id="viewAdmin" class="view">
@@ -113,7 +119,7 @@
 
         <div class="card">
           <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>.</p>
+          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
           <div class="row">
             <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
             <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>

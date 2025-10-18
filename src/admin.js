@@ -3,7 +3,7 @@ import { db, writeBatch, doc } from "./firebase.js";
 import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt } from "firebase/firestore";
 
 // ====== Config / kolommen voor import ======
-const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel"];
+const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel", "Regio Omschrijving"];
 
 // Dynamisch laden van html5-qrcode pas als we echt gaan scannen
 let html5qrcodeLoading = false;

@@ -132,6 +132,7 @@ export async function initMemberView() {
   const rMemberNo   = $("rMemberNo");
   const rRides      = $("rRidesCount");
   const qrCanvas    = $("qrCanvas");
+  const rRegion    = $("rRegion");
 
   let selectedDoc = null;
   let unsubscribe = null;
@@ -194,6 +195,8 @@ export async function initMemberView() {
       rRides.style.letterSpacing = "";
       rRides.style.fontSize = "";
     }
+  
+    if (rRegion) rRegion.textContent = "—";
   }
 
   async function handleFocus() {
@@ -242,7 +245,8 @@ export async function initMemberView() {
 
   async function renderSelected(entry) {
     const data = entry.data || {};
-    if (rName) rName.textContent = fullNameFrom(data);
+        if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
+if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
 
     // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
@@ -287,5 +291,20 @@ export async function initMemberView() {
     qrCanvas.style.cursor = "zoom-in";
     qrCanvas.addEventListener("click", () => openQrFullscreenFromCanvas(qrCanvas), { passive: true });
     qrCanvas.setAttribute("title", "Klik om fullscreen te openen");
+  }
+}
+
+
+function ensureMemberConsent(){
+  const accepted = window.sessionStorage.getItem(CONSENT_KEY) === "1";
+  const gate = document.getElementById("rideConsentGate");
+  const enrolls = document.querySelectorAll('#viewMember [data-requires-consent="1"]');
+  if (!gate) return;
+  if (accepted){
+    gate.setAttribute("hidden",""); gate.style.display="none";
+    enrolls.forEach(el=>el.removeAttribute("hidden"));
+  } else {
+    gate.removeAttribute("hidden"); gate.style.display="";
+    enrolls.forEach(el=>el.setAttribute("hidden",""));
   }
 }
