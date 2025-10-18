@@ -25,3 +25,42 @@ tabAdmin?.addEventListener("click", () => switchTo("admin"));
 
 initMemberView();
 initAdminView();
+
+// GATE: landelijke rit consent (single-button)
+document.addEventListener("DOMContentLoaded", () => {
+  const gate = document.getElementById("rideConsentGate");
+  if (!gate) return;
+
+  // Detect admin view → remove gate immediately
+  const isAdminView = !!document.getElementById("ridePlanSection")
+                    || document.body.dataset.role === "admin"
+                    || /(^|\/)(admin|beheer)(\/|$)/i.test(location.pathname);
+  if (isAdminView) { gate.remove(); return; }
+
+  // Find signup section
+  function findSignupSection() {
+    const explicit = document.querySelector('#landelijkeSignup, [data-ride-signup="true"]');
+    if (explicit) return explicit.closest("section") || explicit;
+    const heads = Array.from(document.querySelectorAll("section h1, section h2, section h3"));
+    const hit = heads.find(h => /inschrijven\s*voor\s*landelijke\s*rit/i.test(h.textContent || ""));
+    return hit ? hit.closest("section") : null;
+  }
+  const signup = findSignupSection();
+  if (!signup) { gate.remove(); return; }
+
+  // Hide signup hard until consent
+  signup.setAttribute("aria-hidden", "true");
+  signup.setAttribute("hidden", "");
+  signup.style.display = "none";
+
+  const btn  = document.getElementById("rideConsentBtn");
+  btn?.addEventListener("click", () => {
+    // Show signup & remove gate
+    signup.removeAttribute("aria-hidden");
+    signup.removeAttribute("hidden");
+    signup.style.display = "";
+    gate.remove();
+    const h = signup.querySelector("h1, h2, h3, [tabindex]") || signup;
+    if (h) { h.setAttribute("tabindex","-1"); h.focus({ preventScroll:false }); }
+  });
+});

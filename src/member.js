@@ -1,4 +1,4 @@
-// member.js — sterren oplichten o.b.v. ScanDatums vergeleken met globale geplande datums
+// member.js — geplande-sterren met highlight op basis van ScanDatums
 import QRCode from "qrcode";
 import { db } from "./firebase.js";
 import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot } from "firebase/firestore";
@@ -17,40 +17,34 @@ async function getPlannedDates() {
   }
 }
 
-/* Helper: normaliseer naar 'YYYY-MM-DD' */
+/* Normaliseer allerlei datumvormen naar 'YYYY-MM-DD' */
 function toYMD(value) {
   try {
     if (!value) return "";
-    // Firestore Timestamp?
     if (typeof value === "object" && value.seconds) {
       const d = new Date(value.seconds * 1000);
       return d.toISOString().slice(0,10);
     }
-    // String of Date
-    const d = new Date(value);
-    if (isNaN(d.getTime())) {
-      // fallback: probeer direct YYYY-MM-DD uit string te knippen
-      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-        return value.slice(0,10);
-      }
-      return "";
+    if (typeof value === "string") {
+      const m = value.match(/\d{4}-\d{2}-\d{2}/);
+      if (m) return m[0];
     }
-    return d.toISOString().slice(0,10);
-  } catch {
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
     return "";
-  }
+  } catch { return ""; }
 }
 
-/* Helper: maak sterstring + tooltip op basis van geplande datums en scanDatums */
+/* Bouw sterrenstring en tooltip met highlights per geplande datum */
 function plannedStarsWithHighlights(plannedDates, scanDates) {
   const planned = plannedDates.map(toYMD).filter(Boolean);
-  const scans = new Set(scanDates.map(toYMD).filter(Boolean));
+  const scans = new Set((Array.isArray(scanDates) ? scanDates : []).map(toYMD).filter(Boolean));
   const stars = planned.map(d => scans.has(d) ? "★" : "☆").join("");
-  const tooltip = planned.map((d, i) => `${i+1}: ${d} — ${scans.has(d) ? "Geregistreerd" : "Niet geregistreerd"}`).join("\n");
-  return { stars, tooltip };
+  const tooltip = planned.map((d, i) => `${i+1}: ${d} — ${scans.has(d) ? "Geregistreerd" : "Niet geregistreerd"}`).join("\\n");
+  return { stars, tooltip, planned };
 }
 
-/* Helper: toon geregistreerde ritten als sterren (★/☆) op schaal 0–STAR_MAX ) */
+/* Helper: geregistreerde ritten naar ★/☆ (behouden feature) */
 let STAR_MAX = 5;
 export async function loadStarMax() {
   try {
@@ -93,9 +87,6 @@ function openQrFullscreenFromCanvas(qrCanvas) {
     img.style.width = "100vmin";
     img.style.height = "100vmin";
     img.style.imageRendering = "pixelated";
-    img.style.border = "0";
-    img.style.borderRadius = "0";
-    img.style.boxShadow = "none";
 
     const hint = document.createElement("div");
     hint.textContent = "Klik of druk op Esc om te sluiten";
@@ -111,9 +102,7 @@ function openQrFullscreenFromCanvas(qrCanvas) {
       try { document.removeEventListener("keydown", onKey); } catch(_) {}
       overlay.remove();
     }
-    function onKey(e) {
-      if (e.key === "Escape") close();
-    }
+    function onKey(e) { if (e.key === "Escape") close(); }
     overlay.addEventListener("click", close, { passive: true });
     document.addEventListener("keydown", onKey);
 
@@ -125,7 +114,6 @@ function openQrFullscreenFromCanvas(qrCanvas) {
   }
 }
 
-/* Format helper */
 function fmtDate(d) {
   if (!d || typeof d !== "string" || d.length < 10) return d || "";
   return `${d.slice(8,10)}-${d.slice(5,7)}-${d.slice(0,4)}`;
@@ -142,7 +130,7 @@ export async function initMemberView() {
   const errBox      = $("error");
   const rName       = $("rName");
   const rMemberNo   = $("rMemberNo");
-  const rRides      = $("rGereden_Ritten");   // HTML: <span id="rGereden_Ritten">
+  const rRides      = $("rRidesCount");
   const qrCanvas    = $("qrCanvas");
 
   let selectedDoc = null;
@@ -156,7 +144,7 @@ export async function initMemberView() {
       tussen ? tussen : "",
       docData["Naam"] || ""
     ].filter(Boolean);
-    return parts.join(" ").replace(/\s+/g, " ").trim();
+    return parts.join(" ").replace(/\\s+/g, " ").trim();
   }
 
   function hideSuggestions() {
@@ -164,7 +152,6 @@ export async function initMemberView() {
     suggestList.innerHTML = "";
     suggestList.style.display = "none";
   }
-
   function showSuggestions(items) {
     if (!suggestList) return;
     suggestList.innerHTML = "";
@@ -183,16 +170,9 @@ export async function initMemberView() {
   }
 
   async function queryByLastNamePrefix(prefix) {
-    const qRef = query(
-      collection(db, "members"),
-      orderBy("Naam"),
-      startAt(prefix),
-      endAt(prefix + "\uf8ff"),
-      limit(8)
-    );
+    const qRef = query(collection(db, "members"), orderBy("Naam"), startAt(prefix), endAt(prefix + "\\uf8ff"), limit(8));
     const snap = await getDocs(qRef);
-    const res = [];
-    snap.forEach(d => res.push({ id: d.id, data: d.data() }));
+    const res = []; snap.forEach(d => res.push({ id: d.id, data: d.data() }));
     return res;
   }
 
@@ -201,7 +181,6 @@ export async function initMemberView() {
     const privacyEl = document.getElementById("qrPrivacy");
     if (privacyEl) privacyEl.style.display = "none";
   }
-
   function resetSelection() {
     selectedDoc = null;
     hideResultBox();
@@ -221,54 +200,30 @@ export async function initMemberView() {
     resetSelection();
     const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
     if (term.length >= 1) {
-      try {
-        const items = await queryByLastNamePrefix(term);
-        if (items && items.length) {
-          showSuggestions(items);
-        } else {
-          hideSuggestions();
-        }
-      } catch (e) {
-        console.error(e);
-        hideSuggestions();
-      }
-    } else {
-      hideSuggestions();
-    }
+      try { const items = await queryByLastNamePrefix(term); if (items && items.length) showSuggestions(items); else hideSuggestions(); }
+      catch { hideSuggestions(); }
+    } else { hideSuggestions(); }
   }
-
   async function onInputChanged() {
     if (_debounceHandle) clearTimeout(_debounceHandle);
     _debounceHandle = setTimeout(async () => {
       try {
         resetSelection();
-
         const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
         if (term.length < 2) { hideSuggestions(); return; }
-
         const items = await queryByLastNamePrefix(term);
-
         if (!items || !items.length) {
-          if (errBox) {
-            errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.";
-            errBox.style.display = "block";
-          }
+          if (errBox) { errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie."; errBox.style.display = "block"; }
           hideSuggestions();
           return;
         }
-
         showSuggestions(items);
       } catch (e) {
-        console.error(e);
         hideSuggestions();
-        if (errBox) {
-          errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie.";
-          errBox.style.display = "block";
-        }
+        if (errBox) { errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie."; errBox.style.display = "block"; }
       }
     }, 250);
   }
-
   async function handleFind() {
     if (errBox) errBox.style.display = "none";
     try {
@@ -276,20 +231,12 @@ export async function initMemberView() {
       if (!term) { hideSuggestions(); return; }
       const items = await queryByLastNamePrefix(term);
       if (!items.length) {
-        if (errBox) {
-          errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.";
-          errBox.style.display = "block";
-        }
-        hideSuggestions();
-        return;
+        if (errBox) { errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie."; errBox.style.display = "block"; }
+        hideSuggestions(); return;
       }
       showSuggestions(items);
     } catch (e) {
-      console.error(e);
-      if (errBox) {
-        errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie.";
-        errBox.style.display = "block";
-      }
+      if (errBox) { errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie."; errBox.style.display = "block"; }
     }
   }
 
@@ -298,34 +245,31 @@ export async function initMemberView() {
     if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
 
-    // 1) Sterren o.b.v. GEPLANDE datums, oplichten bij match met ScanDatums
+    // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
     const planned = await getPlannedDates();
-    const scanDatums = Array.isArray(data.ScanDatums) ? data.ScanDatums : []; // verwacht array
-    const { stars, tooltip } = plannedStarsWithHighlights(planned, scanDatums);
+    const scanDatums = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
+    const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
     if (rRides) {
       rRides.textContent = stars || "—";
       rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
-      rRides.setAttribute("aria-label", stars ? `Sterren per datum (geplande=${planned.length})` : "Geen ingeplande datums");
+      rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
       rRides.style.letterSpacing = "3px";
       rRides.style.fontSize = "20px";
     }
 
-    // 2) Live updates op Gereden_Ritten blijven actief (features behouden)
+    // Live ridesCount (feature behouden — elders gebruiken indien gewenst)
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
       const d = snap.exists() ? snap.data() : {};
-      const count = typeof d.Gereden_Ritten === "number" ? d.Gereden_Ritten : 0;
-      // hier zou je desgewenst een ander element kunnen updaten met ridesToStars(count)
+      const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
+      // console.debug("Live ridesCount:", count, ridesToStars(count));
     });
 
-    // 3) QR pas na selectie
+    // QR pas na selectie
     const payload = JSON.stringify({ t: "member", uid: entry.id });
     QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
       if (err) {
-        if (errBox) {
-          errBox.textContent = "QR genereren mislukte.";
-          errBox.style.display = "block";
-        }
+        if (errBox) { errBox.textContent = "QR genereren mislukte."; errBox.style.display = "block"; }
         return;
       }
       if (resultBox) resultBox.style.display = "grid";
@@ -334,15 +278,11 @@ export async function initMemberView() {
     });
   }
 
-  // === Event listeners ===
+  // Events
   nameInput?.addEventListener("focus", handleFocus);
   nameInput?.addEventListener("input", onInputChanged);
-  nameInput?.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") hideSuggestions();
-    if (ev.key === "Enter") { ev.preventDefault(); handleFind(); }
-  });
+  nameInput?.addEventListener("keydown", (ev) => { if (ev.key === "Escape") hideSuggestions(); if (ev.key === "Enter") { ev.preventDefault(); handleFind(); } });
 
-  // Klik op QR → fullscreen overlay
   if (qrCanvas) {
     qrCanvas.style.cursor = "zoom-in";
     qrCanvas.addEventListener("click", () => openQrFullscreenFromCanvas(qrCanvas), { passive: true });

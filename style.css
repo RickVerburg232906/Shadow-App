@@ -126,8 +126,8 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 }
 
 
-/* --- Gereden_Ritten as stars --- */
-#rGereden_Ritten {
+/* --- RidesCount as stars --- */
+#rRidesCount {
   font-size: 1.2rem;
   letter-spacing: 2px;
   white-space: nowrap;
@@ -164,3 +164,15 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 /* Shadow MC logo header */
 .site-header{display:flex;justify-content:center;align-items:center;padding:12px 0}
 #clubLogo{max-width:100%;height:auto;image-rendering:auto}
+
+
+/* Consent gate (single button) */
+.consent{max-width:780px;margin:24px auto;padding:22px}
+.consent__header{display:grid;gap:6px;margin-bottom:12px}
+.consent h2{margin:0;font-size:22px}
+.consent p{margin:0}
+.consent__actions{display:flex;gap:10px;margin-top:10px}
+.btn{padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#111827;color:#e5e7eb;cursor:pointer}
+.btn-primary{background:linear-gradient(90deg,#2563eb,#60a5fa);border-color:transparent;color:white}
+.msg{margin-top:8px;font-size:14px;color:#fbbf24}
+[hidden]{display:none !important}
