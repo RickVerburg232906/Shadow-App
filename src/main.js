@@ -28,7 +28,7 @@ initAdminView();
 
 
 
-// GATE: landelijke rit consent
+// GATE: landelijke rit consent (clean)
 document.addEventListener("DOMContentLoaded", () => {
   const gate = document.getElementById("rideConsentGate");
   if (!gate) return;
@@ -36,38 +36,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("rideConsentBtn");
   const warn = document.getElementById("rideConsentWarn");
 
-  // Heuristiek: vind de sectie 'Inschrijven voor landelijke rit'
   function findSignupSection() {
-    // 1) expliciete id/data attribuut
     const explicit = document.querySelector('#landelijkeSignup, [data-ride-signup="true"]');
     if (explicit) return explicit.closest("section") || explicit;
-    // 2) zoek koppen met tekst
     const heads = Array.from(document.querySelectorAll("section h1, section h2, section h3"));
     const hit = heads.find(h => /inschrijven\s+voor\s+landelijke\s+rit/i.test(h.textContent || ""));
-    if (hit) return hit.closest("section");
-    // 3) fallback: null
-    return null;
+    return hit ? hit.closest("section") : null;
   }
-
   const signup = findSignupSection();
-  if (!signup) return; // niets te verbergen als we 'm niet vinden
+  if (!signup) return;
 
-  // Start: verbergen
+  // Hide at start
   signup.setAttribute("aria-hidden", "true");
-  signup.style.display = "none";
 
-  function updateUI() {
-    btn.disabled = !chk.checked;
-    warn.textContent = chk.checked ? "" : "Vink het akkoord aan om verder te gaan.";
-  }
+  function updateUI() { btn.disabled = !chk.checked; warn.textContent = chk.checked ? "" : "Vink het akkoord aan om verder te gaan."; }
   chk?.addEventListener("change", updateUI);
   updateUI();
 
   btn?.addEventListener("click", () => {
     if (!chk.checked) { updateUI(); return; }
-    // Akkoord → tonen en gate verbergen
-    signup.style.display = "";
+    // Show signup, hide gate
     signup.removeAttribute("aria-hidden");
     gate.style.display = "none";
+    // Move focus to the signup section heading for a11y
+    const h = signup.querySelector("h1, h2, h3, [tabindex]") || signup;
+    if (h) { h.setAttribute("tabindex","-1"); h.focus({preventScroll:false}); }
   });
 });

@@ -17,19 +17,18 @@
     </header>
 
     <main class="wrap">
-      <header id="siteHeader" class="site-header">
-      <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="300" height="137" />
-    </header>
-    \1
-<!-- Toestemming voorafgaand aan inschrijven landelijke rit -->
-    <section id="rideConsentGate" class="card consent-gate" aria-labelledby="rideConsentTitle">
-      <h2 id="rideConsentTitle">Voorwaarden deelname</h2>
-      <p class="muted">Hierbij verklaar ik <strong>voor eigen risico</strong> mee te rijden met deze rit.</p>
-      <label class="consent-row">
-        <input type="checkbox" id="rideConsentChk" />
+<section id="rideConsentGate" class="consent card" aria-labelledby="rideConsentTitle">
+      <div class="consent__header">
+        <h2 id="rideConsentTitle">Voorwaarden deelname</h2>
+        <p>Hierbij verklaar ik <strong>voor eigen risico</strong> mee te rijden met deze rit.</p>
+      </div>
+      <label class="consent__row">
+        <input type="checkbox" id="rideConsentChk" class="switch" />
         <span>Ik ga akkoord</span>
       </label>
-      <button id="rideConsentBtn" class="btn btn-primary" disabled>Verder</button>
+      <div class="consent__actions">
+        <button id="rideConsentBtn" class="btn btn-primary" disabled>Verder</button>
+      </div>
       <p id="rideConsentWarn" class="msg" role="status" aria-live="polite"></p>
     </section>
 
