@@ -1016,7 +1016,7 @@ async function resetAllRidesCount(statusEl) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
   }
-}}
+}
 
 // ===== Hoofdadmin Tab 4: Excel export logic =====
 async function exportMembersExcel() {
@@ -1035,7 +1035,7 @@ async function exportMembersExcel() {
       const rides = (typeof d.ridesCount === "number") ? d.ridesCount
                    : (typeof d.rittenCount === "number") ? d.rittenCount
                    : (typeof d.ritten === "number") ? d.ritten : 0;
-      let regioOms = d["regio Omschrijving"] ?? d.regioOmschrijving ?? "";
+      let regioOms = d["Regio Omschrijving"] ?? d.regioOmschrijving ?? "";
       if (!regioOms && d.regio && typeof d.regio === "object") {
         regioOms = d.regio.omschrijving ?? d.regio.name ?? d.regio.title ?? "";
       }
@@ -1045,11 +1045,11 @@ async function exportMembersExcel() {
         "Voor letters": String(voorletters || ""),
         "Voor naam": String(voornaam || ""),
         "ridesCount": rides,
-        "regio Omschrijving": String(regioOms || ""),
+        "Regio Omschrijving": String(regioOms || ""),
       });
     });
 
-    const headers = ["Naam","Tussen voegsel","Voor letters","Voor naam","ridesCount","regio Omschrijving"];
+    const headers = ["Naam","Tussen voegsel","Voor letters","Voor naam","ridesCount","Regio Omschrijving"];
     // XLSX (SheetJS) als beschikbaar
     try {
       if (typeof XLSX !== "undefined" && XLSX.utils && XLSX.write) {
