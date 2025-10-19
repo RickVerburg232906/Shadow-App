@@ -1,7 +1,7 @@
 // member.js — geplande-sterren met highlight op basis van ScanDatums
 import QRCode from "qrcode";
 import { db } from "./firebase.js";
-import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot } from "firebase/firestore";
+import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, setDoc } from "firebase/firestore";
 
 // ------- Planning (geplande datums) -------
 async function getPlannedDates() {
@@ -134,7 +134,55 @@ export async function initMemberView() {
   const qrCanvas    = $("qrCanvas");
   const rRegion    = $("rRegion");
 
-  let selectedDoc = null;
+// --- Jaarhanger UI ---
+let yearhangerRow = document.getElementById("yearhangerRow");
+let yearhangerSelect = document.getElementById("yearhangerSelect");
+function ensureYearhangerUI() {
+  if (!nameInput) return;
+  if (!yearhangerRow) {
+    yearhangerRow = document.createElement("div");
+    yearhangerRow.id = "yearhangerRow";
+    yearhangerRow.style.marginTop = "8px";
+    yearhangerRow.style.display = "none"; // zichtbaar na selectie
+    yearhangerRow.innerHTML = '<label style="font-weight:600; margin-right:8px;">Wilt u een Jaarhanger?</label> ' +
+                              '<select id="yearhangerSelect" style="padding:6px 8px; border-radius:8px;">' +
+                              '<option value="">—</option>' +
+                              '<option value="Ja">Ja</option>' +
+                              '<option value="Nee">Nee</option>' +
+                              '</select>';
+    nameInput.insertAdjacentElement("afterend", yearhangerRow);
+    yearhangerSelect = yearhangerRow.querySelector("#yearhangerSelect");
+  }
+}
+ensureYearhangerUI();
+
+// Opslaan Jaarhanger bij wijziging
+if (yearhangerSelect) {
+  yearhangerSelect.addEventListener("change", async () => {
+    try {
+      if (!selectedDoc || !selectedDoc.id) return;
+      const val = yearhangerSelect.value || "";
+      await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: val }, { merge: true });
+    } catch (e) {
+      console.error("Jaarhanger opslaan mislukt", e);
+    }
+  }, { passive: true });
+}
+
+
+
+  
+
+function showYearhanger(value) {
+  ensureYearhangerUI();
+  if (yearhangerRow) yearhangerRow.style.display = "block";
+  if (yearhangerSelect) yearhangerSelect.value = (value === "Ja" || value === "Nee") ? value : "";
+}
+function hideYearhanger() {
+  if (yearhangerRow) yearhangerRow.style.display = "none";
+  if (yearhangerSelect) yearhangerSelect.value = "";
+}
+let selectedDoc = null;
   let unsubscribe = null;
 
   function fullNameFrom(docData) {
@@ -248,6 +296,9 @@ export async function initMemberView() {
         if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
 if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
+
+    // Jaarhanger tonen en voorvullen
+    showYearhanger(entry?.data?.Jaarhanger);
 
     // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
     const planned = await getPlannedDates();
