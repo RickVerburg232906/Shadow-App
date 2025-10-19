@@ -265,11 +265,20 @@ if (rName) rName.textContent = fullNameFrom(data);
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
       const d = snap.exists() ? snap.data() : {};
-      const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
-      // console.debug("Live ridesCount:", count, ridesToStars(count));
+      const scanDatums = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+      // Update sterren direct bij wijzigingen in ScanDatums
+      getPlannedDates().then((planned) => {
+        const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+        if (rRides) {
+          rRides.textContent = stars || "—";
+          rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
+          rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
+          rRides.style.letterSpacing = "3px";
+          rRides.style.fontSize = "20px";
+        }
+      }).catch(() => {});
     });
-
-    // QR pas na selectie
+// QR pas na selectie
     const payload = JSON.stringify({ t: "member", uid: entry.id });
     QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
       if (err) {
