@@ -335,12 +335,25 @@ if (rName) rName.textContent = fullNameFrom(data);
     // Live ridesCount (feature behouden — elders gebruiken indien gewenst)
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
-      const d = snap.exists() ? snap.data() : {};
-      const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
-      // console.debug("Live ridesCount:", count, ridesToStars(count));
-      const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
-      renderYearhangerUI(jh || _yearhangerVal || "Ja");
-    });
+      
+const d = snap.exists() ? snap.data() : {};
+const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
+// console.debug("Live ridesCount:", count, ridesToStars(count));
+// ⭐ Live update van sterren op basis van actuele ScanDatums
+const scanDatumsLive = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+getPlannedDates().then((planned) => {
+  const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
+  if (rRides) {
+    rRides.textContent = stars || "—";
+    rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
+    rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
+    rRides.style.letterSpacing = "3px";
+    rRides.style.fontSize = "20px";
+  }
+}).catch(() => {});
+const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
+renderYearhangerUI(jh || _yearhangerVal || "Ja");
+});
 
     // QR pas na selectie
     const payload = JSON.stringify({ t: "member", uid: entry.id });

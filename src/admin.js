@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
-import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt } from "firebase/firestore";
+import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "firebase/firestore";
 
 // ====== Globale ritdatums cache ======
 let PLANNED_DATES = [];
@@ -264,24 +264,40 @@ function initRidePlannerSection() {
 // =====================================================
 
 // Boek rit: ridesCount +1 voor members/{LidNr}
+// Boek rit: alleen +1 als gekozen scandatum nog NIET bestaat voor dit lid
 async function bookRide(lid, naam, rideDateYMD) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
 
-  
-// Vereiste ritdatum (YYYY-MM-DD)
-const ymd = (rideDateYMD || "").toString().slice(0,10);
-if(!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) throw new Error("Geen geldige ritdatum gekozen");
+  // Vereiste ritdatum (YYYY-MM-DD)
+  const ymd = (rideDateYMD || "").toString().slice(0,10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) throw new Error("Geen geldige ritdatum gekozen");
 
+  const memberRef = doc(db, "members", id);
 
+  // Transaction: lees -> check -> conditioneel updaten
+  const res = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(memberRef);
+    const data = snap.exists() ? snap.data() : {};
+    const currentCount = Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
+    const scans = Array.isArray(data?.ScanDatums) ? data.ScanDatums.map(String) : [];
+    const hasDate = scans.includes(ymd);
 
-  await setDoc(doc(db, "members", id), {
-    ridesCount: increment(1),
-    ScanDatums: arrayUnion(ymd)
-  }, { merge: true });
+    if (hasDate) {
+      // Geen wijziging; niets bijschrijven
+      tx.set(memberRef, { ridesCount: currentCount, ScanDatums: scans.length ? scans : [] }, { merge: true });
+      return { changed: false, newTotal: currentCount, ymd };
+    } else {
+      const newTotal = currentCount + 1;
+      tx.set(memberRef, { ridesCount: increment(1), ScanDatums: arrayUnion(ymd) }, { merge: true });
+      return { changed: true, newTotal, ymd };
+    }
+  });
 
-  return id;
+  return { id, ...res };
 }
+
+
 
 // Extract LidNr uit QR-tekst of URL
 function extractLidFromText(text) {
@@ -530,9 +546,11 @@ if (!visibleDates.length) {
     status.textContent = "Bezig met registreren…";
     try {
       if (!selectedRideDate) { status.textContent = "Kies eerst een ritdatum hieronder."; status.classList.add("error"); return; }
-      await bookRide(selected.id, sName.textContent || "", selectedRideDate);
+      const out = await bookRide(selected.id, sName.textContent || "", selectedRideDate);
       status.classList.remove("error");
-      status.textContent = `✅ Rit geregistreerd op ${selectedRideDate}`;
+      status.textContent = out.changed
+        ? `✅ Rit geregistreerd op ${out.ymd} (totaal: ${out.newTotal})`
+        : `ℹ️ Deze datum (${out.ymd}) was al geregistreerd — niets aangepast.`;
     } catch (e) {
       console.error(e);
       status.textContent = "❌ Fout bij registreren";
@@ -626,12 +644,15 @@ function initAdminQRScanner() {
         beforeCount = (beforeCount ?? 0);
       }
 
-      await bookRide(lid, naam || "", new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())).toISOString().slice(0,10));
-      const newTotal = (beforeCount ?? 0) + 1;
+      const todayYMD = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())).toISOString().slice(0,10);
+      const out = await bookRide(lid, naam || "", todayYMD);
+      const newTotal = out.newTotal;
 
-      if (statusEl) statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`;
+      if (statusEl) statusEl.textContent = out.changed
+        ? `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid}) op ${out.ymd}`
+        : `ℹ️ ${naam || "(onbekend)"} (${lid}) had ${out.ymd} al geregistreerd — niets aangepast.`;
       if (resultEl) resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`;
-      showToast(`✅ QR-code gescand`, true);
+      showToast(out.changed ? "✅ QR-code gescand" : "ℹ️ Reeds geregistreerd", true);
       appendLog({ naam: naam || "", lid, ok: true, ridesTotal: newTotal });
     } catch (e) {
       console.error(e);
