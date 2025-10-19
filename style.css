@@ -191,3 +191,29 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .chip{border:1px solid #374151;background:#0b1220;color:#e5e7eb;border-radius:999px;padding:8px 12px;cursor:pointer;font-weight:600}
 .chip:hover{background:#111827}
 .chip.selected{outline:2px solid #3b82f6; background:#1f2937}
+
+/* --- Fullbleed card to use full viewport width --- */
+.card.fullbleed{
+  margin-left: calc(50% - 50vw + 0px);
+  margin-right: calc(50% - 50vw + 0px);
+  border-radius: 0;
+  width: 100vw;
+}
+
+/* Square chart area that scales with width */
+
+/* Chart container as rectangle (auto height from width) */
+.chart-box{
+  width: 100%;
+  aspect-ratio: 16 / 10; /* rectangular */
+  position: relative;
+  min-height: 220px;
+  max-height: 70vh;
+}
+
+/* Make the Chart.js canvas fill the container */
+#rideStatsChart{
+  display:block;
+  width:100% !important;
+  height:100% !important;
+}

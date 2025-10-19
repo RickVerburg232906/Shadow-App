@@ -6,6 +6,7 @@
     <title>Shadow App</title>
     <link rel="stylesheet" href="/style.css">
     <script src="https://unpkg.com/html5-qrcode" defer></script>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <header class="topbar">
@@ -130,6 +131,28 @@
           </div>
           <div id="status" class="status"></div>
           <div id="log" class="log"></div>
+        </div>
+
+        
+        <div class="card" id="rideStatsCard">
+          <h3>Inschrijvingen per rit</h3>
+          <p class="muted">Aantal ingeschreven leden per geplande ritdatum (o.b.v. <code>ScanDatums</code>).</p>
+          <div class="chart-box"><div class="chart-box"><canvas id="rideStatsChart" aria-label="Barchart inschrijvingen per rit"></canvas></div></div>
+          <div class="row" style="gap:12px;align-items:center;margin-top:8px;">
+            <button id="reloadStatsBtn" class="btn btn-ghost">Herladen</button>
+            <span id="rideStatsStatus" class="status"></span>
+          </div>
+        </div>
+
+
+        <div class="card" id="starDistCard">
+          <h3>Sterrenverdeling (Jaarhanger = Ja)</h3>
+          <p class="muted">Aantal leden per aantal sterren (geplande datums vs. geregistreerde <code>ScanDatums</code>) gefilterd op <code>Jaarhanger = Ja</code>.</p>
+          <div class="chart-box"><canvas id="starDistChart" aria-label="Histogram aantal sterren"></canvas></div>
+          <div class="row" style="gap:12px;align-items:center;margin-top:8px;">
+            <button id="reloadStarDistBtn" class="btn btn-ghost">Herladen</button>
+            <span id="starDistStatus" class="status"></span>
+          </div>
         </div>
 
         <div class="card" id="resetRidesCard">
