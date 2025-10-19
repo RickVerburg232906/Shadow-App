@@ -4,6 +4,17 @@ import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSna
 
 // ====== Globale ritdatums cache ======
 let PLANNED_DATES = [];
+
+
+// Reset zowel ridesCount als ScanDatums
+async function resetMemberRidesAndDates(memberRef){
+  try{
+    await updateDoc(memberRef, { ridesCount: 0, ScanDatums: [] });
+  } catch(e){
+    console.error("resetMemberRidesAndDates()", e);
+    throw e;
+  }
+}
 async function ensureRideDatesLoaded(){
   try{
     if (Array.isArray(PLANNED_DATES) && PLANNED_DATES.length) return PLANNED_DATES;
@@ -507,8 +518,9 @@ async function renderRideChoices(){
     if (!selected) { status.textContent = "Kies eerst een lid."; return; }
     status.textContent = "Bezig met registreren…";
     try {
-      if (!selectedRideDate) { status.textContent = "Kies eerst een ritdatum hieronder."; return; }
+      if (!selectedRideDate) { status.textContent = "Kies eerst een ritdatum hieronder."; status.classList.add("error"); return; }
       await bookRide(selected.id, sName.textContent || "", selectedRideDate);
+      status.classList.remove("error");
       status.textContent = `✅ Rit geregistreerd op ${selectedRideDate}`;
     } catch (e) {
       console.error(e);
@@ -667,7 +679,7 @@ async function resetAllRidesCount(statusEl) {
 
       let batch = writeBatch(db);
       snapshot.forEach((docSnap) => {
-        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
+        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0, ScanDatums: [] }, { merge: true });
       });
       await batch.commit();
       total += snapshot.size;
