@@ -176,3 +176,10 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .btn-primary{background:linear-gradient(90deg,#2563eb,#60a5fa);border-color:transparent;color:white}
 .msg{margin-top:8px;font-size:14px;color:#fbbf24}
 [hidden]{display:none !important}
+
+
+/* --- Chips voor ritdatums --- */
+.chip-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{border:1px solid #374151;background:#0b1220;color:#e5e7eb;border-radius:999px;padding:8px 12px;cursor:pointer;font-weight:600}
+.chip:hover{background:#111827}
+.chip.selected{outline:2px solid #3b82f6; background:#1f2937}
