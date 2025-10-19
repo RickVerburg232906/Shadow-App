@@ -1129,4 +1129,3 @@ if (window.MutationObserver) {
     mo.observe(adminView, { childList: true, subtree: true });
   }
 }
-}
