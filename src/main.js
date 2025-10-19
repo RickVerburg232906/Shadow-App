@@ -72,6 +72,53 @@ function applyAdminLevel() {
   } catch (_) {}
 }
 
+
+function setAdminSubtabActive(n) {
+  try {
+    sessionStorage.setItem("admin_subtab", String(n));
+    const root = document.getElementById("adminSubtabs");
+    if (!root) return;
+    const btns = Array.from(root.querySelectorAll(".subtab"));
+    btns.forEach(b => {
+      const isActive = String(b.dataset.adminTab) === String(n);
+      b.setAttribute("aria-pressed", String(isActive));
+    });
+    const cards = Array.from(document.querySelectorAll("#viewAdmin .card"));
+    cards.forEach(card => {
+      const grp = card.getAttribute("data-admin-group");
+      if (!grp) return; // leave cards without group to default behavior
+      card.style.display = (String(grp) === String(n)) ? "" : "none";
+    });
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch(_) {}
+  } catch (_) {}
+}
+
+function setupAdminSubtabs() {
+  try {
+    const root = document.getElementById("adminSubtabs");
+    if (!root) return;
+    const lvl = sessionStorage.getItem("admin_level") || "admin";
+    // Only show subtabs for hoofdadmin (root)
+    if (lvl !== "root") {
+      root.setAttribute("hidden", "");
+      // Ensure grouped cards are visible/hidden by applyAdminLevel for non-root
+      return;
+    }
+    root.removeAttribute("hidden");
+    // Attach listeners
+    root.addEventListener("click", (ev) => {
+      const t = ev.target;
+      if (!(t instanceof HTMLElement)) return;
+      if (t.classList.contains("subtab") && t.dataset.adminTab) {
+        setAdminSubtabActive(t.dataset.adminTab);
+      }
+    }, { passive: true });
+    // Initial tab
+    const saved = sessionStorage.getItem("admin_subtab") || "1";
+    setAdminSubtabActive(saved);
+  } catch (_) {}
+}
+
 function switchTo(which) {
   const isMember = which === "member";
   tabMember?.classList.toggle("active", isMember);
@@ -203,6 +250,7 @@ tabAdmin?.addEventListener("click", async () => {
     document.body.dataset.role = (lvl === "root") ? "rootadmin" : "admin";
     switchTo("admin");
     applyAdminLevel();
+    try { setupAdminSubtabs(); } catch (_) {}
   } catch(e) {
     console.error(e);
     window.alert("Wachtwoordcontrole mislukt");
@@ -266,7 +314,8 @@ function setupRootAdminPwdSection() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  try { if (sessionStorage.getItem("admin_ok")==="1") applyAdminLevel(); } catch(_) {}
+  try { if (sessionStorage.getItem("admin_ok")==="1") applyAdminLevel();
+    try { setupAdminSubtabs(); } catch (_) {} } catch(_) {}
   setupAdminPwdSection();
   setupRootAdminPwdSection();
 

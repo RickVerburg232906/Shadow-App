@@ -217,3 +217,54 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
   width:100% !important;
   height:100% !important;
 }
+
+
+/* --- Gate overlay effect --- */
+#viewMember.gate-active .card:not(#jaarhangerGate),
+#viewMember.gate-active .section,
+#viewMember.gate-active .grid,
+#viewMember.gate-active .stack,
+#viewMember.gate-active .row,
+#viewMember.gate-active select,
+#viewMember.gate-active [id$="Container"],
+#viewMember.gate-active [id$="Box"] {
+  display: none !important;
+}
+#jaarhangerGate {
+  position: relative;
+  z-index: 10;
+}
+
+/* --- Hoofdadmin Subtabs --- */
+.subtabs {
+  position: sticky;
+  top: calc(56px + env(safe-area-inset-top)); /* below topbar */
+  z-index: 50;
+  display: flex;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  margin-bottom: 16px;
+}
+.subtab {
+  background: transparent;
+  border: 1px solid #334155;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 36px;
+  transition: background .15s ease, transform .05s ease;
+}
+.subtab[aria-pressed="true"] {
+  background: #1f2937;
+  outline: 2px solid #3b82f6;
+  outline-offset: 0;
+}
+.subtab:active { transform: translateY(1px); }
+@media (max-width: 560px) {
+  .subtabs { position: static; top: 0; flex-wrap: wrap; }
+}

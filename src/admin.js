@@ -1,3 +1,83 @@
+
+// ===== Robust PNG export next to 'Herladen' (admin-only) =====
+(function() {
+  function waitForElement(getter, { tries=50, delay=200 } = {}) {
+    return new Promise((resolve) => {
+      let count = 0;
+      const tick = () => {
+        const el = getter();
+        if (el) return resolve(el);
+        if (++count >= tries) return resolve(null);
+        setTimeout(tick, delay);
+      };
+      tick();
+    });
+  }
+  function attachChartExportButtonNextToReload(reloadBtnId, canvasId, btnId, filename) {
+    const doAttach = async () => {
+      const adminView = document.getElementById("viewAdmin");
+      if (!adminView) return; // only in admin
+      const reloadBtn = await waitForElement(() => adminView.querySelector("#" + reloadBtnId));
+      const canvas = await waitForElement(() => adminView.querySelector("#" + canvasId));
+      if (!reloadBtn || !canvas) return;
+      let btn = document.getElementById(btnId);
+      if (!btn) {
+        btn = document.createElement("button");
+        btn.id = btnId;
+        btn.type = "button";
+        btn.className = reloadBtn.className || "btn";
+        btn.textContent = "Export PNG";
+        btn.style.marginLeft = "8px";
+      }
+      if (reloadBtn.nextSibling !== btn) {
+        reloadBtn.insertAdjacentElement("afterend", btn);
+      }
+      const download = (blob) => {
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = filename || (canvasId + ".png");
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+      };
+      btn.onclick = () => {
+        try {
+          if (canvas.toBlob) {
+            canvas.toBlob((blob) => {
+              if (blob) download(blob);
+              else fetch(canvas.toDataURL("image/png")).then(r => r.blob()).then(download);
+            }, "image/png", 1.0);
+          } else {
+            fetch(canvas.toDataURL("image/png")).then(r => r.blob()).then(download);
+          }
+        } catch (e) {
+          console.error("PNG export failed:", e);
+          alert("PNG export mislukt.");
+        }
+      };
+      const ensurePlaced = () => {
+        try {
+          if (reloadBtn.nextSibling !== btn) reloadBtn.insertAdjacentElement("afterend", btn);
+        } catch (_) {}
+      };
+      reloadBtn.addEventListener("click", () => setTimeout(ensurePlaced, 0));
+      window.addEventListener("resize", ensurePlaced);
+      document.getElementById("adminSubtabs")?.addEventListener("click", () => setTimeout(ensurePlaced, 0));
+      if (adminView && window.MutationObserver) {
+        const mo = new MutationObserver(() => ensurePlaced());
+        mo.observe(adminView, { childList: true, subtree: true });
+      }
+      ensurePlaced();
+    };
+    doAttach();
+    if (document.readyState !== "complete" && document.readyState !== "interactive") {
+      document.addEventListener("DOMContentLoaded", doAttach, { once: true });
+    }
+  }
+  window.attachChartExportButtonNextToReload = attachChartExportButtonNextToReload;
+})();
+
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
 import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "firebase/firestore";
@@ -382,6 +462,10 @@ export function initAdminView() {
   try { initRideStatsChart(); } catch (_) {}
   // Sterrenverdeling (Jaarhanger=Ja)
   try { initStarDistributionChart(); } catch (_) {}
+
+  // Admin: export-knoppen naast 'Herladen'
+  try { attachChartExportButtonNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistPNG", "sterrenverdeling.png"); } catch(_) {}
+  try { attachChartExportButtonNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsPNG", "inschrijvingen-per-rit.png"); } catch(_) {}
 }
 
 // =====================================================
@@ -931,5 +1015,110 @@ async function resetAllRidesCount(statusEl) {
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
+  }
+}
+
+// ===== Hoofdadmin Tab 4: Excel export logic =====
+async function exportMembersExcel() {
+  const status = document.getElementById("exportExcelStatus");
+  try {
+    if (status) status.textContent = "Bezig met ophalen...";
+    // Haal alle leden op
+    const snap = await getDocs(collection(db, "members"));
+    const rows = [];
+    snap.forEach((docSnap) => {
+      const d = docSnap.data() || {};
+      const naam = d.Naam ?? d.naam ?? d.lastName ?? d.achternaam ?? "";
+      const tussen = d["Tussen voegsel"] ?? d.tussenvoegsel ?? d.tussenVoegsel ?? d.tussen ?? d.infix ?? "";
+      const voorletters = d["Voor letters"] ?? d.voorletters ?? d.initialen ?? d.initials ?? "";
+      const voornaam = d["Voor naam"] ?? d.voornaam ?? d.firstName ?? d.naamVoor ?? "";
+      const rides = (typeof d.ridesCount === "number") ? d.ridesCount
+                   : (typeof d.rittenCount === "number") ? d.rittenCount
+                   : (typeof d.ritten === "number") ? d.ritten : 0;
+      let regioOms = d["Regio Omschrijving"] ?? d.regioOmschrijving ?? "";
+      if (!regioOms && d.regio && typeof d.regio === "object") {
+        regioOms = d.regio.omschrijving ?? d.regio.name ?? d.regio.title ?? "";
+      }
+      rows.push({
+        "Naam": String(naam || ""),
+        "Tussen voegsel": String(tussen || ""),
+        "Voor letters": String(voorletters || ""),
+        "Voor naam": String(voornaam || ""),
+        "ridesCount": rides,
+        "Regio Omschrijving": String(regioOms || ""),
+      });
+    });
+
+    const headers = ["Naam","Tussen voegsel","Voor letters","Voor naam","ridesCount","Regio Omschrijving"];
+    // XLSX (SheetJS) als beschikbaar
+    try {
+      if (typeof XLSX !== "undefined" && XLSX.utils && XLSX.write) {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+        XLSX.utils.book_append_sheet(wb, ws, "Leden");
+        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+        a.download = `leden_export_${ts}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+        if (status) status.textContent = `Gereed • ${rows.length} leden`;
+        return;
+      }
+    } catch (e) {
+      console.warn("XLSX export faalde, fallback CSV:", e);
+    }
+
+    // CSV fallback
+    const csvRows = [headers.join(",")];
+    for (const r of rows) {
+      const vals = headers.map(h => {
+        const v = r[h] ?? "";
+        const s = String(v).replace(/"/g,'""');
+        return `"${s}"`;
+      });
+      csvRows.push(vals.join(","));
+    }
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+    a.download = `leden_export_${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    if (status) status.textContent = `Gereed • ${rows.length} leden`;
+  } catch (e) {
+    console.error("Export mislukt:", e);
+    if (status) status.textContent = "Mislukt";
+    alert("Export mislukt. Controleer de console voor details.");
+  }
+}
+
+// Koppel button (bij initialisatie admin)
+function initTab4ExcelExportHook() {
+  const btn = document.getElementById("exportExcelBtn");
+  if (!btn) return;
+  if (!btn.dataset._wired) {
+    btn.addEventListener("click", exportMembersExcel);
+    btn.dataset._wired = "1";
+  }
+}
+
+// Integreer in bestaande admin-init flow
+document.addEventListener("DOMContentLoaded", () => { try { initTab4ExcelExportHook(); } catch(_) {} });
+document.getElementById("adminSubtabs")?.addEventListener("click", () => {
+  setTimeout(() => { try { initTab4ExcelExportHook(); } catch(_) {} }, 0);
+});
+if (window.MutationObserver) {
+  const adminView = document.getElementById("viewAdmin");
+  if (adminView) {
+    const mo = new MutationObserver(() => { try { initTab4ExcelExportHook(); } catch(_) {} });
+    mo.observe(adminView, { childList: true, subtree: true });
   }
 }
