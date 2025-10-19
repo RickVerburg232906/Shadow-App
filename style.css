@@ -178,6 +178,14 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 [hidden]{display:none !important}
 
 
+/* Jaarhanger segmented control */
+.seg-wrap { display:flex; align-items:center; gap:10px; margin-top:6px; }
+.seg-label { font-weight:600; min-width:max-content; }
+.seg-toggle { display:flex; border:1px solid #374151; border-radius:12px; overflow:hidden; }
+.seg-btn { padding:10px 16px; background:#0b1220; border:none; cursor:pointer; font-weight:700;  color:#ffffff;}
+.seg-btn + .seg-btn { border-left:1px solid #374151; }
+.seg-btn.active { background:#1f2937; outline:2px solid #3b82f6; color:#ffffff; }
+
 /* --- Chips voor ritdatums --- */
 .chip-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .chip{border:1px solid #374151;background:#0b1220;color:#e5e7eb;border-radius:999px;padding:8px 12px;cursor:pointer;font-weight:600}
