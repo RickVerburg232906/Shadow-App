@@ -7,14 +7,7 @@ let PLANNED_DATES = [];
 
 
 // Reset zowel ridesCount als ScanDatums
-async function resetMemberRidesAndDates(memberRef){
-  try{
-    await updateDoc(memberRef, { ridesCount: 0, ScanDatums: [] });
-  } catch(e){
-    console.error("resetMemberRidesAndDates()", e);
-    throw e;
-  }
-}
+
 async function ensureRideDatesLoaded(){
   try{
     if (Array.isArray(PLANNED_DATES) && PLANNED_DATES.length) return PLANNED_DATES;
@@ -293,20 +286,33 @@ if(!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) throw new Error("Geen geldige ritdatum geko
 // Extract LidNr uit QR-tekst of URL
 function extractLidFromText(text) {
   if (!text) return null;
-  const m1 = text.match(/lidnr\s*:\s*([\w-]+)/i);
+
+  // 1) JSON payload? e.g., {"t":"member","uid":"12345"}
+  try {
+    const obj = JSON.parse(text);
+    const cand = obj?.uid || obj?.id || obj?.member || obj?.lid || obj?.lidnr;
+    if (cand) return String(cand).trim();
+  } catch (_) {}
+
+  // 2) Key:value in plain text e.g., "lidnr: 12345"
+  const m1 = text.match(/lidnr\s*[:=]\s*([\w-]+)/i);
   if (m1) return m1[1].trim();
+
+  // 3) URL met query params
   try {
     const u = new URL(text);
     const lid = u.searchParams.get("lid") || u.searchParams.get("lidnr") ||
-                u.searchParams.get("member") || u.searchParams.get("id");
+                u.searchParams.get("member") || u.searchParams.get("id") || u.searchParams.get("uid");
     if (lid) return lid.trim();
   } catch (_) {}
+
+  // 4) Fallback: willekeurige 3+ cijferreeks
   const m2 = text.match(/\b(\d{3,})\b/);
   if (m2) return m2[1];
+
   return null;
 }
 
-// Toast via #toast-root (safe area aware)
 function showToast(msg, ok = true) {
   const root = document.getElementById("toast-root") || document.body;
   const el = document.createElement("div");
@@ -447,7 +453,7 @@ async function renderRideChoices(){
       const today = new Date();
       const todayYMD = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())).toISOString().slice(0,10);
       const visibleDates = (dates || []).filter(d => (typeof d === "string" ? d.slice(0,10) : "").localeCompare(todayYMD) <= 0);
-if (!dates.length) {
+if (!visibleDates.length) {
       rideButtons.innerHTML = '<span class="muted">Geen geplande ritdatums gevonden.</span>';
       return;
     }
@@ -620,7 +626,7 @@ function initAdminQRScanner() {
         beforeCount = (beforeCount ?? 0);
       }
 
-      await bookRide(lid, naam || "");
+      await bookRide(lid, naam || "", new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())).toISOString().slice(0,10));
       const newTotal = (beforeCount ?? 0) + 1;
 
       if (statusEl) statusEl.textContent = `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid})`;
