@@ -442,12 +442,17 @@ async function renderRideChoices(){
   selectedRideDate = null;
   try {
     const dates = await ensureRideDatesLoaded();
-    if (!dates.length) {
+    
+      // Toon alleen datums t/m vandaag (geen toekomst)
+      const today = new Date();
+      const todayYMD = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())).toISOString().slice(0,10);
+      const visibleDates = (dates || []).filter(d => (typeof d === "string" ? d.slice(0,10) : "").localeCompare(todayYMD) <= 0);
+if (!dates.length) {
       rideButtons.innerHTML = '<span class="muted">Geen geplande ritdatums gevonden.</span>';
       return;
     }
     const frag = document.createDocumentFragment();
-    dates.forEach((d) => {
+    visibleDates.forEach((d) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "chip";
@@ -462,7 +467,7 @@ async function renderRideChoices(){
       frag.appendChild(btn);
     });
     rideButtons.appendChild(frag);
-    if (rideHint) rideHint.textContent = dates.length ? "Kies een ritdatum hieronder." : "";
+    if (rideHint) rideHint.textContent = visibleDates.length ? "Kies een ritdatum hieronder." : "Geen (verleden/heden) ritdatums.";
   } catch(e) {
     console.error(e);
     rideButtons.innerHTML = '<span class="error">Kon ritdatums niet laden.</span>';
