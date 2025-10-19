@@ -1,3 +1,83 @@
+
+// ===== Robust PNG export next to 'Herladen' (admin-only) =====
+(function() {
+  function waitForElement(getter, { tries=50, delay=200 } = {}) {
+    return new Promise((resolve) => {
+      let count = 0;
+      const tick = () => {
+        const el = getter();
+        if (el) return resolve(el);
+        if (++count >= tries) return resolve(null);
+        setTimeout(tick, delay);
+      };
+      tick();
+    });
+  }
+  function attachChartExportButtonNextToReload(reloadBtnId, canvasId, btnId, filename) {
+    const doAttach = async () => {
+      const adminView = document.getElementById("viewAdmin");
+      if (!adminView) return; // only in admin
+      const reloadBtn = await waitForElement(() => adminView.querySelector("#" + reloadBtnId));
+      const canvas = await waitForElement(() => adminView.querySelector("#" + canvasId));
+      if (!reloadBtn || !canvas) return;
+      let btn = document.getElementById(btnId);
+      if (!btn) {
+        btn = document.createElement("button");
+        btn.id = btnId;
+        btn.type = "button";
+        btn.className = reloadBtn.className || "btn";
+        btn.textContent = "Export PNG";
+        btn.style.marginLeft = "8px";
+      }
+      if (reloadBtn.nextSibling !== btn) {
+        reloadBtn.insertAdjacentElement("afterend", btn);
+      }
+      const download = (blob) => {
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = filename || (canvasId + ".png");
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+      };
+      btn.onclick = () => {
+        try {
+          if (canvas.toBlob) {
+            canvas.toBlob((blob) => {
+              if (blob) download(blob);
+              else fetch(canvas.toDataURL("image/png")).then(r => r.blob()).then(download);
+            }, "image/png", 1.0);
+          } else {
+            fetch(canvas.toDataURL("image/png")).then(r => r.blob()).then(download);
+          }
+        } catch (e) {
+          console.error("PNG export failed:", e);
+          alert("PNG export mislukt.");
+        }
+      };
+      const ensurePlaced = () => {
+        try {
+          if (reloadBtn.nextSibling !== btn) reloadBtn.insertAdjacentElement("afterend", btn);
+        } catch (_) {}
+      };
+      reloadBtn.addEventListener("click", () => setTimeout(ensurePlaced, 0));
+      window.addEventListener("resize", ensurePlaced);
+      document.getElementById("adminSubtabs")?.addEventListener("click", () => setTimeout(ensurePlaced, 0));
+      if (adminView && window.MutationObserver) {
+        const mo = new MutationObserver(() => ensurePlaced());
+        mo.observe(adminView, { childList: true, subtree: true });
+      }
+      ensurePlaced();
+    };
+    doAttach();
+    if (document.readyState !== "complete" && document.readyState !== "interactive") {
+      document.addEventListener("DOMContentLoaded", doAttach, { once: true });
+    }
+  }
+  window.attachChartExportButtonNextToReload = attachChartExportButtonNextToReload;
+})();
+
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
 import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "firebase/firestore";
@@ -382,6 +462,10 @@ export function initAdminView() {
   try { initRideStatsChart(); } catch (_) {}
   // Sterrenverdeling (Jaarhanger=Ja)
   try { initStarDistributionChart(); } catch (_) {}
+
+  // Admin: export-knoppen naast 'Herladen'
+  try { attachChartExportButtonNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistPNG", "sterrenverdeling.png"); } catch(_) {}
+  try { attachChartExportButtonNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsPNG", "inschrijvingen-per-rit.png"); } catch(_) {}
 }
 
 // =====================================================
