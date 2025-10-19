@@ -2,6 +2,35 @@ import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
 import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt } from "firebase/firestore";
 
+// ====== Globale ritdatums cache ======
+let PLANNED_DATES = [];
+
+
+// Reset zowel ridesCount als ScanDatums
+async function resetMemberRidesAndDates(memberRef){
+  try{
+    await updateDoc(memberRef, { ridesCount: 0, ScanDatums: [] });
+  } catch(e){
+    console.error("resetMemberRidesAndDates()", e);
+    throw e;
+  }
+}
+async function ensureRideDatesLoaded(){
+  try{
+    if (Array.isArray(PLANNED_DATES) && PLANNED_DATES.length) return PLANNED_DATES;
+    const planRef = doc(db, "globals", "ridePlan");
+    const snap = await getDoc(planRef);
+    const dates = snap.exists() && Array.isArray(snap.data().plannedDates) ? snap.data().plannedDates.filter(Boolean) : [];
+    // Normaliseer naar YYYY-MM-DD
+    PLANNED_DATES = dates.map(d => {
+      if (typeof d === 'string') { const m = d.match(/\d{4}-\d{2}-\d{2}/); if (m) return m[0]; }
+      const dt = new Date(d); if (!isNaN(dt)) return dt.toISOString().slice(0,10); return "";
+    }).filter(Boolean);
+    return PLANNED_DATES;
+  } catch(e){ console.error("ensureRideDatesLoaded()", e); PLANNED_DATES = []; return PLANNED_DATES; }
+}
+
+
 // ====== Config / kolommen voor import ======
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel", "Regio Omschrijving"];
 
@@ -242,22 +271,20 @@ function initRidePlannerSection() {
 // =====================================================
 
 // Boek rit: ridesCount +1 voor members/{LidNr}
-async function bookRide(lid, naam) {
+async function bookRide(lid, naam, rideDateYMD) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
 
-  // Datumstring (YYYY-MM-DD) voor ScanDatums
-  const today = (function(){
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const day = String(d.getDate()).padStart(2,"0");
-    return `${y}-${m}-${day}`;
-  })();
+  
+// Vereiste ritdatum (YYYY-MM-DD)
+const ymd = (rideDateYMD || "").toString().slice(0,10);
+if(!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) throw new Error("Geen geldige ritdatum gekozen");
+
+
 
   await setDoc(doc(db, "members", id), {
     ridesCount: increment(1),
-    ScanDatums: arrayUnion(today)
+    ScanDatums: arrayUnion(ymd)
   }, { merge: true });
 
   return id;
@@ -307,6 +334,9 @@ function initManualRideSection() {
   const sCount  = $("adminMRidesCount");
   const btn     = $("adminManualBookBtn");
   const status  = $("adminManualStatus");
+  const rideButtons = $("adminRideButtons");
+  const rideHint = $("adminRideHint");
+  let selectedRideDate = null;
 
   if (!input || !list || !box || !btn) return; // UI niet aanwezig
 
@@ -405,6 +435,40 @@ function initManualRideSection() {
     }
   }
 
+  
+async function renderRideChoices(){
+  if (!rideButtons) return;
+  rideButtons.innerHTML = "";
+  selectedRideDate = null;
+  try {
+    const dates = await ensureRideDatesLoaded();
+    if (!dates.length) {
+      rideButtons.innerHTML = '<span class="muted">Geen geplande ritdatums gevonden.</span>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    dates.forEach((d) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip";
+      btn.textContent = d;
+      btn.setAttribute("aria-pressed", "false");
+      btn.addEventListener("click", () => {
+        selectedRideDate = d;
+        Array.from(rideButtons.querySelectorAll('.chip')).forEach(el => el.classList.remove('selected'));
+        btn.classList.add('selected');
+        if (rideHint) rideHint.textContent = `Gekozen ritdatum: ${d}`;
+      }, { passive: true });
+      frag.appendChild(btn);
+    });
+    rideButtons.appendChild(frag);
+    if (rideHint) rideHint.textContent = dates.length ? "Kies een ritdatum hieronder." : "";
+  } catch(e) {
+    console.error(e);
+    rideButtons.innerHTML = '<span class="error">Kon ritdatums niet laden.</span>';
+  }
+}
+
   function selectMember(entry) {
     selected = entry;
     sName.textContent = fullNameFrom(entry.data);
@@ -412,6 +476,7 @@ function initManualRideSection() {
     const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
     sCount.textContent = String(v);
     box.style.display = "grid";
+    renderRideChoices();
 
     // realtime teller
     try { if (unsub) unsub(); } catch(_) {}
@@ -453,8 +518,10 @@ function initManualRideSection() {
     if (!selected) { status.textContent = "Kies eerst een lid."; return; }
     status.textContent = "Bezig met registreren…";
     try {
-      await bookRide(selected.id, sName.textContent || "");
-      status.textContent = "✅ Rit geregistreerd";
+      if (!selectedRideDate) { status.textContent = "Kies eerst een ritdatum hieronder."; status.classList.add("error"); return; }
+      await bookRide(selected.id, sName.textContent || "", selectedRideDate);
+      status.classList.remove("error");
+      status.textContent = `✅ Rit geregistreerd op ${selectedRideDate}`;
     } catch (e) {
       console.error(e);
       status.textContent = "❌ Fout bij registreren";
@@ -612,7 +679,7 @@ async function resetAllRidesCount(statusEl) {
 
       let batch = writeBatch(db);
       snapshot.forEach((docSnap) => {
-        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
+        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0, ScanDatums: [] }, { merge: true });
       });
       await batch.commit();
       total += snapshot.size;
