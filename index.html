@@ -13,7 +13,7 @@
       <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="100" height="30"  />
       <nav class="nav">
         <button id="tabMember" class="tab active">Lid</button>
-        <button id="tabAdmin" class="tab">Admin</button>
+        <button id="tabAdmin" class="tab">Inschrijftafel</button>
       </nav>
     </header>
 
@@ -155,7 +155,18 @@
             </div>
           </div>
         </div>
-      </section>
+      
+        <div class="card" id="adminPasswordCard">
+          <h3>Wachtwoord inschrijftafel resetten</h3>
+          <p class="muted">Stel hier een nieuw <strong>Admin</strong>-wachtwoord in (voor de inschrijftafel). Dit heeft geen invloed op het <em>hoofdadmin</em>-wachtwoord.</p>
+          <div class="row" style="gap:12px; align-items:center;">
+            <input type="password" id="newAdminPwd" class="input" placeholder="Nieuw admin-wachtwoord" aria-label="Nieuw admin-wachtwoord" />
+            <button id="saveAdminPwd" class="btn">Opslaan</button>
+            <span id="pwdStatus" class="status" aria-live="polite"></span>
+          </div>
+          <div class="small muted" style="margin-top:6px;">Tip: kies iets dat je makkelijk kan delen met de inschrijftafel.</div>
+        </div>
+        </section>
     </main>
 
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
