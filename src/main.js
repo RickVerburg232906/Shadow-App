@@ -83,12 +83,108 @@ function switchTo(which) {
   if (window.innerWidth < 560) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+
+// === Masked password modal ===
+
+async function promptPasswordMasked(title = "Wachtwoord", placeholder = "Wachtwoord") {
+  return new Promise((resolve) => {
+    // Overlay
+    const overlay = document.createElement("div");
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.background = "rgba(0,0,0,0.4)";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.zIndex = "9999";
+
+    // Dialog
+    const card = document.createElement("div");
+    card.style.background = "var(--card-bg, #111)";
+    card.style.color = "var(--fg, #fff)";
+    card.style.border = "1px solid rgba(255,255,255,0.12)";
+    card.style.borderRadius = "16px";
+    card.style.padding = "18px 16px";
+    card.style.minWidth = "320px";
+    card.style.maxWidth = "92vw";
+    card.style.boxShadow = "0 10px 30px rgba(0,0,0,0.35)";
+    card.setAttribute("role","dialog");
+    card.setAttribute("aria-modal","true");
+    card.setAttribute("aria-label", title);
+
+    const h = document.createElement("h3");
+    h.textContent = title;
+    h.style.margin = "0 0 10px 0";
+    h.style.fontSize = "18px";
+
+    const input = document.createElement("input");
+    input.type = "password";
+    input.placeholder = placeholder;
+    input.autocomplete = "current-password";
+    input.style.width = "100%";
+    input.style.padding = "10px 12px";
+    input.style.borderRadius = "10px";
+    input.style.border = "1px solid rgba(255,255,255,0.2)";
+    input.style.background = "transparent";
+    input.style.color = "inherit";
+
+    // Actions under the input
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "10px";
+    actions.style.alignItems = "center";
+    actions.style.justifyContent = "flex-end";
+    actions.style.marginTop = "12px";
+
+    const ok = document.createElement("button");
+    ok.className = "btn";
+    ok.textContent = "Doorgaan";
+
+    const cancel = document.createElement("button");
+    cancel.className = "btn btn-ghost";
+    cancel.textContent = "Annuleren";
+
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+
+    card.appendChild(h);
+    card.appendChild(input);
+    card.appendChild(actions);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    let finished = false;
+    function close(val) {
+      if (finished) return;
+      finished = true;
+      try { document.body.removeChild(overlay); } catch(_) {}
+      resolve(val);
+    }
+
+    ok.addEventListener("click", () => close(input.value || ""));
+    cancel.addEventListener("click", () => close(null));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(null);
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); ok.click(); }
+      if (e.key === "Escape") { e.preventDefault(); close(null); }
+    });
+
+    setTimeout(() => input.focus(), 0);
+  });
+}
+
+
+
+
 // Tab handlers (member direct, admin via prompt)
 tabMember?.addEventListener("click", () => switchTo("member"));
+
 tabAdmin?.addEventListener("click", async () => {
   try {
     await ensurePasswordsLoaded();
-    const pwd = window.prompt("Vul uw wachtwoord in:");
+    const pwd = await promptPasswordMasked("Vul uw wachtwoord in", "Wachtwoord");
     if (pwd == null) return;
     const rootPwd = await getHoofdAdminPwd();
     const adminPwd = await getInschrijftafelPwd();
@@ -112,7 +208,6 @@ tabAdmin?.addEventListener("click", async () => {
     window.alert("Wachtwoordcontrole mislukt");
   }
 });
-
 // Init views
 initMemberView();
 initAdminView();
