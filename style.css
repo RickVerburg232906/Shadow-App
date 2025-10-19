@@ -219,6 +219,22 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 }
 
 
+/* --- Gate overlay effect --- */
+#viewMember.gate-active .card:not(#jaarhangerGate),
+#viewMember.gate-active .section,
+#viewMember.gate-active .grid,
+#viewMember.gate-active .stack,
+#viewMember.gate-active .row,
+#viewMember.gate-active select,
+#viewMember.gate-active [id$="Container"],
+#viewMember.gate-active [id$="Box"] {
+  display: none !important;
+}
+#jaarhangerGate {
+  position: relative;
+  z-index: 10;
+}
+
 /* --- Hoofdadmin Subtabs --- */
 .subtabs {
   position: sticky;

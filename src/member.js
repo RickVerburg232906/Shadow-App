@@ -150,9 +150,9 @@ function ensureYearhangerUI() {
     yearhangerRow.style.display = "none"; // zichtbaar na selectie
     yearhangerRow.innerHTML = (
       '<div class="seg-wrap">'
-      + '<div class="seg-label">Wilt u een Jaarhanger?</div>'
+      + '<div class="seg-label"><strong>Wilt u een Jaarhanger?</strong></div>'
       + '<div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">'
-      +   '<button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="true">Ja</button>'
+      +   '<button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false">Ja</button>'
       +   '<button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false">Nee</button>'
       + '</div>'
       + '</div>'
@@ -166,7 +166,7 @@ ensureYearhangerUI();
 
 function renderYearhangerUI(val) {
   ensureYearhangerUI();
-  const v = (val === "Nee") ? "Nee" : "Ja"; // default Ja
+  const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null; // default Ja
   _yearhangerVal = v;
   if (yearhangerRow) yearhangerRow.style.display = "block";
   if (yearhangerYes && yearhangerNo) {
@@ -179,7 +179,7 @@ function renderYearhangerUI(val) {
 async function saveYearhanger(val) {
   try {
     if (!selectedDoc || !selectedDoc.id) return;
-    const v = (val === "Nee") ? "Nee" : "Ja";
+    const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null;
     _yearhangerVal = v;
     await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }, { merge: true });
   } catch (e) {
@@ -317,7 +317,7 @@ document.addEventListener("click", (ev) => {
 if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
     const _jh = (entry?.data?.Jaarhanger === "Nee") ? "Nee" : (entry?.data?.Jaarhanger === "Ja" ? "Ja" : "");
-    renderYearhangerUI(_jh || "Ja");
+    renderYearhangerUI(_jh || null);
     if (!_jh) { try { await setDoc(doc(db, "members", String(entry.id)), { Jaarhanger: "Ja" }, { merge: true }); } catch(_) {} }
 
     // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
@@ -352,7 +352,7 @@ getPlannedDates().then((planned) => {
   }
 }).catch(() => {});
 const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
-renderYearhangerUI(jh || _yearhangerVal || "Ja");
+renderYearhangerUI(jh || _yearhangerVal || null);
 });
 
     // QR pas na selectie
