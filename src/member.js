@@ -134,56 +134,75 @@ export async function initMemberView() {
   const qrCanvas    = $("qrCanvas");
   const rRegion    = $("rRegion");
 
-// --- Jaarhanger UI ---
+// --- Jaarhanger UI (segmented Ja/Nee) ---
 let yearhangerRow = document.getElementById("yearhangerRow");
-let yearhangerSelect = document.getElementById("yearhangerSelect");
+let yearhangerYes = null;
+let yearhangerNo  = null;
+let _yearhangerVal = "Ja"; // default
+
 function ensureYearhangerUI() {
+  const nameInput = document.getElementById("nameInput");
   if (!nameInput) return;
   if (!yearhangerRow) {
     yearhangerRow = document.createElement("div");
     yearhangerRow.id = "yearhangerRow";
     yearhangerRow.style.marginTop = "8px";
     yearhangerRow.style.display = "none"; // zichtbaar na selectie
-    yearhangerRow.innerHTML = '<label style="font-weight:600; margin-right:8px;">Wilt u een Jaarhanger?</label> ' +
-                              '<select id="yearhangerSelect" style="padding:6px 8px; border-radius:8px;">' +
-                              '<option value="">—</option>' +
-                              '<option value="Ja">Ja</option>' +
-                              '<option value="Nee">Nee</option>' +
-                              '</select>';
+    yearhangerRow.innerHTML = (
+      '<div class="seg-wrap">'
+      + '<div class="seg-label">Wilt u een Jaarhanger?</div>'
+      + '<div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">'
+      +   '<button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="true">Ja</button>'
+      +   '<button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false">Nee</button>'
+      + '</div>'
+      + '</div>'
+    );
     nameInput.insertAdjacentElement("afterend", yearhangerRow);
-    yearhangerSelect = yearhangerRow.querySelector("#yearhangerSelect");
+    yearhangerYes = document.getElementById("yearhangerYes");
+    yearhangerNo  = document.getElementById("yearhangerNo");
   }
 }
 ensureYearhangerUI();
 
-// Opslaan Jaarhanger bij wijziging
-if (yearhangerSelect) {
-  yearhangerSelect.addEventListener("change", async () => {
-    try {
-      if (!selectedDoc || !selectedDoc.id) return;
-      const val = yearhangerSelect.value || "";
-      await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: val }, { merge: true });
-    } catch (e) {
-      console.error("Jaarhanger opslaan mislukt", e);
-    }
-  }, { passive: true });
-}
-
-
-
-  
-
-function showYearhanger(value) {
+function renderYearhangerUI(val) {
   ensureYearhangerUI();
+  const v = (val === "Nee") ? "Nee" : "Ja"; // default Ja
+  _yearhangerVal = v;
   if (yearhangerRow) yearhangerRow.style.display = "block";
-  if (yearhangerSelect) yearhangerSelect.value = (value === "Ja" || value === "Nee") ? value : "";
+  if (yearhangerYes && yearhangerNo) {
+    yearhangerYes.classList.toggle("active", v === "Ja");
+    yearhangerNo.classList.toggle("active",  v === "Nee");
+    yearhangerYes.setAttribute("aria-checked", String(v === "Ja"));
+    yearhangerNo.setAttribute("aria-checked",  String(v === "Nee"));
+  }
 }
-function hideYearhanger() {
-  if (yearhangerRow) yearhangerRow.style.display = "none";
-  if (yearhangerSelect) yearhangerSelect.value = "";
+async function saveYearhanger(val) {
+  try {
+    if (!selectedDoc || !selectedDoc.id) return;
+    const v = (val === "Nee") ? "Nee" : "Ja";
+    _yearhangerVal = v;
+    await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }, { merge: true });
+  } catch (e) {
+    console.error("Jaarhanger opslaan mislukt", e);
+  }
 }
-let selectedDoc = null;
+document.addEventListener("click", (ev) => {
+  if (!yearhangerRow) return;
+  const t = ev.target;
+  if (t && t.id === "yearhangerYes") {
+    renderYearhangerUI("Ja");
+    saveYearhanger("Ja");
+  } else if (t && t.id === "yearhangerNo") {
+    renderYearhangerUI("Nee");
+    saveYearhanger("Nee");
+  }
+}, { passive: true });
+
+
+
+  let selectedDoc = null;
   let unsubscribe = null;
+    if (yearhangerRow) yearhangerRow.style.display = "none";
 
   function fullNameFrom(docData) {
     const tussen = (docData["Tussen voegsel"] || "").trim();
@@ -236,6 +255,7 @@ let selectedDoc = null;
     if (errBox) errBox.style.display = "none";
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
+    if (yearhangerRow) yearhangerRow.style.display = "none";
     if (rRides) {
       rRides.textContent = "—";
       rRides.removeAttribute("title");
@@ -296,9 +316,9 @@ let selectedDoc = null;
         if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
 if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
-
-    // Jaarhanger tonen en voorvullen
-    showYearhanger(entry?.data?.Jaarhanger);
+    const _jh = (entry?.data?.Jaarhanger === "Nee") ? "Nee" : (entry?.data?.Jaarhanger === "Ja" ? "Ja" : "");
+    renderYearhangerUI(_jh || "Ja");
+    if (!_jh) { try { await setDoc(doc(db, "members", String(entry.id)), { Jaarhanger: "Ja" }, { merge: true }); } catch(_) {} }
 
     // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
     const planned = await getPlannedDates();
@@ -316,20 +336,13 @@ if (rName) rName.textContent = fullNameFrom(data);
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
       const d = snap.exists() ? snap.data() : {};
-      const scanDatums = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-      // Update sterren direct bij wijzigingen in ScanDatums
-      getPlannedDates().then((planned) => {
-        const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
-        if (rRides) {
-          rRides.textContent = stars || "—";
-          rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
-          rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
-          rRides.style.letterSpacing = "3px";
-          rRides.style.fontSize = "20px";
-        }
-      }).catch(() => {});
+      const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
+      // console.debug("Live ridesCount:", count, ridesToStars(count));
+      const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
+      renderYearhangerUI(jh || _yearhangerVal || "Ja");
     });
-// QR pas na selectie
+
+    // QR pas na selectie
     const payload = JSON.stringify({ t: "member", uid: entry.id });
     QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
       if (err) {
