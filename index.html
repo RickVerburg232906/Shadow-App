@@ -13,7 +13,7 @@
       <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="100" height="30"  />
       <nav class="nav">
         <button id="tabMember" class="tab active">Lid</button>
-        <button id="tabAdmin" class="tab">Inschrijftafel</button>
+        <button id="tabAdmin" class="tab">Admin</button>
       </nav>
     </header>
 
@@ -165,6 +165,17 @@
             <span id="pwdStatus" class="status" aria-live="polite"></span>
           </div>
           <div class="small muted" style="margin-top:6px;">Tip: kies iets dat je makkelijk kan delen met de inschrijftafel.</div>
+        </div>
+        
+        <div class="card" id="adminRootPasswordCard">
+          <h3>Hoofdadmin wachtwoord veranderen</h3>
+          <p class="muted">Wijzig het <strong>hoofdadmin</strong>-wachtwoord. Dit is het wachtwoord voor volledige toegang tot alle admin-functies.</p>
+          <div class="row" style="gap:12px; align-items:center;">
+            <input type="password" id="newRootPwd" class="input" placeholder="Nieuw hoofdadmin-wachtwoord" aria-label="Nieuw hoofdadmin-wachtwoord" />
+            <button id="saveRootPwd" class="btn">Opslaan</button>
+            <span id="rootPwdStatus" class="status" aria-live="polite"></span>
+          </div>
+          <div class="small muted" style="margin-top:6px;">Alleen zichtbaar/bruikbaar in hoofdadmin-modus.</div>
         </div>
         </section>
     </main>

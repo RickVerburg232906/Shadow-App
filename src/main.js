@@ -33,6 +33,11 @@ async function getInschrijftafelPwd() {
   const p = await ensurePasswordsLoaded();
   return p.inschrijftafel;
 }
+async function setHoofdAdminPwd(newPwd) {
+  const ref = doc(db, "globals", "passwords");
+  await setDoc(ref, { hoofdadmin: String(newPwd || ""), updatedAt: Date.now() }, { merge: true });
+  PASSWORDS = { ...(PASSWORDS || {}), hoofdadmin: String(newPwd || "") };
+}
 async function getHoofdAdminPwd() {
   const p = await ensurePasswordsLoaded();
   return p.hoofdadmin;
@@ -139,9 +144,36 @@ function setupAdminPwdSection() {
 }
 
 // Consent-gate voor inschrijven landelijke rit (niet tonen aan admin views)
+
+function setupRootAdminPwdSection() {
+  try {
+    const btn = document.getElementById("saveRootPwd");
+    const input = document.getElementById("newRootPwd");
+    const status = document.getElementById("rootPwdStatus");
+    if (!btn || !input) return;
+    input.value = "";
+    btn.addEventListener("click", async () => {
+      const v = String(input.value || "").trim();
+      if (v.length < 4) {
+        if (status) { status.textContent = "Minimaal 4 tekens."; status.classList.add("error"); }
+        return;
+      }
+      try {
+        await setHoofdAdminPwd(v);
+        if (status) { status.textContent = "✅ Nieuw hoofdadmin-wachtwoord opgeslagen in Firestore."; status.classList.remove("error"); }
+        input.value = "";
+      } catch (e) {
+        console.error(e);
+        if (status) { status.textContent = "❌ Opslaan mislukt."; status.classList.add("error"); }
+      }
+    });
+  } catch (_) {}
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   try { if (sessionStorage.getItem("admin_ok")==="1") applyAdminLevel(); } catch(_) {}
   setupAdminPwdSection();
+  setupRootAdminPwdSection();
 
   const gate = document.getElementById("rideConsentGate");
   if (!gate) return;
