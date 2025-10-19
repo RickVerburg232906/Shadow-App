@@ -1,5 +1,5 @@
 
-// ===== Robust PNG export next to 'Herladen' (admin-only) =====
+// ===== JPG export naast 'Herladen' (admin-only) =====
 (function() {
   function waitForElement(getter, { tries=50, delay=200 } = {}) {
     return new Promise((resolve) => {
@@ -13,49 +13,57 @@
       tick();
     });
   }
-  function attachChartExportButtonNextToReload(reloadBtnId, canvasId, btnId, filename) {
+  function attachChartExportJPGNextToReload(reloadBtnId, canvasId, btnId, filename) {
     const doAttach = async () => {
       const adminView = document.getElementById("viewAdmin");
       if (!adminView) return; // only in admin
       const reloadBtn = await waitForElement(() => adminView.querySelector("#" + reloadBtnId));
       const canvas = await waitForElement(() => adminView.querySelector("#" + canvasId));
       if (!reloadBtn || !canvas) return;
+
       let btn = document.getElementById(btnId);
       if (!btn) {
         btn = document.createElement("button");
         btn.id = btnId;
         btn.type = "button";
         btn.className = reloadBtn.className || "btn";
-        btn.textContent = "Export PNG";
+        btn.textContent = "Export JPG";
         btn.style.marginLeft = "8px";
       }
       if (reloadBtn.nextSibling !== btn) {
         reloadBtn.insertAdjacentElement("afterend", btn);
       }
-      const download = (blob) => {
+
+      const triggerDownload = (blob) => {
         const a = document.createElement("a");
         const url = URL.createObjectURL(blob);
         a.href = url;
-        a.download = filename || (canvasId + ".png");
+        a.download = filename || (canvasId + ".jpg");
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
       };
+
       btn.onclick = () => {
         try {
           if (canvas.toBlob) {
             canvas.toBlob((blob) => {
-              if (blob) download(blob);
-              else fetch(canvas.toDataURL("image/png")).then(r => r.blob()).then(download);
-            }, "image/png", 1.0);
+              if (blob) triggerDownload(blob);
+              else {
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+                fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
+              }
+            }, "image/jpeg", 0.92);
           } else {
-            fetch(canvas.toDataURL("image/png")).then(r => r.blob()).then(download);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+            fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
           }
         } catch (e) {
-          console.error("PNG export failed:", e);
-          alert("PNG export mislukt.");
+          console.error("JPG export failed:", e);
+          alert("JPG export mislukt.");
         }
       };
+
       const ensurePlaced = () => {
         try {
           if (reloadBtn.nextSibling !== btn) reloadBtn.insertAdjacentElement("afterend", btn);
@@ -75,7 +83,7 @@
       document.addEventListener("DOMContentLoaded", doAttach, { once: true });
     }
   }
-  window.attachChartExportButtonNextToReload = attachChartExportButtonNextToReload;
+  window.attachChartExportJPGNextToReload = attachChartExportJPGNextToReload;
 })();
 
 import * as XLSX from "xlsx";
@@ -463,9 +471,8 @@ export function initAdminView() {
   // Sterrenverdeling (Jaarhanger=Ja)
   try { initStarDistributionChart(); } catch (_) {}
 
-  // Admin: export-knoppen naast 'Herladen'
-  try { attachChartExportButtonNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistPNG", "sterrenverdeling.png"); } catch(_) {}
-  try { attachChartExportButtonNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsPNG", "inschrijvingen-per-rit.png"); } catch(_) {}
+  try { attachChartExportJPGNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistJPG", "sterrenverdeling.jpg"); } catch(_) {}
+  try { attachChartExportJPGNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsJPG", "inschrijvingen-per-rit.jpg"); } catch(_) {}
 }
 
 // =====================================================
