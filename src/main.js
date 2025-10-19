@@ -21,7 +21,22 @@ function switchTo(which) {
 }
 
 tabMember?.addEventListener("click", () => switchTo("member"));
-tabAdmin?.addEventListener("click", () => switchTo("admin"));
+tabAdmin?.addEventListener("click", () => {
+  try {
+    const ok = sessionStorage.getItem("admin_ok") === "1";
+    if (!ok) {
+      const pwd = window.prompt("Vul uw wachtwoord in:");
+      if (pwd !== "Shadow") {
+        window.alert("Wachtwoord onjuist");
+        return;
+      }
+      sessionStorage.setItem("admin_ok", "1");
+    }
+    switchTo("admin");
+  } catch(e) {
+    window.alert("Wachtwoordcontrole mislukt");
+  }
+});
 
 initMemberView();
 initAdminView();
