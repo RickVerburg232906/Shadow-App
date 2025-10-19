@@ -1016,4 +1016,109 @@ async function resetAllRidesCount(statusEl) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
   }
+}}
+
+// ===== Hoofdadmin Tab 4: Excel export logic =====
+async function exportMembersExcel() {
+  const status = document.getElementById("exportExcelStatus");
+  try {
+    if (status) status.textContent = "Bezig met ophalen...";
+    // Haal alle leden op
+    const snap = await getDocs(collection(db, "members"));
+    const rows = [];
+    snap.forEach((docSnap) => {
+      const d = docSnap.data() || {};
+      const naam = d.Naam ?? d.naam ?? d.lastName ?? d.achternaam ?? "";
+      const tussen = d["Tussen voegsel"] ?? d.tussenvoegsel ?? d.tussenVoegsel ?? d.tussen ?? d.infix ?? "";
+      const voorletters = d["Voor letters"] ?? d.voorletters ?? d.initialen ?? d.initials ?? "";
+      const voornaam = d["Voor naam"] ?? d.voornaam ?? d.firstName ?? d.naamVoor ?? "";
+      const rides = (typeof d.ridesCount === "number") ? d.ridesCount
+                   : (typeof d.rittenCount === "number") ? d.rittenCount
+                   : (typeof d.ritten === "number") ? d.ritten : 0;
+      let regioOms = d["regio Omschrijving"] ?? d.regioOmschrijving ?? "";
+      if (!regioOms && d.regio && typeof d.regio === "object") {
+        regioOms = d.regio.omschrijving ?? d.regio.name ?? d.regio.title ?? "";
+      }
+      rows.push({
+        "Naam": String(naam || ""),
+        "Tussen voegsel": String(tussen || ""),
+        "Voor letters": String(voorletters || ""),
+        "Voor naam": String(voornaam || ""),
+        "ridesCount": rides,
+        "regio Omschrijving": String(regioOms || ""),
+      });
+    });
+
+    const headers = ["Naam","Tussen voegsel","Voor letters","Voor naam","ridesCount","regio Omschrijving"];
+    // XLSX (SheetJS) als beschikbaar
+    try {
+      if (typeof XLSX !== "undefined" && XLSX.utils && XLSX.write) {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+        XLSX.utils.book_append_sheet(wb, ws, "Leden");
+        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+        a.download = `leden_export_${ts}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+        if (status) status.textContent = `Gereed • ${rows.length} leden`;
+        return;
+      }
+    } catch (e) {
+      console.warn("XLSX export faalde, fallback CSV:", e);
+    }
+
+    // CSV fallback
+    const csvRows = [headers.join(",")];
+    for (const r of rows) {
+      const vals = headers.map(h => {
+        const v = r[h] ?? "";
+        const s = String(v).replace(/"/g,'""');
+        return `"${s}"`;
+      });
+      csvRows.push(vals.join(","));
+    }
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+    a.download = `leden_export_${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    if (status) status.textContent = `Gereed • ${rows.length} leden`;
+  } catch (e) {
+    console.error("Export mislukt:", e);
+    if (status) status.textContent = "Mislukt";
+    alert("Export mislukt. Controleer de console voor details.");
+  }
+}
+
+// Koppel button (bij initialisatie admin)
+function initTab4ExcelExportHook() {
+  const btn = document.getElementById("exportExcelBtn");
+  if (!btn) return;
+  if (!btn.dataset._wired) {
+    btn.addEventListener("click", exportMembersExcel);
+    btn.dataset._wired = "1";
+  }
+}
+
+// Integreer in bestaande admin-init flow
+document.addEventListener("DOMContentLoaded", () => { try { initTab4ExcelExportHook(); } catch(_) {} });
+document.getElementById("adminSubtabs")?.addEventListener("click", () => {
+  setTimeout(() => { try { initTab4ExcelExportHook(); } catch(_) {} }, 0);
+});
+if (window.MutationObserver) {
+  const adminView = document.getElementById("viewAdmin");
+  if (adminView) {
+    const mo = new MutationObserver(() => { try { initTab4ExcelExportHook(); } catch(_) {} });
+    mo.observe(adminView, { childList: true, subtree: true });
+  }
 }

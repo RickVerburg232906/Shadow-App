@@ -161,6 +161,19 @@
           </div>
         </div>
 
+        <div class="card" id="exportExcelCard" data-admin-group="4">
+          <h1>Export leden (Excel)</h1>
+          <p class="muted">Exporteer leden uit Firestore met vaste kolommen voor rapportage.</p>
+          <div class="row">
+            <button id="exportExcelBtn" class="btn">Export Excel</button>
+            <span id="exportExcelStatus" class="muted" style="margin-left:8px;"></span>
+          </div>
+          <details class="muted" style="margin-top:8px;">
+            <summary>Kolommen</summary>
+            <code>Naam, Tussen voegsel, Voor letters, Voor naam, ridesCount, regio Omschrijving</code>
+          </details>
+        </div>
+
         <div class="card" id="resetRidesCard" data-admin-group="2">
           <h3>Beheer: Ritten resetten</h3>
           <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (ridesCount) terug naar 0 voor alle leden.</p>
