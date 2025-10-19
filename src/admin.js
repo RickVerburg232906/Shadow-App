@@ -52,6 +52,207 @@ function ensureHtml5Qrcode() {
 // =====================================================
 // ===============  Admin hoofd-initialisatie  =========
 // =====================================================
+
+// =====================================================
+// ===============  Ritstatistieken (bar chart) =========
+// =====================================================
+async function countMembersPerDate(plannedYMDs) {
+  // Return map { 'YYYY-MM-DD': count }
+  const counts = new Map(plannedYMDs.map(d => [d, 0]));
+
+  try {
+    let last = null;
+    const pageSize = 400;
+
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) break;
+
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data() || {};
+        const scans = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+        for (const raw of scans) {
+          const s = typeof raw === "string" ? (raw.slice(0,10)) : "";
+          if (s && counts.has(s)) counts.set(s, counts.get(s) + 1);
+        }
+      });
+
+      last = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < pageSize) break;
+    }
+  } catch (e) {
+    console.error("[rideStats] tellen mislukt", e);
+  }
+
+  return counts;
+}
+
+let _rideStatsChart = null;
+async function initRideStatsChart() {
+  const canvas = document.getElementById("rideStatsChart");
+  const statusEl = document.getElementById("rideStatsStatus");
+  const reloadBtn = document.getElementById("reloadStatsBtn");
+  if (!canvas) return;
+
+  async function render() {
+    try {
+      if (statusEl) statusEl.textContent = "Laden…";
+      const planned = (await ensureRideDatesLoaded()) || [];
+      // Normaliseer naar YYYY-MM-DD en sorteer
+      const plannedYMDs = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
+      if (!plannedYMDs.length) {
+        if (statusEl) statusEl.textContent = "Geen geplande datums.";
+        return;
+      }
+      const counts = await countMembersPerDate(plannedYMDs);
+      const labels = plannedYMDs;
+      const data = plannedYMDs.map(d => counts.get(d) || 0);
+
+      // Destroy oud chart om memory leaks te voorkomen
+      try { if (_rideStatsChart) { _rideStatsChart.destroy(); _rideStatsChart = null; } } catch(_) {}
+
+      // eslint-disable-next-line no-undef
+      const ctx = canvas.getContext("2d");
+      _rideStatsChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Inschrijvingen",
+            data,
+            // geen specifieke kleuren zetten; Chart.js kiest defaults
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: "Ritdatum" } },
+            y: { beginAtZero: true, title: { display: true, text: "Aantal leden" }, ticks: { precision: 0 } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: (ctx) => ` ${ctx.parsed.y} inschrijvingen`
+            }}
+          }
+        }
+      });
+      if (statusEl) statusEl.textContent = `✅ Gegevens geladen (${data.reduce((a,b)=>a+b,0)} totaal)`;
+    } catch (e) {
+      console.error(e);
+      if (statusEl) statusEl.textContent = "❌ Laden mislukt";
+    }
+  }
+
+  await render();
+  if (reloadBtn) reloadBtn.addEventListener("click", () => render(), { passive: true });
+}
+
+
+// =====================================================
+// ======= Sterrenverdeling (alleen Jaarhanger = Ja) ====
+// =====================================================
+async function buildStarBucketsForYearhangerYes(plannedYMDs) {
+  // Buckets 0..N (N = aantal geplande datums)
+  const N = plannedYMDs.length;
+  const buckets = new Array(N + 1).fill(0);
+  const plannedSet = new Set(plannedYMDs);
+
+  try {
+    let last = null;
+    const pageSize = 400;
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) break;
+
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data() || {};
+        if ((d.Jaarhanger || "").toString() !== "Ja") return; // filter
+        const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+        // normaliseer naar YMD en tel intersectie
+        let cnt = 0;
+        for (const raw of scansRaw) {
+          const ymd = typeof raw === "string" ? raw.slice(0,10) : "";
+          if (ymd && plannedSet.has(ymd)) cnt++;
+        }
+        if (cnt < 0) cnt = 0;
+        if (cnt > N) cnt = N;
+        buckets[cnt] += 1;
+      });
+
+      last = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < pageSize) break;
+    }
+  } catch (e) {
+    console.error("[starDist] bouwen mislukt", e);
+  }
+  return buckets;
+}
+
+let _starDistChart = null;
+async function initStarDistributionChart() {
+  const canvas = document.getElementById("starDistChart");
+  const statusEl = document.getElementById("starDistStatus");
+  const reloadBtn = document.getElementById("reloadStarDistBtn");
+  if (!canvas) return;
+
+  async function render() {
+    try {
+      if (statusEl) statusEl.textContent = "Laden…";
+      const planned = (await ensureRideDatesLoaded()) || [];
+      const plannedYMDs = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
+      const N = plannedYMDs.length;
+      if (!N) { if (statusEl) statusEl.textContent = "Geen geplande datums."; return; }
+
+      const buckets = await buildStarBucketsForYearhangerYes(plannedYMDs);
+      const labels = Array.from({length: N+1}, (_,i) => String(i));
+      const data = buckets;
+
+      // Destroy oud chart
+      try { if (_starDistChart) { _starDistChart.destroy(); _starDistChart = null; } } catch(_) {}
+
+      // eslint-disable-next-line no-undef
+      const ctx = canvas.getContext("2d");
+      _starDistChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Aantal leden",
+            data
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: "Aantal sterren (0.."+N+")" } },
+            y: { beginAtZero: true, title: { display: true, text: "Aantal leden" }, ticks: { precision: 0 } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y} leden` } }
+          }
+        }
+      });
+      const totaal = data.reduce((a,b)=>a+b,0);
+      if (statusEl) statusEl.textContent = `✅ Gegevens geladen (leden met Jaarhanger=Ja: ${totaal})`;
+    } catch (e) {
+      console.error(e);
+      if (statusEl) statusEl.textContent = "❌ Laden mislukt";
+    }
+  }
+
+  await render();
+  if (reloadBtn) reloadBtn.addEventListener("click", () => render(), { passive: true });
+}
+
 export function initAdminView() {
   const $ = (id) => document.getElementById(id);
   const fileInput = $("fileInput");
@@ -176,6 +377,11 @@ export function initAdminView() {
 
   // Init QR-scanner sectie (Admin)
   try { initAdminQRScanner(); } catch (_) {}
+
+  // Ritstatistieken
+  try { initRideStatsChart(); } catch (_) {}
+  // Sterrenverdeling (Jaarhanger=Ja)
+  try { initStarDistributionChart(); } catch (_) {}
 }
 
 // =====================================================
