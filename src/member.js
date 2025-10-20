@@ -240,10 +240,22 @@ document.addEventListener("click", (ev) => {
   }
 
   async function queryByLastNamePrefix(prefix) {
-    const qRef = query(collection(db, "members"), orderBy("Naam"), startAt(prefix), endAt(prefix + "\\uf8ff"), limit(8));
-    const snap = await getDocs(qRef);
-    const res = []; snap.forEach(d => res.push({ id: d.id, data: d.data() }));
-    return res;
+    if (!prefix) return [];
+    const maxResults = 8;
+    try {
+      // Query both last name (Naam) and first name (Voor naam)
+      const qName = query(collection(db, "members"), orderBy("Naam"), startAt(prefix), endAt(prefix + "\uf8ff"), limit(maxResults));
+      const qVoor = query(collection(db, "members"), orderBy("Voor naam"), startAt(prefix), endAt(prefix + "\uf8ff"), limit(maxResults));
+      const [snapName, snapVoor] = await Promise.all([getDocs(qName), getDocs(qVoor)]);
+      const map = new Map();
+      snapName.forEach(d => { if (!map.has(d.id)) map.set(d.id, { id: d.id, data: d.data() }); });
+      snapVoor.forEach(d => { if (!map.has(d.id)) map.set(d.id, { id: d.id, data: d.data() }); });
+      const res = Array.from(map.values()).slice(0, maxResults);
+      return res;
+    } catch (e) {
+      console.error('queryByLastNamePrefix failed', e);
+      return [];
+    }
   }
 
   function hideResultBox() {
