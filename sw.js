@@ -1,4 +1,4 @@
-// Simple service worker for Shadow App
+// Simple service worker for Shadow Motorclub
 const CACHE_NAME = 'shadow-app-v1';
 const PRECACHE_URLS = [
   '/',
