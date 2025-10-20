@@ -182,6 +182,8 @@ async function saveYearhanger(val) {
     const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null;
     _yearhangerVal = v;
     await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }, { merge: true });
+    // After saving the Jaarhanger choice, generate QR for the selected member
+    try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
   } catch (e) {
     console.error("Jaarhanger opslaan mislukt", e);
   }
@@ -316,9 +318,10 @@ document.addEventListener("click", (ev) => {
         if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
 if (rName) rName.textContent = fullNameFrom(data);
     if (rMemberNo) rMemberNo.textContent = entry.id;
-    const _jh = (entry?.data?.Jaarhanger === "Nee") ? "Nee" : (entry?.data?.Jaarhanger === "Ja" ? "Ja" : "");
-    renderYearhangerUI(_jh || null);
-    if (!_jh) { try { await setDoc(doc(db, "members", String(entry.id)), { Jaarhanger: "Ja" }, { merge: true }); } catch(_) {} }
+  const _jh = (entry?.data?.Jaarhanger === "Nee") ? "Nee" : (entry?.data?.Jaarhanger === "Ja" ? "Ja" : "");
+  renderYearhangerUI(_jh || null);
+  // If Jaarhanger is not set, require user to choose before generating QR. Do not auto-set a default.
+  // If Jaarhanger already set in Firestore, generate QR immediately.
 
     // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
     const planned = await getPlannedDates();
@@ -355,17 +358,17 @@ const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
 renderYearhangerUI(jh || _yearhangerVal || null);
 });
 
-    // QR pas na selectie
-    const payload = JSON.stringify({ t: "member", uid: entry.id });
-    QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
-      if (err) {
-        if (errBox) { errBox.textContent = "QR genereren mislukte."; errBox.style.display = "block"; }
-        return;
-      }
-      if (resultBox) resultBox.style.display = "grid";
+    // QR generation is conditional: only if Jaarhanger already set
+    if (_jh) {
+      try { await generateQrForEntry(entry); } catch (e) { console.error('QR creation failed', e); }
+    } else {
+      // Ensure QR/result are hidden until choice is made
+      if (resultBox) resultBox.style.display = 'none';
       const privacyEl = document.getElementById("qrPrivacy");
-      if (privacyEl) privacyEl.style.display = "block";
-    });
+      if (privacyEl) privacyEl.style.display = 'none';
+      // show yearhanger UI (renderYearhangerUI already done above)
+      if (yearhangerRow) yearhangerRow.style.display = 'block';
+    }
   }
 
   // Events
@@ -377,6 +380,33 @@ renderYearhangerUI(jh || _yearhangerVal || null);
     qrCanvas.style.cursor = "zoom-in";
     qrCanvas.addEventListener("click", () => openQrFullscreenFromCanvas(qrCanvas), { passive: true });
     qrCanvas.setAttribute("title", "Klik om fullscreen te openen");
+  }
+}
+
+// Generate QR for an entry and show result box
+async function generateQrForEntry(entry) {
+  try {
+    if (!entry) return;
+    const payload = JSON.stringify({ t: "member", uid: entry.id });
+    const qrCanvas = document.getElementById('qrCanvas');
+    const resultBox = document.getElementById('result');
+    const errBox = document.getElementById('error');
+    return new Promise((resolve, reject) => {
+      if (!qrCanvas) return resolve();
+      QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
+        if (err) {
+          if (errBox) { errBox.textContent = "QR genereren mislukte."; errBox.style.display = "block"; }
+          reject(err);
+          return;
+        }
+        if (resultBox) resultBox.style.display = "grid";
+        const privacyEl = document.getElementById("qrPrivacy");
+        if (privacyEl) privacyEl.style.display = "block";
+        resolve();
+      });
+    });
+  } catch (e) {
+    console.error('generateQrForEntry failed', e);
   }
 }
 
