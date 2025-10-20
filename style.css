@@ -169,6 +169,24 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 #rRidesCount .star, #adminMRidesCount .star, .value .star { display:inline-block; font-size:1.2rem; margin-right:2px; line-height:1; }
 #rRidesCount .star.filled, #adminMRidesCount .star.filled, .value .star.filled { color: #f2c33d; filter: none; }
 #rRidesCount .star.empty, #adminMRidesCount .star.empty, .value .star.empty { color: #ffffff; opacity: 0.65; }
+
+/* Ride region filter select styling to ensure contrast (options inherit) */
+#rideRegionFilter {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+#rideRegionFilter:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+/* Some browsers style option backgrounds differently; ensure options are readable where supported */
+#rideRegionFilter option {
+  background: var(--card);
+  color: var(--text);
+}
 .star-dates { font-size: 0.8rem; margin-top: 4px; display:flex; gap:8px; flex-wrap:wrap; color:#9ca3af; }
 .star-date { white-space:nowrap; }
 

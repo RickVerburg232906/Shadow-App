@@ -144,7 +144,8 @@ function ensureHtml5Qrcode() {
 // =====================================================
 // ===============  Ritstatistieken (bar chart) =========
 // =====================================================
-async function countMembersPerDate(plannedYMDs) {
+// Count members per date, optionally filtered by region (regio Omschrijving)
+async function countMembersPerDate(plannedYMDs, regionFilter) {
   // Return map { 'YYYY-MM-DD': count }
   const counts = new Map(plannedYMDs.map(d => [d, 0]));
 
@@ -161,6 +162,8 @@ async function countMembersPerDate(plannedYMDs) {
 
       snapshot.forEach((docSnap) => {
         const d = docSnap.data() || {};
+        // If a regionFilter is provided and this member's Regio Omschrijving doesn't match, skip
+        if (regionFilter && String(d["Regio Omschrijving"] || "").trim() !== String(regionFilter).trim()) return;
         const scans = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
         for (const raw of scans) {
           const s = typeof raw === "string" ? (raw.slice(0,10)) : "";
@@ -183,6 +186,8 @@ async function initRideStatsChart() {
   const canvas = document.getElementById("rideStatsChart");
   const statusEl = document.getElementById("rideStatsStatus");
   const reloadBtn = document.getElementById("reloadStatsBtn");
+  const regionSelect = document.getElementById("rideRegionFilter");
+  const regionStatus = document.getElementById("rideRegionStatus");
   if (!canvas) return;
 
   async function render() {
@@ -195,7 +200,10 @@ async function initRideStatsChart() {
         if (statusEl) statusEl.textContent = "Geen geplande datums.";
         return;
       }
-      const counts = await countMembersPerDate(plannedYMDs);
+  // Respect region filter if present
+  const selectedRegion = regionSelect ? (regionSelect.value || null) : null;
+  if (regionStatus) regionStatus.textContent = selectedRegion ? `Regio: ${selectedRegion}` : "";
+  const counts = await countMembersPerDate(plannedYMDs, selectedRegion);
       const labels = plannedYMDs;
       const data = plannedYMDs.map(d => counts.get(d) || 0);
 
@@ -238,6 +246,48 @@ async function initRideStatsChart() {
 
   await render();
   if (reloadBtn) reloadBtn.addEventListener("click", () => render(), { passive: true });
+  // Populate region select asynchronously
+  (async () => {
+    try {
+      if (!regionSelect) return;
+      regionSelect.innerHTML = '<option value="">Alles</option>';
+      const regions = await getAllRegions();
+      regions.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r;
+        opt.textContent = r;
+        regionSelect.appendChild(opt);
+      });
+      regionSelect.addEventListener('change', () => render(), { passive: true });
+    } catch (e) {
+      console.error("Kon regio's niet laden", e);
+    }
+  })();
+}
+
+// Get all distinct regions from members collection (sorted)
+async function getAllRegions() {
+  const set = new Set();
+  try {
+    let last = null;
+    const pageSize = 400;
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+      const snap = await getDocs(qRef);
+      if (snap.empty) break;
+      snap.forEach(s => {
+        const d = s.data() || {};
+        const r = (d["Regio Omschrijving"] || "").trim();
+        if (r) set.add(r);
+      });
+      last = snap.docs[snap.docs.length - 1];
+      if (snap.size < pageSize) break;
+    }
+  } catch (e) {
+    console.error('getAllRegions failed', e);
+  }
+  return Array.from(set).sort((a,b) => a.localeCompare(b));
 }
 
 
