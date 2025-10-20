@@ -40,8 +40,9 @@ export function plannedStarsWithHighlights(plannedDates, scanDates) {
   const planned = plannedDates.map(toYMD).filter(Boolean);
   const scans = new Set((Array.isArray(scanDates) ? scanDates : []).map(toYMD).filter(Boolean));
   const stars = planned.map(d => scans.has(d) ? "★" : "☆").join("");
+  const starsHtml = planned.map(d => scans.has(d) ? '<span class="star filled">★</span>' : '<span class="star empty">☆</span>').join('');
   const tooltip = planned.map((d, i) => `${i+1}: ${d} — ${scans.has(d) ? "Geregistreerd" : "Niet geregistreerd"}`).join("\\n");
-  return { stars, tooltip, planned };
+  return { stars, starsHtml, tooltip, planned };
 }
 
 /* Helper: geregistreerde ritten naar ★/☆ (behouden feature) */
@@ -338,9 +339,9 @@ if (rName) rName.textContent = fullNameFrom(data);
     // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
     const planned = await getPlannedDates();
     const scanDatums = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
-    const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+    const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
     if (rRides) {
-      rRides.textContent = stars || "—";
+      rRides.innerHTML = starsHtml || "—";
       rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
       rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
       rRides.style.letterSpacing = "3px";
@@ -356,10 +357,10 @@ const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
 // console.debug("Live ridesCount:", count, ridesToStars(count));
 // ⭐ Live update van sterren op basis van actuele ScanDatums
 const scanDatumsLive = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-getPlannedDates().then((planned) => {
-  const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
+  getPlannedDates().then((planned) => {
+  const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
   if (rRides) {
-    rRides.textContent = stars || "—";
+    rRides.innerHTML = starsHtml || "—";
     rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
     rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
     rRides.style.letterSpacing = "3px";

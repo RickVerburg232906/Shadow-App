@@ -161,9 +161,14 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .status{color:#9ca3af}
 
 /* Date-mapped stars */
-.stars .star { display:inline-block; font-size:1.2rem; margin-right:2px; }
-.stars .star.filled { filter: none; }
-.stars .star.empty { opacity: 0.65; }
+.stars .star { display:inline-block; font-size:1.2rem; margin-right:2px; line-height:1; }
+.stars .star.filled { color: #f2c33d; filter: none; }
+.stars .star.empty { color: #ffffff; opacity: 0.65; }
+
+/* Also support when stars are inserted directly into value elements */
+#rRidesCount .star, #adminMRidesCount .star, .value .star { display:inline-block; font-size:1.2rem; margin-right:2px; line-height:1; }
+#rRidesCount .star.filled, #adminMRidesCount .star.filled, .value .star.filled { color: #f2c33d; filter: none; }
+#rRidesCount .star.empty, #adminMRidesCount .star.empty, .value .star.empty { color: #ffffff; opacity: 0.65; }
 .star-dates { font-size: 0.8rem; margin-top: 4px; display:flex; gap:8px; flex-wrap:wrap; color:#9ca3af; }
 .star-date { white-space:nowrap; }
 
