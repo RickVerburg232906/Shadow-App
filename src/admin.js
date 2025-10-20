@@ -825,9 +825,9 @@ function initManualRideSection() {
       try {
         const planned = await getPlannedDates();
         const scanDatums = Array.isArray(entry.data?.ScanDatums) ? entry.data.ScanDatums : [];
-        const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
-        sCount.textContent = stars || "—";
-        sCount.setAttribute('title', stars ? tooltip : 'Geen ingeplande datums');
+  const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+  sCount.innerHTML = starsHtml || "—";
+  sCount.setAttribute('title', stars ? tooltip : 'Geen ingeplande datums');
       } catch (e) {
         const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
         sCount.textContent = String(v);
@@ -845,8 +845,8 @@ function initManualRideSection() {
         try {
           const planned = await getPlannedDates();
           const scanDatums = d && Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-          const { stars, tooltip } = plannedStarsWithHighlights(planned, scanDatums);
-          sCount.textContent = stars || "—";
+          const { stars, starsHtml, tooltip } = plannedStarsWithHighlights(planned, scanDatums);
+          sCount.innerHTML = starsHtml || "—";
           if (stars) sCount.setAttribute('title', tooltip);
           else sCount.removeAttribute('title');
         } catch (e) {
