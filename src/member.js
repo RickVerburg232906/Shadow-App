@@ -4,7 +4,7 @@ import { db } from "./firebase.js";
 import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, setDoc } from "firebase/firestore";
 
 // ------- Planning (geplande datums) -------
-async function getPlannedDates() {
+export async function getPlannedDates() {
   try {
     const ref = doc(db, "globals", "ridePlan");
     const snap = await getDoc(ref);

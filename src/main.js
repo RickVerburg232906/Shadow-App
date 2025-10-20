@@ -1,5 +1,5 @@
 
-import { initMemberView } from "./member.js";
+import { initMemberView, getPlannedDates } from "./member.js";
 import { initAdminView } from "./admin.js";
 import { db, doc, getDoc, setDoc } from "./firebase.js";
 
@@ -348,7 +348,74 @@ document.addEventListener("DOMContentLoaded", () => {
     signup.removeAttribute("hidden");
     signup.style.display = "";
     gate.remove();
+    // mark consent in session so planned rides are hidden
+    try { sessionStorage.setItem('ride_consent_ok', '1'); hidePlannedRides(); } catch(_) {}
     const h = signup.querySelector("h1, h2, h3, [tabindex]") || signup;
     if (h) { h.setAttribute("tabindex","-1"); h.focus({ preventScroll:false }); }
   });
+});
+
+// --- Planned rides support ---
+function formatDateISO(d) {
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt)) return String(d);
+    return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch (e) { return String(d); }
+}
+
+function renderPlannedRides(listEl, rides) {
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  if (!rides || rides.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'Geen geplande ritten.';
+    listEl.appendChild(li);
+    return;
+  }
+  rides.forEach(r => {
+    const li = document.createElement('li');
+    li.textContent = formatDateISO(r);
+    listEl.appendChild(li);
+  });
+}
+
+function hidePlannedRides() {
+  const section = document.getElementById('plannedRidesSection');
+  if (section) section.style.display = 'none';
+}
+
+function showPlannedRides() {
+  const section = document.getElementById('plannedRidesSection');
+  if (section) section.style.display = '';
+}
+
+// Example: source of planned rides. In a real app this may come from Firestore.
+const DEFAULT_PLANNED_RIDES = [
+  // ISO dates for consistency
+  '2025-10-25',
+  '2025-11-08',
+  '2025-12-06'
+];
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const listEl = document.getElementById('plannedRidesList');
+    // try load from Firestore via member.getPlannedDates()
+    (async () => {
+      try {
+        const planned = (typeof getPlannedDates === 'function') ? await getPlannedDates() : null;
+        if (planned && Array.isArray(planned) && planned.length) {
+          renderPlannedRides(listEl, planned);
+        } else {
+          renderPlannedRides(listEl, DEFAULT_PLANNED_RIDES);
+        }
+      } catch (e) {
+        renderPlannedRides(listEl, DEFAULT_PLANNED_RIDES);
+      }
+    })();
+
+    const consent = sessionStorage.getItem('ride_consent_ok') === '1';
+    if (consent) hidePlannedRides(); else showPlannedRides();
+  } catch (e) { console.error('Planned rides init failed', e); }
 });
