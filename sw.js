@@ -5,8 +5,8 @@ const PRECACHE_URLS = [
   '/index.html',
   '/style.css',
   '/manifest.webmanifest',
-  '/assets/icon-192.png',
-  '/assets/icon-512.png'
+  'assets/logo_MC_nieuw_trans_300.gif',
+  'assets/logo_MC_nieuw_trans_300.gif'
 ];
 
 self.addEventListener('install', (event) => {
