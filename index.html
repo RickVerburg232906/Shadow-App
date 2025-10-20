@@ -89,11 +89,7 @@
                 <details class="muted yearhanger-details" id="yearhangerDetails">
                   <summary>Wat is een jaarhanger? <span class="info-icon" aria-hidden="true">ℹ️</span></summary>
                   <div class="yearhanger-explain">
-                    <ul>
-                      <li>U neemt automatisch deel aan alle geplande ritten in de periode.</li>
-                      <li>Uw aanwezigheid wordt geregistreerd via scans op de ritdata.</li>
-                      <li>U hoeft niet opnieuw in te schrijven voor elke rit.</li>
-                    </ul>
+                    <p>Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De "moederpin" kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt. De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. Da's pas een collectors item!</p>
                   </div>
                 </details>
               </div>
@@ -167,6 +163,18 @@
           <div id="adminManualStatus" class="status"></div>
         </div>
 
+        <div class="card" id="excelUploadCard" data-admin-group="2">
+          <h1>Admin: Excel uploaden</h1>
+          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
+          <div class="row">
+            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
+            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
+            <span id="fileName" class="file-name">Geen bestand gekozen</span>
+            <button id="uploadBtn">Uploaden</button>
+          </div>
+          <div id="status" class="status"></div>
+          <div id="log" class="log"></div>
+        </div>
         
         <div class="card" id="ridePlannerCard" data-admin-group="2">
           <h3>Ritten plannen</h3>
@@ -186,20 +194,6 @@
           </div>
         </div>
 
-        <div class="card" id="excelUploadCard" data-admin-group="2">
-          <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
-          <div class="row">
-            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
-            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-            <span id="fileName" class="file-name">Geen bestand gekozen</span>
-            <button id="uploadBtn">Uploaden</button>
-          </div>
-          <div id="status" class="status"></div>
-          <div id="log" class="log"></div>
-        </div>
-
-        
         <div class="card" id="rideStatsCard" data-admin-group="4">
           <h3>Inschrijvingen per rit</h3>
           <p class="muted">Aantal ingeschreven leden per geplande ritdatum (o.b.v. <code>ScanDatums</code>).</p>
