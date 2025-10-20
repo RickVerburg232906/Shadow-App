@@ -1,5 +1,5 @@
 
-import { initMemberView } from "./member.js";
+import { initMemberView, getPlannedDates } from "./member.js";
 import { initAdminView } from "./admin.js";
 import { db, doc, getDoc, setDoc } from "./firebase.js";
 
@@ -347,8 +347,134 @@ document.addEventListener("DOMContentLoaded", () => {
     signup.removeAttribute("aria-hidden");
     signup.removeAttribute("hidden");
     signup.style.display = "";
+    // remove the gate for this run only; do not persist consent across refresh
     gate.remove();
+    try { hidePlannedRides(); } catch(_) {}
     const h = signup.querySelector("h1, h2, h3, [tabindex]") || signup;
     if (h) { h.setAttribute("tabindex","-1"); h.focus({ preventScroll:false }); }
   });
+});
+
+// --- Planned rides support ---
+function formatDateISO(d) {
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt)) return String(d);
+    return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch (e) { return String(d); }
+}
+
+function renderPlannedRides(listEl, rides) {
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  if (!rides || rides.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'Geen geplande ritten.';
+    listEl.appendChild(li);
+    return;
+  }
+  // Filter out past dates (already geweest)
+  const visible = (Array.isArray(rides) ? rides.slice() : []).filter(r => {
+    const d = daysUntil(r);
+    // keep null-parsable values (unknown), and dates that are today (0) or in the future (>0)
+    return d === null ? true : d >= 0;
+  });
+
+  // sort ascending by date
+  visible.sort((a,b) => new Date(a) - new Date(b));
+
+  if (visible.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'Geen geplande ritten.';
+    listEl.appendChild(li);
+    return;
+  }
+
+  visible.forEach(r => {
+    const li = document.createElement('li');
+    const spanDate = document.createElement('span');
+    spanDate.className = 'date';
+    spanDate.textContent = formatDateISO(r);
+
+    const spanDays = document.createElement('span');
+    spanDays.className = 'days-left';
+    const days = daysUntil(r);
+    if (days === null) {
+      spanDays.textContent = '-';
+    } else if (days === 0) {
+      spanDays.textContent = 'Vandaag';
+    } else if (days === 1) {
+      spanDays.textContent = '1 dag';
+    } else if (days > 1) {
+      spanDays.textContent = `${days} dagen`;
+    } else {
+      spanDays.textContent = `${Math.abs(days)} dagen geleden`;
+    }
+    spanDays.classList.add(classifyDays(days));
+
+    li.appendChild(spanDate);
+    li.appendChild(spanDays);
+    listEl.appendChild(li);
+  });
+}
+
+function daysUntil(value) {
+  try {
+    const d = new Date(value);
+    if (isNaN(d)) return null;
+    // Use local dates (ignore time component)
+    const today = new Date();
+    const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    const t1 = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    const diff = Math.round((t1 - t0) / (1000 * 60 * 60 * 24));
+    return diff;
+  } catch (_) { return null; }
+}
+
+function classifyDays(days) {
+  // returns a class name for styling
+  if (days === null) return '';
+  if (days < 0) return 'passed';
+  if (days <= 3) return 'soon';
+  return 'upcoming';
+}
+
+function hidePlannedRides() {
+  const section = document.getElementById('plannedRidesSection');
+  if (section) section.style.display = 'none';
+}
+
+function showPlannedRides() {
+  const section = document.getElementById('plannedRidesSection');
+  if (section) section.style.display = '';
+}
+
+// Example: source of planned rides. In a real app this may come from Firestore.
+const DEFAULT_PLANNED_RIDES = [
+  // ISO dates for consistency
+  '2025-10-25',
+  '2025-11-08',
+  '2025-12-06'
+];
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const listEl = document.getElementById('plannedRidesList');
+    // try load from Firestore via member.getPlannedDates()
+    (async () => {
+      try {
+        const planned = (typeof getPlannedDates === 'function') ? await getPlannedDates() : null;
+        if (planned && Array.isArray(planned) && planned.length) {
+          renderPlannedRides(listEl, planned);
+        } else {
+          renderPlannedRides(listEl, DEFAULT_PLANNED_RIDES);
+        }
+      } catch (e) {
+        renderPlannedRides(listEl, DEFAULT_PLANNED_RIDES);
+      }
+    })();
+
+    // Always show planned rides on load (consent is not persisted across refresh)
+    showPlannedRides();
+  } catch (e) { console.error('Planned rides init failed', e); }
 });

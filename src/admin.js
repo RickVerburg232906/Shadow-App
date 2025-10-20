@@ -1,4 +1,3 @@
-
 // ===== JPG export naast 'Herladen' (admin-only) =====
 (function() {
   function waitForElement(getter, { tries=50, delay=200 } = {}) {
@@ -88,6 +87,7 @@
 
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
+import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
 import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "firebase/firestore";
 
 // ====== Globale ritdatums cache ======
@@ -651,13 +651,30 @@ function initManualRideSection() {
   const sName   = $("adminMName");
   const sId     = $("adminMMemberNo");
   const sCount  = $("adminMRidesCount");
-  const btn     = $("adminManualBookBtn");
   const status  = $("adminManualStatus");
   const rideButtons = $("adminRideButtons");
   const rideHint = $("adminRideHint");
   let selectedRideDate = null;
 
-  if (!input || !list || !box || !btn) return; // UI niet aanwezig
+  async function attemptBooking(dateYMD) {
+    if (!selected) { status.textContent = "Kies eerst een lid."; status.classList.add("error"); return; }
+    status.classList.remove("error");
+    status.textContent = "Bezig met registreren…";
+    try {
+      const out = await bookRide(selected.id, sName.textContent || "", dateYMD);
+      status.textContent = out.changed
+        ? `✅ Rit geregistreerd op ${out.ymd} (totaal: ${out.newTotal})`
+        : `ℹ️ Deze datum (${out.ymd}) was al geregistreerd — niets aangepast.`;
+      // Update hint
+      if (rideHint) rideHint.textContent = `Geregistreerd op: ${out.ymd}`;
+    } catch (e) {
+      console.error(e);
+      status.textContent = "❌ Fout bij registreren";
+      status.classList.add("error");
+    }
+  }
+
+  if (!input || !list || !box) return; // UI niet aanwezig
 
   let selected = null;
   let unsub = null;
@@ -690,28 +707,20 @@ function initManualRideSection() {
 
   // Zoeken: probeer "Naam" → "naam" → "name", anders fallback
   async function queryByLastNamePrefix(prefix) {
-    const fields = ["Naam", "naam", "name"];
-    for (const fld of fields) {
-      try {
-        const qRef = query(collection(db, "members"), orderBy(fld), startAt(prefix), endAt(prefix + "\uf8ff"), limit(10));
-        const snap = await getDocs(qRef);
-        const rows = [];
-        snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
-        if (rows.length) return rows;
-      } catch (_) {}
-    }
-    // Fallback: eerste 200 documenten en client-side filter
+    if (!prefix) return [];
+    const maxResults = 10;
     try {
-      const qRef = query(collection(db, "members"), orderBy("__name__"), limit(200));
-      const snap = await getDocs(qRef);
-      const rows = [];
-      snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
-      const p = prefix.toLowerCase();
-      return rows.filter(r => {
-        const ln = (r.data?.["Naam"] || r.data?.["name"] || r.data?.["naam"] || "").toString().toLowerCase();
-        return ln.startsWith(p);
-      }).slice(0, 10);
-    } catch (_) {
+      const qName = query(collection(db, "members"), orderBy("Naam"), startAt(prefix), endAt(prefix + "\uf8ff"), limit(maxResults));
+      const qVoor = query(collection(db, "members"), orderBy("Voor naam"), startAt(prefix), endAt(prefix + "\uf8ff"), limit(maxResults));
+      const [snapName, snapVoor] = await Promise.all([getDocs(qName), getDocs(qVoor)]);
+      const map = new Map();
+      snapName.forEach(d => { if (!map.has(d.id)) map.set(d.id, { id: d.id, data: d.data() }); });
+      snapVoor.forEach(d => { if (!map.has(d.id)) map.set(d.id, { id: d.id, data: d.data() }); });
+      const res = Array.from(map.values()).slice(0, maxResults);
+      return res;
+    } catch (e) {
+      console.error('queryByLastNamePrefix (admin) failed', e);
+      // As a last resort, return empty so caller can handle
       return [];
     }
   }
@@ -754,51 +763,67 @@ function initManualRideSection() {
     }
   }
 
-  
-async function renderRideChoices(){
-  if (!rideButtons) return;
-  rideButtons.innerHTML = "";
-  selectedRideDate = null;
-  try {
-    const dates = await ensureRideDatesLoaded();
-    
+  async function renderRideChoices(){
+    if (!rideButtons) return;
+    rideButtons.innerHTML = "";
+    selectedRideDate = null;
+    try {
+      const dates = await ensureRideDatesLoaded();
+
       // Toon alleen datums t/m vandaag (geen toekomst)
       const today = new Date();
       const todayYMD = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())).toISOString().slice(0,10);
-      const visibleDates = (dates || []).filter(d => (typeof d === "string" ? d.slice(0,10) : "").localeCompare(todayYMD) <= 0);
-if (!visibleDates.length) {
-      rideButtons.innerHTML = '<span class="muted">Geen geplande ritdatums gevonden.</span>';
-      return;
+      const visibleDates = (dates || [])
+        .map(d => (typeof d === "string" ? d.slice(0,10) : ""))
+        .filter(Boolean)
+        .filter(d => d.localeCompare(todayYMD) <= 0);
+
+      if (!visibleDates.length) {
+        rideButtons.innerHTML = '<span class="muted">Geen geplande ritdatums gevonden.</span>';
+        if (rideHint) rideHint.textContent = "Geen (verleden/heden) ritdatums.";
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      visibleDates.forEach((d) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip";
+        btn.textContent = d;
+        btn.setAttribute("aria-pressed", "false");
+        btn.addEventListener("click", async () => {
+          selectedRideDate = d;
+          if (rideHint) rideHint.textContent = `Registreren voor: ${d}`;
+          await attemptBooking(d); // DIRECT boeken bij klik
+        }, { passive: true });
+        frag.appendChild(btn);
+      });
+
+      rideButtons.appendChild(frag);
+      if (rideHint) rideHint.textContent = "Klik op een datum om direct te registreren.";
+    } catch(e) {
+      console.error(e);
+      rideButtons.innerHTML = '<span class="error">Kon ritdatums niet laden.</span>';
     }
-    const frag = document.createDocumentFragment();
-    visibleDates.forEach((d) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "chip";
-      btn.textContent = d;
-      btn.setAttribute("aria-pressed", "false");
-      btn.addEventListener("click", () => {
-        selectedRideDate = d;
-        Array.from(rideButtons.querySelectorAll('.chip')).forEach(el => el.classList.remove('selected'));
-        btn.classList.add('selected');
-        if (rideHint) rideHint.textContent = `Gekozen ritdatum: ${d}`;
-      }, { passive: true });
-      frag.appendChild(btn);
-    });
-    rideButtons.appendChild(frag);
-    if (rideHint) rideHint.textContent = visibleDates.length ? "Kies een ritdatum hieronder." : "Geen (verleden/heden) ritdatums.";
-  } catch(e) {
-    console.error(e);
-    rideButtons.innerHTML = '<span class="error">Kon ritdatums niet laden.</span>';
   }
-}
 
   function selectMember(entry) {
     selected = entry;
     sName.textContent = fullNameFrom(entry.data);
     sId.textContent = entry.id;
-    const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
-    sCount.textContent = String(v);
+    // Show stars based on planned dates vs. ScanDatums (like member view)
+    (async () => {
+      try {
+        const planned = await getPlannedDates();
+        const scanDatums = Array.isArray(entry.data?.ScanDatums) ? entry.data.ScanDatums : [];
+        const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+        sCount.textContent = stars || "—";
+        sCount.setAttribute('title', stars ? tooltip : 'Geen ingeplande datums');
+      } catch (e) {
+        const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
+        sCount.textContent = String(v);
+      }
+    })();
     box.style.display = "grid";
     renderRideChoices();
 
@@ -807,8 +832,19 @@ if (!visibleDates.length) {
     const ref = doc(collection(db, "members"), entry.id);
     unsub = onSnapshot(ref, (snap) => {
       const d = snap.exists() ? snap.data() : null;
-      const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
-      sCount.textContent = String(c);
+      (async () => {
+        try {
+          const planned = await getPlannedDates();
+          const scanDatums = d && Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+          const { stars, tooltip } = plannedStarsWithHighlights(planned, scanDatums);
+          sCount.textContent = stars || "—";
+          if (stars) sCount.setAttribute('title', tooltip);
+          else sCount.removeAttribute('title');
+        } catch (e) {
+          const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
+          sCount.textContent = String(c);
+        }
+      })();
     }, (e) => console.error(e));
   }
 
@@ -836,22 +872,6 @@ if (!visibleDates.length) {
     input.value = "";
     hideSuggest();
     resetSelection();
-  });
-
-  btn.addEventListener("click", async () => {
-    if (!selected) { status.textContent = "Kies eerst een lid."; return; }
-    status.textContent = "Bezig met registreren…";
-    try {
-      if (!selectedRideDate) { status.textContent = "Kies eerst een ritdatum hieronder."; status.classList.add("error"); return; }
-      const out = await bookRide(selected.id, sName.textContent || "", selectedRideDate);
-      status.classList.remove("error");
-      status.textContent = out.changed
-        ? `✅ Rit geregistreerd op ${out.ymd} (totaal: ${out.newTotal})`
-        : `ℹ️ Deze datum (${out.ymd}) was al geregistreerd — niets aangepast.`;
-    } catch (e) {
-      console.error(e);
-      status.textContent = "❌ Fout bij registreren";
-    }
   });
 }
 

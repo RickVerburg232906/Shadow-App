@@ -1,4 +1,5 @@
 :root {
+  --topbar-h: 64px;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   --bg: #0b0c10;
   --card: #0f172a;
@@ -8,15 +9,17 @@
   --accent: #3b82f6;
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+html { height: 100%; }
+body { height: 100%; }
 body { margin: 0; background:var(--bg); color:var(--text); -webkit-tap-highlight-color: rgba(0,0,0,0); }
 
 .topbar {
-  position: sticky; top: 0; padding: 12px 16px calc(12px + env(safe-area-inset-top));
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10000; padding: 12px 16px calc(12px + env(safe-area-inset-top));
   padding-top: calc(12px + env(safe-area-inset-top));
   display:flex; justify-content:space-between; align-items:center; gap:0.75rem;
   border-bottom:1px solid var(--border); background:var(--card);
-}
+
+  z-index: 10000;}
 .brand { font-weight:800; letter-spacing:.3px; }
 .nav { display:flex; gap:8px; }
 .nav .tab {
@@ -28,7 +31,14 @@ body { margin: 0; background:var(--bg); color:var(--text); -webkit-tap-highlight
 .nav .tab.active { background:#1f2937; }
 .nav .tab:active { transform: translateY(1px); }
 
-.wrap { max-width: 720px; margin: 0 auto; padding: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+.wrap {
+  /* Ensure content starts below the fixed topbar. Uses the --topbar-h variable so changing the topbar height
+     automatically updates this spacing. Add a small extra gap (16px) for breathing room. */
+  max-width: 720px;
+  margin: 0 auto;
+  padding: calc(var(--topbar-h, 64px) + 0px) 16px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
 .view { display:none; }
 .view.active { display:block; }
 
@@ -142,7 +152,7 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .modal-dialog{width:min(520px,92vw);background:#0a0f1a;border:1px solid #1f2937;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.45);overflow:hidden}
 .modal-header,.modal-actions{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #111827}
 .modal-actions{border-top:1px solid #111827;border-bottom:none;justify-content:flex-end}
-.modal-body{padding:14px}
+.modal-body{padding:14px;}
 .toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);padding:10px 14px;background:#065f46;color:#ecfdf5;border:1px solid #064e3b;border-radius:12px;z-index:999}
 .btn{background:transparent;border:1px solid #374151;color:#e5e7eb;padding:8px 12px;border-radius:12px;cursor:pointer}
 .btn-ghost{border-color:#374151;opacity:.85}
@@ -156,6 +166,15 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .stars .star.empty { opacity: 0.65; }
 .star-dates { font-size: 0.8rem; margin-top: 4px; display:flex; gap:8px; flex-wrap:wrap; color:#9ca3af; }
 .star-date { white-space:nowrap; }
+
+/* Planningslijst: datum + dagen links/rechts */
+#plannedRidesList { list-style: none; margin: 8px 0 0; padding: 0; display: block; }
+#plannedRidesList li { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border:1px solid #17202a; border-radius:10px; margin-bottom:8px; background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent); }
+#plannedRidesList li .date { color: var(--text); }
+#plannedRidesList li .days-left { color: var(--muted); background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); padding:6px 8px; border-radius:8px; font-weight:700; min-width:64px; text-align:center; }
+#plannedRidesList li .days-left.upcoming { color: #d1fae5; background: rgba(34,197,94,0.06); border-color: rgba(34,197,94,0.12); }
+#plannedRidesList li .days-left.soon { color: #fef3c7; background: rgba(250,204,21,0.04); border-color: rgba(250,204,21,0.08); }
+#plannedRidesList li .days-left.passed { color: #fca5a5; opacity:0.9; }
 
 /* Ensure suggestion dropdowns are not clipped */
 .card { position: relative; overflow: visible; }
@@ -236,10 +255,8 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 }
 
 /* --- Hoofdadmin Subtabs --- */
-.subtabs {
-  position: sticky;
-  top: calc(56px + env(safe-area-inset-top)); /* below topbar */
-  z-index: 50;
+.subtabs {position: sticky;
+  /* below topbar */
   display: flex;
   gap: 8px;
   background: var(--card);
@@ -247,7 +264,8 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
   border-radius: 12px;
   padding: 8px;
   margin-bottom: 16px;
-}
+  top: var(--topbar-h, 64px);
+  z-index: 9990;}
 .subtab {
   background: transparent;
   border: 1px solid #334155;
@@ -268,3 +286,5 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 @media (max-width: 560px) {
   .subtabs { position: static; top: 0; flex-wrap: wrap; }
 }
+
+.card, section[id], [data-admin-tab]{scroll-margin-top: calc(var(--topbar-h,64px) + 44px);}

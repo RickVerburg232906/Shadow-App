@@ -24,6 +24,12 @@
       
     </header>
       <section id="viewMember" class="view active">
+      <!-- Geplande ritten voor leden (zichtbaar zolang de gebruiker nog niet akkoord heeft gedrukt) -->
+      <section id="plannedRidesSection" class="card" aria-labelledby="plannedRidesTitle">
+        <h3 id="plannedRidesTitle">Geplande ritten</h3>
+        <p class="muted">Hieronder vind je de geplande ritdata. Je ziet deze zolang je nog niet op "Ik ga akkoord" hebt geklikt.</p>
+        <ul id="plannedRidesList" class="hint" style="margin-top:8px;"></ul>
+      </section>
 <section id="rideConsentGate" class="consent card" aria-labelledby="rideConsentTitle">
   <div class="consent__header">
     <h2 id="rideConsentTitle">Voorwaarden deelname</h2>
@@ -85,7 +91,7 @@
 
         <div class="card" id="manualRideCard" data-admin-group="1">
           <h3>Handmatig rit registreren</h3>
-          <p class="muted">Zoek op achternaam (Hoofletter gevoelig), kies het juiste lid, en klik op <em>Rit registreren</em>.</p>
+          <p class="muted">Zoek op achternaam (Hoofletter gevoelig), kies het juiste lid en klik op een <em>ritdatum</em> hieronder om direct te registreren.</p>
           <div class="row">
             <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
             <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
@@ -99,9 +105,7 @@
               <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMRidesCount">—</span></div>
               <div class="kv"><span class="label">Rit kiezen</span><span class="value"><span id="adminRideHint" class="muted">Kies een ritdatum hieronder.</span></span></div>
               <div id="adminRideButtons" class="chip-list" role="group" aria-label="Kies ritdatum"></div>
-              <div class="row" style="margin-top:8px; gap:12px;">
-                <button id="adminManualBookBtn" class="btn">Rit registreren</button>
-              </div>
+              
             </div>
           </div>
           <div id="adminManualStatus" class="status"></div>
