@@ -188,7 +188,25 @@ function renderYearhangerUI(val) {
     yearhangerYes.setAttribute("aria-checked", String(v === "Ja"));
     yearhangerNo.setAttribute("aria-checked",  String(v === "Nee"));
   }
-  // no inline badge; selection is shown by coloring the selected button only
+  // Collapse logic: if there's already a stored value (v), show a compact label and collapse the body
+  try {
+    const body = document.getElementById('yearhangerBody');
+    const label = document.getElementById('yearhangerLabel');
+    const small = document.getElementById('yearhangerSelectedSmall');
+    if (small) {
+      small.textContent = v ? `Gekozen: ${v}` : '';
+    }
+    if (body && label) {
+      if (v) {
+        // collapse by default when there is a saved choice
+        body.classList.add('collapsed');
+        label.setAttribute('aria-expanded','false');
+      } else {
+        body.classList.remove('collapsed');
+        label.setAttribute('aria-expanded','true');
+      }
+    }
+  } catch(_) {}
 }
 async function saveYearhanger(val) {
   try {
@@ -196,6 +214,8 @@ async function saveYearhanger(val) {
     const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null;
     _yearhangerVal = v;
     await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }, { merge: true });
+    // After saving: update UI (this will collapse the body when a value exists)
+    try { renderYearhangerUI(v); } catch(_) {}
     // After saving the Jaarhanger choice, generate QR for the selected member
     try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
   } catch (e) {
@@ -405,6 +425,27 @@ renderYearhangerUI(jh || _yearhangerVal || null);
       if (details && !sessionStorage.getItem('yearhangerDetailsOpened')) {
         // small timeout to avoid shifting layout during initial render
         setTimeout(() => { try { details.open = true; sessionStorage.setItem('yearhangerDetailsOpened','1'); } catch(_){} }, 250);
+      }
+    } catch(_) {}
+
+    // Make the whole label clickable / keyboard-toggle the body
+    try {
+      const label = document.getElementById('yearhangerLabel');
+      const body = document.getElementById('yearhangerBody');
+      if (label && body) {
+        // click toggles
+        label.addEventListener('click', (e) => {
+          const isCollapsed = body.classList.toggle('collapsed');
+          label.setAttribute('aria-expanded', String(!isCollapsed));
+        });
+        // keyboard: Enter or Space
+        label.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const isCollapsed = body.classList.toggle('collapsed');
+            label.setAttribute('aria-expanded', String(!isCollapsed));
+          }
+        });
       }
     } catch(_) {}
 
