@@ -149,26 +149,31 @@ let _yearhangerVal = "Ja"; // default
 function ensureYearhangerUI() {
   const nameInput = document.getElementById("nameInput");
   if (!nameInput) return;
-  if (!yearhangerRow) {
-    yearhangerRow = document.createElement("div");
-    yearhangerRow.id = "yearhangerRow";
-    yearhangerRow.style.marginTop = "8px";
-    yearhangerRow.style.display = "none"; // zichtbaar na selectie
-    yearhangerRow.innerHTML = (
-      '<div class="seg-wrap">'
-      + '<div class="seg-label"><strong>Wilt u een Jaarhanger?</strong></div>'
-      + '<div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">'
-      +   '<button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false">Ja</button>'
-      +   '<button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false">Nee</button>'
-      + '</div>'
-      + '</div>'
-    );
-    nameInput.insertAdjacentElement("afterend", yearhangerRow);
-    yearhangerYes = document.getElementById("yearhangerYes");
-    yearhangerNo  = document.getElementById("yearhangerNo");
-  }
+  // The markup for #yearhangerRow is now present in index.html; just grab references.
+  yearhangerRow = document.getElementById("yearhangerRow");
+  yearhangerYes = document.getElementById("yearhangerYes");
+  yearhangerNo = document.getElementById("yearhangerNo");
 }
 ensureYearhangerUI();
+
+// Toggle help text for Jaarhanger
+document.addEventListener("click", (ev) => {
+  const t = ev.target;
+  if (!t) return;
+  if (t.id === "yearhangerHelpToggle") {
+    const help = document.getElementById("yearhangerHelp");
+    if (!help) return;
+    const expanded = t.getAttribute("aria-expanded") === "true";
+    if (expanded) {
+      help.style.display = "none";
+      t.setAttribute("aria-expanded", "false");
+    } else {
+      help.style.display = "block";
+      t.setAttribute("aria-expanded", "true");
+    }
+  }
+}, { passive: true });
+
 
 function renderYearhangerUI(val) {
   ensureYearhangerUI();
@@ -176,11 +181,14 @@ function renderYearhangerUI(val) {
   _yearhangerVal = v;
   if (yearhangerRow) yearhangerRow.style.display = "block";
   if (yearhangerYes && yearhangerNo) {
-    yearhangerYes.classList.toggle("active", v === "Ja");
-    yearhangerNo.classList.toggle("active",  v === "Nee");
+    // visual selected state using color-coded classes
+    yearhangerYes.classList.toggle("selected-yes", v === "Ja");
+    yearhangerNo.classList.toggle("selected-no", v === "Nee");
+    // ensure ARIA reflects selection
     yearhangerYes.setAttribute("aria-checked", String(v === "Ja"));
     yearhangerNo.setAttribute("aria-checked",  String(v === "Nee"));
   }
+  // no inline badge; selection is shown by coloring the selected button only
 }
 async function saveYearhanger(val) {
   try {
@@ -197,10 +205,12 @@ async function saveYearhanger(val) {
 document.addEventListener("click", (ev) => {
   if (!yearhangerRow) return;
   const t = ev.target;
-  if (t && t.id === "yearhangerYes") {
+  // handle clicks on the segmented buttons or inner spans
+  const btn = t && (t.id === 'yearhangerYes' || t.id === 'yearhangerNo') ? t : t && t.closest ? t.closest('button') : null;
+  if (btn && btn.id === "yearhangerYes") {
     renderYearhangerUI("Ja");
     saveYearhanger("Ja");
-  } else if (t && t.id === "yearhangerNo") {
+  } else if (btn && btn.id === "yearhangerNo") {
     renderYearhangerUI("Nee");
     saveYearhanger("Nee");
   }
@@ -388,6 +398,15 @@ renderYearhangerUI(jh || _yearhangerVal || null);
       if (yearhangerRow) yearhangerRow.style.display = 'block';
     }
   }
+
+    // Open the details help once per session to guide first-time users
+    try {
+      const details = document.getElementById('yearhangerDetails');
+      if (details && !sessionStorage.getItem('yearhangerDetailsOpened')) {
+        // small timeout to avoid shifting layout during initial render
+        setTimeout(() => { try { details.open = true; sessionStorage.setItem('yearhangerDetailsOpened','1'); } catch(_){} }, 250);
+      }
+    } catch(_) {}
 
   // Events
   nameInput?.addEventListener("focus", handleFocus);

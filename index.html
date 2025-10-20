@@ -79,6 +79,31 @@
             <input id="nameInput" placeholder="Achternaam..." />
           </div>
 
+          <!-- Jaarhanger static markup: placed under the name input so JS can show/hide it -->
+          <div id="yearhangerRow" class="yearhanger-row">
+            <div class="seg-wrap yearhanger-main yearhanger-card">
+              <div class="seg-label">
+                <strong>Wilt u een Jaarhanger?</strong>
+              </div>
+              <div class="yearhanger-help">
+                <details class="muted yearhanger-details" id="yearhangerDetails">
+                  <summary>Wat is een jaarhanger? <span class="info-icon" aria-hidden="true">ℹ️</span></summary>
+                  <div class="yearhanger-explain">
+                    <ul>
+                      <li>U neemt automatisch deel aan alle geplande ritten in de periode.</li>
+                      <li>Uw aanwezigheid wordt geregistreerd via scans op de ritdata.</li>
+                      <li>U hoeft niet opnieuw in te schrijven voor elke rit.</li>
+                    </ul>
+                  </div>
+                </details>
+              </div>
+              <div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">
+                <button type="button" id="yearhangerYes" class="seg-btn seg-yes" data-value="Ja" role="radio" aria-checked="false"><span class="seg-label-text">Ja</span></button>
+                <button type="button" id="yearhangerNo" class="seg-btn seg-no" data-value="Nee" role="radio" aria-checked="false"><span class="seg-label-text">Nee</span></button>
+              </div>
+            </div>
+          </div>
+
           <ul id="suggestions" class="suggest"></ul>
           <div id="error" class="error" style="display:none"></div>
           <div id="result" class="result" style="display:none">
