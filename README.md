@@ -27,3 +27,27 @@ Gebruik deze stappen wanneer `http://localhost:5173` niet laadt (ERR_CONNECTION_
 ## Hoe deze pack te gebruiken
 - **NIETS hoeft overschreven te worden**. Gebruik de templates ter referentie of kopieer gericht.
 - Draai een kill-script als de poort vastzit, pas je `package.json` dev-script aan en probeer opnieuw.
+
+## PWA (installable web app)
+
+Deze repository bevat nu een eenvoudige service worker en manifest om de site als PWA te installeren.
+
+Snelle test (lokaal):
+
+1. Build de webassets:
+
+```bash
+npm run build
+```
+
+2. Serveer de `dist` folder lokaal (bijv. met http-server):
+
+```bash
+npm run serve:dist
+```
+
+3. Open http://localhost:8080 in je browser of mobiele device. Controleer DevTools → Application → Manifest om validatie te zien.
+
+Belangrijke notities:
+- Voeg app icons toe in `assets/icon-192.png` en `assets/icon-512.png` (worden door `manifest.webmanifest` gebruikt).
+- De service worker (`sw.js`) is een eenvoudige implementatie (precache + runtime caching). Voor productie kun je Workbox of fijnmaziger caching gebruiken.
