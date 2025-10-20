@@ -366,6 +366,45 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// --- Splash control API ---
+function setSplashProgress(pct, caption) {
+  try {
+    const bar = document.getElementById('splashProgressBar');
+    const cap = document.getElementById('splashCaption');
+    if (bar) bar.style.width = Math.max(0, Math.min(100, Number(pct) || 0)) + '%';
+    if (cap && typeof caption !== 'undefined') cap.textContent = String(caption);
+  } catch (_) {}
+}
+function hideSplash() {
+  try {
+    const splash = document.getElementById('appSplash');
+    if (!splash) return;
+    splash.setAttribute('aria-hidden', 'true');
+    // small delay to allow transition
+    setTimeout(() => { try { splash.style.display = 'none'; } catch(_) {} }, 300);
+  } catch (_) {}
+}
+function showSplash() {
+  try {
+    const splash = document.getElementById('appSplash');
+    if (!splash) return;
+    splash.setAttribute('aria-hidden', 'false');
+    splash.style.display = '';
+  } catch (_) {}
+}
+
+// Expose API for other modules
+window.appSplash = { setProgress: setSplashProgress, hide: hideSplash, show: showSplash };
+
+// Auto-hide splash shortly after initial view inits
+try {
+  // allow initMemberView/initAdminView to run first
+  setTimeout(() => {
+    setSplashProgress(100, 'Klaar');
+    hideSplash();
+  }, 4000);
+} catch (_) {}
+
 // --- Planned rides support ---
 function formatDateISO(d) {
   try {
