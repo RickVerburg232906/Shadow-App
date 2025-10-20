@@ -1021,6 +1021,17 @@ function initAdminQRScanner() {
       }
 
       const todayYMD = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())).toISOString().slice(0,10);
+      // Ensure planned dates are loaded and only book if today is a planned ride date
+      try {
+        await ensureRideDatesLoaded();
+      } catch (e) { /* ignore, fallback to empty list */ }
+      if (!Array.isArray(PLANNED_DATES) || !PLANNED_DATES.includes(todayYMD)) {
+        // Do not book when today is not a planned ride date
+        if (statusEl) statusEl.textContent = `ℹ️ ${todayYMD} is geen geplande ritdatum — registratie overgeslagen.`;
+        showToast('ℹ️ Niet op geplande ritdatum — niet geregistreerd', true);
+        appendLog({ naam: naam || "", lid, ok: false, reason: 'niet geplande datum' });
+        return;
+      }
       const out = await bookRide(lid, naam || "", todayYMD);
       const newTotal = out.newTotal;
 
