@@ -184,6 +184,21 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .site-header{display:flex;justify-content:center;align-items:center;padding:12px 0}
 #clubLogo{max-width:100%;height:auto;image-rendering:auto}
 
+/* --- App splash / loader --- */
+.app-splash{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:20000;
+  background:linear-gradient(180deg, rgba(5,7,10,0.98), rgba(10,12,16,0.98));
+}
+.splash-inner{width:min(420px,92vw); text-align:center; padding:20px; border-radius:12px;}
+.splash-logo{width:120px; height:auto; margin:0 auto 12px; display:block}
+.splash-title{font-weight:800; font-size:20px; margin-bottom:12px}
+.splash-progress{height:12px; background:rgba(255,255,255,0.03); border-radius:8px; overflow:hidden; margin:10px 0}
+.splash-progress-bar{height:100%; background:linear-gradient(90deg,#3b82f6,#06b6d4); width:0%; transition:width .3s ease}
+.splash-caption{color:var(--muted); margin-top:8px}
+
+/* hide splash when aria-hidden true */
+.app-splash[aria-hidden="true"]{display:none !important}
+
 
 /* Consent gate (single button) */
 .consent{max-width:780px;margin:24px auto;padding:22px}

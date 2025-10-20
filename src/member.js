@@ -120,7 +120,12 @@ function fmtDate(d) {
 }
 
 export async function initMemberView() {
-  try { await loadStarMax(); } catch(e) {}
+  try {
+    // Update splash progress: start
+    try { if (window?.appSplash) window.appSplash.setProgress(5, 'Initialiseren leden...'); } catch(_) {}
+    await loadStarMax();
+    try { if (window?.appSplash) window.appSplash.setProgress(30, 'Ster-config laden...'); } catch(_) {}
+  } catch(e) {}
 
   const $ = (id) => document.getElementById(id);
   const nameInput   = $("nameInput");
@@ -393,6 +398,15 @@ renderYearhangerUI(jh || _yearhangerVal || null);
     qrCanvas.addEventListener("click", () => openQrFullscreenFromCanvas(qrCanvas), { passive: true });
     qrCanvas.setAttribute("title", "Klik om fullscreen te openen");
   }
+  // Preload planned dates to speed up first interaction and update splash progress
+  try {
+    try { if (window?.appSplash) window.appSplash.setProgress(50, 'Ritdatums ophalen...'); } catch(_) {}
+    await getPlannedDates();
+    try { if (window?.appSplash) window.appSplash.setProgress(80, 'Initialisatie bijna klaar...'); } catch(_) {}
+  } catch (_) {}
+
+  // Hide splash when member init has finished
+  try { if (window?.appSplash) { window.appSplash.setProgress(100, 'Klaar'); window.appSplash.hide(); } } catch(_) {}
 }
 
 // Generate QR for an entry and show result box

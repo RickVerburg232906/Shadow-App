@@ -4,44 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shadow Motorclub</title>
-    <!-- Critical inline CSS so splash shows immediately on slow/blank startup (iOS) -->
-    <style>
-      html,body{height:100%;margin:0;background:#0b0c10}
-      .app-splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20000;background:#0b0c10}
-      .splash-inner{width:92vw;text-align:center;padding:20px}
-      .splash-logo{width:110px;height:auto;margin:0 auto 12px;display:block}
-      .splash-progress{height:10px;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin:10px 0}
-      .splash-progress-bar{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);width:0%;transition:width .3s ease}
-    </style>
-    <link rel="stylesheet" href="/style.css">
 
-    <!-- iOS PWA / splash hints -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <!-- Add device-specific splash images in assets/ (placeholders below) -->
-    <link rel="apple-touch-startup-image" href="/assets/splash-1125x2436.png" media="(device-width:375px) and (device-height:812px) and (-webkit-device-pixel-ratio:3)">
-    <link rel="apple-touch-startup-image" href="/assets/splash-1242x2688.png" media="(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:3)">
-    <link rel="apple-touch-startup-image" href="/assets/splash-828x1792.png" media="(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:2)">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="apple-touch-icon" href="assets/logo_MC_nieuw_trans_300.gif">
+    <link rel="manifest" href="/assets/manifest-uuYu3y7K.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif">
     <meta name="theme-color" content="#0f172a">
     <script src="https://unpkg.com/html5-qrcode" defer></script>
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" crossorigin src="/assets/index-dnK7Oidu.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CkbxXqdZ.css">
   </head>
   <body>
-    <!-- App splash / loader -->
-    <div id="appSplash" class="app-splash" aria-hidden="false">
-      <div class="splash-inner">
-        <img src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow" class="splash-logo" />
-        <div class="splash-title">Shadow Motorclub</div>
-        <div class="splash-progress">
-          <div class="splash-progress-bar" id="splashProgressBar" style="width:0%"></div>
-        </div>
-        <div class="splash-caption" id="splashCaption">Laden…</div>
-      </div>
-    </div>
     <header class="topbar">
-      <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="100" height="30"  />
+      <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif" alt="Shadow Motorclub logo" width="100" height="30"  />
       <nav class="nav">
         <button id="tabMember" class="tab active">Lid</button>
         <button id="tabAdmin" class="tab">Inschrijftafel</button>
@@ -266,6 +240,6 @@
 
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
-    <script type="module" src="/src/main.js"></script>
+
   </body>
 </html>
