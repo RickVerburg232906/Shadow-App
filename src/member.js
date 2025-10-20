@@ -230,7 +230,7 @@ document.addEventListener("click", (ev) => {
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
       li.addEventListener("click", async () => {
         selectedDoc = it;
-        if (nameInput) nameInput.value = it.data["Naam"] || "";
+        // keep the user's typed input intact; do not overwrite with the selected member's name
         await renderSelected(it);
         hideSuggestions();
       });
