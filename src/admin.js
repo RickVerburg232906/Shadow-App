@@ -1,4 +1,3 @@
-
 // ===== JPG export naast 'Herladen' (admin-only) =====
 (function() {
   function waitForElement(getter, { tries=50, delay=200 } = {}) {
@@ -651,13 +650,30 @@ function initManualRideSection() {
   const sName   = $("adminMName");
   const sId     = $("adminMMemberNo");
   const sCount  = $("adminMRidesCount");
-  const btn     = $("adminManualBookBtn");
   const status  = $("adminManualStatus");
   const rideButtons = $("adminRideButtons");
   const rideHint = $("adminRideHint");
   let selectedRideDate = null;
 
-  if (!input || !list || !box || !btn) return; // UI niet aanwezig
+  async function attemptBooking(dateYMD) {
+    if (!selected) { status.textContent = "Kies eerst een lid."; status.classList.add("error"); return; }
+    status.classList.remove("error");
+    status.textContent = "Bezig met registreren…";
+    try {
+      const out = await bookRide(selected.id, sName.textContent || "", dateYMD);
+      status.textContent = out.changed
+        ? `✅ Rit geregistreerd op ${out.ymd} (totaal: ${out.newTotal})`
+        : `ℹ️ Deze datum (${out.ymd}) was al geregistreerd — niets aangepast.`;
+      // Update hint
+      if (rideHint) rideHint.textContent = `Geregistreerd op: ${out.ymd}`;
+    } catch (e) {
+      console.error(e);
+      status.textContent = "❌ Fout bij registreren";
+      status.classList.add("error");
+    }
+  }
+
+  if (!input || !list || !box) return; // UI niet aanwezig
 
   let selected = null;
   let unsub = null;
@@ -754,44 +770,49 @@ function initManualRideSection() {
     }
   }
 
-  
-async function renderRideChoices(){
-  if (!rideButtons) return;
-  rideButtons.innerHTML = "";
-  selectedRideDate = null;
-  try {
-    const dates = await ensureRideDatesLoaded();
-    
+  async function renderRideChoices(){
+    if (!rideButtons) return;
+    rideButtons.innerHTML = "";
+    selectedRideDate = null;
+    try {
+      const dates = await ensureRideDatesLoaded();
+
       // Toon alleen datums t/m vandaag (geen toekomst)
       const today = new Date();
       const todayYMD = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())).toISOString().slice(0,10);
-      const visibleDates = (dates || []).filter(d => (typeof d === "string" ? d.slice(0,10) : "").localeCompare(todayYMD) <= 0);
-if (!visibleDates.length) {
-      rideButtons.innerHTML = '<span class="muted">Geen geplande ritdatums gevonden.</span>';
-      return;
+      const visibleDates = (dates || [])
+        .map(d => (typeof d === "string" ? d.slice(0,10) : ""))
+        .filter(Boolean)
+        .filter(d => d.localeCompare(todayYMD) <= 0);
+
+      if (!visibleDates.length) {
+        rideButtons.innerHTML = '<span class="muted">Geen geplande ritdatums gevonden.</span>';
+        if (rideHint) rideHint.textContent = "Geen (verleden/heden) ritdatums.";
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      visibleDates.forEach((d) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip";
+        btn.textContent = d;
+        btn.setAttribute("aria-pressed", "false");
+        btn.addEventListener("click", async () => {
+          selectedRideDate = d;
+          if (rideHint) rideHint.textContent = `Registreren voor: ${d}`;
+          await attemptBooking(d); // DIRECT boeken bij klik
+        }, { passive: true });
+        frag.appendChild(btn);
+      });
+
+      rideButtons.appendChild(frag);
+      if (rideHint) rideHint.textContent = "Klik op een datum om direct te registreren.";
+    } catch(e) {
+      console.error(e);
+      rideButtons.innerHTML = '<span class="error">Kon ritdatums niet laden.</span>';
     }
-    const frag = document.createDocumentFragment();
-    visibleDates.forEach((d) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "chip";
-      btn.textContent = d;
-      btn.setAttribute("aria-pressed", "false");
-      btn.addEventListener("click", () => {
-        selectedRideDate = d;
-        Array.from(rideButtons.querySelectorAll('.chip')).forEach(el => el.classList.remove('selected'));
-        btn.classList.add('selected');
-        if (rideHint) rideHint.textContent = `Gekozen ritdatum: ${d}`;
-      }, { passive: true });
-      frag.appendChild(btn);
-    });
-    rideButtons.appendChild(frag);
-    if (rideHint) rideHint.textContent = visibleDates.length ? "Kies een ritdatum hieronder." : "Geen (verleden/heden) ritdatums.";
-  } catch(e) {
-    console.error(e);
-    rideButtons.innerHTML = '<span class="error">Kon ritdatums niet laden.</span>';
   }
-}
 
   function selectMember(entry) {
     selected = entry;
@@ -836,22 +857,6 @@ if (!visibleDates.length) {
     input.value = "";
     hideSuggest();
     resetSelection();
-  });
-
-  btn.addEventListener("click", async () => {
-    if (!selected) { status.textContent = "Kies eerst een lid."; return; }
-    status.textContent = "Bezig met registreren…";
-    try {
-      if (!selectedRideDate) { status.textContent = "Kies eerst een ritdatum hieronder."; status.classList.add("error"); return; }
-      const out = await bookRide(selected.id, sName.textContent || "", selectedRideDate);
-      status.classList.remove("error");
-      status.textContent = out.changed
-        ? `✅ Rit geregistreerd op ${out.ymd} (totaal: ${out.newTotal})`
-        : `ℹ️ Deze datum (${out.ymd}) was al geregistreerd — niets aangepast.`;
-    } catch (e) {
-      console.error(e);
-      status.textContent = "❌ Fout bij registreren";
-    }
   });
 }
 
