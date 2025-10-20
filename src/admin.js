@@ -457,6 +457,15 @@ export function initAdminView() {
     await resetAllRidesCount(resetStatus);
   });
 
+  // ===== Reset Jaarhanger (popup bevestiging) =====
+  const resetJBtn = document.getElementById("resetJaarhangerBtn");
+  const resetJStatus = document.getElementById("resetJaarhangerStatus");
+  resetJBtn?.addEventListener("click", async () => {
+    const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
+    if (!ok) return;
+    await resetAllJaarhanger(resetJStatus);
+  });
+
   // ===== Handmatig rit registreren =====
   initManualRideSection();
 
@@ -1042,6 +1051,43 @@ async function resetAllRidesCount(statusEl) {
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
+  }
+}
+
+// ===== Firestore helper: reset alle Jaarhanger waarden in batches ======
+async function resetAllJaarhanger(statusEl) {
+  if (!statusEl) return;
+  statusEl.textContent = "Voorbereiden…";
+  let total = 0;
+
+  try {
+    let last = null;
+    const pageSize = 400; // veilig onder batch-limiet
+
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) break;
+
+      let batch = writeBatch(db);
+      snapshot.forEach((docSnap) => {
+        // set Jaarhanger to empty string "" (explicitly)
+        batch.set(doc(db, "members", docSnap.id), { Jaarhanger: "" }, { merge: true });
+      });
+      await batch.commit();
+      total += snapshot.size;
+      statusEl.textContent = `Gerest Jaarhanger voor: ${total} leden…`;
+
+      last = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < pageSize) break;
+    }
+
+    statusEl.textContent = `✅ Klaar. Jaarhanger gereset voor ${total} leden.`;
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = `❌ Fout bij resetten Jaarhanger: ${e?.message || e}`;
   }
 }
 
