@@ -87,6 +87,7 @@
 
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc } from "./firebase.js";
+import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
 import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "firebase/firestore";
 
 // ====== Globale ritdatums cache ======
@@ -706,28 +707,20 @@ function initManualRideSection() {
 
   // Zoeken: probeer "Naam" → "naam" → "name", anders fallback
   async function queryByLastNamePrefix(prefix) {
-    const fields = ["Naam", "naam", "name"];
-    for (const fld of fields) {
-      try {
-        const qRef = query(collection(db, "members"), orderBy(fld), startAt(prefix), endAt(prefix + "\uf8ff"), limit(10));
-        const snap = await getDocs(qRef);
-        const rows = [];
-        snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
-        if (rows.length) return rows;
-      } catch (_) {}
-    }
-    // Fallback: eerste 200 documenten en client-side filter
+    if (!prefix) return [];
+    const maxResults = 10;
     try {
-      const qRef = query(collection(db, "members"), orderBy("__name__"), limit(200));
-      const snap = await getDocs(qRef);
-      const rows = [];
-      snap.forEach(d => rows.push({ id: d.id, data: d.data() }));
-      const p = prefix.toLowerCase();
-      return rows.filter(r => {
-        const ln = (r.data?.["Naam"] || r.data?.["name"] || r.data?.["naam"] || "").toString().toLowerCase();
-        return ln.startsWith(p);
-      }).slice(0, 10);
-    } catch (_) {
+      const qName = query(collection(db, "members"), orderBy("Naam"), startAt(prefix), endAt(prefix + "\uf8ff"), limit(maxResults));
+      const qVoor = query(collection(db, "members"), orderBy("Voor naam"), startAt(prefix), endAt(prefix + "\uf8ff"), limit(maxResults));
+      const [snapName, snapVoor] = await Promise.all([getDocs(qName), getDocs(qVoor)]);
+      const map = new Map();
+      snapName.forEach(d => { if (!map.has(d.id)) map.set(d.id, { id: d.id, data: d.data() }); });
+      snapVoor.forEach(d => { if (!map.has(d.id)) map.set(d.id, { id: d.id, data: d.data() }); });
+      const res = Array.from(map.values()).slice(0, maxResults);
+      return res;
+    } catch (e) {
+      console.error('queryByLastNamePrefix (admin) failed', e);
+      // As a last resort, return empty so caller can handle
       return [];
     }
   }
@@ -818,8 +811,19 @@ function initManualRideSection() {
     selected = entry;
     sName.textContent = fullNameFrom(entry.data);
     sId.textContent = entry.id;
-    const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
-    sCount.textContent = String(v);
+    // Show stars based on planned dates vs. ScanDatums (like member view)
+    (async () => {
+      try {
+        const planned = await getPlannedDates();
+        const scanDatums = Array.isArray(entry.data?.ScanDatums) ? entry.data.ScanDatums : [];
+        const { stars, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+        sCount.textContent = stars || "—";
+        sCount.setAttribute('title', stars ? tooltip : 'Geen ingeplande datums');
+      } catch (e) {
+        const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
+        sCount.textContent = String(v);
+      }
+    })();
     box.style.display = "grid";
     renderRideChoices();
 
@@ -828,8 +832,19 @@ function initManualRideSection() {
     const ref = doc(collection(db, "members"), entry.id);
     unsub = onSnapshot(ref, (snap) => {
       const d = snap.exists() ? snap.data() : null;
-      const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
-      sCount.textContent = String(c);
+      (async () => {
+        try {
+          const planned = await getPlannedDates();
+          const scanDatums = d && Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+          const { stars, tooltip } = plannedStarsWithHighlights(planned, scanDatums);
+          sCount.textContent = stars || "—";
+          if (stars) sCount.setAttribute('title', tooltip);
+          else sCount.removeAttribute('title');
+        } catch (e) {
+          const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
+          sCount.textContent = String(c);
+        }
+      })();
     }, (e) => console.error(e));
   }
 

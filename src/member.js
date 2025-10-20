@@ -36,7 +36,7 @@ function toYMD(value) {
 }
 
 /* Bouw sterrenstring en tooltip met highlights per geplande datum */
-function plannedStarsWithHighlights(plannedDates, scanDates) {
+export function plannedStarsWithHighlights(plannedDates, scanDates) {
   const planned = plannedDates.map(toYMD).filter(Boolean);
   const scans = new Set((Array.isArray(scanDates) ? scanDates : []).map(toYMD).filter(Boolean));
   const stars = planned.map(d => scans.has(d) ? "★" : "☆").join("");
