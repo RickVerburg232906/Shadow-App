@@ -293,8 +293,25 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 
 /* Collapsible body */
 .seg-label { cursor: pointer; display:inline-flex; align-items:center; gap:8px; }
-.seg-label:focus { outline: none; box-shadow: 0 0 0 4px rgba(59,130,246,0.08); border-radius:8px; }
-.selected-small { margin-left:8px; color:var(--muted); font-weight:700; font-size:13px; }
+.seg-label { padding:6px 0 6px 0; }
+
+/* Make whole card clickable affordance */
+#yearhangerMain { position: relative; padding:6px 28px 6px 10px; border-radius:8px; transition: background .12s ease, transform .06s ease; cursor:pointer; }
+#yearhangerMain:focus { outline: none; box-shadow: 0 0 0 4px rgba(59,130,246,0.08); }
+#yearhangerMain:hover { background: rgba(255,255,255,0.02); transform: translateY(-1px); }
+
+/* Chevron indicator to show expandability on the container */
+#yearhangerMain::after {
+  content: '▾';
+  position: absolute;
+  right: 10px;
+  top: 50%; transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform .12s ease;
+}
+#yearhangerMain[aria-expanded="false"]::after { transform: translateY(-50%) rotate(-90deg); }
+.selected-small { display:inline-block; margin-left:8px; color:var(--muted); font-weight:700; font-size:13px; }
 .yearhanger-body { transition: max-height .22s ease, opacity .18s ease; overflow: hidden; max-height: 1200px; opacity:1; }
 .yearhanger-body.collapsed { max-height: 0; opacity:0; }
 

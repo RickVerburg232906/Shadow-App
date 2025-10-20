@@ -197,13 +197,14 @@ function renderYearhangerUI(val) {
       small.textContent = v ? `Gekozen: ${v}` : '';
     }
     if (body && label) {
+      const container = document.getElementById('yearhangerMain');
       if (v) {
         // collapse by default when there is a saved choice
         body.classList.add('collapsed');
-        label.setAttribute('aria-expanded','false');
+        if (container) container.setAttribute('aria-expanded','false');
       } else {
         body.classList.remove('collapsed');
-        label.setAttribute('aria-expanded','true');
+        if (container) container.setAttribute('aria-expanded','true');
       }
     }
   } catch(_) {}
@@ -428,22 +429,35 @@ renderYearhangerUI(jh || _yearhangerVal || null);
       }
     } catch(_) {}
 
-    // Make the whole label clickable / keyboard-toggle the body
+    // Make the whole container clickable / keyboard-toggle the body
     try {
-      const label = document.getElementById('yearhangerLabel');
+      const container = document.getElementById('yearhangerMain');
       const body = document.getElementById('yearhangerBody');
-      if (label && body) {
-        // click toggles
-        label.addEventListener('click', (e) => {
+      if (container && body) {
+        // click toggles (but ignore clicks that happen inside the body itself,
+        // e.g. the help <details>/<summary>, the buttons (.seg-toggle), etc.)
+        container.addEventListener('click', (e) => {
+          try {
+            const t = e.target;
+            if (!t) return;
+            // If click is inside the actual body area, don't toggle
+            if (t.closest && t.closest('#yearhangerBody')) return;
+            // Also ignore clicks that originate from the toggle buttons area
+            if (t.closest && t.closest('.seg-toggle')) return;
+          } catch (_) {}
           const isCollapsed = body.classList.toggle('collapsed');
-          label.setAttribute('aria-expanded', String(!isCollapsed));
+          container.setAttribute('aria-expanded', String(!isCollapsed));
         });
-        // keyboard: Enter or Space
-        label.addEventListener('keydown', (e) => {
+        // keyboard: Enter or Space — but if focus is inside the body, don't toggle
+        container.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
+            try {
+              const active = document.activeElement;
+              if (active && active.closest && active.closest('#yearhangerBody')) return;
+            } catch (_) {}
             e.preventDefault();
             const isCollapsed = body.classList.toggle('collapsed');
-            label.setAttribute('aria-expanded', String(!isCollapsed));
+            container.setAttribute('aria-expanded', String(!isCollapsed));
           }
         });
       }
