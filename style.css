@@ -289,6 +289,13 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .yearhanger-explain ul { margin:8px 0 0 18px; padding:0; color:var(--muted); }
 .yearhanger-explain li { margin-bottom:6px; }
 
+/* Collapsible body */
+.seg-label { cursor: pointer; display:inline-flex; align-items:center; gap:8px; }
+.seg-label:focus { outline: none; box-shadow: 0 0 0 4px rgba(59,130,246,0.08); border-radius:8px; }
+.selected-small { margin-left:8px; color:var(--muted); font-weight:700; font-size:13px; }
+.yearhanger-body { transition: max-height .22s ease, opacity .18s ease; overflow: hidden; max-height: 1200px; opacity:1; }
+.yearhanger-body.collapsed { max-height: 0; opacity:0; }
+
 /* On small screens, stack vertically: label above buttons */
 @media (max-width: 520px) {
   .yearhanger-main { flex-direction:column; align-items:flex-start; }
