@@ -1,3 +1,18 @@
+.seg-btn:focus,
+.seg-btn.active:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.seg-btn.active.yes {
+  background: #22c55e !important;
+  color: #fff !important;
+  border-color: #16a34a !important;
+}
+.seg-btn.active.no {
+  background: #ef4444 !important;
+  color: #fff !important;
+  border-color: #b91c1c !important;
+}
 :root {
   --topbar-h: 64px;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;

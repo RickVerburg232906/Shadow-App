@@ -113,14 +113,25 @@
               <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
               <p>Ga nu naar de inschrijftafel om in te checken voor de rit.</p>
             </div>
-            <div class="column" style="align-items:center; gap:8px;">
-              <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
-              <div class="small muted" id="qrPrivacy" style="display:none">
-                Privacy: de QR bevat alleen een LidNr, geen naam.
+
+            <ul id="suggestions" class="suggest"></ul>
+            <div id="error" class="error" style="display:none"></div>
+            <div id="result" class="result" style="display:none">
+              <div class="column">
+                <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+                <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+                <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
+                <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
+                <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
+              </div>
+              <div class="column" style="align-items:center; gap:8px;">
+                <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
+                <div class="small muted" id="qrPrivacy" style="display:none">
+                  Privacy: de QR bevat alleen een LidNr, geen naam.
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </section>
       </section>
 

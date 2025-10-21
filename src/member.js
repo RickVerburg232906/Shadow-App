@@ -142,17 +142,14 @@ export async function initMemberView() {
 
 // --- Jaarhanger UI (segmented Ja/Nee) ---
 let yearhangerRow = document.getElementById("yearhangerRow");
-let yearhangerYes = null;
-let yearhangerNo  = null;
+let yearhangerYes = document.getElementById("yearhangerYes");
+let yearhangerNo  = document.getElementById("yearhangerNo");
 let _yearhangerVal = "Ja"; // default
 
 function ensureYearhangerUI() {
-  const nameInput = document.getElementById("nameInput");
-  if (!nameInput) return;
-  // The markup for #yearhangerRow is now present in index.html; just grab references.
   yearhangerRow = document.getElementById("yearhangerRow");
   yearhangerYes = document.getElementById("yearhangerYes");
-  yearhangerNo = document.getElementById("yearhangerNo");
+  yearhangerNo  = document.getElementById("yearhangerNo");
 }
 ensureYearhangerUI();
 
@@ -180,13 +177,19 @@ function renderYearhangerUI(val) {
   const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null; // default Ja
   _yearhangerVal = v;
   if (yearhangerRow) yearhangerRow.style.display = "block";
+  // Toon uitleg pas als jaarhangerRow zichtbaar is
+  const info = document.getElementById("yearhangerInfo");
+  if (info) info.style.display = "block";
   if (yearhangerYes && yearhangerNo) {
-    // visual selected state using color-coded classes
-    yearhangerYes.classList.toggle("selected-yes", v === "Ja");
-    yearhangerNo.classList.toggle("selected-no", v === "Nee");
-    // ensure ARIA reflects selection
+    yearhangerYes.classList.toggle("active", v === "Ja");
+    yearhangerNo.classList.toggle("active",  v === "Nee");
+    yearhangerYes.classList.toggle("yes", v === "Ja");
+    yearhangerNo.classList.toggle("no", v === "Nee");
     yearhangerYes.setAttribute("aria-checked", String(v === "Ja"));
     yearhangerNo.setAttribute("aria-checked",  String(v === "Nee"));
+    // Verwijder kleur als niet actief
+    if (v !== "Ja") yearhangerYes.classList.remove("yes");
+    if (v !== "Nee") yearhangerNo.classList.remove("no");
   }
   // Collapse logic: if there's already a stored value (v), show a compact label and collapse the body
   try {
@@ -222,19 +225,20 @@ async function saveYearhanger(val) {
     console.error("Jaarhanger opslaan mislukt", e);
   }
 }
-document.addEventListener("click", (ev) => {
-  if (!yearhangerRow) return;
-  const t = ev.target;
-  // handle clicks on the segmented buttons or inner spans
-  const btn = t && (t.id === 'yearhangerYes' || t.id === 'yearhangerNo') ? t : t && t.closest ? t.closest('button') : null;
-  if (btn && btn.id === "yearhangerYes") {
+
+// Voeg click event listeners toe aan de knoppen
+if (yearhangerYes) {
+  yearhangerYes.addEventListener("click", function() {
     renderYearhangerUI("Ja");
     saveYearhanger("Ja");
-  } else if (btn && btn.id === "yearhangerNo") {
+  });
+}
+if (yearhangerNo) {
+  yearhangerNo.addEventListener("click", function() {
     renderYearhangerUI("Nee");
     saveYearhanger("Nee");
-  }
-}, { passive: true });
+  });
+}
 
 
 
@@ -306,6 +310,9 @@ document.addEventListener("click", (ev) => {
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
     if (yearhangerRow) yearhangerRow.style.display = "none";
+    // Verberg uitleg als jaarhangerRow verborgen wordt
+    const info = document.getElementById("jaarhangerInfo");
+    if (info) info.style.display = "none";
     if (rRides) {
       rRides.textContent = "—";
       rRides.removeAttribute("title");
@@ -313,7 +320,6 @@ document.addEventListener("click", (ev) => {
       rRides.style.letterSpacing = "";
       rRides.style.fontSize = "";
     }
-  
     if (rRegion) rRegion.textContent = "—";
   }
 
