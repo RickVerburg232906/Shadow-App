@@ -1,3 +1,18 @@
+.seg-btn:focus,
+.seg-btn.active:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.seg-btn.active.yes {
+  background: #22c55e !important;
+  color: #fff !important;
+  border-color: #16a34a !important;
+}
+.seg-btn.active.no {
+  background: #ef4444 !important;
+  color: #fff !important;
+  border-color: #b91c1c !important;
+}
 :root {
   --topbar-h: 64px;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -239,69 +254,9 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 .seg-wrap { display:flex; align-items:center; gap:10px; margin-top:6px; }
 .seg-label { font-weight:600; min-width:max-content; }
 .seg-toggle { display:flex; border:1px solid #374151; border-radius:12px; overflow:hidden; }
-/* Smaller segmented buttons (compact) */
-.seg-btn { padding:6px 10px; background:#0b1220; border:none; cursor:pointer; font-weight:700; color:#ffffff; font-size:13px; border-radius:10px; line-height:1; }
-.seg-btn + .seg-btn { margin-left:8px; }
-
-/* Only the selected button receives the accent color */
-.seg-btn.selected-yes { background: linear-gradient(180deg,#064e3b,#10b981); color: #e6fffa; box-shadow: 0 6px 18px rgba(16,185,129,0.08); }
-.seg-btn.selected-no  { background: linear-gradient(180deg,#7f1d1d,#ef4444); color: #fff1f2; box-shadow: 0 6px 18px rgba(239,68,68,0.08); }
-
-/* Make buttons full-width and stacked on small screens for easy tapping */
-@media (max-width: 520px) {
-  .yearhanger-main { flex-direction:column; align-items:stretch; }
-  .yearhanger-main .seg-toggle { width:100%; display:flex; flex-direction:row; gap:8px; }
-  .seg-btn { flex:1; padding:10px 10px; font-size:14px; border-radius:12px; }
-}
-
-/* Larger tap area on touch devices */
-@media (hover: none) and (pointer: coarse) {
-  .seg-btn { padding:12px 10px; font-size:15px; }
-}
-
-/* Yearhanger specific layout (moved from inline styles) */
-.yearhanger-row { margin-top:8px; display:block; }
-.yearhanger-help { margin-bottom:8px; }
-.yearhanger-details summary { cursor:pointer; list-style:none; }
-.yearhanger-explain { display:block; white-space:normal; margin-top:6px; color:var(--muted); font-size:0.9rem; }
-.yearhanger-main { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.yearhanger-main .seg-label { margin:0; }
-.yearhanger-main .seg-toggle { margin-left:auto; }
-
-/* Hidden by default; JS will show the row when appropriate */
-.yearhanger-row { display: none; }
-
-/* Card styling for the yearhanger control */
-.yearhanger-card { padding:12px; border-radius:12px; background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent); border:1px solid rgba(255,255,255,0.02); }
-.yearhanger-badge { display:inline-block; margin-left:8px; font-size:12px; padding:4px 8px; border-radius:999px; background:rgba(255,255,255,0.03); color:var(--muted); font-weight:700; }
-.yearhanger-badge.status-yes { background: linear-gradient(90deg,#16a34a,#34d399); color: #021; }
-.yearhanger-badge.status-no  { background: linear-gradient(90deg,#ef4444,#fca5a5); color: #100; }
-
-/* Info icon and motion */
-.info-icon { margin-left:6px; opacity:0.9; font-size:0.95em; }
-.yearhanger-details[open] .yearhanger-explain { animation: fadeSlideIn .22s ease both; }
-@keyframes fadeSlideIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }
-
-/* Focus-visible for segmented buttons */
-.seg-btn:focus-visible { outline: 3px solid rgba(59,130,246,0.18); outline-offset: 2px; }
-
-/* Improve list spacing */
-.yearhanger-explain ul { margin:8px 0 0 18px; padding:0; color:var(--muted); }
-.yearhanger-explain li { margin-bottom:6px; }
-
-/* Collapsible body */
-.seg-label { cursor: pointer; display:inline-flex; align-items:center; gap:8px; }
-.seg-label:focus { outline: none; box-shadow: 0 0 0 4px rgba(59,130,246,0.08); border-radius:8px; }
-.selected-small { margin-left:8px; color:var(--muted); font-weight:700; font-size:13px; }
-.yearhanger-body { transition: max-height .22s ease, opacity .18s ease; overflow: hidden; max-height: 1200px; opacity:1; }
-.yearhanger-body.collapsed { max-height: 0; opacity:0; }
-
-/* On small screens, stack vertically: label above buttons */
-@media (max-width: 520px) {
-  .yearhanger-main { flex-direction:column; align-items:flex-start; }
-  .yearhanger-main .seg-toggle { width:100%; display:flex; justify-content:flex-start; gap:8px; }
-  .seg-btn { width: auto; }
-}
+.seg-btn { padding:10px 16px; background:#0b1220; border:none; cursor:pointer; font-weight:700;  color:#ffffff;}
+.seg-btn + .seg-btn { border-left:1px solid #374151; }
+.seg-btn.active { background:#1f2937; outline:2px solid #3b82f6; color:#ffffff; }
 
 /* --- Chips voor ritdatums --- */
 .chip-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}

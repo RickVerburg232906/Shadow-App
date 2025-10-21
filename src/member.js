@@ -142,71 +142,36 @@ export async function initMemberView() {
 
 // --- Jaarhanger UI (segmented Ja/Nee) ---
 let yearhangerRow = document.getElementById("yearhangerRow");
-let yearhangerYes = null;
-let yearhangerNo  = null;
+let yearhangerYes = document.getElementById("yearhangerYes");
+let yearhangerNo  = document.getElementById("yearhangerNo");
 let _yearhangerVal = "Ja"; // default
 
 function ensureYearhangerUI() {
-  const nameInput = document.getElementById("nameInput");
-  if (!nameInput) return;
-  // The markup for #yearhangerRow is now present in index.html; just grab references.
   yearhangerRow = document.getElementById("yearhangerRow");
   yearhangerYes = document.getElementById("yearhangerYes");
-  yearhangerNo = document.getElementById("yearhangerNo");
+  yearhangerNo  = document.getElementById("yearhangerNo");
 }
 ensureYearhangerUI();
-
-// Toggle help text for Jaarhanger
-document.addEventListener("click", (ev) => {
-  const t = ev.target;
-  if (!t) return;
-  if (t.id === "yearhangerHelpToggle") {
-    const help = document.getElementById("yearhangerHelp");
-    if (!help) return;
-    const expanded = t.getAttribute("aria-expanded") === "true";
-    if (expanded) {
-      help.style.display = "none";
-      t.setAttribute("aria-expanded", "false");
-    } else {
-      help.style.display = "block";
-      t.setAttribute("aria-expanded", "true");
-    }
-  }
-}, { passive: true });
-
 
 function renderYearhangerUI(val) {
   ensureYearhangerUI();
   const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null; // default Ja
   _yearhangerVal = v;
   if (yearhangerRow) yearhangerRow.style.display = "block";
+  // Toon uitleg pas als jaarhangerRow zichtbaar is
+  const info = document.getElementById("jaarhangerInfo");
+  if (info) info.style.display = "block";
   if (yearhangerYes && yearhangerNo) {
-    // visual selected state using color-coded classes
-    yearhangerYes.classList.toggle("selected-yes", v === "Ja");
-    yearhangerNo.classList.toggle("selected-no", v === "Nee");
-    // ensure ARIA reflects selection
+    yearhangerYes.classList.toggle("active", v === "Ja");
+    yearhangerNo.classList.toggle("active",  v === "Nee");
+    yearhangerYes.classList.toggle("yes", v === "Ja");
+    yearhangerNo.classList.toggle("no", v === "Nee");
     yearhangerYes.setAttribute("aria-checked", String(v === "Ja"));
     yearhangerNo.setAttribute("aria-checked",  String(v === "Nee"));
+    // Verwijder kleur als niet actief
+    if (v !== "Ja") yearhangerYes.classList.remove("yes");
+    if (v !== "Nee") yearhangerNo.classList.remove("no");
   }
-  // Collapse logic: if there's already a stored value (v), show a compact label and collapse the body
-  try {
-    const body = document.getElementById('yearhangerBody');
-    const label = document.getElementById('yearhangerLabel');
-    const small = document.getElementById('yearhangerSelectedSmall');
-    if (small) {
-      small.textContent = v ? `Gekozen: ${v}` : '';
-    }
-    if (body && label) {
-      if (v) {
-        // collapse by default when there is a saved choice
-        body.classList.add('collapsed');
-        label.setAttribute('aria-expanded','false');
-      } else {
-        body.classList.remove('collapsed');
-        label.setAttribute('aria-expanded','true');
-      }
-    }
-  } catch(_) {}
 }
 async function saveYearhanger(val) {
   try {
@@ -214,27 +179,26 @@ async function saveYearhanger(val) {
     const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null;
     _yearhangerVal = v;
     await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }, { merge: true });
-    // After saving: update UI (this will collapse the body when a value exists)
-    try { renderYearhangerUI(v); } catch(_) {}
     // After saving the Jaarhanger choice, generate QR for the selected member
     try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
   } catch (e) {
     console.error("Jaarhanger opslaan mislukt", e);
   }
 }
-document.addEventListener("click", (ev) => {
-  if (!yearhangerRow) return;
-  const t = ev.target;
-  // handle clicks on the segmented buttons or inner spans
-  const btn = t && (t.id === 'yearhangerYes' || t.id === 'yearhangerNo') ? t : t && t.closest ? t.closest('button') : null;
-  if (btn && btn.id === "yearhangerYes") {
+
+// Voeg click event listeners toe aan de knoppen
+if (yearhangerYes) {
+  yearhangerYes.addEventListener("click", function() {
     renderYearhangerUI("Ja");
     saveYearhanger("Ja");
-  } else if (btn && btn.id === "yearhangerNo") {
+  });
+}
+if (yearhangerNo) {
+  yearhangerNo.addEventListener("click", function() {
     renderYearhangerUI("Nee");
     saveYearhanger("Nee");
-  }
-}, { passive: true });
+  });
+}
 
 
 
@@ -306,6 +270,9 @@ document.addEventListener("click", (ev) => {
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
     if (yearhangerRow) yearhangerRow.style.display = "none";
+    // Verberg uitleg als jaarhangerRow verborgen wordt
+    const info = document.getElementById("jaarhangerInfo");
+    if (info) info.style.display = "none";
     if (rRides) {
       rRides.textContent = "—";
       rRides.removeAttribute("title");
@@ -313,7 +280,6 @@ document.addEventListener("click", (ev) => {
       rRides.style.letterSpacing = "";
       rRides.style.fontSize = "";
     }
-  
     if (rRegion) rRegion.textContent = "—";
   }
 
@@ -418,36 +384,6 @@ renderYearhangerUI(jh || _yearhangerVal || null);
       if (yearhangerRow) yearhangerRow.style.display = 'block';
     }
   }
-
-    // Open the details help once per session to guide first-time users
-    try {
-      const details = document.getElementById('yearhangerDetails');
-      if (details && !sessionStorage.getItem('yearhangerDetailsOpened')) {
-        // small timeout to avoid shifting layout during initial render
-        setTimeout(() => { try { details.open = true; sessionStorage.setItem('yearhangerDetailsOpened','1'); } catch(_){} }, 250);
-      }
-    } catch(_) {}
-
-    // Make the whole label clickable / keyboard-toggle the body
-    try {
-      const label = document.getElementById('yearhangerLabel');
-      const body = document.getElementById('yearhangerBody');
-      if (label && body) {
-        // click toggles
-        label.addEventListener('click', (e) => {
-          const isCollapsed = body.classList.toggle('collapsed');
-          label.setAttribute('aria-expanded', String(!isCollapsed));
-        });
-        // keyboard: Enter or Space
-        label.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            const isCollapsed = body.classList.toggle('collapsed');
-            label.setAttribute('aria-expanded', String(!isCollapsed));
-          }
-        });
-      }
-    } catch(_) {}
 
   // Events
   nameInput?.addEventListener("focus", handleFocus);

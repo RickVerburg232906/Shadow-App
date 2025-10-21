@@ -58,7 +58,7 @@
       <!-- Geplande ritten voor leden (zichtbaar zolang de gebruiker nog niet akkoord heeft gedrukt) -->
       <section id="plannedRidesSection" class="card" aria-labelledby="plannedRidesTitle">
         <h3 id="plannedRidesTitle">Geplande ritten</h3>
-        <p class="muted">Hieronder vind je de geplande ritdata.</p>
+        <p class="muted">Hieronder vind je de geplande ritdata. Je ziet deze zolang je nog niet op "Ik ga akkoord" hebt geklikt.</p>
         <ul id="plannedRidesList" class="hint" style="margin-top:8px;"></ul>
       </section>
 <section id="rideConsentGate" class="consent card" aria-labelledby="rideConsentTitle">
@@ -72,64 +72,57 @@
   <p id="rideConsentWarn" class="msg" role="status" aria-live="polite"></p>
 </section>
         <section id="landelijkeSignup" data-ride-signup="true" hidden>
-<div class="card">
-          <h1>Inschrijven voor Landelijke rit</h1>
-          <p class="hint">Zoek op Voornaam of Achternaam (Hoofletter gevoelig) en kies jezelf.</p>
-          <div class="row">
-            <input id="nameInput" placeholder="Naam..." />
-          </div>
-
-          <!-- Jaarhanger static markup: placed under the name input so JS can show/hide it -->
-          <div id="yearhangerRow" class="yearhanger-row">
-            <div class="seg-wrap yearhanger-main yearhanger-card" id="yearhangerMain">
-              <div class="seg-label" id="yearhangerLabel" tabindex="0" role="button" aria-expanded="true" aria-controls="yearhangerBody" aria-label="Toon of verberg jaarhanger opties">
-                <strong>Wilt u een Jaarhanger?</strong>
-                <span id="yearhangerSelectedSmall" class="selected-small" aria-hidden="true"></span>
-              </div>
-              <div id="yearhangerBody" class="yearhanger-body">
-                <div class="yearhanger-help">
-                  <details class="muted yearhanger-details" id="yearhangerDetails">
-                    <summary>Wat is een jaarhanger? <span class="info-icon" aria-hidden="true">ℹ️</span></summary>
-                    <div class="yearhanger-explain">
-                      <p>Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De "moederpin" kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt. De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. Da's pas een collectors item!</p>
-                    </div>
-                  </details>
-                </div>
+          <div class="card">
+            <h1>Inschrijven voor Landelijke rit</h1>
+            <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
+            <div class="row">
+              <input id="nameInput" placeholder="Achternaam..." />
+            </div>
+            <div id="yearhangerRow" style="margin-top:8px; display:none;">
+              <div class="seg-wrap">
+                <div class="seg-label"><strong>Wilt u een Jaarhanger?</strong></div>
                 <div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">
-                  <button type="button" id="yearhangerYes" class="seg-btn seg-yes" data-value="Ja" role="radio" aria-checked="false"><span class="seg-label-text">Ja</span></button>
-                  <button type="button" id="yearhangerNo" class="seg-btn seg-no" data-value="Nee" role="radio" aria-checked="false"><span class="seg-label-text">Nee</span></button>
+                  <button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false">Ja</button>
+                  <button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false">Nee</button>
+                </div>
+              </div>
+            </div>
+            <div id="jaarhangerInfo" style="display:none; margin: 16px 0 8px 0;">
+              <details class="muted" style="margin-top:4px;">
+                <summary>Wat is een jaarhanger?</summary>
+                <div style="margin-top:8px;">
+                  Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De "moederpin" kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt. De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. Da's pas een collectors item!
+                </div>
+              </details>
+            </div>
+
+            <ul id="suggestions" class="suggest"></ul>
+            <div id="error" class="error" style="display:none"></div>
+            <div id="result" class="result" style="display:none">
+              <div class="column">
+                <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+                <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+                <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
+                <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
+                <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
+              </div>
+              <div class="column" style="align-items:center; gap:8px;">
+                <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
+                <div class="small muted" id="qrPrivacy" style="display:none">
+                  Privacy: de QR bevat alleen een LidNr, geen naam.
                 </div>
               </div>
             </div>
           </div>
-
-          <ul id="suggestions" class="suggest"></ul>
-          <div id="error" class="error" style="display:none"></div>
-          <div id="result" class="result" style="display:none">
-            <div class="column">
-              <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-              <div class="kv"><span class="label">Lidnummer</span><span class="value" id="rMemberNo">—</span></div>
-              <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
-              <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
-              <p>Ga nu naar de inschrijftafel om in te checken voor de rit.</p>
-            </div>
-            <div class="column" style="align-items:center; gap:8px;">
-              <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
-              <div class="small muted" id="qrPrivacy" style="display:none">
-                Privacy: de QR bevat alleen een LidNr, geen naam.
-              </div>
-            </div>
-          </div>
-        </div>
         </section>
       </section>
 
       <section id="viewAdmin" class="view">
   <nav id="adminSubtabs" class="subtabs" aria-label="Hoofdadmin secties" hidden>
-    <button class="subtab" data-admin-tab="1" aria-pressed="true">Inschrijftafel</button>
-    <button class="subtab" data-admin-tab="2" aria-pressed="false">Beheer</button>
-    <button class="subtab" data-admin-tab="3" aria-pressed="false">Wachtwoorden</button>
-    <button class="subtab" data-admin-tab="4" aria-pressed="false">Dashboard</button>
+    <button class="subtab" data-admin-tab="1" aria-pressed="true">Tab 1 · Scannen & Handmatig</button>
+    <button class="subtab" data-admin-tab="2" aria-pressed="false">Tab 2 · Planning & Beheer</button>
+    <button class="subtab" data-admin-tab="3" aria-pressed="false">Tab 3 · Wachtwoorden</button>
+    <button class="subtab" data-admin-tab="4" aria-pressed="false">Tab 4 · Inschrijvingen & Sterren</button>
   </nav>
 
         <div class="card" id="qrScanCard" data-admin-group="1">
@@ -166,18 +159,6 @@
           <div id="adminManualStatus" class="status"></div>
         </div>
 
-        <div class="card" id="excelUploadCard" data-admin-group="2">
-          <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
-          <div class="row">
-            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
-            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-            <span id="fileName" class="file-name">Geen bestand gekozen</span>
-            <button id="uploadBtn">Uploaden</button>
-          </div>
-          <div id="status" class="status"></div>
-          <div id="log" class="log"></div>
-        </div>
         
         <div class="card" id="ridePlannerCard" data-admin-group="2">
           <h3>Ritten plannen</h3>
@@ -197,6 +178,20 @@
           </div>
         </div>
 
+        <div class="card" id="excelUploadCard" data-admin-group="2">
+          <h1>Admin: Excel uploaden</h1>
+          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
+          <div class="row">
+            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
+            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
+            <span id="fileName" class="file-name">Geen bestand gekozen</span>
+            <button id="uploadBtn">Uploaden</button>
+          </div>
+          <div id="status" class="status"></div>
+          <div id="log" class="log"></div>
+        </div>
+
+        
         <div class="card" id="rideStatsCard" data-admin-group="4">
           <h3>Inschrijvingen per rit</h3>
           <p class="muted">Aantal ingeschreven leden per geplande ritdatum (o.b.v. <code>ScanDatums</code>).</p>
