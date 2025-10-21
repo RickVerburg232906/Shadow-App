@@ -139,6 +139,7 @@ export async function initMemberView() {
   const rRides      = $("rRidesCount");
   const qrCanvas    = $("qrCanvas");
   const rRegion    = $("rRegion");
+  const loadingIndicator = $("loadingIndicator");
 
 // --- Jaarhanger UI (segmented Ja/Nee) ---
 let yearhangerRow = document.getElementById("yearhangerRow");
@@ -178,11 +179,21 @@ async function saveYearhanger(val) {
     if (!selectedDoc || !selectedDoc.id) return;
     const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null;
     _yearhangerVal = v;
+    
+    // Show loading during save
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    if (loadingIndicator) loadingIndicator.style.display = "flex";
+    
     await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }, { merge: true });
     // After saving the Jaarhanger choice, generate QR for the selected member
     try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
+    
+    // Hide loading after save completes
+    if (loadingIndicator) loadingIndicator.style.display = "none";
   } catch (e) {
     console.error("Jaarhanger opslaan mislukt", e);
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    if (loadingIndicator) loadingIndicator.style.display = "none";
   }
 }
 
@@ -263,9 +274,20 @@ if (yearhangerNo) {
     const privacyEl = document.getElementById("qrPrivacy");
     if (privacyEl) privacyEl.style.display = "none";
   }
+  
+  function showLoading() {
+    if (loadingIndicator) loadingIndicator.style.display = "flex";
+    hideResultBox();
+  }
+  
+  function hideLoading() {
+    if (loadingIndicator) loadingIndicator.style.display = "none";
+  }
+  
   function resetSelection() {
     selectedDoc = null;
     hideResultBox();
+    hideLoading();
     if (errBox) errBox.style.display = "none";
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
@@ -298,16 +320,23 @@ if (yearhangerNo) {
         resetSelection();
         const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
         if (term.length < 2) { hideSuggestions(); return; }
+        
+        // Show subtle loading for search
+        if (errBox) { errBox.textContent = "Zoeken..."; errBox.style.display = "block"; errBox.style.color = "var(--muted)"; }
+        
         const items = await queryByLastNamePrefix(term);
+        
         if (!items || !items.length) {
-          if (errBox) { errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie."; errBox.style.display = "block"; }
+          if (errBox) { errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie."; errBox.style.display = "block"; errBox.style.color = "#fca5a5"; }
           hideSuggestions();
           return;
         }
+        
+        if (errBox) errBox.style.display = "none";
         showSuggestions(items);
       } catch (e) {
         hideSuggestions();
-        if (errBox) { errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie."; errBox.style.display = "block"; }
+        if (errBox) { errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie."; errBox.style.display = "block"; errBox.style.color = "#fca5a5"; }
       }
     }, 250);
   }
@@ -328,6 +357,7 @@ if (yearhangerNo) {
   }
 
   async function renderSelected(entry) {
+    showLoading();
     const data = entry.data || {};
         if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
 if (rName) rName.textContent = fullNameFrom(data);
@@ -374,9 +404,16 @@ renderYearhangerUI(jh || _yearhangerVal || null);
 
     // QR generation is conditional: only if Jaarhanger already set
     if (_jh) {
-      try { await generateQrForEntry(entry); } catch (e) { console.error('QR creation failed', e); }
+      try { 
+        await generateQrForEntry(entry);
+        hideLoading();
+      } catch (e) { 
+        console.error('QR creation failed', e);
+        hideLoading();
+      }
     } else {
       // Ensure QR/result are hidden until choice is made
+      hideLoading();
       if (resultBox) resultBox.style.display = 'none';
       const privacyEl = document.getElementById("qrPrivacy");
       if (privacyEl) privacyEl.style.display = 'none';
