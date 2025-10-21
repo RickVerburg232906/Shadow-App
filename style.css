@@ -371,3 +371,40 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
   font-size: 14px;
   font-weight: 600;
 }
+
+/* Empty states */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 16px;
+  min-height: 200px;
+}
+
+.empty-state-icon {
+  font-size: 64px;
+  opacity: 0.3;
+  line-height: 1;
+}
+
+.empty-state-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.empty-state-description {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 400px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.empty-state-action {
+  margin-top: 8px;
+}

@@ -300,6 +300,23 @@ if (yearhangerNo) {
   function showSuggestions(items) {
     if (!suggestList) return;
     suggestList.innerHTML = "";
+    
+    if (!items || items.length === 0) {
+      // Show empty state in suggestions
+      const emptyLi = document.createElement("li");
+      emptyLi.style.textAlign = "center";
+      emptyLi.style.padding = "24px 12px";
+      emptyLi.style.color = "var(--muted)";
+      emptyLi.innerHTML = `
+        <div style="font-size: 32px; margin-bottom: 8px; opacity: 0.3;">🔍</div>
+        <div style="font-weight: 600; margin-bottom: 4px;">Geen leden gevonden</div>
+        <div style="font-size: 13px;">Probeer een andere zoekterm</div>
+      `;
+      suggestList.appendChild(emptyLi);
+      suggestList.style.display = "block";
+      return;
+    }
+    
     for (const it of items) {
       const li = document.createElement("li");
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
@@ -452,13 +469,25 @@ if (yearhangerNo) {
       // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
       const planned = await getPlannedDates();
       const scanDatums = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
-      const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
-      if (rRides) {
-        rRides.innerHTML = starsHtml || "—";
-        rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
-        rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
-        rRides.style.letterSpacing = "3px";
-        rRides.style.fontSize = "20px";
+      
+      // Check if there are any planned dates
+      if (!planned || planned.length === 0) {
+        if (rRides) {
+          rRides.innerHTML = '<span style="color: var(--muted); font-size: 14px;">Geen ritten gepland</span>';
+          rRides.setAttribute("title", "Er zijn nog geen landelijke ritten ingepland voor dit jaar");
+          rRides.removeAttribute("aria-label");
+          rRides.style.letterSpacing = "";
+          rRides.style.fontSize = "";
+        }
+      } else {
+        const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+        if (rRides) {
+          rRides.innerHTML = starsHtml || "—";
+          rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
+          rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
+          rRides.style.letterSpacing = "3px";
+          rRides.style.fontSize = "20px";
+        }
       }
 
       // Live ridesCount (feature behouden — elders gebruiken indien gewenst)
@@ -471,13 +500,23 @@ const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
 // ⭐ Live update van sterren op basis van actuele ScanDatums
 const scanDatumsLive = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
   getPlannedDates().then((planned) => {
-  const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
-  if (rRides) {
-    rRides.innerHTML = starsHtml || "—";
-    rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
-    rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
-    rRides.style.letterSpacing = "3px";
-    rRides.style.fontSize = "20px";
+  if (!planned || planned.length === 0) {
+    if (rRides) {
+      rRides.innerHTML = '<span style="color: var(--muted); font-size: 14px;">Geen ritten gepland</span>';
+      rRides.setAttribute("title", "Er zijn nog geen landelijke ritten ingepland voor dit jaar");
+      rRides.removeAttribute("aria-label");
+      rRides.style.letterSpacing = "";
+      rRides.style.fontSize = "";
+    }
+  } else {
+    const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
+    if (rRides) {
+      rRides.innerHTML = starsHtml || "—";
+      rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
+      rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
+      rRides.style.letterSpacing = "3px";
+      rRides.style.fontSize = "20px";
+    }
   }
 }).catch(() => {});
 const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
