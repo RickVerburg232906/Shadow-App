@@ -142,31 +142,14 @@ export async function initMemberView() {
 
 // --- Jaarhanger UI (segmented Ja/Nee) ---
 let yearhangerRow = document.getElementById("yearhangerRow");
-let yearhangerYes = null;
-let yearhangerNo  = null;
+let yearhangerYes = document.getElementById("yearhangerYes");
+let yearhangerNo  = document.getElementById("yearhangerNo");
 let _yearhangerVal = "Ja"; // default
 
 function ensureYearhangerUI() {
-  const nameInput = document.getElementById("nameInput");
-  if (!nameInput) return;
-  if (!yearhangerRow) {
-    yearhangerRow = document.createElement("div");
-    yearhangerRow.id = "yearhangerRow";
-    yearhangerRow.style.marginTop = "8px";
-    yearhangerRow.style.display = "none"; // zichtbaar na selectie
-    yearhangerRow.innerHTML = (
-      '<div class="seg-wrap">'
-      + '<div class="seg-label"><strong>Wilt u een Jaarhanger?</strong></div>'
-      + '<div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">'
-      +   '<button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false">Ja</button>'
-      +   '<button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false">Nee</button>'
-      + '</div>'
-      + '</div>'
-    );
-    nameInput.insertAdjacentElement("afterend", yearhangerRow);
-    yearhangerYes = document.getElementById("yearhangerYes");
-    yearhangerNo  = document.getElementById("yearhangerNo");
-  }
+  yearhangerRow = document.getElementById("yearhangerRow");
+  yearhangerYes = document.getElementById("yearhangerYes");
+  yearhangerNo  = document.getElementById("yearhangerNo");
 }
 ensureYearhangerUI();
 
@@ -202,17 +185,20 @@ async function saveYearhanger(val) {
     console.error("Jaarhanger opslaan mislukt", e);
   }
 }
-document.addEventListener("click", (ev) => {
-  if (!yearhangerRow) return;
-  const t = ev.target;
-  if (t && t.id === "yearhangerYes") {
+
+// Voeg click event listeners toe aan de knoppen
+if (yearhangerYes) {
+  yearhangerYes.addEventListener("click", function() {
     renderYearhangerUI("Ja");
     saveYearhanger("Ja");
-  } else if (t && t.id === "yearhangerNo") {
+  });
+}
+if (yearhangerNo) {
+  yearhangerNo.addEventListener("click", function() {
     renderYearhangerUI("Nee");
     saveYearhanger("Nee");
-  }
-}, { passive: true });
+  });
+}
 
 
 

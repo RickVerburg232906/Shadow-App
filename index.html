@@ -78,7 +78,15 @@
             <div class="row">
               <input id="nameInput" placeholder="Achternaam..." />
             </div>
-            <!-- Jaarhanger uitleg uitvouwbaar, standaard verborgen -->
+            <div id="yearhangerRow" style="margin-top:8px; display:none;">
+              <div class="seg-wrap">
+                <div class="seg-label"><strong>Wilt u een Jaarhanger?</strong></div>
+                <div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">
+                  <button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false">Ja</button>
+                  <button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false">Nee</button>
+                </div>
+              </div>
+            </div>
             <div id="jaarhangerInfo" style="display:none; margin: 16px 0 8px 0;">
               <details class="muted" style="margin-top:4px;">
                 <summary>Wat is een jaarhanger?</summary>
