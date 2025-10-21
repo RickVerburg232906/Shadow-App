@@ -116,47 +116,18 @@ input {
 canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
 
 /* Toast root fixed above safe area */
-/* Toast root at bottom-center of viewport */
 #toast-root {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(16px + env(safe-area-inset-bottom));
-  z-index: 9999;
-  pointer-events: none; /* let clicks pass through except on the toast itself */
-  display: flex;
-  flex-direction: column-reverse; /* newest on top visually */
-  align-items: center;
-  gap: 8px;
-  max-width: calc(100% - 32px);
+  z-index: 200;
 }
 
-/* Toast appearance inside root (no fixed positioning here) */
-#toast-root .toast {
-  pointer-events: auto;
-  background: #16a34a;
-  color: #07201a;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(0,0,0,.35);
-  margin-top: 8px;
-  min-width: 200px;
-  text-align: center;
-  opacity: 0;
-  transform: translateY(8px) scale(.995);
-  transition: opacity .12s ease, transform .16s ease;
-  will-change: opacity, transform;
+.toast {
+  background: #16a34a; color: #0b0c10; padding: 10px 14px; border-radius: 12px; font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35); margin-top: 8px; min-width: 200px; text-align: center;
 }
-
-/* visible state (when appended) — animate in quickly */
-#toast-root .toast.show {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-/* error variant fallback */
-#toast-root .toast.err { background: #ef4444; color: #fff; }
 
 .qr-log-list > div { transition: background .2s ease; }
 .qr-log-list > div:hover { filter: brightness(1.05); }

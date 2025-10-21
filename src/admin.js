@@ -688,29 +688,11 @@ function extractLidFromText(text) {
 function showToast(msg, ok = true) {
   const root = document.getElementById("toast-root") || document.body;
   const el = document.createElement("div");
-  el.className = "toast" + (ok ? "" : " err");
+  el.className = "toast";
   el.textContent = msg;
-  // Prepend so newest appears on top (root uses column-reverse)
-  if (root.firstChild) root.insertBefore(el, root.firstChild);
-  else root.appendChild(el);
-
-  // Limit to max 5 toasts visible
-  try {
-    const toasts = Array.from(root.querySelectorAll('.toast'));
-    if (toasts.length > 5) {
-      for (let i = 5; i < toasts.length; i++) {
-        try { toasts[i].remove(); } catch(_) {}
-      }
-    }
-  } catch(_) {}
-
-  // trigger show animation on next tick
-  requestAnimationFrame(() => el.classList.add('show'));
-  setTimeout(() => {
-    // animate out then remove
-    el.classList.remove('show');
-    setTimeout(() => { try { el.remove(); } catch(_) {} }, 120);
-  }, 1000);
+  if (!ok) el.style.background = "#ef4444";
+  root.appendChild(el);
+  setTimeout(() => el.remove(), 1200);
 }
 
 function hhmmss(d = new Date()) { return d.toTimeString().slice(0, 8); }
@@ -1015,6 +997,7 @@ function initAdminQRScanner() {
     let beforeCount = null;
 
     if (!lid) {
+      if (statusEl) statusEl.textContent = "⚠️ Geen LidNr in QR";
       showToast("⚠️ Onbekende QR (geen LidNr)", false);
       appendLog({ naam: "", lid: "", ok: false, reason: "geen LidNr" });
       return;
@@ -1043,7 +1026,8 @@ function initAdminQRScanner() {
         await ensureRideDatesLoaded();
       } catch (e) { /* ignore, fallback to empty list */ }
       if (!Array.isArray(PLANNED_DATES) || !PLANNED_DATES.includes(todayYMD)) {
-        // Do not book when today is not a planned ride date — show short toast instead of status text
+        // Do not book when today is not a planned ride date
+        if (statusEl) statusEl.textContent = `ℹ️ ${todayYMD} is geen geplande ritdatum — registratie overgeslagen.`;
         showToast('ℹ️ Niet op geplande ritdatum — niet geregistreerd', true);
         appendLog({ naam: naam || "", lid, ok: false, reason: 'niet geplande datum' });
         return;
@@ -1051,12 +1035,15 @@ function initAdminQRScanner() {
       const out = await bookRide(lid, naam || "", todayYMD);
       const newTotal = out.newTotal;
 
-      // Show brief toast for result instead of writing long status text above scanner
-      showToast(out.changed ? "✅ Rit geregistreerd" : "ℹ️ Reeds geregistreerd", true);
-      appendLog({ naam: naam || "", lid, ok: true, ridesTotal: newTotal });
+      if (statusEl) statusEl.textContent = out.changed
+        ? `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid}) op ${out.ymd}`
+        : `ℹ️ ${naam || "(onbekend)"} (${lid}) had ${out.ymd} al geregistreerd — niets aangepast.`;
+      if (resultEl) resultEl.textContent = `Gescand: ${naam ? "Naam: " + naam + " " : ""}(LidNr: ${lid})`;
+      showToast(out.changed ? "✅ QR-code gescand" : "ℹ️ Reeds geregistreerd", true);
       appendLog({ naam: naam || "", lid, ok: true, ridesTotal: newTotal });
     } catch (e) {
       console.error(e);
+      if (statusEl) statusEl.textContent = `❌ Fout bij updaten: ${e?.message || e}`;
       showToast("❌ Fout bij updaten", false);
       appendLog({ naam: naam || "", lid, ok: false, reason: "update fout" });
     }
