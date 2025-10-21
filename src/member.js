@@ -178,7 +178,7 @@ function renderYearhangerUI(val) {
   _yearhangerVal = v;
   if (yearhangerRow) yearhangerRow.style.display = "block";
   // Toon uitleg pas als jaarhangerRow zichtbaar is
-  const info = document.getElementById("jaarhangerInfo");
+  const info = document.getElementById("yearhangerInfo");
   if (info) info.style.display = "block";
   if (yearhangerYes && yearhangerNo) {
     yearhangerYes.classList.toggle("active", v === "Ja");
