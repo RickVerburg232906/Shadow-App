@@ -72,31 +72,40 @@
   <p id="rideConsentWarn" class="msg" role="status" aria-live="polite"></p>
 </section>
         <section id="landelijkeSignup" data-ride-signup="true" hidden>
-<div class="card">
-          <h1>Inschrijven voor Landelijke rit</h1>
-          <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
-          <div class="row">
-            <input id="nameInput" placeholder="Achternaam..." />
-          </div>
-
-          <ul id="suggestions" class="suggest"></ul>
-          <div id="error" class="error" style="display:none"></div>
-          <div id="result" class="result" style="display:none">
-            <div class="column">
-              <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-              <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
-              <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
-              <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
+          <div class="card">
+            <h1>Inschrijven voor Landelijke rit</h1>
+            <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
+            <div class="row">
+              <input id="nameInput" placeholder="Achternaam..." />
             </div>
-            <div class="column" style="align-items:center; gap:8px;">
-              <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
-              <div class="small muted" id="qrPrivacy" style="display:none">
-                Privacy: de QR bevat alleen een LidNr, geen naam.
+            <!-- Jaarhanger uitleg uitvouwbaar, standaard verborgen -->
+            <div id="jaarhangerInfo" style="display:none; margin: 16px 0 8px 0;">
+              <details class="muted" style="margin-top:4px;">
+                <summary>Wat is een jaarhanger?</summary>
+                <div style="margin-top:8px;">
+                  Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De "moederpin" kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt. De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. Da's pas een collectors item!
+                </div>
+              </details>
+            </div>
+
+            <ul id="suggestions" class="suggest"></ul>
+            <div id="error" class="error" style="display:none"></div>
+            <div id="result" class="result" style="display:none">
+              <div class="column">
+                <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+                <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+                <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
+                <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
+                <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
+              </div>
+              <div class="column" style="align-items:center; gap:8px;">
+                <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
+                <div class="small muted" id="qrPrivacy" style="display:none">
+                  Privacy: de QR bevat alleen een LidNr, geen naam.
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </section>
       </section>
 

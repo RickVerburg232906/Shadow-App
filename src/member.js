@@ -175,11 +175,19 @@ function renderYearhangerUI(val) {
   const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null; // default Ja
   _yearhangerVal = v;
   if (yearhangerRow) yearhangerRow.style.display = "block";
+  // Toon uitleg pas als jaarhangerRow zichtbaar is
+  const info = document.getElementById("jaarhangerInfo");
+  if (info) info.style.display = "block";
   if (yearhangerYes && yearhangerNo) {
     yearhangerYes.classList.toggle("active", v === "Ja");
     yearhangerNo.classList.toggle("active",  v === "Nee");
+    yearhangerYes.classList.toggle("yes", v === "Ja");
+    yearhangerNo.classList.toggle("no", v === "Nee");
     yearhangerYes.setAttribute("aria-checked", String(v === "Ja"));
     yearhangerNo.setAttribute("aria-checked",  String(v === "Nee"));
+    // Verwijder kleur als niet actief
+    if (v !== "Ja") yearhangerYes.classList.remove("yes");
+    if (v !== "Nee") yearhangerNo.classList.remove("no");
   }
 }
 async function saveYearhanger(val) {
@@ -276,6 +284,9 @@ document.addEventListener("click", (ev) => {
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
     if (yearhangerRow) yearhangerRow.style.display = "none";
+    // Verberg uitleg als jaarhangerRow verborgen wordt
+    const info = document.getElementById("jaarhangerInfo");
+    if (info) info.style.display = "none";
     if (rRides) {
       rRides.textContent = "—";
       rRides.removeAttribute("title");
@@ -283,7 +294,6 @@ document.addEventListener("click", (ev) => {
       rRides.style.letterSpacing = "";
       rRides.style.fontSize = "";
     }
-  
     if (rRegion) rRegion.textContent = "—";
   }
 
