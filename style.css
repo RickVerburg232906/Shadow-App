@@ -1,3 +1,8 @@
+.seg-btn:focus,
+.seg-btn.active:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
 .seg-btn.active.yes {
   background: #22c55e !important;
   color: #fff !important;
