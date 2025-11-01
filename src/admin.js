@@ -393,145 +393,162 @@ async function initStarDistributionChart() {
 
 export function initAdminView() {
   const $ = (id) => document.getElementById(id);
-  const fileInput = $("fileInput");
-  const fileName  = $("fileName");
-  const uploadBtn = $("uploadBtn");
-  const statusEl  = $("status");
-  const logEl     = $("log");
+  
+  // Detect which admin page we're on based on the current URL
+  const currentPage = window.location.pathname.split('/').pop();
+  const isAdminScan = currentPage === 'admin-scan.html';
+  const isAdminPlanning = currentPage === 'admin-planning.html';
+  const isAdminPasswords = currentPage === 'admin-passwords.html';
+  const isAdminStats = currentPage === 'admin-stats.html';
+  const isIndexPage = currentPage === 'index.html' || currentPage === '';
 
-  function log(msg, cls = "") {
-    if (!logEl) return;
-    const p = document.createElement("div");
-    if (cls) p.className = cls;
-    p.textContent = msg;
-    logEl.appendChild(p);
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-  function setLoading(on) {
-    if (uploadBtn) {
-      uploadBtn.disabled = on;
-      uploadBtn.textContent = on ? "Bezig..." : "Uploaden";
+  // Excel upload logic (Planning page)
+  if (isAdminPlanning || isIndexPage) {
+    const fileInput = $("fileInput");
+    const fileName  = $("fileName");
+    const uploadBtn = $("uploadBtn");
+    const statusEl  = $("status");
+    const logEl     = $("log");
+
+    function log(msg, cls = "") {
+      if (!logEl) return;
+      const p = document.createElement("div");
+      if (cls) p.className = cls;
+      p.textContent = msg;
+      logEl.appendChild(p);
+      logEl.scrollTop = logEl.scrollHeight;
     }
-  }
+    function setLoading(on) {
+      if (uploadBtn) {
+        uploadBtn.disabled = on;
+        uploadBtn.textContent = on ? "Bezig..." : "Uploaden";
+      }
+    }
 
-  fileInput?.addEventListener("change", () => {
-    const f = fileInput?.files?.[0];
-    if (fileName) fileName.textContent = f ? f.name : "Geen bestand gekozen";
-  });
-
-  async function readWorkbook(file) {
-    const buf = await file.arrayBuffer();
-    return XLSX.read(buf, { type: "array" });
-  }
-
-  function sheetToRows(wb) {
-    const name = wb.SheetNames[0];
-    const ws = wb.Sheets[name];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-    return rows;
-  }
-
-  // ⚠️ Belangrijk: we negeren elke 'ridesCount' uit het bestand
-  // zodat bestaande waarden niet overschreven worden.
-  function normalizeRows(rows) {
-    return rows.map((r) => {
-      const out = {};
-      for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
-      // GEEN ridesCount hier!
-      return out;
+    fileInput?.addEventListener("change", () => {
+      const f = fileInput?.files?.[0];
+      if (fileName) fileName.textContent = f ? f.name : "Geen bestand gekozen";
     });
-  }
 
-  async function importRowsToFirestore(rows) {
-    let total = 0, updated = 0, skipped = 0;
-    let batch = writeBatch(db);
-    const commit = async () => { await batch.commit(); batch = writeBatch(db); };
-
-    for (const r of rows) {
-      total++;
-      const id = String(r["LidNr"] || "").trim();
-      if (!/^\d+$/.test(id)) { skipped++; continue; }
-
-      // Alleen profielvelden schrijven; ridesCount NIET overschrijven.
-      // Gebruik increment(0): behoudt bestaande waarde; als veld ontbreekt → wordt 0.
-      const clean = {};
-      for (const k of REQUIRED_COLS) clean[k] = r[k];
-      clean["ridesCount"] = increment(0);
-
-      batch.set(doc(db, "members", id), clean, { merge: true });
-      updated++;
-
-      if (updated % 400 === 0) await commit();
+    async function readWorkbook(file) {
+      const buf = await file.arrayBuffer();
+      return XLSX.read(buf, { type: "array" });
     }
-    await commit();
-    return { total, updated, skipped };
-  }
 
-  let uploading = false;
-  async function handleUpload() {
-    if (uploading) return; // eenvoudige debounce
-    const file = fileInput?.files?.[0];
-    if (!file) { if (statusEl) statusEl.textContent = "❗ Kies eerst een bestand"; return; }
-    uploading = true;
-    setLoading(true);
-    if (statusEl) statusEl.textContent = "Bezig met inlezen…";
-    if (logEl) logEl.innerHTML = "";
-
-    try {
-      const wb   = await readWorkbook(file);
-      const rows = normalizeRows(sheetToRows(wb));
-      log(`Gelezen rijen: ${rows.length}`);
-
-      if (statusEl) statusEl.textContent = "Importeren naar Firestore…";
-      const res = await importRowsToFirestore(rows);
-      log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
-      if (statusEl) statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
-    } catch (e) {
-      console.error(e);
-      if (statusEl) statusEl.textContent = "❌ Fout tijdens import";
-      log(String(e?.message || e), "err");
-    } finally {
-      setLoading(false);
-      uploading = false;
+    function sheetToRows(wb) {
+      const name = wb.SheetNames[0];
+      const ws = wb.Sheets[name];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      return rows;
     }
+
+    // ⚠️ Belangrijk: we negeren elke 'ridesCount' uit het bestand
+    // zodat bestaande waarden niet overschreven worden.
+    function normalizeRows(rows) {
+      return rows.map((r) => {
+        const out = {};
+        for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
+        // GEEN ridesCount hier!
+        return out;
+      });
+    }
+
+    async function importRowsToFirestore(rows) {
+      let total = 0, updated = 0, skipped = 0;
+      let batch = writeBatch(db);
+      const commit = async () => { await batch.commit(); batch = writeBatch(db); };
+
+      for (const r of rows) {
+        total++;
+        const id = String(r["LidNr"] || "").trim();
+        if (!/^\d+$/.test(id)) { skipped++; continue; }
+
+        // Alleen profielvelden schrijven; ridesCount NIET overschrijven.
+        // Gebruik increment(0): behoudt bestaande waarde; als veld ontbreekt → wordt 0.
+        const clean = {};
+        for (const k of REQUIRED_COLS) clean[k] = r[k];
+        clean["ridesCount"] = increment(0);
+
+        batch.set(doc(db, "members", id), clean, { merge: true });
+        updated++;
+
+        if (updated % 400 === 0) await commit();
+      }
+      await commit();
+      return { total, updated, skipped };
+    }
+
+    let uploading = false;
+    async function handleUpload() {
+      if (uploading) return; // eenvoudige debounce
+      const file = fileInput?.files?.[0];
+      if (!file) { if (statusEl) statusEl.textContent = "❗ Kies eerst een bestand"; return; }
+      uploading = true;
+      setLoading(true);
+      if (statusEl) statusEl.textContent = "Bezig met inlezen…";
+      if (logEl) logEl.innerHTML = "";
+
+      try {
+        const wb   = await readWorkbook(file);
+        const rows = normalizeRows(sheetToRows(wb));
+        log(`Gelezen rijen: ${rows.length}`);
+
+        if (statusEl) statusEl.textContent = "Importeren naar Firestore…";
+        const res = await importRowsToFirestore(rows);
+        log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
+        if (statusEl) statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
+      } catch (e) {
+        console.error(e);
+        if (statusEl) statusEl.textContent = "❌ Fout tijdens import";
+        log(String(e?.message || e), "err");
+      } finally {
+        setLoading(false);
+        uploading = false;
+      }
+    }
+
+    $("uploadBtn")?.addEventListener("click", handleUpload);
+
+    // ===== Reset-alle-ritten (popup bevestiging) =====
+    const resetBtn = document.getElementById("resetRidesBtn");
+    const resetStatus = document.getElementById("resetStatus");
+    resetBtn?.addEventListener("click", async () => {
+      const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
+      if (!ok) return;
+      await resetAllRidesCount(resetStatus);
+    });
+
+    // ===== Reset Jaarhanger (popup bevestiging) =====
+    const resetJBtn = document.getElementById("resetJaarhangerBtn");
+    const resetJStatus = document.getElementById("resetJaarhangerStatus");
+    resetJBtn?.addEventListener("click", async () => {
+      const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
+      if (!ok) return;
+      await resetAllJaarhanger(resetJStatus);
+    });
+
+    // ===== Ritten plannen (globaal) =====
+    initRidePlannerSection();
   }
 
-  $("uploadBtn")?.addEventListener("click", handleUpload);
+  // ===== Handmatig rit registreren (Scan page) =====
+  if (isAdminScan || isIndexPage) {
+    initManualRideSection();
 
-  // ===== Reset-alle-ritten (popup bevestiging) =====
-  const resetBtn = document.getElementById("resetRidesBtn");
-  const resetStatus = document.getElementById("resetStatus");
-  resetBtn?.addEventListener("click", async () => {
-    const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
-    if (!ok) return;
-    await resetAllRidesCount(resetStatus);
-  });
+    // Init QR-scanner sectie (Admin)
+    try { initAdminQRScanner(); } catch (_) {}
+  }
 
-  // ===== Reset Jaarhanger (popup bevestiging) =====
-  const resetJBtn = document.getElementById("resetJaarhangerBtn");
-  const resetJStatus = document.getElementById("resetJaarhangerStatus");
-  resetJBtn?.addEventListener("click", async () => {
-    const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
-    if (!ok) return;
-    await resetAllJaarhanger(resetJStatus);
-  });
+  // Stats page
+  if (isAdminStats || isIndexPage) {
+    // Ritstatistieken
+    try { initRideStatsChart(); } catch (_) {}
+    // Sterrenverdeling (Jaarhanger=Ja)
+    try { initStarDistributionChart(); } catch (_) {}
 
-  // ===== Handmatig rit registreren =====
-  initManualRideSection();
-
-  // ===== Ritten plannen (globaal) =====
-  initRidePlannerSection();
-
-  // Init QR-scanner sectie (Admin)
-  try { initAdminQRScanner(); } catch (_) {}
-
-  // Ritstatistieken
-  try { initRideStatsChart(); } catch (_) {}
-  // Sterrenverdeling (Jaarhanger=Ja)
-  try { initStarDistributionChart(); } catch (_) {}
-
-  try { attachChartExportJPGNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistJPG", "sterrenverdeling.jpg"); } catch(_) {}
-  try { attachChartExportJPGNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsJPG", "inschrijvingen-per-rit.jpg"); } catch(_) {}
+    try { attachChartExportJPGNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistJPG", "sterrenverdeling.jpg"); } catch(_) {}
+    try { attachChartExportJPGNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsJPG", "inschrijvingen-per-rit.jpg"); } catch(_) {}
+  }
 }
 
 // =====================================================

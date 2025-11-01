@@ -42,7 +42,10 @@ body { margin: 0; background:var(--bg); color:var(--text); -webkit-tap-highlight
   border-radius:12px; cursor:pointer; min-height:44px; min-width:44px;
   transition: background .15s ease, transform .05s ease;
   touch-action: manipulation;
+  text-decoration: none;
+  display: inline-block;
 }
+.nav .tab:hover { background: rgba(255, 255, 255, 0.05); }
 .nav .tab.active { background:#1f2937; }
 .nav .tab:active { transform: translateY(1px); }
 
@@ -329,6 +332,11 @@ canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
   font-weight: 700;
   min-height: 36px;
   transition: background .15s ease, transform .05s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+.subtab:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 .subtab[aria-pressed="true"] {
   background: #1f2937;
