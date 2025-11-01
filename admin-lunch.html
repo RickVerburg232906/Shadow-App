@@ -35,44 +35,35 @@
         <p>Plan de lunchverdeling voor vrijwilligers en leden. Selecteer dagen, tijdsloten en wijs personen toe. Dit onderdeel is alleen zichtbaar voor hoofdadmins.</p>
       </section>
 
-      <section class="card" id="cardLunchConfig">
-        <h2>Instellingen</h2>
-        <div class="form-row">
-          <label for="lunchDays">Dagen</label>
-          <input id="lunchDays" type="text" placeholder="Bijv: za, zo" />
+      <section class="card" id="cardVastEten">
+        <h2>Vast eten</h2>
+        <p>Voeg vaste etenswaren toe die beschikbaar zijn tijdens de lunch. (Wordt automatisch opgeslagen)</p>
+        <div id="vastEtenList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+          <!-- Dynamische textboxes komen hier -->
         </div>
         <div class="form-row">
-          <label for="lunchSlots">Tijdsloten</label>
-          <input id="lunchSlots" type="text" placeholder="Bijv: 12:00-12:30, 12:30-13:00" />
-        </div>
-        <div class="form-row">
-          <button id="btnLunchCreate" class="primary">Maak schema</button>
+          <button id="btnAddVastEten" type="button">+ Voeg item toe</button>
         </div>
       </section>
 
-      <section class="card" id="cardLunchAssign" hidden>
-        <h2>Toewijzing</h2>
-        <div class="form-row">
-          <label for="lunchMemberSearch">Zoek lid/vrijwilliger</label>
-          <input id="lunchMemberSearch" type="search" placeholder="Naam of email" />
+      <section class="card" id="cardKeuzeEten">
+        <h2>Keuze eten</h2>
+        <p>Voeg keuze-opties toe waaruit deelnemers kunnen kiezen. (Wordt automatisch opgeslagen)</p>
+        <div id="keuzeEtenList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+          <!-- Dynamische textboxes komen hier -->
         </div>
-        <div id="lunchSchedule" class="grid"></div>
         <div class="form-row">
-          <button id="btnLunchSave" class="primary">Opslaan</button>
+          <button id="btnAddKeuzeEten" type="button">+ Voeg item toe</button>
         </div>
       </section>
 
-      <section class="card" id="cardLunchExport" hidden>
-        <h2>Export</h2>
-        <div class="form-row">
-          <button id="btnLunchExportCsv">Exporteer CSV</button>
-        </div>
-      </section>
     </main>
 
     <script type="module">
       import { checkAdminAuth, applyAdminLevel } from '/src/auth.js';
       import { initAdminView } from '/src/admin.js';
+      import { db } from '/src/firebase.js';
+      import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 
       // Guard: alle admins hebben toegang tot lunch planning
       checkAdminAuth({ redirectTo: '/' });
@@ -81,12 +72,173 @@
       // Minimal page bootstrap using existing admin.js infra
       initAdminView();
 
+      // Firestore reference
+      const lunchRef = doc(db, 'globals', 'lunch');
+
+      // Debounce helper voor auto-save
+      let saveTimeout = null;
+      async function saveLunchData(vastItems, keuzeItems) {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+          try {
+            await setDoc(lunchRef, {
+              vastEten: vastItems,
+              keuzeEten: keuzeItems,
+              updatedAt: serverTimestamp()
+            }, { merge: true });
+            console.log('Lunch data opgeslagen');
+          } catch (e) {
+            console.error('Fout bij opslaan lunch data:', e);
+          }
+        }, 500); // 500ms debounce
+      }
+
+      function collectAllData() {
+        const vastItems = Array.from(vastEtenList.querySelectorAll('input'))
+          .map(inp => inp.value.trim())
+          .filter(Boolean);
+        const keuzeItems = Array.from(keuzeEtenList.querySelectorAll('input'))
+          .map(inp => inp.value.trim())
+          .filter(Boolean);
+        return { vastItems, keuzeItems };
+      }
+
       // Lightweight, page-local behavior (client-side only placeholder)
       const el = (id) => document.getElementById(id);
       const scheduleContainer = el('lunchSchedule');
       const btnCreate = el('btnLunchCreate');
       const btnSave = el('btnLunchSave');
       const btnExport = el('btnLunchExportCsv');
+
+      // ===== Vast eten sectie =====
+      const vastEtenList = el('vastEtenList');
+      const btnAddVastEten = el('btnAddVastEten');
+      let vastEtenCounter = 0;
+
+      function createVastEtenRow(value = '') {
+        const row = document.createElement('div');
+        row.className = 'vast-eten-row';
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Bijv: brood, beleg, fruit';
+        input.value = value;
+        input.style.flex = '1';
+        input.dataset.id = vastEtenCounter++;
+        
+        // Auto-save on input change
+        input.addEventListener('input', () => {
+          const { vastItems, keuzeItems } = collectAllData();
+          saveLunchData(vastItems, keuzeItems);
+        });
+        
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.textContent = '✕';
+        btnRemove.style.padding = '8px 12px';
+        btnRemove.addEventListener('click', () => {
+          row.remove();
+          const { vastItems, keuzeItems } = collectAllData();
+          saveLunchData(vastItems, keuzeItems);
+        });
+        
+        row.appendChild(input);
+        row.appendChild(btnRemove);
+        return row;
+      }
+
+      // Laad bestaande data en voeg standaard 1 lege row toe
+      (async () => {
+        try {
+          const snap = await getDoc(lunchRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            const vastItems = Array.isArray(data.vastEten) ? data.vastEten : [];
+            if (vastItems.length > 0) {
+              vastItems.forEach(item => vastEtenList.appendChild(createVastEtenRow(item)));
+            } else {
+              vastEtenList.appendChild(createVastEtenRow());
+            }
+          } else {
+            vastEtenList.appendChild(createVastEtenRow());
+          }
+        } catch (e) {
+          console.error('Fout bij laden vast eten:', e);
+          vastEtenList.appendChild(createVastEtenRow());
+        }
+      })();
+
+      btnAddVastEten?.addEventListener('click', () => {
+        vastEtenList.appendChild(createVastEtenRow());
+      });
+
+      // ===== Keuze eten sectie =====
+      const keuzeEtenList = el('keuzeEtenList');
+      const btnAddKeuzeEten = el('btnAddKeuzeEten');
+      let keuzeEtenCounter = 0;
+
+      function createKeuzeEtenRow(value = '') {
+        const row = document.createElement('div');
+        row.className = 'keuze-eten-row';
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Bijv: vegetarisch, halal, vegan';
+        input.value = value;
+        input.style.flex = '1';
+        input.dataset.id = keuzeEtenCounter++;
+        
+        // Auto-save on input change
+        input.addEventListener('input', () => {
+          const { vastItems, keuzeItems } = collectAllData();
+          saveLunchData(vastItems, keuzeItems);
+        });
+        
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.textContent = '✕';
+        btnRemove.style.padding = '8px 12px';
+        btnRemove.addEventListener('click', () => {
+          row.remove();
+          const { vastItems, keuzeItems } = collectAllData();
+          saveLunchData(vastItems, keuzeItems);
+        });
+        
+        row.appendChild(input);
+        row.appendChild(btnRemove);
+        return row;
+      }
+
+      // Laad bestaande data en voeg standaard 1 lege row toe
+      (async () => {
+        try {
+          const snap = await getDoc(lunchRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            const keuzeItems = Array.isArray(data.keuzeEten) ? data.keuzeEten : [];
+            if (keuzeItems.length > 0) {
+              keuzeItems.forEach(item => keuzeEtenList.appendChild(createKeuzeEtenRow(item)));
+            } else {
+              keuzeEtenList.appendChild(createKeuzeEtenRow());
+            }
+          } else {
+            keuzeEtenList.appendChild(createKeuzeEtenRow());
+          }
+        } catch (e) {
+          console.error('Fout bij laden keuze eten:', e);
+          keuzeEtenList.appendChild(createKeuzeEtenRow());
+        }
+      })();
+
+      btnAddKeuzeEten?.addEventListener('click', () => {
+        keuzeEtenList.appendChild(createKeuzeEtenRow());
+      });
 
       btnCreate?.addEventListener('click', () => {
         const days = el('lunchDays').value.trim();
