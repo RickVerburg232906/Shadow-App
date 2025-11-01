@@ -403,6 +403,7 @@ export function initAdminView() {
   const isAdminPlanning = slug === 'admin-planning';
   const isAdminPasswords = slug === 'admin-passwords';
   const isAdminStats = slug === 'admin-stats';
+  const isAdminLunch = slug === 'admin-lunch';
   const isIndexPage = slug === 'index' || fullPath === '/';
 
   // Excel upload logic (Planning page)

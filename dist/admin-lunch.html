@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hoofdadmin – Lunch inplannen</title>
+    <link rel="manifest" href="/assets/manifest-sHx4Fanv.webmanifest">
+    <script type="module" crossorigin src="/assets/adminLunch-DXHhkmHX.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/main-lL0-8OTp.js">
+    <link rel="modulepreload" crossorigin href="/assets/auth-j86TSB5S.js">
+    <link rel="stylesheet" crossorigin href="/assets/main-qh3BrTsa.css">
+  </head>
+  <body data-role="guest">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="brand">Shadow App</div>
+      <nav class="nav" aria-label="Hoofdnavigatie">
+        <a href="/" class="tab" id="btnMember">Lid</a>
+        <a href="/admin-scan.html" class="tab" id="btnAdmin">Inschrijftafel</a>
+      </nav>
+    </header>
+
+    <!-- Subtabs -->
+    <main class="container">
+      <h1>Lunch inplannen</h1>
+
+      <nav class="subtabs" aria-label="Admin secties">
+        <a href="admin-scan.html" class="subtab" aria-pressed="false">Scannen & Handmatig</a>
+        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
+        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
+        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
+        <a href="admin-lunch.html" class="subtab" aria-pressed="true">Lunch inplannen</a>
+      </nav>
+
+      <!-- Page content -->
+      <section class="card" id="cardLunchIntro">
+        <h2>Overzicht</h2>
+        <p>Plan de lunchverdeling voor vrijwilligers en leden. Selecteer dagen, tijdsloten en wijs personen toe. Dit onderdeel is alleen zichtbaar voor hoofdadmins.</p>
+      </section>
+
+      <section class="card" id="cardLunchConfig">
+        <h2>Instellingen</h2>
+        <div class="form-row">
+          <label for="lunchDays">Dagen</label>
+          <input id="lunchDays" type="text" placeholder="Bijv: za, zo" />
+        </div>
+        <div class="form-row">
+          <label for="lunchSlots">Tijdsloten</label>
+          <input id="lunchSlots" type="text" placeholder="Bijv: 12:00-12:30, 12:30-13:00" />
+        </div>
+        <div class="form-row">
+          <button id="btnLunchCreate" class="primary">Maak schema</button>
+        </div>
+      </section>
+
+      <section class="card" id="cardLunchAssign" hidden>
+        <h2>Toewijzing</h2>
+        <div class="form-row">
+          <label for="lunchMemberSearch">Zoek lid/vrijwilliger</label>
+          <input id="lunchMemberSearch" type="search" placeholder="Naam of email" />
+        </div>
+        <div id="lunchSchedule" class="grid"></div>
+        <div class="form-row">
+          <button id="btnLunchSave" class="primary">Opslaan</button>
+        </div>
+      </section>
+
+      <section class="card" id="cardLunchExport" hidden>
+        <h2>Export</h2>
+        <div class="form-row">
+          <button id="btnLunchExportCsv">Exporteer CSV</button>
+        </div>
+      </section>
+    </main>
+
+
+    <!-- Shared app scripts -->
+  </body>
+</html>

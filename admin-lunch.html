@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hoofdadmin – Lunch inplannen</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body data-role="guest">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="brand">Shadow App</div>
+      <nav class="nav" aria-label="Hoofdnavigatie">
+        <a href="/" class="tab" id="btnMember">Lid</a>
+        <a href="/admin-scan.html" class="tab" id="btnAdmin">Inschrijftafel</a>
+      </nav>
+    </header>
+
+    <!-- Subtabs -->
+    <main class="container">
+      <h1>Lunch inplannen</h1>
+
+      <nav class="subtabs" aria-label="Admin secties">
+        <a href="admin-scan.html" class="subtab" aria-pressed="false">Scannen & Handmatig</a>
+        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
+        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
+        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
+        <a href="admin-lunch.html" class="subtab" aria-pressed="true">Lunch inplannen</a>
+      </nav>
+
+      <!-- Page content -->
+      <section class="card" id="cardLunchIntro">
+        <h2>Overzicht</h2>
+        <p>Plan de lunchverdeling voor vrijwilligers en leden. Selecteer dagen, tijdsloten en wijs personen toe. Dit onderdeel is alleen zichtbaar voor hoofdadmins.</p>
+      </section>
+
+      <section class="card" id="cardLunchConfig">
+        <h2>Instellingen</h2>
+        <div class="form-row">
+          <label for="lunchDays">Dagen</label>
+          <input id="lunchDays" type="text" placeholder="Bijv: za, zo" />
+        </div>
+        <div class="form-row">
+          <label for="lunchSlots">Tijdsloten</label>
+          <input id="lunchSlots" type="text" placeholder="Bijv: 12:00-12:30, 12:30-13:00" />
+        </div>
+        <div class="form-row">
+          <button id="btnLunchCreate" class="primary">Maak schema</button>
+        </div>
+      </section>
+
+      <section class="card" id="cardLunchAssign" hidden>
+        <h2>Toewijzing</h2>
+        <div class="form-row">
+          <label for="lunchMemberSearch">Zoek lid/vrijwilliger</label>
+          <input id="lunchMemberSearch" type="search" placeholder="Naam of email" />
+        </div>
+        <div id="lunchSchedule" class="grid"></div>
+        <div class="form-row">
+          <button id="btnLunchSave" class="primary">Opslaan</button>
+        </div>
+      </section>
+
+      <section class="card" id="cardLunchExport" hidden>
+        <h2>Export</h2>
+        <div class="form-row">
+          <button id="btnLunchExportCsv">Exporteer CSV</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { checkAdminAuth, applyAdminLevel } from '/src/auth.js';
+      import { initAdminView } from '/src/admin.js';
+
+      // Guard: alle admins hebben toegang tot lunch planning
+      checkAdminAuth({ redirectTo: '/' });
+      applyAdminLevel();
+
+      // Minimal page bootstrap using existing admin.js infra
+      initAdminView();
+
+      // Lightweight, page-local behavior (client-side only placeholder)
+      const el = (id) => document.getElementById(id);
+      const scheduleContainer = el('lunchSchedule');
+      const btnCreate = el('btnLunchCreate');
+      const btnSave = el('btnLunchSave');
+      const btnExport = el('btnLunchExportCsv');
+
+      btnCreate?.addEventListener('click', () => {
+        const days = el('lunchDays').value.trim();
+        const slots = el('lunchSlots').value.trim();
+        if (!days || !slots) {
+          alert('Vul dagen en tijdsloten in.');
+          return;
+        }
+        // Render a simple grid preview client-side for now
+        const dayList = days.split(',').map(s => s.trim()).filter(Boolean);
+        const slotList = slots.split(',').map(s => s.trim()).filter(Boolean);
+        scheduleContainer.innerHTML = '';
+        scheduleContainer.style.display = 'grid';
+        scheduleContainer.style.gridTemplateColumns = `150px repeat(${dayList.length}, 1fr)`;
+        scheduleContainer.style.gap = '8px';
+
+        const headerRow = document.createElement('div');
+        headerRow.className = 'row header';
+        headerRow.appendChild(document.createElement('div')); // empty corner
+        for (const d of dayList) {
+          const cell = document.createElement('div');
+          cell.textContent = d;
+          cell.className = 'cell head';
+          headerRow.appendChild(cell);
+        }
+        scheduleContainer.appendChild(headerRow);
+
+        for (const s of slotList) {
+          const row = document.createElement('div');
+          row.className = 'row';
+          const slotLabel = document.createElement('div');
+          slotLabel.textContent = s;
+          slotLabel.className = 'cell head';
+          row.appendChild(slotLabel);
+          for (const _ of dayList) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Naam';
+            cell.appendChild(input);
+            row.appendChild(cell);
+          }
+          scheduleContainer.appendChild(row);
+        }
+
+        document.getElementById('cardLunchAssign').hidden = false;
+        document.getElementById('cardLunchExport').hidden = false;
+      });
+
+      btnSave?.addEventListener('click', () => {
+        // Placeholder: persist later to Firestore when data model is known
+        alert('Lunchschema opgeslagen (client-side voorbeeld).');
+      });
+
+      btnExport?.addEventListener('click', () => {
+        // Export the grid to CSV (client-side only)
+        const rows = Array.from(scheduleContainer.querySelectorAll('.row'));
+        const csv = rows.map(row => Array.from(row.querySelectorAll('.cell'))
+          .map(cell => {
+            const input = cell.querySelector('input');
+            const v = input ? input.value : cell.textContent || '';
+            return '"' + v.replaceAll('"', '""') + '"';
+          }).join(',')
+        ).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lunchschema.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    </script>
+
+    <!-- Shared app scripts -->
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
