@@ -139,6 +139,51 @@ export async function initMemberView() {
   const rRides      = $("rRidesCount");
   const qrCanvas    = $("qrCanvas");
   const rRegion    = $("rRegion");
+  const loadingIndicator = $("loadingIndicator");
+
+// Helper functie voor foutmeldingen
+function getErrorMessage(error) {
+  if (!navigator.onLine) {
+    return "Geen internetverbinding. Check je wifi of mobiele data.";
+  }
+  
+  const errorCode = error?.code || '';
+  const errorMessage = error?.message || '';
+  
+  // Firestore specifieke fouten
+  if (errorCode === 'permission-denied' || errorMessage.includes('permission')) {
+    return "Toegang geweigerd. Neem contact op met de beheerder.";
+  }
+  if (errorCode === 'unavailable' || errorMessage.includes('unavailable')) {
+    return "Database tijdelijk niet bereikbaar. Probeer het over een paar seconden opnieuw.";
+  }
+  if (errorCode === 'not-found' || errorMessage.includes('not-found')) {
+    return "Gegevens niet gevonden. Neem contact op met de inschrijfbalie.";
+  }
+  if (errorCode === 'deadline-exceeded' || errorMessage.includes('timeout')) {
+    return "Verzoek duurt te lang. Check je internetverbinding en probeer opnieuw.";
+  }
+  if (errorCode === 'resource-exhausted') {
+    return "Te veel verzoeken. Wacht even en probeer opnieuw.";
+  }
+  if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+    return "Netwerkfout. Check je internetverbinding.";
+  }
+  
+  // Algemene fout
+  return "Er ging iets mis. Probeer het opnieuw of ga naar de inschrijfbalie.";
+}
+
+function showError(message, isWarning = false) {
+  if (!errBox) return;
+  errBox.textContent = message;
+  errBox.style.display = "block";
+  errBox.style.color = isWarning ? "#fbbf24" : "#fca5a5";
+}
+
+function hideError() {
+  if (errBox) errBox.style.display = "none";
+}
 
 // --- Jaarhanger UI (segmented Ja/Nee) ---
 let yearhangerRow = document.getElementById("yearhangerRow");
@@ -178,11 +223,41 @@ async function saveYearhanger(val) {
     if (!selectedDoc || !selectedDoc.id) return;
     const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null;
     _yearhangerVal = v;
+    
+    // Check internet connection
+    if (!navigator.onLine) {
+      const errBox = document.getElementById("error");
+      if (errBox) {
+        errBox.textContent = "Geen internetverbinding. Check je wifi of mobiele data.";
+        errBox.style.display = "block";
+        errBox.style.color = "#fca5a5";
+      }
+      return;
+    }
+    
+    // Show loading during save
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    if (loadingIndicator) loadingIndicator.style.display = "flex";
+    
     await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }, { merge: true });
     // After saving the Jaarhanger choice, generate QR for the selected member
     try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
+    
+    // Hide loading after save completes
+    if (loadingIndicator) loadingIndicator.style.display = "none";
   } catch (e) {
     console.error("Jaarhanger opslaan mislukt", e);
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    if (loadingIndicator) loadingIndicator.style.display = "none";
+    
+    // Show specific error message
+    const errBox = document.getElementById("error");
+    if (errBox) {
+      const errorMessage = getErrorMessage(e);
+      errBox.textContent = `Opslaan mislukt: ${errorMessage}`;
+      errBox.style.display = "block";
+      errBox.style.color = "#fca5a5";
+    }
   }
 }
 
@@ -225,6 +300,23 @@ if (yearhangerNo) {
   function showSuggestions(items) {
     if (!suggestList) return;
     suggestList.innerHTML = "";
+    
+    if (!items || items.length === 0) {
+      // Show empty state in suggestions
+      const emptyLi = document.createElement("li");
+      emptyLi.style.textAlign = "center";
+      emptyLi.style.padding = "24px 12px";
+      emptyLi.style.color = "var(--muted)";
+      emptyLi.innerHTML = `
+        <div style="font-size: 32px; margin-bottom: 8px; opacity: 0.3;">🔍</div>
+        <div style="font-weight: 600; margin-bottom: 4px;">Geen leden gevonden</div>
+        <div style="font-size: 13px;">Probeer een andere zoekterm</div>
+      `;
+      suggestList.appendChild(emptyLi);
+      suggestList.style.display = "block";
+      return;
+    }
+    
     for (const it of items) {
       const li = document.createElement("li");
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
@@ -243,6 +335,11 @@ if (yearhangerNo) {
     if (!prefix) return [];
     const maxResults = 8;
     try {
+      // Check internet connection first
+      if (!navigator.onLine) {
+        throw new Error('No internet connection');
+      }
+      
       // Query both last name (Naam) and first name (Voor naam)
       const qName = query(collection(db, "members"), orderBy("Naam"), startAt(prefix), endAt(prefix + "\uf8ff"), limit(maxResults));
       const qVoor = query(collection(db, "members"), orderBy("Voor naam"), startAt(prefix), endAt(prefix + "\uf8ff"), limit(maxResults));
@@ -254,7 +351,7 @@ if (yearhangerNo) {
       return res;
     } catch (e) {
       console.error('queryByLastNamePrefix failed', e);
-      return [];
+      throw e; // Re-throw to handle in caller
     }
   }
 
@@ -263,10 +360,21 @@ if (yearhangerNo) {
     const privacyEl = document.getElementById("qrPrivacy");
     if (privacyEl) privacyEl.style.display = "none";
   }
+  
+  function showLoading() {
+    if (loadingIndicator) loadingIndicator.style.display = "flex";
+    hideResultBox();
+  }
+  
+  function hideLoading() {
+    if (loadingIndicator) loadingIndicator.style.display = "none";
+  }
+  
   function resetSelection() {
     selectedDoc = null;
     hideResultBox();
-    if (errBox) errBox.style.display = "none";
+    hideLoading();
+    hideError();
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
     if (yearhangerRow) yearhangerRow.style.display = "none";
@@ -287,8 +395,15 @@ if (yearhangerNo) {
     resetSelection();
     const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
     if (term.length >= 1) {
-      try { const items = await queryByLastNamePrefix(term); if (items && items.length) showSuggestions(items); else hideSuggestions(); }
-      catch { hideSuggestions(); }
+      try { 
+        const items = await queryByLastNamePrefix(term); 
+        if (items && items.length) showSuggestions(items); 
+        else hideSuggestions(); 
+      }
+      catch (e) { 
+        hideSuggestions();
+        showError(getErrorMessage(e));
+      }
     } else { hideSuggestions(); }
   }
   async function onInputChanged() {
@@ -298,60 +413,86 @@ if (yearhangerNo) {
         resetSelection();
         const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
         if (term.length < 2) { hideSuggestions(); return; }
+        
+        // Show subtle loading for search
+        showError("Zoeken...", true);
+        
         const items = await queryByLastNamePrefix(term);
+        
         if (!items || !items.length) {
-          if (errBox) { errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie."; errBox.style.display = "block"; }
+          showError("Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.");
           hideSuggestions();
           return;
         }
+        
+        hideError();
         showSuggestions(items);
       } catch (e) {
         hideSuggestions();
-        if (errBox) { errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie."; errBox.style.display = "block"; }
+        showError(getErrorMessage(e));
       }
     }, 250);
   }
   async function handleFind() {
-    if (errBox) errBox.style.display = "none";
+    hideError();
     try {
       const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
       if (!term) { hideSuggestions(); return; }
+      
       const items = await queryByLastNamePrefix(term);
+      
       if (!items.length) {
-        if (errBox) { errBox.textContent = "Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie."; errBox.style.display = "block"; }
-        hideSuggestions(); return;
+        showError("Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.");
+        hideSuggestions(); 
+        return;
       }
       showSuggestions(items);
     } catch (e) {
-      if (errBox) { errBox.textContent = "Er ging iets mis tijdens het zoeken. Probeer het opnieuw of ga naar de inschrijfbalie."; errBox.style.display = "block"; }
+      showError(getErrorMessage(e));
     }
   }
 
   async function renderSelected(entry) {
-    const data = entry.data || {};
-        if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
-if (rName) rName.textContent = fullNameFrom(data);
-    if (rMemberNo) rMemberNo.textContent = entry.id;
-  const _jh = (entry?.data?.Jaarhanger === "Nee") ? "Nee" : (entry?.data?.Jaarhanger === "Ja" ? "Ja" : "");
-  renderYearhangerUI(_jh || null);
-  // If Jaarhanger is not set, require user to choose before generating QR. Do not auto-set a default.
-  // If Jaarhanger already set in Firestore, generate QR immediately.
+    showLoading();
+    hideError();
+    
+    try {
+      const data = entry.data || {};
+      if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
+      if (rName) rName.textContent = fullNameFrom(data);
+      if (rMemberNo) rMemberNo.textContent = entry.id;
+      const _jh = (entry?.data?.Jaarhanger === "Nee") ? "Nee" : (entry?.data?.Jaarhanger === "Ja" ? "Ja" : "");
+      renderYearhangerUI(_jh || null);
+      // If Jaarhanger is not set, require user to choose before generating QR. Do not auto-set a default.
+      // If Jaarhanger already set in Firestore, generate QR immediately.
 
-    // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
-    const planned = await getPlannedDates();
-    const scanDatums = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
-    const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
-    if (rRides) {
-      rRides.innerHTML = starsHtml || "—";
-      rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
-      rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
-      rRides.style.letterSpacing = "3px";
-      rRides.style.fontSize = "20px";
-    }
+      // ⭐ Vergelijk ScanDatums met globale plannedDates en licht sterren op per index
+      const planned = await getPlannedDates();
+      const scanDatums = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
+      
+      // Check if there are any planned dates
+      if (!planned || planned.length === 0) {
+        if (rRides) {
+          rRides.innerHTML = '<span style="color: var(--muted); font-size: 14px;">Geen ritten gepland</span>';
+          rRides.setAttribute("title", "Er zijn nog geen landelijke ritten ingepland voor dit jaar");
+          rRides.removeAttribute("aria-label");
+          rRides.style.letterSpacing = "";
+          rRides.style.fontSize = "";
+        }
+      } else {
+        const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+        if (rRides) {
+          rRides.innerHTML = starsHtml || "—";
+          rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
+          rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
+          rRides.style.letterSpacing = "3px";
+          rRides.style.fontSize = "20px";
+        }
+      }
 
-    // Live ridesCount (feature behouden — elders gebruiken indien gewenst)
-    try { if (unsubscribe) unsubscribe(); } catch(_) {}
-    unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
+      // Live ridesCount (feature behouden — elders gebruiken indien gewenst)
+      try { if (unsubscribe) unsubscribe(); } catch(_) {}
+      unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
       
 const d = snap.exists() ? snap.data() : {};
 const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
@@ -359,29 +500,52 @@ const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
 // ⭐ Live update van sterren op basis van actuele ScanDatums
 const scanDatumsLive = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
   getPlannedDates().then((planned) => {
-  const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
-  if (rRides) {
-    rRides.innerHTML = starsHtml || "—";
-    rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
-    rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
-    rRides.style.letterSpacing = "3px";
-    rRides.style.fontSize = "20px";
+  if (!planned || planned.length === 0) {
+    if (rRides) {
+      rRides.innerHTML = '<span style="color: var(--muted); font-size: 14px;">Geen ritten gepland</span>';
+      rRides.setAttribute("title", "Er zijn nog geen landelijke ritten ingepland voor dit jaar");
+      rRides.removeAttribute("aria-label");
+      rRides.style.letterSpacing = "";
+      rRides.style.fontSize = "";
+    }
+  } else {
+    const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
+    if (rRides) {
+      rRides.innerHTML = starsHtml || "—";
+      rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
+      rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
+      rRides.style.letterSpacing = "3px";
+      rRides.style.fontSize = "20px";
+    }
   }
 }).catch(() => {});
 const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
 renderYearhangerUI(jh || _yearhangerVal || null);
 });
 
-    // QR generation is conditional: only if Jaarhanger already set
-    if (_jh) {
-      try { await generateQrForEntry(entry); } catch (e) { console.error('QR creation failed', e); }
-    } else {
-      // Ensure QR/result are hidden until choice is made
-      if (resultBox) resultBox.style.display = 'none';
-      const privacyEl = document.getElementById("qrPrivacy");
-      if (privacyEl) privacyEl.style.display = 'none';
-      // show yearhanger UI (renderYearhangerUI already done above)
-      if (yearhangerRow) yearhangerRow.style.display = 'block';
+      // QR generation is conditional: only if Jaarhanger already set
+      if (_jh) {
+        try { 
+          await generateQrForEntry(entry);
+          hideLoading();
+        } catch (e) { 
+          console.error('QR creation failed', e);
+          showError(getErrorMessage(e));
+          hideLoading();
+        }
+      } else {
+        // Ensure QR/result are hidden until choice is made
+        hideLoading();
+        if (resultBox) resultBox.style.display = 'none';
+        const privacyEl = document.getElementById("qrPrivacy");
+        if (privacyEl) privacyEl.style.display = 'none';
+        // show yearhanger UI (renderYearhangerUI already done above)
+        if (yearhangerRow) yearhangerRow.style.display = 'block';
+      }
+    } catch (e) {
+      console.error('renderSelected failed', e);
+      showError(getErrorMessage(e));
+      hideLoading();
     }
   }
 
@@ -418,8 +582,13 @@ async function generateQrForEntry(entry) {
       if (!qrCanvas) return resolve();
       QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
         if (err) {
-          if (errBox) { errBox.textContent = "QR genereren mislukte."; errBox.style.display = "block"; }
-          reject(err);
+          const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
+          if (errBox) { 
+            errBox.textContent = errorMsg;
+            errBox.style.display = "block";
+            errBox.style.color = "#fca5a5";
+          }
+          reject(new Error(errorMsg));
           return;
         }
         if (resultBox) resultBox.style.display = "grid";
@@ -430,6 +599,7 @@ async function generateQrForEntry(entry) {
     });
   } catch (e) {
     console.error('generateQrForEntry failed', e);
+    throw e;
   }
 }
 

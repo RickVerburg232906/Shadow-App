@@ -434,9 +434,18 @@ function renderPlannedRides(listEl, rides) {
   visible.sort((a,b) => new Date(a) - new Date(b));
 
   if (visible.length === 0) {
-    const li = document.createElement('li');
-    li.textContent = 'Geen geplande ritten.';
-    listEl.appendChild(li);
+    // Show empty state with visual element
+    const emptyState = document.createElement('div');
+    emptyState.className = 'empty-state';
+    emptyState.innerHTML = `
+      <div class="empty-state-icon">📅</div>
+      <h3 class="empty-state-title">Nog geen ritten gepland</h3>
+      <p class="empty-state-description">
+        Er zijn momenteel geen landelijke ritten ingepland. 
+        Check later terug of neem contact op met de club voor meer informatie.
+      </p>
+    `;
+    listEl.appendChild(emptyState);
     return;
   }
 
