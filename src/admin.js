@@ -395,12 +395,15 @@ export function initAdminView() {
   const $ = (id) => document.getElementById(id);
   
   // Detect which admin page we're on based on the current URL
-  const currentPage = window.location.pathname.split('/').pop();
-  const isAdminScan = currentPage === 'admin-scan.html';
-  const isAdminPlanning = currentPage === 'admin-planning.html';
-  const isAdminPasswords = currentPage === 'admin-passwords.html';
-  const isAdminStats = currentPage === 'admin-stats.html';
-  const isIndexPage = currentPage === 'index.html' || currentPage === '';
+  // Support both with and without .html (e.g., clean URLs on Vercel)
+  const fullPath = (window.location.pathname || '/').replace(/\\/g, '/').toLowerCase();
+  const base = fullPath.split('/').filter(Boolean).pop() || 'index.html';
+  const slug = base.replace(/\.html?$/, ''); // e.g. 'admin-scan', 'index'
+  const isAdminScan = slug === 'admin-scan';
+  const isAdminPlanning = slug === 'admin-planning';
+  const isAdminPasswords = slug === 'admin-passwords';
+  const isAdminStats = slug === 'admin-stats';
+  const isIndexPage = slug === 'index' || fullPath === '/';
 
   // Excel upload logic (Planning page)
   if (isAdminPlanning || isIndexPage) {
