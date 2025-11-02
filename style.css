@@ -135,7 +135,7 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
   font-size: 13px;
   font-weight: 700;
   border: 1px solid transparent;
-  margin-right: 6px;
+  margin-top: 6px;
 }
 
 /* Jaarhanger selection badge (same look as lunch) */
@@ -146,7 +146,7 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
   font-size: 13px;
   font-weight: 700;
   border: 1px solid transparent;
-  margin-right: 6px;
+  margin-top: 6px;
 }
 
 .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin: 10px 0; }
