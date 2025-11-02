@@ -371,6 +371,8 @@ if (lunchYes) {
 }
 if (lunchNo) {
   lunchNo.addEventListener("click", async function() {
+    // Reset de keuze eten selectie wanneer "Nee" wordt gekozen
+    _selectedKeuzeEten = [];
     await renderLunchUI("nee");
     await saveLunchChoice();
   });
