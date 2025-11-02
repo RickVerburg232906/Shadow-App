@@ -1041,6 +1041,36 @@ async function generateQrForEntry(entry) {
     const errBox = document.getElementById('error');
     return new Promise((resolve, reject) => {
       if (!qrCanvas) return resolve();
+      // Bepaal dynamisch de beschikbare breedte van de container en schaal de QR hierop
+      try {
+        const parent = qrCanvas.parentElement;
+        const containerWidth = Math.max(180, Math.floor((parent?.clientWidth || qrCanvas.clientWidth || 220)));
+        // Maak canvas visueel 100% breed en houd het vierkant
+        qrCanvas.style.width = '100%';
+        qrCanvas.style.height = 'auto';
+        qrCanvas.style.aspectRatio = '1 / 1';
+        // Render met voldoende resolutie voor scherp beeld op grotere containers
+        // Limiteer naar een redelijke max om performance te bewaren
+        const drawSize = Math.min(containerWidth, 1024);
+        QRCode.toCanvas(qrCanvas, payload, { width: drawSize, margin: 1 }, (err) => {
+          if (err) {
+            const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
+            if (errBox) { 
+              errBox.textContent = errorMsg;
+              errBox.style.display = "block";
+              errBox.style.color = "#fca5a5";
+            }
+            reject(new Error(errorMsg));
+            return;
+          }
+          if (resultBox) resultBox.style.display = 'grid';
+          const privacyEl = document.getElementById("qrPrivacy");
+          if (privacyEl) privacyEl.style.display = "block";
+          resolve();
+        });
+        return; // voorkom fallback render hieronder
+      } catch(_) {}
+      // Fallback render
       QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
         if (err) {
           const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
