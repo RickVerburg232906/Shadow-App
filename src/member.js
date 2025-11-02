@@ -1043,8 +1043,20 @@ async function generateQrForEntry(entry) {
       if (!qrCanvas) return resolve();
       // Bepaal dynamisch de beschikbare breedte van de container en schaal de QR hierop
       try {
+        // Zorg dat het resultaat-element meetbaar is (display:none → 0px breedte)
+        let prevDisplay = "";
+        let prevVisibility = "";
+        if (resultBox) {
+          prevDisplay = resultBox.style.display;
+          prevVisibility = resultBox.style.visibility;
+          resultBox.style.display = 'grid';
+          // verberg tijdelijk om flikkeren te voorkomen terwijl we tekenen
+          resultBox.style.visibility = 'hidden';
+        }
+
         const parent = qrCanvas.parentElement;
-        const containerWidth = Math.max(180, Math.floor((parent?.clientWidth || qrCanvas.clientWidth || 220)));
+        const measured = parent?.clientWidth || qrCanvas.getBoundingClientRect().width || 220;
+        const containerWidth = Math.max(220, Math.floor(measured));
         // Maak canvas visueel 100% breed en houd het vierkant
         qrCanvas.style.width = '100%';
         qrCanvas.style.height = 'auto';
@@ -1063,7 +1075,11 @@ async function generateQrForEntry(entry) {
             reject(new Error(errorMsg));
             return;
           }
-          if (resultBox) resultBox.style.display = 'grid';
+          if (resultBox) {
+            resultBox.style.display = 'grid';
+            // herstel zichtbaarheid zodat de QR nu zichtbaar wordt
+            resultBox.style.visibility = prevVisibility || '';
+          }
           const privacyEl = document.getElementById("qrPrivacy");
           if (privacyEl) privacyEl.style.display = "block";
           resolve();
