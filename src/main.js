@@ -5,6 +5,9 @@ import { db, doc, getDoc, setDoc } from "./firebase.js";
 
 const $ = (id) => document.getElementById(id);
 
+// Prevent multiple parallel admin login prompts
+let __ADMIN_LOGIN_BUSY = false;
+
 // ==== Wachtwoorden uit Firestore (globals/passwords) ====
 let PASSWORDS = null; // { inschrijftafel: string, hoofdadmin: string }
 async function ensurePasswordsLoaded() {
@@ -195,6 +198,13 @@ async function promptPasswordMasked(title = "Wachtwoord", placeholder = "Wachtwo
 
 // Expose a reusable admin login flow so we can re-prompt anywhere
 async function adminLoginFlow(redirectTo) {
+  // Guard: prevent multiple prompts from stacking
+  if (__ADMIN_LOGIN_BUSY) return;
+  __ADMIN_LOGIN_BUSY = true;
+  // Provide simple UI feedback by disabling the Admin tab/button if present
+  const adminTabBtn = document.getElementById("tabAdmin");
+  try { if (adminTabBtn) { adminTabBtn.setAttribute("disabled", "disabled"); adminTabBtn.setAttribute("aria-busy", "true"); adminTabBtn.style.opacity = "0.6"; adminTabBtn.style.cursor = "not-allowed"; } } catch(_) {}
+
   try {
     await ensurePasswordsLoaded();
     const pwd = await promptPasswordMasked("Vul uw wachtwoord in", "Wachtwoord");
@@ -217,6 +227,9 @@ async function adminLoginFlow(redirectTo) {
   } catch (e) {
     console.error(e);
     window.alert("Wachtwoordcontrole mislukt");
+  } finally {
+    __ADMIN_LOGIN_BUSY = false;
+    try { if (adminTabBtn) { adminTabBtn.removeAttribute("disabled"); adminTabBtn.removeAttribute("aria-busy"); adminTabBtn.style.opacity = ""; adminTabBtn.style.cursor = ""; } } catch(_) {}
   }
 }
 window.adminLoginFlow = adminLoginFlow;
@@ -226,7 +239,7 @@ tabMember?.addEventListener("click", () => switchTo("member"));
 
 tabAdmin?.addEventListener("click", async () => {
   // Always re-use shared login flow from the home page tab
-  await adminLoginFlow("admin-scan.html");
+  if (!__ADMIN_LOGIN_BUSY) await adminLoginFlow("admin-scan.html");
 });
 
 // Intercept topbar "Inschrijftafel" nav clicks on admin pages to re-prompt password
@@ -238,8 +251,10 @@ document.addEventListener("click", (ev) => {
     const href = a.getAttribute("href") || "";
     if (/admin-scan\.html$/i.test(href)) {
       ev.preventDefault();
-      // After login, stay on this page by default
-      adminLoginFlow(window.location.pathname);
+      if (!__ADMIN_LOGIN_BUSY) {
+        // After login, stay on this page by default
+        adminLoginFlow(window.location.pathname);
+      }
     }
   }
 }, { passive: false });
