@@ -11,7 +11,8 @@ export default defineConfig({
         adminPlanning: resolve(__dirname, 'admin-planning.html'),
         adminPasswords: resolve(__dirname, 'admin-passwords.html'),
         adminStats: resolve(__dirname, 'admin-stats.html'),
-      }
+        adminLunch: resolve(__dirname, 'admin-lunch.html'),
+      },
     }
   }
 });

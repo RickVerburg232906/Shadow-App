@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shadow Motorclub - Scannen & Handmatig</title>
+    <style>
+      html,body{height:100%;margin:0;background:#0b0c10}
+      .app-splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20000;background:#0b0c10}
+      .splash-inner{width:92vw;text-align:center;padding:20px}
+      .splash-logo{width:110px;height:auto;margin:0 auto 12px;display:block}
+      .splash-progress{height:10px;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin:10px 0}
+      .splash-progress-bar{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);width:0%;transition:width .3s ease}
+    </style>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/assets/manifest-sHx4Fanv.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif">
+    <meta name="theme-color" content="#0f172a">
+    <script src="https://unpkg.com/html5-qrcode" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" crossorigin src="/assets/adminScan-DNRSMGOY.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/main-DGl6lNjc.js">
+    <link rel="modulepreload" crossorigin href="/assets/auth-j86TSB5S.js">
+    <link rel="stylesheet" crossorigin href="/assets/main-qh3BrTsa.css">
+  </head>
+  <body>
+    <div id="appSplash" class="app-splash" aria-hidden="false">
+      <div class="splash-inner">
+        <img src="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif" alt="Shadow" class="splash-logo" />
+        <div class="splash-title">Shadow Motorclub</div>
+        <div class="splash-progress">
+          <div class="splash-progress-bar" id="splashProgressBar" style="width:0%"></div>
+        </div>
+        <div class="splash-caption" id="splashCaption">Laden…</div>
+      </div>
+    </div>
+    
+    <header class="topbar">
+      <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif" alt="Shadow Motorclub logo" width="100" height="30" />
+      <nav class="nav">
+        <a href="index.html" class="tab">Lid</a>
+        <a href="admin-scan.html" class="tab active">Inschrijftafel</a>
+      </nav>
+    </header>
+
+    <main class="wrap">
+      <header class="site-header">
+        <h1>Scannen & Handmatig Registreren</h1>
+      </header>
+
+      <nav class="subtabs" aria-label="Admin secties">
+        <a href="admin-scan.html" class="subtab" aria-pressed="true">Scannen & Handmatig</a>
+        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
+        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
+        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
+        <a href="admin-lunch.html" class="subtab" aria-pressed="false">Lunch inplannen</a>
+      </nav>
+
+      <section id="viewAdmin" class="view active">
+        <div class="card" id="qrScanCard">
+          <h3>QR code scannen</h3>
+          <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
+          <div class="row" style="gap:12px; align-items:center;">
+            <button id="adminScanStart" class="btn">📷 Start scanner</button>
+            <button id="adminScanStop" class="btn btn-ghost">⏸️ Stop</button>
+            <span id="adminQRStatus" class="status"></span>
+          </div>
+          <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
+          <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="card" id="manualRideCard">
+          <h3>Handmatig rit registreren</h3>
+          <p class="muted">Zoek op achternaam (Hoofletter gevoelig), kies het juiste lid en klik op een <em>ritdatum</em> hieronder om direct te registreren.</p>
+          <div class="row">
+            <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
+            <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
+          </div>
+          <ul id="adminManualSuggest" class="suggest" role="listbox" aria-label="Suggesties"></ul>
+          <div id="adminManualError" class="error" style="display:none"></div>
+          <div id="adminManualResult" class="result" style="display:none">
+            <div class="column">
+              <div class="kv"><span class="label">Naam</span><span class="value" id="adminMName">—</span></div>
+              <div class="kv"><span class="label">LidNr</span><span class="value" id="adminMMemberNo">—</span></div>
+              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMRidesCount">—</span></div>
+              <div class="kv"><span class="label">Rit kiezen</span><span class="value"><span id="adminRideHint" class="muted">Kies een ritdatum hieronder.</span></span></div>
+              <div id="adminRideButtons" class="chip-list" role="group" aria-label="Kies ritdatum"></div>
+            </div>
+          </div>
+          <div id="adminManualStatus" class="status"></div>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  </body>
+</html>

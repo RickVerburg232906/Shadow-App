@@ -1,7 +1,7 @@
 // member.js — geplande-sterren met highlight op basis van ScanDatums
 import QRCode from "qrcode";
 import { db } from "./firebase.js";
-import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, setDoc } from "firebase/firestore";
+import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 
 // ------- Planning (geplande datums) -------
 export async function getPlannedDates() {
@@ -141,6 +141,17 @@ export async function initMemberView() {
   const rRegion    = $("rRegion");
   const loadingIndicator = $("loadingIndicator");
 
+  // Lunch keuze UI elementen
+  const lunchChoiceSection = $("lunchChoiceSection");
+  const lunchToggle = $("lunchToggle");
+  const lunchYes = $("lunchYes");
+  const lunchNo = $("lunchNo");
+  const lunchDetailsSection = $("lunchDetailsSection");
+  const vastEtenDisplay = $("vastEtenDisplay");
+  const keuzeEtenButtons = $("keuzeEtenButtons");
+  let _lunchChoice = null; // "ja" of "nee"
+  let _selectedKeuzeEten = []; // array van geselecteerde keuze eten items
+
 // Helper functie voor foutmeldingen
 function getErrorMessage(error) {
   if (!navigator.onLine) {
@@ -185,6 +196,194 @@ function hideError() {
   if (errBox) errBox.style.display = "none";
 }
 
+// --- Lunch keuze functies ---
+async function loadLunchOptions() {
+  try {
+    const lunchRef = doc(db, 'globals', 'lunch');
+    const snap = await getDoc(lunchRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      return {
+        vastEten: Array.isArray(data.vastEten) ? data.vastEten : [],
+        keuzeEten: Array.isArray(data.keuzeEten) ? data.keuzeEten : []
+      };
+    }
+    return { vastEten: [], keuzeEten: [] };
+  } catch (e) {
+    console.error('Fout bij laden lunch opties:', e);
+    return { vastEten: [], keuzeEten: [] };
+  }
+}
+
+function showLunchChoice() {
+  if (lunchChoiceSection) {
+    lunchChoiceSection.style.display = 'block';
+    // Voeg een smooth fade-in animatie toe
+    lunchChoiceSection.style.opacity = '0';
+    lunchChoiceSection.style.transform = 'translateY(-10px)';
+    setTimeout(() => {
+      lunchChoiceSection.style.transition = 'all 0.4s ease';
+      lunchChoiceSection.style.opacity = '1';
+      lunchChoiceSection.style.transform = 'translateY(0)';
+    }, 10);
+  }
+}
+
+function hideLunchChoice() {
+  if (lunchChoiceSection) lunchChoiceSection.style.display = 'none';
+  if (lunchDetailsSection) lunchDetailsSection.style.display = 'none';
+  _lunchChoice = null;
+  _selectedKeuzeEten = [];
+}
+
+async function renderLunchUI(choice) {
+  _lunchChoice = choice;
+  
+  if (lunchYes && lunchNo) {
+    lunchYes.classList.toggle("active", choice === "ja");
+    lunchNo.classList.toggle("active", choice === "nee");
+    lunchYes.classList.toggle("yes", choice === "ja");
+    lunchNo.classList.toggle("no", choice === "nee");
+    lunchYes.setAttribute("aria-checked", String(choice === "ja"));
+    lunchNo.setAttribute("aria-checked", String(choice === "nee"));
+    
+    // Verwijder kleuren van niet-actieve buttons
+    if (choice !== "ja") lunchYes.classList.remove("yes");
+    if (choice !== "nee") lunchNo.classList.remove("no");
+  }
+  
+  if (choice === "nee") {
+    // Verberg lunch details
+    if (lunchDetailsSection) lunchDetailsSection.style.display = 'none';
+    // Toon jaarhanger - maar wacht tot saveLunchChoice klaar is om eventueel bestaande keuze te laden
+    // Dit gebeurt nu via de click handler die await saveLunchChoice() aanroept
+  } else if (choice === "ja") {
+    // Laad en toon lunch details, maar verberg jaarhanger totdat keuze eten is geselecteerd
+    if (lunchDetailsSection) lunchDetailsSection.style.display = 'block';
+    // Verberg jaarhanger totdat een keuze is gemaakt
+    if (yearhangerRow) yearhangerRow.style.display = "none";
+    const info = document.getElementById("jaarhangerInfo");
+    if (info) info.style.display = "none";
+    
+    const { vastEten, keuzeEten } = await loadLunchOptions();
+    
+    // Toon vast eten als tekst
+    if (vastEtenDisplay) {
+      vastEtenDisplay.textContent = vastEten.length > 0 
+        ? vastEten.join(', ') 
+        : 'Geen vast eten beschikbaar';
+    }
+    
+    // Render keuze eten buttons (radio button gedrag - slechts 1 keuze)
+    if (keuzeEtenButtons) {
+      keuzeEtenButtons.innerHTML = '';
+      keuzeEten.forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'seg-btn';
+        btn.textContent = item;
+        btn.style.cssText = `
+          flex: 1 1 auto;
+          min-width: 140px;
+          padding: 14px 20px;
+          font-size: 15px;
+          font-weight: 600;
+          border-radius: 8px;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        `;
+        
+        // Check of dit item al eerder geselecteerd was en markeer het groen
+        if (_selectedKeuzeEten.includes(item)) {
+          btn.classList.add('active', 'yes');
+        }
+        
+        btn.addEventListener('click', async () => {
+          // Verwijder alle active classes van alle buttons (radio gedrag)
+          const allBtns = keuzeEtenButtons.querySelectorAll('button');
+          allBtns.forEach(b => b.classList.remove('active', 'yes'));
+          
+          // Selecteer alleen deze button
+          btn.classList.add('active', 'yes');
+          _selectedKeuzeEten = [item]; // Alleen deze ene keuze opslaan
+          
+          await saveLunchChoice();
+          // Toon jaarhanger direct na keuze
+          renderYearhangerUI(_yearhangerVal || null);
+        });
+        keuzeEtenButtons.appendChild(btn);
+      });
+    }
+    
+    // Toon jaarhanger NIET automatisch - alleen als er al een keuze is gemaakt
+    // Dit wordt gedaan in de button click handler hierboven
+  }
+}
+
+async function saveLunchChoice() {
+  try {
+    if (!selectedDoc || !selectedDoc.id) return;
+    
+    // Sla op als string (eerste item) of null als geen keuze
+    const keuzeEtenValue = _selectedKeuzeEten.length > 0 ? _selectedKeuzeEten[0] : null;
+    
+    await setDoc(doc(db, "members", String(selectedDoc.id)), { 
+      lunchDeelname: _lunchChoice,
+      lunchKeuze: keuzeEtenValue,
+      lunchTimestamp: serverTimestamp()
+    }, { merge: true });
+    
+    // Na het opslaan, check of er al een jaarhanger keuze is
+    // Als lunch keuze "nee" is OF als lunch "ja" is met een keuze eten, en er is al een jaarhanger
+    if (_lunchChoice === "nee" || (_lunchChoice === "ja" && _selectedKeuzeEten.length > 0)) {
+      // Haal de nieuwste data op om te zien of er een jaarhanger keuze is
+      const memberDoc = await getDoc(doc(db, "members", String(selectedDoc.id)));
+      if (memberDoc.exists()) {
+        const data = memberDoc.data();
+        const existingJaarhanger = data?.Jaarhanger;
+        
+        // Als er al een jaarhanger keuze is (Ja of Nee), update de state en genereer QR
+        if (existingJaarhanger === "Ja" || existingJaarhanger === "Nee") {
+          _yearhangerVal = existingJaarhanger;
+          // Render de jaarhanger UI met de bestaande keuze
+          renderYearhangerUI(existingJaarhanger);
+          // Genereer QR code automatisch
+          try {
+            await generateQrForEntry(selectedDoc);
+          } catch (e) {
+            console.error("QR genereren mislukt:", e);
+          }
+        } else {
+          // Geen bestaande jaarhanger keuze, toon de keuze UI
+          renderYearhangerUI(null);
+        }
+      } else {
+        // Document bestaat niet, toon de keuze UI
+        renderYearhangerUI(null);
+      }
+    }
+    
+  } catch (e) {
+    console.error("Lunch keuze opslaan mislukt", e);
+  }
+}
+
+// Lunch keuze event listeners
+if (lunchYes) {
+  lunchYes.addEventListener("click", async function() {
+    await renderLunchUI("ja");
+    await saveLunchChoice();
+  });
+}
+if (lunchNo) {
+  lunchNo.addEventListener("click", async function() {
+    // Reset de keuze eten selectie wanneer "Nee" wordt gekozen
+    _selectedKeuzeEten = [];
+    await renderLunchUI("nee");
+    await saveLunchChoice();
+  });
+}
+
 // --- Jaarhanger UI (segmented Ja/Nee) ---
 let yearhangerRow = document.getElementById("yearhangerRow");
 let yearhangerYes = document.getElementById("yearhangerYes");
@@ -200,6 +399,24 @@ ensureYearhangerUI();
 
 function renderYearhangerUI(val) {
   ensureYearhangerUI();
+  
+  // Controleer eerst of lunch keuze is gemaakt
+  // Als lunch keuze nog niet gemaakt is, toon jaarhanger niet
+  if (_lunchChoice === null) {
+    if (yearhangerRow) yearhangerRow.style.display = "none";
+    const info = document.getElementById("jaarhangerInfo");
+    if (info) info.style.display = "none";
+    return;
+  }
+  
+  // Als lunch keuze "ja" is maar nog geen keuze eten geselecteerd, toon jaarhanger niet
+  if (_lunchChoice === "ja" && _selectedKeuzeEten.length === 0) {
+    if (yearhangerRow) yearhangerRow.style.display = "none";
+    const info = document.getElementById("jaarhangerInfo");
+    if (info) info.style.display = "none";
+    return;
+  }
+  
   const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null; // default Ja
   _yearhangerVal = v;
   if (yearhangerRow) yearhangerRow.style.display = "block";
@@ -375,6 +592,7 @@ if (yearhangerNo) {
     hideResultBox();
     hideLoading();
     hideError();
+    hideLunchChoice();
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
     if (yearhangerRow) yearhangerRow.style.display = "none";
@@ -452,17 +670,117 @@ if (yearhangerNo) {
     }
   }
 
+  // Functie om oude lunch keuzes te verwijderen (ouder dan 1 dag)
+  async function checkAndCleanupOldLunchChoice(memberId, memberData) {
+    try {
+      // Check of er een lunchTimestamp bestaat
+      const lunchTimestamp = memberData.lunchTimestamp;
+      if (!lunchTimestamp) {
+        // Geen timestamp, check of er wel lunch data is
+        if (memberData.lunchDeelname || memberData.lunchKeuze) {
+          // Er is lunch data maar geen timestamp - verwijder het (oude data)
+          await setDoc(doc(db, "members", String(memberId)), {
+            lunchDeelname: null,
+            lunchKeuze: null,
+            lunchTimestamp: null
+          }, { merge: true });
+          console.log(`Oude lunch data verwijderd voor lid ${memberId} (geen timestamp)`);
+        }
+        return;
+      }
+
+      // Converteer timestamp naar milliseconden
+      let timestampMs;
+      if (lunchTimestamp.toMillis) {
+        // Firestore Timestamp object
+        timestampMs = lunchTimestamp.toMillis();
+      } else if (typeof lunchTimestamp === 'number') {
+        // Gewone number timestamp
+        timestampMs = lunchTimestamp;
+      } else {
+        // Onbekend formaat, verwijder de data
+        await setDoc(doc(db, "members", String(memberId)), {
+          lunchDeelname: null,
+          lunchKeuze: null,
+          lunchTimestamp: null
+        }, { merge: true });
+        console.log(`Lunch data verwijderd voor lid ${memberId} (ongeldig timestamp formaat)`);
+        return;
+      }
+
+      // Check of timestamp ouder is dan 1 dag (24 uur = 86400000 ms)
+      const now = Date.now();
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      
+      if (now - timestampMs > oneDayMs) {
+        // Ouder dan 1 dag, verwijder lunch data
+        await setDoc(doc(db, "members", String(memberId)), {
+          lunchDeelname: null,
+          lunchKeuze: null,
+          lunchTimestamp: null
+        }, { merge: true });
+        console.log(`Lunch data verwijderd voor lid ${memberId} (ouder dan 1 dag)`);
+      }
+    } catch (e) {
+      console.error('Fout bij cleanup lunch data:', e);
+      // Continue normaal bij fout
+    }
+  }
+
   async function renderSelected(entry) {
     showLoading();
     hideError();
     
     try {
       const data = entry.data || {};
+      
+      // Check of lunch keuze ouder is dan 1 dag en verwijder indien nodig
+      await checkAndCleanupOldLunchChoice(entry.id, data);
+      
       if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
       if (rName) rName.textContent = fullNameFrom(data);
       if (rMemberNo) rMemberNo.textContent = entry.id;
       const _jh = (entry?.data?.Jaarhanger === "Nee") ? "Nee" : (entry?.data?.Jaarhanger === "Ja" ? "Ja" : "");
-      renderYearhangerUI(_jh || null);
+      
+      // Toon lunch keuze sectie
+      showLunchChoice();
+      
+      // Laad bestaande lunch keuze indien beschikbaar
+      const savedLunchChoice = data.lunchDeelname || null;
+      // Ondersteun zowel oude array als nieuwe string format
+      const savedLunchKeuze = data.lunchKeuze;
+      if (typeof savedLunchKeuze === 'string' && savedLunchKeuze) {
+        _selectedKeuzeEten = [savedLunchKeuze];
+      } else if (Array.isArray(savedLunchKeuze) && savedLunchKeuze.length > 0) {
+        _selectedKeuzeEten = [savedLunchKeuze[0]]; // Neem alleen eerste item
+      } else {
+        _selectedKeuzeEten = [];
+      }
+      
+      if (savedLunchChoice) {
+        // Render lunch UI - buttons worden automatisch correct gemarkeerd via renderLunchUI
+        await renderLunchUI(savedLunchChoice);
+        
+        // Als er al een keuze is gemaakt, toon de jaarhanger
+        if (savedLunchChoice === "nee" || (savedLunchChoice === "ja" && _selectedKeuzeEten.length > 0)) {
+          renderYearhangerUI(_jh || null);
+          
+          // Als er al een jaarhanger keuze is opgeslagen, genereer meteen de QR code
+          if (_jh) {
+            try {
+              await generateQrForEntry(entry);
+            } catch (e) {
+              console.error("QR genereren mislukt:", e);
+            }
+          }
+        }
+      } else {
+        // Geen lunch keuze gemaakt: verberg jaarhanger totdat keuze is gemaakt
+        if (yearhangerRow) yearhangerRow.style.display = "none";
+        const info = document.getElementById("jaarhangerInfo");
+        if (info) info.style.display = "none";
+      }
+      
       // If Jaarhanger is not set, require user to choose before generating QR. Do not auto-set a default.
       // If Jaarhanger already set in Firestore, generate QR immediately.
 
@@ -523,8 +841,11 @@ const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
 renderYearhangerUI(jh || _yearhangerVal || null);
 });
 
-      // QR generation is conditional: only if Jaarhanger already set
-      if (_jh) {
+      // QR generation is conditional: only if Jaarhanger already set AND lunch choice is made
+      const hasLunchChoice = savedLunchChoice !== null;
+      const canShowQR = _jh && hasLunchChoice && (savedLunchChoice === "nee" || (savedLunchChoice === "ja" && _selectedKeuzeEten.length > 0));
+      
+      if (canShowQR) {
         try { 
           await generateQrForEntry(entry);
           hideLoading();
@@ -534,13 +855,12 @@ renderYearhangerUI(jh || _yearhangerVal || null);
           hideLoading();
         }
       } else {
-        // Ensure QR/result are hidden until choice is made
+        // Ensure QR/result are hidden until all choices are made
         hideLoading();
         if (resultBox) resultBox.style.display = 'none';
         const privacyEl = document.getElementById("qrPrivacy");
         if (privacyEl) privacyEl.style.display = 'none';
-        // show yearhanger UI (renderYearhangerUI already done above)
-        if (yearhangerRow) yearhangerRow.style.display = 'block';
+        // Jaarhanger wordt gecontroleerd door renderYearhangerUI zelf
       }
     } catch (e) {
       console.error('renderSelected failed', e);

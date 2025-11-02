@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hoofdadmin – Lunch inplannen</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body data-role="guest">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="brand">Shadow App</div>
+      <nav class="nav" aria-label="Hoofdnavigatie">
+        <a href="/" class="tab" id="btnMember">Lid</a>
+        <a href="/admin-scan.html" class="tab" id="btnAdmin">Inschrijftafel</a>
+      </nav>
+    </header>
+
+    <!-- Subtabs -->
+    <main class="container">
+      <h1>Lunch inplannen</h1>
+
+      <nav class="subtabs" aria-label="Admin secties">
+        <a href="admin-scan.html" class="subtab" aria-pressed="false">Scannen & Handmatig</a>
+        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
+        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
+        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
+        <a href="admin-lunch.html" class="subtab" aria-pressed="true">Lunch inplannen</a>
+      </nav>
+
+      <!-- Page content -->
+      <section class="card" id="cardLunchIntro">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <div style="font-size: 32px;">🍽️</div>
+          <div>
+            <h2 style="margin: 0;">Lunch inplannen</h2>
+            <p style="margin: 4px 0 0 0; color: var(--muted);">Beheer de lunch opties voor alle deelnemers</p>
+          </div>
+        </div>
+        <div style="background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; padding: 12px; border-radius: 6px; margin-top: 16px;">
+          <p style="margin: 0; font-size: 14px;">💡 <strong>Tip:</strong> Alle wijzigingen worden automatisch opgeslagen na 0.5 seconden</p>
+        </div>
+      </section>
+
+      <section class="card" id="cardVastEten">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span style="font-size: 24px;">🥖</span>
+          <h2 style="margin: 0;">Vast eten</h2>
+        </div>
+        <p class="muted" style="margin-bottom: 16px;">Dit eten krijgt iedereen, ongeacht hun keuze</p>
+        <div id="vastEtenList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+          <!-- Dynamische textboxes komen hier -->
+        </div>
+        <button id="btnAddVastEten" type="button" class="btn btn-primary" style="width: 100%;">
+          <span style="font-size: 18px; margin-right: 4px;">+</span> Voeg item toe
+        </button>
+      </section>
+
+      <section class="card" id="cardKeuzeEten">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span style="font-size: 24px;">🍴</span>
+          <h2 style="margin: 0;">Keuze eten</h2>
+        </div>
+        <p class="muted" style="margin-bottom: 16px;">Deelnemers kunnen één optie kiezen (bijv. vegetarisch, halal, vegan)</p>
+        <div id="keuzeEtenList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+          <!-- Dynamische textboxes komen hier -->
+        </div>
+        <button id="btnAddKeuzeEten" type="button" class="btn btn-primary" style="width: 100%;">
+          <span style="font-size: 18px; margin-right: 4px;">+</span> Voeg optie toe
+        </button>
+      </section>
+
+    </main>
+
+    <script type="module">
+      import { checkAdminAuth, applyAdminLevel } from '/src/auth.js';
+      import { initAdminView } from '/src/admin.js';
+      import { db } from '/src/firebase.js';
+      import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+
+      // Guard: alle admins hebben toegang tot lunch planning
+      checkAdminAuth({ redirectTo: '/' });
+      applyAdminLevel();
+
+      // Minimal page bootstrap using existing admin.js infra
+      initAdminView();
+
+      // Firestore reference
+      const lunchRef = doc(db, 'globals', 'lunch');
+
+      // Debounce helper voor auto-save
+      let saveTimeout = null;
+      async function saveLunchData(vastItems, keuzeItems) {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+          try {
+            await setDoc(lunchRef, {
+              vastEten: vastItems,
+              keuzeEten: keuzeItems,
+              updatedAt: serverTimestamp()
+            }, { merge: true });
+            console.log('Lunch data opgeslagen');
+          } catch (e) {
+            console.error('Fout bij opslaan lunch data:', e);
+          }
+        }, 500); // 500ms debounce
+      }
+
+      function collectAllData() {
+        const vastItems = Array.from(vastEtenList.querySelectorAll('input'))
+          .map(inp => inp.value.trim())
+          .filter(Boolean);
+        const keuzeItems = Array.from(keuzeEtenList.querySelectorAll('input'))
+          .map(inp => inp.value.trim())
+          .filter(Boolean);
+        return { vastItems, keuzeItems };
+      }
+
+      // Lightweight, page-local behavior (client-side only placeholder)
+      const el = (id) => document.getElementById(id);
+      const scheduleContainer = el('lunchSchedule');
+      const btnCreate = el('btnLunchCreate');
+      const btnSave = el('btnLunchSave');
+      const btnExport = el('btnLunchExportCsv');
+
+      // ===== Vast eten sectie =====
+      const vastEtenList = el('vastEtenList');
+      const btnAddVastEten = el('btnAddVastEten');
+      let vastEtenCounter = 0;
+
+      function createVastEtenRow(value = '') {
+        const row = document.createElement('div');
+        row.className = 'vast-eten-row';
+        row.style.cssText = `
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          transition: all 0.2s ease;
+        `;
+        
+        row.addEventListener('mouseenter', () => {
+          row.style.background = 'rgba(255, 255, 255, 0.04)';
+          row.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        });
+        row.addEventListener('mouseleave', () => {
+          row.style.background = 'rgba(255, 255, 255, 0.02)';
+          row.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+        });
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = '🥖 Bijv: brood, beleg, fruit, drankjes';
+        input.value = value;
+        input.style.cssText = 'flex: 1; padding: 10px 14px; font-size: 15px;';
+        input.dataset.id = vastEtenCounter++;
+        
+        // Auto-save on input change
+        input.addEventListener('input', () => {
+          const { vastItems, keuzeItems } = collectAllData();
+          saveLunchData(vastItems, keuzeItems);
+        });
+        
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.innerHTML = '✕';
+        btnRemove.style.cssText = `
+          padding: 10px 14px;
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: bold;
+          transition: all 0.2s ease;
+          min-width: 44px;
+        `;
+        btnRemove.addEventListener('mouseenter', () => {
+          btnRemove.style.background = 'rgba(239, 68, 68, 0.2)';
+          btnRemove.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        });
+        btnRemove.addEventListener('mouseleave', () => {
+          btnRemove.style.background = 'rgba(239, 68, 68, 0.1)';
+          btnRemove.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+        });
+        btnRemove.addEventListener('click', () => {
+          row.style.transform = 'scale(0.95)';
+          row.style.opacity = '0';
+          setTimeout(() => {
+            row.remove();
+            const { vastItems, keuzeItems } = collectAllData();
+            saveLunchData(vastItems, keuzeItems);
+          }, 200);
+        });
+        
+        row.appendChild(input);
+        row.appendChild(btnRemove);
+        return row;
+      }
+
+      // Laad bestaande data en voeg standaard 1 lege row toe
+      (async () => {
+        try {
+          const snap = await getDoc(lunchRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            const vastItems = Array.isArray(data.vastEten) ? data.vastEten : [];
+            if (vastItems.length > 0) {
+              vastItems.forEach(item => vastEtenList.appendChild(createVastEtenRow(item)));
+            } else {
+              vastEtenList.appendChild(createVastEtenRow());
+            }
+          } else {
+            vastEtenList.appendChild(createVastEtenRow());
+          }
+        } catch (e) {
+          console.error('Fout bij laden vast eten:', e);
+          vastEtenList.appendChild(createVastEtenRow());
+        }
+      })();
+
+      btnAddVastEten?.addEventListener('click', () => {
+        vastEtenList.appendChild(createVastEtenRow());
+      });
+
+      // ===== Keuze eten sectie =====
+      const keuzeEtenList = el('keuzeEtenList');
+      const btnAddKeuzeEten = el('btnAddKeuzeEten');
+      let keuzeEtenCounter = 0;
+
+      function createKeuzeEtenRow(value = '') {
+        const row = document.createElement('div');
+        row.className = 'keuze-eten-row';
+        row.style.cssText = `
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          transition: all 0.2s ease;
+        `;
+        
+        row.addEventListener('mouseenter', () => {
+          row.style.background = 'rgba(255, 255, 255, 0.04)';
+          row.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        });
+        row.addEventListener('mouseleave', () => {
+          row.style.background = 'rgba(255, 255, 255, 0.02)';
+          row.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+        });
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = '🍴 Bijv: vegetarisch, halal, vegan, glutenvrij';
+        input.value = value;
+        input.style.cssText = 'flex: 1; padding: 10px 14px; font-size: 15px;';
+        input.dataset.id = keuzeEtenCounter++;
+        
+        // Auto-save on input change
+        input.addEventListener('input', () => {
+          const { vastItems, keuzeItems } = collectAllData();
+          saveLunchData(vastItems, keuzeItems);
+        });
+        
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.innerHTML = '✕';
+        btnRemove.style.cssText = `
+          padding: 10px 14px;
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: bold;
+          transition: all 0.2s ease;
+          min-width: 44px;
+        `;
+        btnRemove.addEventListener('mouseenter', () => {
+          btnRemove.style.background = 'rgba(239, 68, 68, 0.2)';
+          btnRemove.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        });
+        btnRemove.addEventListener('mouseleave', () => {
+          btnRemove.style.background = 'rgba(239, 68, 68, 0.1)';
+          btnRemove.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+        });
+        btnRemove.addEventListener('click', () => {
+          row.style.transform = 'scale(0.95)';
+          row.style.opacity = '0';
+          setTimeout(() => {
+            row.remove();
+            const { vastItems, keuzeItems } = collectAllData();
+            saveLunchData(vastItems, keuzeItems);
+          }, 200);
+        });
+        
+        row.appendChild(input);
+        row.appendChild(btnRemove);
+        return row;
+      }
+
+      // Laad bestaande data en voeg standaard 1 lege row toe
+      (async () => {
+        try {
+          const snap = await getDoc(lunchRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            const keuzeItems = Array.isArray(data.keuzeEten) ? data.keuzeEten : [];
+            if (keuzeItems.length > 0) {
+              keuzeItems.forEach(item => keuzeEtenList.appendChild(createKeuzeEtenRow(item)));
+            } else {
+              keuzeEtenList.appendChild(createKeuzeEtenRow());
+            }
+          } else {
+            keuzeEtenList.appendChild(createKeuzeEtenRow());
+          }
+        } catch (e) {
+          console.error('Fout bij laden keuze eten:', e);
+          keuzeEtenList.appendChild(createKeuzeEtenRow());
+        }
+      })();
+
+      btnAddKeuzeEten?.addEventListener('click', () => {
+        keuzeEtenList.appendChild(createKeuzeEtenRow());
+      });
+
+      btnCreate?.addEventListener('click', () => {
+        const days = el('lunchDays').value.trim();
+        const slots = el('lunchSlots').value.trim();
+        if (!days || !slots) {
+          alert('Vul dagen en tijdsloten in.');
+          return;
+        }
+        // Render a simple grid preview client-side for now
+        const dayList = days.split(',').map(s => s.trim()).filter(Boolean);
+        const slotList = slots.split(',').map(s => s.trim()).filter(Boolean);
+        scheduleContainer.innerHTML = '';
+        scheduleContainer.style.display = 'grid';
+        scheduleContainer.style.gridTemplateColumns = `150px repeat(${dayList.length}, 1fr)`;
+        scheduleContainer.style.gap = '8px';
+
+        const headerRow = document.createElement('div');
+        headerRow.className = 'row header';
+        headerRow.appendChild(document.createElement('div')); // empty corner
+        for (const d of dayList) {
+          const cell = document.createElement('div');
+          cell.textContent = d;
+          cell.className = 'cell head';
+          headerRow.appendChild(cell);
+        }
+        scheduleContainer.appendChild(headerRow);
+
+        for (const s of slotList) {
+          const row = document.createElement('div');
+          row.className = 'row';
+          const slotLabel = document.createElement('div');
+          slotLabel.textContent = s;
+          slotLabel.className = 'cell head';
+          row.appendChild(slotLabel);
+          for (const _ of dayList) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Naam';
+            cell.appendChild(input);
+            row.appendChild(cell);
+          }
+          scheduleContainer.appendChild(row);
+        }
+
+        document.getElementById('cardLunchAssign').hidden = false;
+        document.getElementById('cardLunchExport').hidden = false;
+      });
+
+      btnSave?.addEventListener('click', () => {
+        // Placeholder: persist later to Firestore when data model is known
+        alert('Lunchschema opgeslagen (client-side voorbeeld).');
+      });
+
+      btnExport?.addEventListener('click', () => {
+        // Export the grid to CSV (client-side only)
+        const rows = Array.from(scheduleContainer.querySelectorAll('.row'));
+        const csv = rows.map(row => Array.from(row.querySelectorAll('.cell'))
+          .map(cell => {
+            const input = cell.querySelector('input');
+            const v = input ? input.value : cell.textContent || '';
+            return '"' + v.replaceAll('"', '""') + '"';
+          }).join(',')
+        ).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lunchschema.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    </script>
+
+    <!-- Shared app scripts -->
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

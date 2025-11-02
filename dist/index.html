@@ -4,16 +4,42 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shadow Motorclub</title>
+    <!-- Critical inline CSS so splash shows immediately on slow/blank startup (iOS) -->
+    <style>
+      html,body{height:100%;margin:0;background:#0b0c10}
+      .app-splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20000;background:#0b0c10}
+      .splash-inner{width:92vw;text-align:center;padding:20px}
+      .splash-logo{width:110px;height:auto;margin:0 auto 12px;display:block}
+      .splash-progress{height:10px;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin:10px 0}
+      .splash-progress-bar{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);width:0%;transition:width .3s ease}
+    </style>
 
-    <link rel="manifest" href="/assets/manifest-uuYu3y7K.webmanifest">
+    <!-- iOS PWA / splash hints -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- Add device-specific splash images in assets/ (placeholders below) -->
+    <link rel="apple-touch-startup-image" href="/assets/splash-1125x2436.png" media="(device-width:375px) and (device-height:812px) and (-webkit-device-pixel-ratio:3)">
+    <link rel="apple-touch-startup-image" href="/assets/splash-1242x2688.png" media="(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:3)">
+    <link rel="apple-touch-startup-image" href="/assets/splash-828x1792.png" media="(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:2)">
+    <link rel="manifest" href="/assets/manifest-sHx4Fanv.webmanifest">
     <link rel="apple-touch-icon" href="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif">
     <meta name="theme-color" content="#0f172a">
-    <script src="https://unpkg.com/html5-qrcode" defer></script>
-      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script type="module" crossorigin src="/assets/index-dnK7Oidu.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CkbxXqdZ.css">
+    
+    <script type="module" crossorigin src="/assets/main-DGl6lNjc.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/main-qh3BrTsa.css">
   </head>
   <body>
+    <!-- App splash / loader -->
+    <div id="appSplash" class="app-splash" aria-hidden="false">
+      <div class="splash-inner">
+        <img src="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif" alt="Shadow" class="splash-logo" />
+        <div class="splash-title">Shadow Motorclub</div>
+        <div class="splash-progress">
+          <div class="splash-progress-bar" id="splashProgressBar" style="width:0%"></div>
+        </div>
+        <div class="splash-caption" id="splashCaption">Laden…</div>
+      </div>
+    </div>
     <header class="topbar">
       <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif" alt="Shadow Motorclub logo" width="100" height="30"  />
       <nav class="nav">
@@ -46,200 +72,106 @@
   <p id="rideConsentWarn" class="msg" role="status" aria-live="polite"></p>
 </section>
         <section id="landelijkeSignup" data-ride-signup="true" hidden>
-<div class="card">
-          <h1>Inschrijven voor Landelijke rit</h1>
-          <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
-          <div class="row">
-            <input id="nameInput" placeholder="Achternaam..." />
-          </div>
-
-          <ul id="suggestions" class="suggest"></ul>
-          <div id="error" class="error" style="display:none"></div>
-          <div id="result" class="result" style="display:none">
-            <div class="column">
-              <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-              <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-              <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
-              <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
-              <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
+          <div class="card">
+            <h1>Inschrijven voor Landelijke rit</h1>
+            <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
+            
+            <div class="row">
+              <input id="nameInput" placeholder="Achternaam..." />
             </div>
-            <div class="column" style="align-items:center; gap:8px;">
-              <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
-              <div class="small muted" id="qrPrivacy" style="display:none">
-                Privacy: de QR bevat alleen een LidNr, geen naam.
+            
+            <!-- Lunch keuze sectie -->
+            <div id="lunchChoiceSection" style="display:none; margin-top:24px;">
+              <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border-radius: 12px; padding: 20px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                  <span style="font-size: 32px;">🍽️</span>
+                  <div>
+                    <h3 style="margin: 0; font-size: 20px;">Lunch deelname</h3>
+                    <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 14px;">Geef aan of u mee-eet tijdens de lunch</p>
+                  </div>
+                </div>
+                
+                <div class="seg-wrap">
+                  <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze" style="width: 100%;">
+                    <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
+                      ✓ Ja, ik eet mee
+                    </button>
+                    <button type="button" id="lunchNo" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
+                      ✕ Nee, bedankt
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Lunch details (alleen zichtbaar bij "Ja") -->
+                <div id="lunchDetailsSection" style="display:none; margin-top:20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                  <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                      <span style="font-size: 20px;">🥖</span>
+                      <strong style="font-size: 15px;">Vast menu voor iedereen:</strong>
+                    </div>
+                    <p id="vastEtenDisplay" class="muted" style="margin:0; font-size: 14px; line-height: 1.6;">Laden...</p>
+                  </div>
+                  
+                  <div style="margin-bottom:12px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                      <span style="font-size: 20px;">🍴</span>
+                      <strong style="font-size: 15px;">Kies uw voorkeur (selecteer 1 optie):</strong>
+                    </div>
+                    <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:10px;">
+                      <!-- Dynamische keuze buttons komen hier -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div id="yearhangerRow" style="margin-top:8px; display:none;">
+              <div class="seg-wrap">
+                <div class="seg-label"><strong>Wilt u een Jaarhanger?</strong></div>
+                <div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">
+                  <button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false">Ja</button>
+                  <button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false">Nee</button>
+                </div>
+              </div>
+            </div>
+            <div id="jaarhangerInfo" style="display:none; margin: 16px 0 8px 0;">
+              <details class="muted" style="margin-top:4px;">
+                <summary>Wat is een jaarhanger?</summary>
+                <div style="margin-top:8px;">
+                  Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De "moederpin" kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt. De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. Da's pas een collectors item!
+                </div>
+              </details>
+            </div>
+
+            <ul id="suggestions" class="suggest"></ul>
+            <div id="error" class="error" style="display:none"></div>
+            <div id="loadingIndicator" class="loading-indicator" style="display:none;">
+              <div class="spinner"></div>
+              <span class="loading-text">Gegevens laden...</span>
+            </div>
+            <div id="result" class="result" style="display:none">
+              <div class="column">
+                <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+                <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+                <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
+                <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
+                <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
+              </div>
+              <div class="column" style="align-items:center; gap:8px;">
+                <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
+                <div class="small muted" id="qrPrivacy" style="display:none">
+                  Privacy: de QR bevat alleen een LidNr, geen naam.
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </section>
       </section>
 
-      <section id="viewAdmin" class="view">
-  <nav id="adminSubtabs" class="subtabs" aria-label="Hoofdadmin secties" hidden>
-    <button class="subtab" data-admin-tab="1" aria-pressed="true">Tab 1 · Scannen & Handmatig</button>
-    <button class="subtab" data-admin-tab="2" aria-pressed="false">Tab 2 · Planning & Beheer</button>
-    <button class="subtab" data-admin-tab="3" aria-pressed="false">Tab 3 · Wachtwoorden</button>
-    <button class="subtab" data-admin-tab="4" aria-pressed="false">Tab 4 · Inschrijvingen & Sterren</button>
-  </nav>
-
-        <div class="card" id="qrScanCard" data-admin-group="1">
-          <h3>QR code scannen</h3>
-          <p class="muted">Gebruik de camera om QR-codes te scannen en direct gegevens te verwerken.</p>
-          <div class="row" style="gap:12px; align-items:center;">
-            <button id="adminScanStart" class="btn">📷 Start scanner</button>
-            <button id="adminScanStop" class="btn btn-ghost">⏸️ Stop</button>
-            <span id="adminQRStatus" class="status"></span>
-          </div>
-          <div id="adminQRReader" class="qr-reader" style="margin-top:12px;"></div>
-          <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
-        </div>
-
-        <div class="card" id="manualRideCard" data-admin-group="1">
-          <h3>Handmatig rit registreren</h3>
-          <p class="muted">Zoek op achternaam (Hoofletter gevoelig), kies het juiste lid en klik op een <em>ritdatum</em> hieronder om direct te registreren.</p>
-          <div class="row">
-            <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
-            <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
-          </div>
-          <ul id="adminManualSuggest" class="suggest" role="listbox" aria-label="Suggesties"></ul>
-          <div id="adminManualError" class="error" style="display:none"></div>
-          <div id="adminManualResult" class="result" style="display:none">
-            <div class="column">
-              <div class="kv"><span class="label">Naam</span><span class="value" id="adminMName">—</span></div>
-              <div class="kv"><span class="label">LidNr</span><span class="value" id="adminMMemberNo">—</span></div>
-              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMRidesCount">—</span></div>
-              <div class="kv"><span class="label">Rit kiezen</span><span class="value"><span id="adminRideHint" class="muted">Kies een ritdatum hieronder.</span></span></div>
-              <div id="adminRideButtons" class="chip-list" role="group" aria-label="Kies ritdatum"></div>
-              
-            </div>
-          </div>
-          <div id="adminManualStatus" class="status"></div>
-        </div>
-
-        
-        <div class="card" id="ridePlannerCard" data-admin-group="2">
-          <h3>Ritten plannen</h3>
-          <p class="muted">Vul minimaal 5 datums in (6e is optioneel). Dit wordt opgeslagen als globale instelling in Firestore.</p>
-          <div class="row" style="flex-wrap:wrap; gap:10px;">
-            <input type="date" id="rideDate1" />
-            <input type="date" id="rideDate2" />
-            <input type="date" id="rideDate3" />
-            <input type="date" id="rideDate4" />
-            <input type="date" id="rideDate5" />
-            <input type="date" id="rideDate6" />
-          </div>
-          <div class="row" style="gap:12px; align-items:center;">
-            <button id="saveRidePlanBtn" class="btn">Opslaan</button>
-            <button id="reloadRidePlanBtn" class="btn btn-ghost">Herladen</button>
-            <span id="ridePlanStatus" class="status"></span>
-          </div>
-        </div>
-
-        <div class="card" id="excelUploadCard" data-admin-group="2">
-          <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
-          <div class="row">
-            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
-            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-            <span id="fileName" class="file-name">Geen bestand gekozen</span>
-            <button id="uploadBtn">Uploaden</button>
-          </div>
-          <div id="status" class="status"></div>
-          <div id="log" class="log"></div>
-        </div>
-
-        
-        <div class="card" id="rideStatsCard" data-admin-group="4">
-          <h3>Inschrijvingen per rit</h3>
-          <p class="muted">Aantal ingeschreven leden per geplande ritdatum (o.b.v. <code>ScanDatums</code>).</p>
-          <div class="chart-box"><div class="chart-box"><canvas id="rideStatsChart" aria-label="Barchart inschrijvingen per rit"></canvas></div></div>
-          <div class="row" style="gap:12px;align-items:center;margin-top:8px;">
-            <button id="reloadStatsBtn" class="btn btn-ghost">Herladen</button>
-            <span id="rideStatsStatus" class="status"></span>
-          </div>
-        </div>
-
-
-        <div class="card" id="starDistCard" data-admin-group="4">
-          <h3>Sterrenverdeling (Jaarhanger = Ja)</h3>
-          <p class="muted">Aantal leden per aantal sterren (geplande datums vs. geregistreerde <code>ScanDatums</code>) gefilterd op <code>Jaarhanger = Ja</code>.</p>
-          <div class="chart-box"><canvas id="starDistChart" aria-label="Histogram aantal sterren"></canvas></div>
-          <div class="row" style="gap:12px;align-items:center;margin-top:8px;">
-            <button id="reloadStarDistBtn" class="btn btn-ghost">Herladen</button>
-            <span id="starDistStatus" class="status"></span>
-          </div>
-        </div>
-
-        <div class="card" id="exportExcelCard" data-admin-group="4">
-          <h1>Export leden (Excel)</h1>
-          <p class="muted">Exporteer leden uit Firestore met vaste kolommen voor rapportage.</p>
-          <div class="row">
-            <button id="exportExcelBtn" class="btn">Export Excel</button>
-            <span id="exportExcelStatus" class="muted" style="margin-left:8px;"></span>
-          </div>
-          <details class="muted" style="margin-top:8px;">
-            <summary>Kolommen</summary>
-            <code>Naam, Tussen voegsel, Voor letters, Voor naam, ridesCount, regio Omschrijving</code>
-          </details>
-        </div>
-
-        <div class="card" id="resetRidesCard" data-admin-group="2">
-          <h3>Beheer: Ritten resetten</h3>
-          <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (ridesCount) terug naar 0 voor alle leden.</p>
-          <button id="resetRidesBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset alle ritten</button>
-          <div id="resetStatus" class="status"></div>
-        </div>
-
-        <div class="card" id="resetJaarhangerCard" data-admin-group="2">
-          <h3>Beheer: Jaarhanger resetten</h3>
-          <p class="muted">Reset de keuze voor <strong>Jaarhanger</strong> naar leeg voor <em>alle</em> leden. De waarde wordt in Firestore gezet naar een lege string (<code>""</code>).</p>
-          <button id="resetJaarhangerBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset Jaarhanger voor alle leden</button>
-          <div id="resetJaarhangerStatus" class="status"></div>
-        </div>
-
-        <div id="resetModal" class="modal" style="display:none;">
-          <div class="modal-dialog">
-            <div class="modal-header">
-              <h3>Reset alle ritten?</h3>
-              <button id="resetClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
-            </div>
-            <div class="modal-body">
-              <p>Weet je zeker dat je <strong>alle</strong> <code>ridesCount</code> waardes naar <strong>0</strong> wilt zetten?</p>
-              <p class="muted">Deze actie geldt voor alle leden en kan niet ongedaan worden gemaakt.</p>
-            </div>
-            <div class="modal-actions">
-              <button id="resetConfirm" class="btn" style="border-color:#ef4444;">Ja, reset alles</button>
-              <button id="resetCancel" class="btn btn-ghost">Nee, annuleren</button>
-            </div>
-          </div>
-        </div>
-      
-        <div class="card" id="adminPasswordCard" data-admin-group="3">
-          <h3>Wachtwoord inschrijftafel resetten</h3>
-          <p class="muted">Stel hier een nieuw <strong>Admin</strong>-wachtwoord in (voor de inschrijftafel). Dit heeft geen invloed op het <em>hoofdadmin</em>-wachtwoord.</p>
-          <div class="row" style="gap:12px; align-items:center;">
-            <input type="password" id="newAdminPwd" class="input" placeholder="Nieuw admin-wachtwoord" aria-label="Nieuw admin-wachtwoord" />
-            <button id="saveAdminPwd" class="btn">Opslaan</button>
-            <span id="pwdStatus" class="status" aria-live="polite"></span>
-          </div>
-          <div class="small muted" style="margin-top:6px;">Tip: kies iets dat je makkelijk kan delen met de inschrijftafel.</div>
-        </div>
-        
-        <div class="card" id="adminRootPasswordCard" data-admin-group="3">
-          <h3>Hoofdadmin wachtwoord veranderen</h3>
-          <p class="muted">Wijzig het <strong>hoofdadmin</strong>-wachtwoord. Dit is het wachtwoord voor volledige toegang tot alle admin-functies.</p>
-          <div class="row" style="gap:12px; align-items:center;">
-            <input type="password" id="newRootPwd" class="input" placeholder="Nieuw hoofdadmin-wachtwoord" aria-label="Nieuw hoofdadmin-wachtwoord" />
-            <button id="saveRootPwd" class="btn">Opslaan</button>
-            <span id="rootPwdStatus" class="status" aria-live="polite"></span>
-          </div>
-          <div class="small muted" style="margin-top:6px;">Alleen zichtbaar/bruikbaar in hoofdadmin-modus.</div>
-        </div>
-        </section>
+      <!-- Adminsecties zijn verplaatst naar aparte pagina's (admin-*.html). -->
     </main>
 
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
-
-
+
   </body>
 </html>
