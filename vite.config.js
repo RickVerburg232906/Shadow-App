@@ -12,6 +12,7 @@ export default defineConfig({
         adminPasswords: resolve(__dirname, 'admin-passwords.html'),
         adminStats: resolve(__dirname, 'admin-stats.html'),
         adminLunch: resolve(__dirname, 'admin-lunch.html'),
+        adminDev: resolve(__dirname, 'admin-dev.html'),
       },
     }
   }
