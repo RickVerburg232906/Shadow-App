@@ -264,9 +264,11 @@ function showLunchChoice() {
     if (!lunchDetailsElement && lunchChoiceSection) {
       lunchDetailsElement = lunchChoiceSection.querySelector('details');
     }
-    // Start altijd uitgeklapt wanneer de sectie wordt getoond
+    // Bepaal open/dicht op basis van huidige keuze-status
+    // Open alleen als er nog géén keuze is gemaakt, of bij 'ja' zonder gekozen snack
     if (lunchDetailsElement) {
-      lunchDetailsElement.open = true;
+      const shouldOpen = (_lunchChoice === null) || (_lunchChoice === 'ja' && Array.isArray(_selectedKeuzeEten) && _selectedKeuzeEten.length === 0);
+      lunchDetailsElement.open = shouldOpen;
     }
   }
 }
@@ -880,9 +882,6 @@ if (yearhangerNo) {
       if (rMemberNo) rMemberNo.textContent = entry.id;
       const _jh = (entry?.data?.Jaarhanger === "Nee") ? "Nee" : (entry?.data?.Jaarhanger === "Ja" ? "Ja" : "");
       
-      // Toon lunch keuze sectie
-      showLunchChoice();
-      
       // Laad bestaande lunch keuze indien beschikbaar
       const savedLunchChoice = data.lunchDeelname || null;
       // Ondersteun zowel oude array als nieuwe string format
@@ -894,6 +893,9 @@ if (yearhangerNo) {
       } else {
         _selectedKeuzeEten = [];
       }
+      // Toon lunch keuze sectie ná het bepalen van de huidige status, zodat open/dicht correct is
+      _lunchChoice = savedLunchChoice || null;
+      showLunchChoice();
       
       if (savedLunchChoice) {
         // Render lunch UI - buttons worden automatisch correct gemarkeerd via renderLunchUI
