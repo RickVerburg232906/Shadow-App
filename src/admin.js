@@ -16,22 +16,35 @@
     const doAttach = async () => {
       const adminView = document.getElementById("viewAdmin");
       if (!adminView) return; // only in admin
-      const reloadBtn = await waitForElement(() => adminView.querySelector("#" + reloadBtnId));
       const canvas = await waitForElement(() => adminView.querySelector("#" + canvasId));
-      if (!reloadBtn || !canvas) return;
+      if (!canvas) return;
+      const reloadBtn = await waitForElement(() => adminView.querySelector("#" + reloadBtnId));
 
       let btn = document.getElementById(btnId);
       if (!btn) {
         btn = document.createElement("button");
         btn.id = btnId;
         btn.type = "button";
-        btn.className = reloadBtn.className || "btn";
+        btn.className = (reloadBtn && reloadBtn.className) || "btn btn-ghost";
         btn.textContent = "Export JPG";
         btn.style.marginLeft = "8px";
+        btn.style.marginTop = "6px";
       }
-      if (reloadBtn.nextSibling !== btn) {
-        reloadBtn.insertAdjacentElement("afterend", btn);
-      }
+      const placeNextToReload = () => {
+        try { if (reloadBtn && reloadBtn.nextSibling !== btn) reloadBtn.insertAdjacentElement("afterend", btn); } catch(_) {}
+      };
+      const placeBelowChart = () => {
+        try {
+          const chartBox = canvas.parentElement; // .chart-box
+          if (chartBox && chartBox.parentElement) {
+            // Insert after chart-box, before the status row
+            if (btn.parentElement !== chartBox.parentElement) {
+              chartBox.insertAdjacentElement("afterend", btn);
+            }
+          }
+        } catch(_) {}
+      };
+      if (reloadBtn) placeNextToReload(); else placeBelowChart();
 
       const triggerDownload = (blob) => {
         const a = document.createElement("a");
@@ -64,11 +77,9 @@
       };
 
       const ensurePlaced = () => {
-        try {
-          if (reloadBtn.nextSibling !== btn) reloadBtn.insertAdjacentElement("afterend", btn);
-        } catch (_) {}
+        if (reloadBtn) placeNextToReload(); else placeBelowChart();
       };
-      reloadBtn.addEventListener("click", () => setTimeout(ensurePlaced, 0));
+      if (reloadBtn) reloadBtn.addEventListener("click", () => setTimeout(ensurePlaced, 0));
       window.addEventListener("resize", ensurePlaced);
       document.getElementById("adminSubtabs")?.addEventListener("click", () => setTimeout(ensurePlaced, 0));
       if (adminView && window.MutationObserver) {
@@ -404,6 +415,7 @@ export function initAdminView() {
   const isAdminPasswords = slug === 'admin-passwords';
   const isAdminStats = slug === 'admin-stats';
   const isAdminLunch = slug === 'admin-lunch';
+  const isAdminDev = slug === 'admin-dev';
   const isIndexPage = slug === 'index' || fullPath === '/';
 
   // Excel upload logic (Planning page)
@@ -553,6 +565,25 @@ export function initAdminView() {
     try { attachChartExportJPGNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistJPG", "sterrenverdeling.jpg"); } catch(_) {}
     try { attachChartExportJPGNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsJPG", "inschrijvingen-per-rit.jpg"); } catch(_) {}
   }
+
+  // Dev tools page: reset Jaarhanger en Lunch
+  if (isAdminDev || isIndexPage) {
+    const resetJBtn = document.getElementById("resetJaarhangerBtn");
+    const resetJStatus = document.getElementById("resetJaarhangerStatus");
+    resetJBtn?.addEventListener("click", async () => {
+      const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
+      if (!ok) return;
+      await resetAllJaarhanger(resetJStatus);
+    });
+
+    const resetLBtn = document.getElementById("resetLunchBtn");
+    const resetLStatus = document.getElementById("resetLunchStatus");
+    resetLBtn?.addEventListener("click", async () => {
+      const ok = window.confirm("Weet je zeker dat je ALLE lunchgegevens (deelname/keuze/timestamp/ritdatum) voor alle leden wilt resetten? Dit kan niet ongedaan worden gemaakt.");
+      if (!ok) return;
+      await resetAllLunch(resetLStatus);
+    });
+  }
 }
 
 // =====================================================
@@ -569,7 +600,6 @@ function initRidePlannerSection() {
   const d4 = $("rideDate4");
   const d5 = $("rideDate5");
   const d6 = $("rideDate6");
-  const saveBtn = $("saveRidePlanBtn");
   const reloadBtn = $("reloadRidePlanBtn");
   const statusEl = $("ridePlanStatus");
 
@@ -587,9 +617,11 @@ function initRidePlannerSection() {
     [d1,d2,d3,d4,d5,d6].forEach((el, i) => { if (el) el.value = vals[i] || ""; });
   }
 
+  let isLoadingPlan = false;
   async function loadPlan() {
     try {
       setStatus("Laden…");
+      isLoadingPlan = true;
       const snap = await getDoc(planRef);
       if (snap.exists()) {
         const data = snap.data() || {};
@@ -603,6 +635,8 @@ function initRidePlannerSection() {
     } catch (e) {
       console.error("[ridePlan] loadPlan error", e);
       setStatus("❌ Laden mislukt (controleer regels/verbinding)", false);
+    } finally {
+      isLoadingPlan = false;
     }
   }
 
@@ -629,7 +663,19 @@ function initRidePlannerSection() {
     }
   }
 
-  saveBtn?.addEventListener("click", savePlan);
+  // Auto-save bij wijzigingen (debounced)
+  let saveDebounce = null;
+  function scheduleSave() {
+    if (isLoadingPlan) return; // negeer events veroorzaakt door loadPlan()
+    setStatus("Wijziging gedetecteerd…", true);
+    clearTimeout(saveDebounce);
+    saveDebounce = setTimeout(() => { savePlan(); }, 600);
+  }
+  [d1,d2,d3,d4,d5,d6].forEach(el => {
+    if (!el) return;
+    el.addEventListener('input', scheduleSave, { passive: true });
+    el.addEventListener('change', scheduleSave, { passive: true });
+  });
   reloadBtn?.addEventListener("click", loadPlan);
 
   // Auto-load bij openen Admin tab
@@ -1170,6 +1216,47 @@ async function resetAllJaarhanger(statusEl) {
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten Jaarhanger: ${e?.message || e}`;
+  }
+}
+
+// ===== Firestore helper: reset alle Lunch velden in batches ======
+async function resetAllLunch(statusEl) {
+  if (!statusEl) return;
+  statusEl.textContent = "Voorbereiden…";
+  let total = 0;
+
+  try {
+    let last = null;
+    const pageSize = 400; // veilig onder batch-limiet
+
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) break;
+
+      let batch = writeBatch(db);
+      snapshot.forEach((docSnap) => {
+        batch.set(doc(db, "members", docSnap.id), {
+          lunchDeelname: null,
+          lunchKeuze: null,
+          lunchTimestamp: null,
+          lunchRideDateYMD: null
+        }, { merge: true });
+      });
+      await batch.commit();
+      total += snapshot.size;
+      statusEl.textContent = `Lunch gereset voor: ${total} leden…`;
+
+      last = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < pageSize) break;
+    }
+
+    statusEl.textContent = `✅ Klaar. Lunchgegevens gereset voor ${total} leden.`;
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = `❌ Fout bij resetten Lunch: ${e?.message || e}`;
   }
 }
 
