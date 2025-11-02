@@ -149,6 +149,9 @@ export async function initMemberView() {
   const lunchDetailsSection = $("lunchDetailsSection");
   const vastEtenDisplay = $("vastEtenDisplay");
   const keuzeEtenButtons = $("keuzeEtenButtons");
+  const lunchSelectionBadge = $("lunchSelectionBadge");
+  const lunchSummaryText = $("lunchSummaryText");
+  let lunchDetailsElement = null; // Reference to the details element
   let _lunchChoice = null; // "ja" of "nee"
   let _selectedKeuzeEten = []; // array van geselecteerde keuze eten items
 
@@ -226,6 +229,23 @@ function showLunchChoice() {
       lunchChoiceSection.style.opacity = '1';
       lunchChoiceSection.style.transform = 'translateY(0)';
     }, 10);
+    
+    // Vind het details element
+    if (!lunchDetailsElement && lunchChoiceSection) {
+      lunchDetailsElement = lunchChoiceSection.querySelector('details');
+    }
+    // Start altijd uitgeklapt wanneer de sectie wordt getoond
+    if (lunchDetailsElement) {
+      lunchDetailsElement.open = true;
+    }
+  }
+}
+
+function collapseLunchSection() {
+  if (lunchDetailsElement) {
+    setTimeout(() => {
+      lunchDetailsElement.open = false;
+    }, 300); // Kleine vertraging voor smooth UX
   }
 }
 
@@ -234,6 +254,46 @@ function hideLunchChoice() {
   if (lunchDetailsSection) lunchDetailsSection.style.display = 'none';
   _lunchChoice = null;
   _selectedKeuzeEten = [];
+  // Reset button states so nothing appears selected by default
+  try {
+    const yesBtn = document.getElementById('lunchYes');
+    const noBtn = document.getElementById('lunchNo');
+    if (yesBtn) {
+      yesBtn.classList.remove('active', 'yes');
+      yesBtn.setAttribute('aria-checked', 'false');
+    }
+    if (noBtn) {
+      noBtn.classList.remove('active', 'no');
+      noBtn.setAttribute('aria-checked', 'false');
+    }
+  } catch(_) {}
+  updateLunchBadge();
+}
+
+function updateLunchBadge() {
+  if (!lunchSelectionBadge) return;
+  
+  if (_lunchChoice === "ja" && _selectedKeuzeEten.length > 0) {
+    lunchSelectionBadge.textContent = `✓ Ja · ${_selectedKeuzeEten[0]}`;
+    lunchSelectionBadge.style.display = 'block';
+    lunchSelectionBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+    lunchSelectionBadge.style.color = '#10b981';
+    lunchSelectionBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+  } else if (_lunchChoice === "nee") {
+    lunchSelectionBadge.textContent = '✕ Nee';
+    lunchSelectionBadge.style.display = 'block';
+    lunchSelectionBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+    lunchSelectionBadge.style.color = '#ef4444';
+    lunchSelectionBadge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+  } else if (_lunchChoice === "ja" && _selectedKeuzeEten.length === 0) {
+    lunchSelectionBadge.textContent = '✓ Ja · Maak een keuze';
+    lunchSelectionBadge.style.display = 'block';
+    lunchSelectionBadge.style.background = 'rgba(251, 191, 36, 0.2)';
+    lunchSelectionBadge.style.color = '#fbbf24';
+    lunchSelectionBadge.style.border = '1px solid rgba(251, 191, 36, 0.3)';
+  } else {
+    lunchSelectionBadge.style.display = 'none';
+  }
 }
 
 async function renderLunchUI(choice) {
@@ -257,6 +317,8 @@ async function renderLunchUI(choice) {
     if (lunchDetailsSection) lunchDetailsSection.style.display = 'none';
     // Toon jaarhanger - maar wacht tot saveLunchChoice klaar is om eventueel bestaande keuze te laden
     // Dit gebeurt nu via de click handler die await saveLunchChoice() aanroept
+    updateLunchBadge();
+    collapseLunchSection(); // Klap sectie in na "nee" keuze
   } else if (choice === "ja") {
     // Laad en toon lunch details, maar verberg jaarhanger totdat keuze eten is geselecteerd
     if (lunchDetailsSection) lunchDetailsSection.style.display = 'block';
@@ -307,13 +369,19 @@ async function renderLunchUI(choice) {
           btn.classList.add('active', 'yes');
           _selectedKeuzeEten = [item]; // Alleen deze ene keuze opslaan
           
+          updateLunchBadge();
           await saveLunchChoice();
           // Toon jaarhanger direct na keuze
           renderYearhangerUI(_yearhangerVal || null);
+          // Klap sectie in na keuze eten selectie
+          collapseLunchSection();
         });
         keuzeEtenButtons.appendChild(btn);
       });
     }
+    
+    // Update badge ook als "ja" is gekozen zonder keuze eten
+    updateLunchBadge();
     
     // Toon jaarhanger NIET automatisch - alleen als er al een keuze is gemaakt
     // Dit wordt gedaan in de button click handler hierboven
@@ -760,6 +828,9 @@ if (yearhangerNo) {
       if (savedLunchChoice) {
         // Render lunch UI - buttons worden automatisch correct gemarkeerd via renderLunchUI
         await renderLunchUI(savedLunchChoice);
+        
+        // Update de badge met de opgeslagen keuze
+        updateLunchBadge();
         
         // Als er al een keuze is gemaakt, toon de jaarhanger
         if (savedLunchChoice === "nee" || (savedLunchChoice === "ja" && _selectedKeuzeEten.length > 0)) {

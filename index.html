@@ -12,6 +12,17 @@
       .splash-logo{width:110px;height:auto;margin:0 auto 12px;display:block}
       .splash-progress{height:10px;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin:10px 0}
       .splash-progress-bar{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);width:0%;transition:width .3s ease}
+      
+      /* Lunch details inklapbaar styling */
+      details[open] summary .toggle-icon {
+        transform: rotate(180deg);
+      }
+      details summary::-webkit-details-marker {
+        display: none;
+      }
+      details summary::marker {
+        display: none;
+      }
     </style>
     <link rel="stylesheet" href="/style.css">
 
@@ -81,47 +92,53 @@
             
             <!-- Lunch keuze sectie -->
             <div id="lunchChoiceSection" style="display:none; margin-top:24px;">
-              <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border-radius: 12px; padding: 20px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+              <details open style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border-radius: 12px; padding: 20px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <summary style="cursor: pointer; list-style: none; user-select: none; display: flex; align-items: center; gap: 12px;">
                   <span style="font-size: 32px;">🍽️</span>
-                  <div>
+                  <div style="flex: 1;">
                     <h3 style="margin: 0; font-size: 20px;">Lunch deelname</h3>
-                    <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 14px;">Geef aan of u mee-eet tijdens de lunch</p>
+                    <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 14px;">
+                      <span id="lunchSummaryText">Geef aan of u mee-eet tijdens de lunch</span>
+                    </p>
                   </div>
-                </div>
+                  <span id="lunchSelectionBadge" style="display: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap;"></span>
+                  <span class="toggle-icon" style="font-size: 24px; transition: transform 0.3s ease;">▼</span>
+                </summary>
                 
-                <div class="seg-wrap">
-                  <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze" style="width: 100%;">
-                    <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                      ✓ Ja, ik eet mee
-                    </button>
-                    <button type="button" id="lunchNo" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                      ✕ Nee, bedankt
-                    </button>
-                  </div>
-                </div>
-                
-                <!-- Lunch details (alleen zichtbaar bij "Ja") -->
-                <div id="lunchDetailsSection" style="display:none; margin-top:20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                  <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                      <span style="font-size: 20px;">🥖</span>
-                      <strong style="font-size: 15px;">Vast menu voor iedereen:</strong>
+                <div class="lunch-content" style="margin-top: 16px;">
+                  <div class="seg-wrap">
+                    <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze" style="width: 100%;">
+                      <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
+                        ✓ Ja, ik eet mee
+                      </button>
+                      <button type="button" id="lunchNo" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
+                        ✕ Nee, bedankt
+                      </button>
                     </div>
-                    <p id="vastEtenDisplay" class="muted" style="margin:0; font-size: 14px; line-height: 1.6;">Laden...</p>
                   </div>
                   
-                  <div style="margin-bottom:12px;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                      <span style="font-size: 20px;">🍴</span>
-                      <strong style="font-size: 15px;">Kies uw voorkeur (selecteer 1 optie):</strong>
+                  <!-- Lunch details (alleen zichtbaar bij "Ja") -->
+                  <div id="lunchDetailsSection" style="display:none; margin-top:20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 20px;">🥖</span>
+                        <strong style="font-size: 15px;">Vast menu voor iedereen:</strong>
+                      </div>
+                      <p id="vastEtenDisplay" class="muted" style="margin:0; font-size: 14px; line-height: 1.6;">Laden...</p>
                     </div>
-                    <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:10px;">
-                      <!-- Dynamische keuze buttons komen hier -->
+                    
+                    <div style="margin-bottom:12px;">
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <span style="font-size: 20px;">🍴</span>
+                        <strong style="font-size: 15px;">Kies uw voorkeur (selecteer 1 optie):</strong>
+                      </div>
+                      <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:10px;">
+                        <!-- Dynamische keuze buttons komen hier -->
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </details>
             </div>
             
             <div id="yearhangerRow" style="margin-top:8px; display:none;">
