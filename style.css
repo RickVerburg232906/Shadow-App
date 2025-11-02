@@ -101,11 +101,13 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
   list-style: none;
   user-select: none;
 }
-#lunchChoiceSection details[open] summary .toggle-icon { transform: rotate(180deg); }
+#lunchChoiceSection details summary .toggle-icon { transform: rotate(-90deg); }
+#lunchChoiceSection details[open] summary .toggle-icon { transform: rotate(0deg); }
 #lunchChoiceSection summary::-webkit-details-marker { display: none; }
 #lunchChoiceSection summary::marker { display: none; }
 
 /* Collapsible Jaarhanger section (same style as lunch) */
+#yearhangerRow { margin-bottom: 16px; }
 #yearhangerRow details {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
   border: 1px solid rgba(59, 130, 246, 0.18);
@@ -120,7 +122,8 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
   list-style: none;
   user-select: none;
 }
-#yearhangerRow details[open] summary .toggle-icon { transform: rotate(180deg); }
+#yearhangerRow details summary .toggle-icon { transform: rotate(-90deg); }
+#yearhangerRow details[open] summary .toggle-icon { transform: rotate(0deg); }
 #yearhangerRow summary::-webkit-details-marker { display: none; }
 #yearhangerRow summary::marker { display: none; }
 
@@ -229,7 +232,11 @@ select:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); borde
 .qr-reader { width:100%; min-height: 240px; border:1px dashed #334155; border-radius:12px; padding:8px; }
 
 .qr-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
-canvas#qrCanvas { width: 70vw; height: auto; max-width: 320px; }
+canvas#qrCanvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
 canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
 
 /* Toasts: root fixed above safe area, single styling for .toast */

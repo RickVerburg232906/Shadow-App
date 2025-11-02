@@ -219,6 +219,35 @@ async function loadLunchOptions() {
   }
 }
 
+// Helpers om datums te vergelijken in lokale tijd (YYYY-MM-DD)
+function todayYMD() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function toYMDString(value) {
+  try {
+    if (typeof value === 'string' && /\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0,10);
+    const d = new Date(value);
+    if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return '';
+  } catch { return ''; }
+}
+
+async function getNextPlannedRideYMD() {
+  try {
+    const planned = await getPlannedDates();
+    const list = (Array.isArray(planned) ? planned : []).map(toYMDString).filter(Boolean).sort();
+    const today = todayYMD();
+    // Kies de eerste datum die vandaag of later is
+    const next = list.find(d => d >= today);
+    return next || '';
+  } catch (_) { return ''; }
+}
+
 function showLunchChoice() {
   if (lunchChoiceSection) {
     lunchChoiceSection.style.display = 'block';
@@ -395,11 +424,14 @@ async function saveLunchChoice() {
     
     // Sla op als string (eerste item) of null als geen keuze
     const keuzeEtenValue = _selectedKeuzeEten.length > 0 ? _selectedKeuzeEten[0] : null;
+    // Koppel keuze aan de eerstvolgende ritdatum (vandaag of later)
+    const rideYMD = await getNextPlannedRideYMD();
     
     await setDoc(doc(db, "members", String(selectedDoc.id)), { 
       lunchDeelname: _lunchChoice,
       lunchKeuze: keuzeEtenValue,
-      lunchTimestamp: serverTimestamp()
+      lunchTimestamp: serverTimestamp(),
+      lunchRideDateYMD: rideYMD || null
     }, { merge: true });
     
     // Na het opslaan, check of er al een jaarhanger keuze is
@@ -665,7 +697,15 @@ if (yearhangerNo) {
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
       li.addEventListener("click", async () => {
         selectedDoc = it;
-        // keep the user's typed input intact; do not overwrite with the selected member's name
+        // Toon de geselecteerde naam in het invoerveld zodat duidelijk is wie is gekozen
+        try {
+          if (nameInput) {
+            nameInput.value = li.textContent || (fullNameFrom(it.data) + ` — ${it.id}`);
+            // Plaats de cursor aan het eind (visuele bevestiging, geen nieuw input event)
+            const len = nameInput.value.length;
+            nameInput.setSelectionRange?.(len, len);
+          }
+        } catch(_) {}
         await renderSelected(it);
         hideSuggestions();
       });
@@ -800,57 +840,28 @@ if (yearhangerNo) {
   // Functie om oude lunch keuzes te verwijderen (ouder dan 1 dag)
   async function checkAndCleanupOldLunchChoice(memberId, memberData) {
     try {
-      // Check of er een lunchTimestamp bestaat
-      const lunchTimestamp = memberData.lunchTimestamp;
-      if (!lunchTimestamp) {
-        // Geen timestamp, check of er wel lunch data is
-        if (memberData.lunchDeelname || memberData.lunchKeuze) {
-          // Er is lunch data maar geen timestamp - verwijder het (oude data)
-          await setDoc(doc(db, "members", String(memberId)), {
-            lunchDeelname: null,
-            lunchKeuze: null,
-            lunchTimestamp: null
-          }, { merge: true });
-          console.log(`Oude lunch data verwijderd voor lid ${memberId} (geen timestamp)`);
-        }
+      // Als er geen lunchkeuze is, niets te doen
+      if (!memberData || (!memberData.lunchDeelname && !memberData.lunchKeuze)) return;
+
+      const rideYMD = typeof memberData.lunchRideDateYMD === 'string' ? memberData.lunchRideDateYMD.slice(0,10) : '';
+      if (!rideYMD) {
+        // Als er geen gekoppelde ritdatum is, wijzig niets (we verwijderen niets op tijd alleen).
         return;
       }
 
-      // Converteer timestamp naar milliseconden
-      let timestampMs;
-      if (lunchTimestamp.toMillis) {
-        // Firestore Timestamp object
-        timestampMs = lunchTimestamp.toMillis();
-      } else if (typeof lunchTimestamp === 'number') {
-        // Gewone number timestamp
-        timestampMs = lunchTimestamp;
-      } else {
-        // Onbekend formaat, verwijder de data
+      const today = todayYMD();
+      // Verwijder keuze wanneer de dag NA de rit is aangebroken (today > rideYMD)
+      if (today > rideYMD) {
         await setDoc(doc(db, "members", String(memberId)), {
           lunchDeelname: null,
           lunchKeuze: null,
-          lunchTimestamp: null
+          lunchTimestamp: null,
+          lunchRideDateYMD: null
         }, { merge: true });
-        console.log(`Lunch data verwijderd voor lid ${memberId} (ongeldig timestamp formaat)`);
-        return;
-      }
-
-      // Check of timestamp ouder is dan 1 dag (24 uur = 86400000 ms)
-      const now = Date.now();
-      const oneDayMs = 24 * 60 * 60 * 1000;
-      
-      if (now - timestampMs > oneDayMs) {
-        // Ouder dan 1 dag, verwijder lunch data
-        await setDoc(doc(db, "members", String(memberId)), {
-          lunchDeelname: null,
-          lunchKeuze: null,
-          lunchTimestamp: null
-        }, { merge: true });
-        console.log(`Lunch data verwijderd voor lid ${memberId} (ouder dan 1 dag)`);
+        console.log(`Lunch keuze gewist voor lid ${memberId} — rit ${rideYMD} voorbij (${today}).`);
       }
     } catch (e) {
-      console.error('Fout bij cleanup lunch data:', e);
-      // Continue normaal bij fout
+      console.error('Fout bij cleanup lunch data (op basis van ritdatum):', e);
     }
   }
 
@@ -1030,6 +1041,36 @@ async function generateQrForEntry(entry) {
     const errBox = document.getElementById('error');
     return new Promise((resolve, reject) => {
       if (!qrCanvas) return resolve();
+      // Bepaal dynamisch de beschikbare breedte van de container en schaal de QR hierop
+      try {
+        const parent = qrCanvas.parentElement;
+        const containerWidth = Math.max(180, Math.floor((parent?.clientWidth || qrCanvas.clientWidth || 220)));
+        // Maak canvas visueel 100% breed en houd het vierkant
+        qrCanvas.style.width = '100%';
+        qrCanvas.style.height = 'auto';
+        qrCanvas.style.aspectRatio = '1 / 1';
+        // Render met voldoende resolutie voor scherp beeld op grotere containers
+        // Limiteer naar een redelijke max om performance te bewaren
+        const drawSize = Math.min(containerWidth, 1024);
+        QRCode.toCanvas(qrCanvas, payload, { width: drawSize, margin: 1 }, (err) => {
+          if (err) {
+            const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
+            if (errBox) { 
+              errBox.textContent = errorMsg;
+              errBox.style.display = "block";
+              errBox.style.color = "#fca5a5";
+            }
+            reject(new Error(errorMsg));
+            return;
+          }
+          if (resultBox) resultBox.style.display = 'grid';
+          const privacyEl = document.getElementById("qrPrivacy");
+          if (privacyEl) privacyEl.style.display = "block";
+          resolve();
+        });
+        return; // voorkom fallback render hieronder
+      } catch(_) {}
+      // Fallback render
       QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
         if (err) {
           const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
