@@ -52,8 +52,23 @@
         <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
         <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
         <a href="admin-lunch.html" class="subtab" aria-pressed="false">Lunch inplannen</a>
+        <a href="admin-dev.html" class="subtab" aria-pressed="false">Dev</a>
+
       </nav>
 
+        <div class="card" id="excelUploadCard">
+          <h1>Admin: Excel uploaden</h1>
+          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
+          <div class="row">
+            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
+            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
+            <span id="fileName" class="file-name">Geen bestand gekozen</span>
+            <button id="uploadBtn">Uploaden</button>
+          </div>
+          <div id="status" class="status"></div>
+          <div id="log" class="log"></div>
+        </div>
+        
       <section id="viewAdmin" class="view active">
         <div class="card" id="ridePlannerCard">
           <h3>Ritten plannen</h3>
@@ -73,48 +88,11 @@
           </div>
         </div>
 
-        <div class="card" id="excelUploadCard">
-          <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
-          <div class="row">
-            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
-            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-            <span id="fileName" class="file-name">Geen bestand gekozen</span>
-            <button id="uploadBtn">Uploaden</button>
-          </div>
-          <div id="status" class="status"></div>
-          <div id="log" class="log"></div>
-        </div>
-
         <div class="card" id="resetRidesCard">
           <h3>Beheer: Ritten resetten</h3>
           <p class="muted">Zet <strong>alle</strong> geregistreerde ritten (ridesCount) terug naar 0 voor alle leden.</p>
           <button id="resetRidesBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset alle ritten</button>
           <div id="resetStatus" class="status"></div>
-        </div>
-
-        <div class="card" id="resetJaarhangerCard">
-          <h3>Beheer: Jaarhanger resetten</h3>
-          <p class="muted">Reset de keuze voor <strong>Jaarhanger</strong> naar leeg voor <em>alle</em> leden. De waarde wordt in Firestore gezet naar een lege string (<code>""</code>).</p>
-          <button id="resetJaarhangerBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset Jaarhanger voor alle leden</button>
-          <div id="resetJaarhangerStatus" class="status"></div>
-        </div>
-
-        <div id="resetModal" class="modal" style="display:none;">
-          <div class="modal-dialog">
-            <div class="modal-header">
-              <h3>Reset alle ritten?</h3>
-              <button id="resetClose" class="btn btn-ghost" aria-label="Sluiten">✕</button>
-            </div>
-            <div class="modal-body">
-              <p>Weet je zeker dat je <strong>alle</strong> <code>ridesCount</code> waardes naar <strong>0</strong> wilt zetten?</p>
-              <p class="muted">Deze actie geldt voor alle leden en kan niet ongedaan worden gemaakt.</p>
-            </div>
-            <div class="modal-actions">
-              <button id="resetConfirm" class="btn" style="border-color:#ef4444;">Ja, reset alles</button>
-              <button id="resetCancel" class="btn btn-ghost">Nee, annuleren</button>
-            </div>
-          </div>
         </div>
       </section>
     </main>

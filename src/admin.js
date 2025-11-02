@@ -404,6 +404,7 @@ export function initAdminView() {
   const isAdminPasswords = slug === 'admin-passwords';
   const isAdminStats = slug === 'admin-stats';
   const isAdminLunch = slug === 'admin-lunch';
+  const isAdminDev = slug === 'admin-dev';
   const isIndexPage = slug === 'index' || fullPath === '/';
 
   // Excel upload logic (Planning page)
@@ -552,6 +553,25 @@ export function initAdminView() {
 
     try { attachChartExportJPGNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistJPG", "sterrenverdeling.jpg"); } catch(_) {}
     try { attachChartExportJPGNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsJPG", "inschrijvingen-per-rit.jpg"); } catch(_) {}
+  }
+
+  // Dev tools page: reset Jaarhanger en Lunch
+  if (isAdminDev || isIndexPage) {
+    const resetJBtn = document.getElementById("resetJaarhangerBtn");
+    const resetJStatus = document.getElementById("resetJaarhangerStatus");
+    resetJBtn?.addEventListener("click", async () => {
+      const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
+      if (!ok) return;
+      await resetAllJaarhanger(resetJStatus);
+    });
+
+    const resetLBtn = document.getElementById("resetLunchBtn");
+    const resetLStatus = document.getElementById("resetLunchStatus");
+    resetLBtn?.addEventListener("click", async () => {
+      const ok = window.confirm("Weet je zeker dat je ALLE lunchgegevens (deelname/keuze/timestamp/ritdatum) voor alle leden wilt resetten? Dit kan niet ongedaan worden gemaakt.");
+      if (!ok) return;
+      await resetAllLunch(resetLStatus);
+    });
   }
 }
 
@@ -1170,6 +1190,47 @@ async function resetAllJaarhanger(statusEl) {
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten Jaarhanger: ${e?.message || e}`;
+  }
+}
+
+// ===== Firestore helper: reset alle Lunch velden in batches ======
+async function resetAllLunch(statusEl) {
+  if (!statusEl) return;
+  statusEl.textContent = "Voorbereiden…";
+  let total = 0;
+
+  try {
+    let last = null;
+    const pageSize = 400; // veilig onder batch-limiet
+
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) break;
+
+      let batch = writeBatch(db);
+      snapshot.forEach((docSnap) => {
+        batch.set(doc(db, "members", docSnap.id), {
+          lunchDeelname: null,
+          lunchKeuze: null,
+          lunchTimestamp: null,
+          lunchRideDateYMD: null
+        }, { merge: true });
+      });
+      await batch.commit();
+      total += snapshot.size;
+      statusEl.textContent = `Lunch gereset voor: ${total} leden…`;
+
+      last = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < pageSize) break;
+    }
+
+    statusEl.textContent = `✅ Klaar. Lunchgegevens gereset voor ${total} leden.`;
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = `❌ Fout bij resetten Lunch: ${e?.message || e}`;
   }
 }
 
