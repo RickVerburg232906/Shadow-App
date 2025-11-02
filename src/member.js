@@ -149,12 +149,16 @@ export async function initMemberView() {
   const lunchDetailsSection = $("lunchDetailsSection");
   const vastEtenDisplay = $("vastEtenDisplay");
   const keuzeEtenButtons = $("keuzeEtenButtons");
+  const keuzeEtenSection = $("keuzeEtenSection");
   const lunchSelectionBadge = $("lunchSelectionBadge");
   const lunchSummaryText = $("lunchSummaryText");
+  const lunchScannedDisclaimer = $("lunchScannedDisclaimer");
+  const lunchDeadlineInfo = $("lunchDeadlineInfo");
   const jaarhangerSelectionBadge = $("jaarhangerSelectionBadge");
   let lunchDetailsElement = null; // Reference to the details element
   let _lunchChoice = null; // "ja" of "nee"
   let _selectedKeuzeEten = []; // array van geselecteerde keuze eten items
+  let _isScannedForRide = false; // flag om bij te houden of lid al gescand is
 
 // Helper functie voor foutmeldingen
 function getErrorMessage(error) {
@@ -248,6 +252,37 @@ async function getNextPlannedRideYMD() {
   } catch (_) { return ''; }
 }
 
+// Check of lid al is gescand voor de eerstvolgende rit
+function isScannedForNextRide(scanDatums, nextRideYMD) {
+  if (!nextRideYMD) return false;
+  const scans = (Array.isArray(scanDatums) ? scanDatums : []).map(d => toYMDString(d)).filter(Boolean);
+  return scans.includes(nextRideYMD);
+}
+
+// Check real-time of het huidige lid al is gescand (haalt data op uit Firestore)
+async function checkIfCurrentMemberIsScanned() {
+  try {
+    if (!selectedDoc || !selectedDoc.id) return false;
+    
+    const nextRideYMD = await getNextPlannedRideYMD();
+    if (!nextRideYMD) return false;
+    
+    // Haal de meest recente data op uit Firestore
+    const docRef = doc(db, "members", String(selectedDoc.id));
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) return false;
+    
+    const data = docSnap.data();
+    const memberScans = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
+    
+    return isScannedForNextRide(memberScans, nextRideYMD);
+  } catch (e) {
+    console.error("Fout bij checken scan status:", e);
+    return false;
+  }
+}
+
 function showLunchChoice() {
   if (lunchChoiceSection) {
     lunchChoiceSection.style.display = 'block';
@@ -264,6 +299,32 @@ function showLunchChoice() {
     if (!lunchDetailsElement && lunchChoiceSection) {
       lunchDetailsElement = lunchChoiceSection.querySelector('details');
     }
+    
+    // Toon/verberg info meldingen op basis van scan status
+    if (lunchScannedDisclaimer) {
+      lunchScannedDisclaimer.style.display = _isScannedForRide ? 'block' : 'none';
+    }
+    if (lunchDeadlineInfo) {
+      lunchDeadlineInfo.style.display = _isScannedForRide ? 'none' : 'block';
+    }
+    
+    // Disable ja/nee buttons als lid al gescand is
+    if (lunchYes && lunchNo) {
+      lunchYes.disabled = _isScannedForRide;
+      lunchNo.disabled = _isScannedForRide;
+      if (_isScannedForRide) {
+        lunchYes.style.opacity = '0.6';
+        lunchYes.style.cursor = 'not-allowed';
+        lunchNo.style.opacity = '0.6';
+        lunchNo.style.cursor = 'not-allowed';
+      } else {
+        lunchYes.style.opacity = '';
+        lunchYes.style.cursor = '';
+        lunchNo.style.opacity = '';
+        lunchNo.style.cursor = '';
+      }
+    }
+    
     // Bepaal open/dicht op basis van huidige keuze-status
     // Open alleen als er nog géén keuze is gemaakt, of bij 'ja' zonder gekozen snack
     if (lunchDetailsElement) {
@@ -305,8 +366,18 @@ function hideLunchChoice() {
 function updateLunchBadge() {
   if (!lunchSelectionBadge) return;
   
-  if (_lunchChoice === "ja" && _selectedKeuzeEten.length > 0) {
+  // Check of het "vast-menu" dummy waarde is (= geen keuze-eten beschikbaar)
+  const isVastMenuOnly = _selectedKeuzeEten.length > 0 && _selectedKeuzeEten[0] === 'vast-menu';
+  
+  if (_lunchChoice === "ja" && _selectedKeuzeEten.length > 0 && !isVastMenuOnly) {
     lunchSelectionBadge.textContent = `✓ Ja · ${_selectedKeuzeEten[0]}`;
+    lunchSelectionBadge.style.display = 'block';
+    lunchSelectionBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+    lunchSelectionBadge.style.color = '#10b981';
+    lunchSelectionBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+  } else if (_lunchChoice === "ja" && isVastMenuOnly) {
+    // Vast menu alleen: toon simpel "Ja"
+    lunchSelectionBadge.textContent = '✓ Ja';
     lunchSelectionBadge.style.display = 'block';
     lunchSelectionBadge.style.background = 'rgba(16, 185, 129, 0.2)';
     lunchSelectionBadge.style.color = '#10b981';
@@ -331,6 +402,11 @@ function updateLunchBadge() {
 async function renderLunchUI(choice) {
   _lunchChoice = choice;
   
+  // Toon/verberg disclaimer op basis van scan status
+  if (lunchScannedDisclaimer) {
+    lunchScannedDisclaimer.style.display = _isScannedForRide ? 'block' : 'none';
+  }
+  
   if (lunchYes && lunchNo) {
     lunchYes.classList.toggle("active", choice === "ja");
     lunchNo.classList.toggle("active", choice === "nee");
@@ -338,6 +414,21 @@ async function renderLunchUI(choice) {
     lunchNo.classList.toggle("no", choice === "nee");
     lunchYes.setAttribute("aria-checked", String(choice === "ja"));
     lunchNo.setAttribute("aria-checked", String(choice === "nee"));
+    
+    // Disable knoppen als al gescand
+    lunchYes.disabled = _isScannedForRide;
+    lunchNo.disabled = _isScannedForRide;
+    if (_isScannedForRide) {
+      lunchYes.style.opacity = '0.6';
+      lunchYes.style.cursor = 'not-allowed';
+      lunchNo.style.opacity = '0.6';
+      lunchNo.style.cursor = 'not-allowed';
+    } else {
+      lunchYes.style.opacity = '1';
+      lunchYes.style.cursor = 'pointer';
+      lunchNo.style.opacity = '1';
+      lunchNo.style.cursor = 'pointer';
+    }
     
     // Verwijder kleuren van niet-actieve buttons
     if (choice !== "ja") lunchYes.classList.remove("yes");
@@ -352,12 +443,8 @@ async function renderLunchUI(choice) {
     updateLunchBadge();
     collapseLunchSection(); // Klap sectie in na "nee" keuze
   } else if (choice === "ja") {
-    // Laad en toon lunch details, maar verberg jaarhanger totdat keuze eten is geselecteerd
+    // Laad en toon lunch details
     if (lunchDetailsSection) lunchDetailsSection.style.display = 'block';
-    // Verberg jaarhanger totdat een keuze is gemaakt
-    if (yearhangerRow) yearhangerRow.style.display = "none";
-    const info = document.getElementById("jaarhangerInfo");
-    if (info) info.style.display = "none";
     
     const { vastEten, keuzeEten } = await loadLunchOptions();
     
@@ -368,55 +455,112 @@ async function renderLunchUI(choice) {
         : 'Geen vast eten beschikbaar';
     }
     
-    // Render keuze eten buttons (radio button gedrag - slechts 1 keuze)
-    if (keuzeEtenButtons) {
-      keuzeEtenButtons.innerHTML = '';
-      keuzeEten.forEach(item => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'seg-btn';
-        btn.textContent = item;
-        btn.style.cssText = `
-          flex: 1 1 auto;
-          min-width: 140px;
-          padding: 14px 20px;
-          font-size: 15px;
-          font-weight: 600;
-          border-radius: 8px;
-          transition: all 0.3s ease;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        `;
-        
-        // Check of dit item al eerder geselecteerd was en markeer het groen
-        if (_selectedKeuzeEten.includes(item)) {
-          btn.classList.add('active', 'yes');
-        }
-        
-        btn.addEventListener('click', async () => {
-          // Verwijder alle active classes van alle buttons (radio gedrag)
-          const allBtns = keuzeEtenButtons.querySelectorAll('button');
-          allBtns.forEach(b => b.classList.remove('active', 'yes'));
+    // Als er GEEN keuze-eten is, markeer direct als "voltooid" en toon jaarhanger
+    const hasKeuzeEten = keuzeEten && keuzeEten.length > 0;
+    
+    if (!hasKeuzeEten) {
+      // Geen keuze-eten: verberg de keuze sectie, toon direct jaarhanger
+      if (keuzeEtenButtons) keuzeEtenButtons.innerHTML = '';
+      if (keuzeEtenSection) keuzeEtenSection.style.display = 'none';
+      // Markeer als "geen keuze nodig"
+      _selectedKeuzeEten = ['vast-menu']; // Dummy waarde om aan te geven dat er geen keuze nodig is
+      updateLunchBadge();
+      // Klap lunch sectie in omdat er niets meer te kiezen valt
+      collapseLunchSection();
+      // Toon jaarhanger direct
+      if (yearhangerRow) yearhangerRow.style.display = "block";
+      const info = document.getElementById("jaarhangerInfo");
+      if (info) info.style.display = "block";
+      renderYearhangerUI(_yearhangerVal || null);
+    } else {
+      // Wel keuze-eten: verberg jaarhanger totdat een keuze is gemaakt
+      if (keuzeEtenSection) keuzeEtenSection.style.display = 'block';
+      if (yearhangerRow) yearhangerRow.style.display = "none";
+      const info = document.getElementById("jaarhangerInfo");
+      if (info) info.style.display = "none";
+      
+      // Render keuze eten buttons (radio button gedrag - slechts 1 keuze)
+      if (keuzeEtenButtons) {
+        keuzeEtenButtons.innerHTML = '';
+        keuzeEten.forEach(item => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'seg-btn';
+          btn.textContent = item;
+          btn.style.cssText = `
+            flex: 1 1 auto;
+            min-width: 140px;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          `;
           
-          // Selecteer alleen deze button
-          btn.classList.add('active', 'yes');
-          _selectedKeuzeEten = [item]; // Alleen deze ene keuze opslaan
+          // Check of dit item al eerder geselecteerd was en markeer het groen
+          if (_selectedKeuzeEten.includes(item)) {
+            btn.classList.add('active', 'yes');
+          }
           
-          updateLunchBadge();
-          await saveLunchChoice();
-          // Toon jaarhanger direct na keuze
-          renderYearhangerUI(_yearhangerVal || null);
-          // Klap sectie in na keuze eten selectie
-          collapseLunchSection();
+          // Disable button als al gescand
+          btn.disabled = _isScannedForRide;
+          if (_isScannedForRide) {
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+          }
+          
+          btn.addEventListener('click', async () => {
+            // Check real-time of lid al gescand is
+            const isScanned = await checkIfCurrentMemberIsScanned();
+            if (isScanned) {
+              _isScannedForRide = true;
+              // Toon disclaimer en verberg info melding
+              if (lunchScannedDisclaimer) lunchScannedDisclaimer.style.display = 'block';
+              if (lunchDeadlineInfo) lunchDeadlineInfo.style.display = 'none';
+              // Disable alle buttons
+              if (lunchYes) {
+                lunchYes.disabled = true;
+                lunchYes.style.opacity = '0.6';
+                lunchYes.style.cursor = 'not-allowed';
+              }
+              if (lunchNo) {
+                lunchNo.disabled = true;
+                lunchNo.style.opacity = '0.6';
+                lunchNo.style.cursor = 'not-allowed';
+              }
+              // Disable alle keuze buttons
+              const allBtns = keuzeEtenButtons.querySelectorAll('button');
+              allBtns.forEach(b => {
+                b.disabled = true;
+                b.style.opacity = '0.6';
+                b.style.cursor = 'not-allowed';
+              });
+              return;
+            }
+            
+            // Verwijder alle active classes van alle buttons (radio gedrag)
+            const allBtns = keuzeEtenButtons.querySelectorAll('button');
+            allBtns.forEach(b => b.classList.remove('active', 'yes'));
+            
+            // Selecteer alleen deze button
+            btn.classList.add('active', 'yes');
+            _selectedKeuzeEten = [item]; // Alleen deze ene keuze opslaan
+            
+            updateLunchBadge();
+            await saveLunchChoice();
+            // Toon jaarhanger direct na keuze
+            renderYearhangerUI(_yearhangerVal || null);
+            // Klap sectie in na keuze eten selectie
+            collapseLunchSection();
+          });
+          keuzeEtenButtons.appendChild(btn);
         });
-        keuzeEtenButtons.appendChild(btn);
-      });
+      }
     }
     
-    // Update badge ook als "ja" is gekozen zonder keuze eten
+    // Update badge
     updateLunchBadge();
-    
-    // Toon jaarhanger NIET automatisch - alleen als er al een keuze is gemaakt
-    // Dit wordt gedaan in de button click handler hierboven
   }
 }
 
@@ -424,8 +568,12 @@ async function saveLunchChoice() {
   try {
     if (!selectedDoc || !selectedDoc.id) return;
     
-    // Sla op als string (eerste item) of null als geen keuze
-    const keuzeEtenValue = _selectedKeuzeEten.length > 0 ? _selectedKeuzeEten[0] : null;
+    // Check of het "vast-menu" dummy waarde is (geen echte keuze)
+    const isVastMenuOnly = _selectedKeuzeEten.length > 0 && _selectedKeuzeEten[0] === 'vast-menu';
+    
+    // Sla op als string (eerste item) of null als geen keuze, behalve bij vast-menu dummy
+    const keuzeEtenValue = (isVastMenuOnly || _selectedKeuzeEten.length === 0) ? null : _selectedKeuzeEten[0];
+    
     // Koppel keuze aan de eerstvolgende ritdatum (vandaag of later)
     const rideYMD = await getNextPlannedRideYMD();
     
@@ -437,8 +585,11 @@ async function saveLunchChoice() {
     }, { merge: true });
     
     // Na het opslaan, check of er al een jaarhanger keuze is
-    // Als lunch keuze "nee" is OF als lunch "ja" is met een keuze eten, en er is al een jaarhanger
-    if (_lunchChoice === "nee" || (_lunchChoice === "ja" && _selectedKeuzeEten.length > 0)) {
+    // Als lunch keuze "nee" is OF als lunch "ja" is met een keuze (of vast-menu), en er is al een jaarhanger
+    const shouldShowJaarhanger = _lunchChoice === "nee" || 
+                                 (_lunchChoice === "ja" && (_selectedKeuzeEten.length > 0 || isVastMenuOnly));
+    
+    if (shouldShowJaarhanger) {
       // Haal de nieuwste data op om te zien of er een jaarhanger keuze is
       const memberDoc = await getDoc(doc(db, "members", String(selectedDoc.id)));
       if (memberDoc.exists()) {
@@ -474,12 +625,44 @@ async function saveLunchChoice() {
 // Lunch keuze event listeners
 if (lunchYes) {
   lunchYes.addEventListener("click", async function() {
+    // Check real-time of lid al gescand is
+    const isScanned = await checkIfCurrentMemberIsScanned();
+    if (isScanned) {
+      _isScannedForRide = true;
+      // Toon disclaimer en verberg info melding
+      if (lunchScannedDisclaimer) lunchScannedDisclaimer.style.display = 'block';
+      if (lunchDeadlineInfo) lunchDeadlineInfo.style.display = 'none';
+      // Disable buttons
+      lunchYes.disabled = true;
+      lunchNo.disabled = true;
+      lunchYes.style.opacity = '0.6';
+      lunchYes.style.cursor = 'not-allowed';
+      lunchNo.style.opacity = '0.6';
+      lunchNo.style.cursor = 'not-allowed';
+      return;
+    }
     await renderLunchUI("ja");
     await saveLunchChoice();
   });
 }
 if (lunchNo) {
   lunchNo.addEventListener("click", async function() {
+    // Check real-time of lid al gescand is
+    const isScanned = await checkIfCurrentMemberIsScanned();
+    if (isScanned) {
+      _isScannedForRide = true;
+      // Toon disclaimer en verberg info melding
+      if (lunchScannedDisclaimer) lunchScannedDisclaimer.style.display = 'block';
+      if (lunchDeadlineInfo) lunchDeadlineInfo.style.display = 'none';
+      // Disable buttons
+      lunchYes.disabled = true;
+      lunchNo.disabled = true;
+      lunchYes.style.opacity = '0.6';
+      lunchYes.style.cursor = 'not-allowed';
+      lunchNo.style.opacity = '0.6';
+      lunchNo.style.cursor = 'not-allowed';
+      return;
+    }
     // Reset de keuze eten selectie wanneer "Nee" wordt gekozen
     _selectedKeuzeEten = [];
     await renderLunchUI("nee");
@@ -549,8 +732,11 @@ function renderYearhangerUI(val) {
     return;
   }
   
-  // Als lunch keuze "ja" is maar nog geen keuze eten geselecteerd, toon jaarhanger niet
-  if (_lunchChoice === "ja" && _selectedKeuzeEten.length === 0) {
+  // Check of het "vast-menu" dummy waarde is (geen echte keuze nodig)
+  const isVastMenuOnly = _selectedKeuzeEten.length > 0 && _selectedKeuzeEten[0] === 'vast-menu';
+  
+  // Als lunch keuze "ja" is maar nog geen keuze eten geselecteerd (en niet vast-menu), toon jaarhanger niet
+  if (_lunchChoice === "ja" && _selectedKeuzeEten.length === 0 && !isVastMenuOnly) {
     if (yearhangerRow) yearhangerRow.style.display = "none";
     const info = document.getElementById("jaarhangerInfo");
     if (info) info.style.display = "none";
@@ -869,6 +1055,11 @@ if (yearhangerNo) {
       // Check of lunch keuze ouder is dan 1 dag en verwijder indien nodig
       await checkAndCleanupOldLunchChoice(entry.id, data);
       
+      // Check of dit lid al is gescand voor de eerstvolgende rit
+      const nextRideYMD = await getNextPlannedRideYMD();
+      const memberScans = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
+      _isScannedForRide = isScannedForNextRide(memberScans, nextRideYMD);
+      
       if (rRegion) rRegion.textContent = (data["Regio Omschrijving"] || "—");
       if (rName) rName.textContent = fullNameFrom(data);
       if (rMemberNo) rMemberNo.textContent = entry.id;
@@ -878,10 +1069,18 @@ if (yearhangerNo) {
       const savedLunchChoice = data.lunchDeelname || null;
       // Ondersteun zowel oude array als nieuwe string format
       const savedLunchKeuze = data.lunchKeuze;
+      
+      // Check eerst of er überhaupt keuze-eten beschikbaar is
+      const { keuzeEten } = await loadLunchOptions();
+      const hasKeuzeEten = keuzeEten && keuzeEten.length > 0;
+      
       if (typeof savedLunchKeuze === 'string' && savedLunchKeuze) {
         _selectedKeuzeEten = [savedLunchKeuze];
       } else if (Array.isArray(savedLunchKeuze) && savedLunchKeuze.length > 0) {
         _selectedKeuzeEten = [savedLunchKeuze[0]]; // Neem alleen eerste item
+      } else if (savedLunchChoice === 'ja' && !hasKeuzeEten) {
+        // Als lunch "ja" is maar geen keuze-eten beschikbaar, gebruik dummy waarde
+        _selectedKeuzeEten = ['vast-menu'];
       } else {
         _selectedKeuzeEten = [];
       }
@@ -896,8 +1095,13 @@ if (yearhangerNo) {
         // Update de badge met de opgeslagen keuze
         updateLunchBadge();
         
+        // Check of jaarhanger getoond moet worden
+        const isVastMenuOnly = _selectedKeuzeEten.length > 0 && _selectedKeuzeEten[0] === 'vast-menu';
+        const shouldShowJaarhanger = savedLunchChoice === "nee" || 
+                                     (savedLunchChoice === "ja" && (_selectedKeuzeEten.length > 0 || isVastMenuOnly));
+        
         // Als er al een keuze is gemaakt, toon de jaarhanger
-        if (savedLunchChoice === "nee" || (savedLunchChoice === "ja" && _selectedKeuzeEten.length > 0)) {
+        if (shouldShowJaarhanger) {
           renderYearhangerUI(_jh || null);
           
           // Als er al een jaarhanger keuze is opgeslagen, genereer meteen de QR code
