@@ -107,6 +107,7 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
 #lunchChoiceSection summary::marker { display: none; }
 
 /* Collapsible Jaarhanger section (same style as lunch) */
+#yearhangerRow { margin-bottom: 16px; }
 #yearhangerRow details {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
   border: 1px solid rgba(59, 130, 246, 0.18);
