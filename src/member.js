@@ -216,7 +216,17 @@ async function loadLunchOptions() {
 }
 
 function showLunchChoice() {
-  if (lunchChoiceSection) lunchChoiceSection.style.display = 'block';
+  if (lunchChoiceSection) {
+    lunchChoiceSection.style.display = 'block';
+    // Voeg een smooth fade-in animatie toe
+    lunchChoiceSection.style.opacity = '0';
+    lunchChoiceSection.style.transform = 'translateY(-10px)';
+    setTimeout(() => {
+      lunchChoiceSection.style.transition = 'all 0.4s ease';
+      lunchChoiceSection.style.opacity = '1';
+      lunchChoiceSection.style.transform = 'translateY(0)';
+    }, 10);
+  }
 }
 
 function hideLunchChoice() {
@@ -268,7 +278,16 @@ async function renderLunchUI(choice) {
         btn.type = 'button';
         btn.className = 'seg-btn';
         btn.textContent = item;
-        btn.style.flex = '0 0 auto';
+        btn.style.cssText = `
+          flex: 1 1 auto;
+          min-width: 140px;
+          padding: 14px 20px;
+          font-size: 15px;
+          font-weight: 600;
+          border-radius: 8px;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        `;
         
         // Check of dit item al eerder geselecteerd was en markeer het groen
         if (_selectedKeuzeEten.includes(item)) {

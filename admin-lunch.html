@@ -31,30 +31,44 @@
 
       <!-- Page content -->
       <section class="card" id="cardLunchIntro">
-        <h2>Overzicht</h2>
-        <p>Plan de lunchverdeling voor vrijwilligers en leden. Selecteer dagen, tijdsloten en wijs personen toe. Dit onderdeel is alleen zichtbaar voor hoofdadmins.</p>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <div style="font-size: 32px;">🍽️</div>
+          <div>
+            <h2 style="margin: 0;">Lunch inplannen</h2>
+            <p style="margin: 4px 0 0 0; color: var(--muted);">Beheer de lunch opties voor alle deelnemers</p>
+          </div>
+        </div>
+        <div style="background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; padding: 12px; border-radius: 6px; margin-top: 16px;">
+          <p style="margin: 0; font-size: 14px;">💡 <strong>Tip:</strong> Alle wijzigingen worden automatisch opgeslagen na 0.5 seconden</p>
+        </div>
       </section>
 
       <section class="card" id="cardVastEten">
-        <h2>Vast eten</h2>
-        <p>Voeg vaste etenswaren toe die beschikbaar zijn tijdens de lunch. (Wordt automatisch opgeslagen)</p>
-        <div id="vastEtenList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span style="font-size: 24px;">🥖</span>
+          <h2 style="margin: 0;">Vast eten</h2>
+        </div>
+        <p class="muted" style="margin-bottom: 16px;">Dit eten krijgt iedereen, ongeacht hun keuze</p>
+        <div id="vastEtenList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
           <!-- Dynamische textboxes komen hier -->
         </div>
-        <div class="form-row">
-          <button id="btnAddVastEten" type="button">+ Voeg item toe</button>
-        </div>
+        <button id="btnAddVastEten" type="button" class="btn btn-primary" style="width: 100%;">
+          <span style="font-size: 18px; margin-right: 4px;">+</span> Voeg item toe
+        </button>
       </section>
 
       <section class="card" id="cardKeuzeEten">
-        <h2>Keuze eten</h2>
-        <p>Voeg keuze-opties toe waaruit deelnemers kunnen kiezen. (Wordt automatisch opgeslagen)</p>
-        <div id="keuzeEtenList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span style="font-size: 24px;">🍴</span>
+          <h2 style="margin: 0;">Keuze eten</h2>
+        </div>
+        <p class="muted" style="margin-bottom: 16px;">Deelnemers kunnen één optie kiezen (bijv. vegetarisch, halal, vegan)</p>
+        <div id="keuzeEtenList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
           <!-- Dynamische textboxes komen hier -->
         </div>
-        <div class="form-row">
-          <button id="btnAddKeuzeEten" type="button">+ Voeg item toe</button>
-        </div>
+        <button id="btnAddKeuzeEten" type="button" class="btn btn-primary" style="width: 100%;">
+          <span style="font-size: 18px; margin-right: 4px;">+</span> Voeg optie toe
+        </button>
       </section>
 
     </main>
@@ -118,15 +132,31 @@
       function createVastEtenRow(value = '') {
         const row = document.createElement('div');
         row.className = 'vast-eten-row';
-        row.style.display = 'flex';
-        row.style.gap = '8px';
-        row.style.alignItems = 'center';
+        row.style.cssText = `
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          transition: all 0.2s ease;
+        `;
+        
+        row.addEventListener('mouseenter', () => {
+          row.style.background = 'rgba(255, 255, 255, 0.04)';
+          row.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        });
+        row.addEventListener('mouseleave', () => {
+          row.style.background = 'rgba(255, 255, 255, 0.02)';
+          row.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+        });
         
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = 'Bijv: brood, beleg, fruit';
+        input.placeholder = '🥖 Bijv: brood, beleg, fruit, drankjes';
         input.value = value;
-        input.style.flex = '1';
+        input.style.cssText = 'flex: 1; padding: 10px 14px; font-size: 15px;';
         input.dataset.id = vastEtenCounter++;
         
         // Auto-save on input change
@@ -137,12 +167,35 @@
         
         const btnRemove = document.createElement('button');
         btnRemove.type = 'button';
-        btnRemove.textContent = '✕';
-        btnRemove.style.padding = '8px 12px';
+        btnRemove.innerHTML = '✕';
+        btnRemove.style.cssText = `
+          padding: 10px 14px;
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: bold;
+          transition: all 0.2s ease;
+          min-width: 44px;
+        `;
+        btnRemove.addEventListener('mouseenter', () => {
+          btnRemove.style.background = 'rgba(239, 68, 68, 0.2)';
+          btnRemove.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        });
+        btnRemove.addEventListener('mouseleave', () => {
+          btnRemove.style.background = 'rgba(239, 68, 68, 0.1)';
+          btnRemove.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+        });
         btnRemove.addEventListener('click', () => {
-          row.remove();
-          const { vastItems, keuzeItems } = collectAllData();
-          saveLunchData(vastItems, keuzeItems);
+          row.style.transform = 'scale(0.95)';
+          row.style.opacity = '0';
+          setTimeout(() => {
+            row.remove();
+            const { vastItems, keuzeItems } = collectAllData();
+            saveLunchData(vastItems, keuzeItems);
+          }, 200);
         });
         
         row.appendChild(input);
@@ -183,15 +236,31 @@
       function createKeuzeEtenRow(value = '') {
         const row = document.createElement('div');
         row.className = 'keuze-eten-row';
-        row.style.display = 'flex';
-        row.style.gap = '8px';
-        row.style.alignItems = 'center';
+        row.style.cssText = `
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          transition: all 0.2s ease;
+        `;
+        
+        row.addEventListener('mouseenter', () => {
+          row.style.background = 'rgba(255, 255, 255, 0.04)';
+          row.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        });
+        row.addEventListener('mouseleave', () => {
+          row.style.background = 'rgba(255, 255, 255, 0.02)';
+          row.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+        });
         
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = 'Bijv: vegetarisch, halal, vegan';
+        input.placeholder = '🍴 Bijv: vegetarisch, halal, vegan, glutenvrij';
         input.value = value;
-        input.style.flex = '1';
+        input.style.cssText = 'flex: 1; padding: 10px 14px; font-size: 15px;';
         input.dataset.id = keuzeEtenCounter++;
         
         // Auto-save on input change
@@ -202,12 +271,35 @@
         
         const btnRemove = document.createElement('button');
         btnRemove.type = 'button';
-        btnRemove.textContent = '✕';
-        btnRemove.style.padding = '8px 12px';
+        btnRemove.innerHTML = '✕';
+        btnRemove.style.cssText = `
+          padding: 10px 14px;
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: bold;
+          transition: all 0.2s ease;
+          min-width: 44px;
+        `;
+        btnRemove.addEventListener('mouseenter', () => {
+          btnRemove.style.background = 'rgba(239, 68, 68, 0.2)';
+          btnRemove.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        });
+        btnRemove.addEventListener('mouseleave', () => {
+          btnRemove.style.background = 'rgba(239, 68, 68, 0.1)';
+          btnRemove.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+        });
         btnRemove.addEventListener('click', () => {
-          row.remove();
-          const { vastItems, keuzeItems } = collectAllData();
-          saveLunchData(vastItems, keuzeItems);
+          row.style.transform = 'scale(0.95)';
+          row.style.opacity = '0';
+          setTimeout(() => {
+            row.remove();
+            const { vastItems, keuzeItems } = collectAllData();
+            saveLunchData(vastItems, keuzeItems);
+          }, 200);
         });
         
         row.appendChild(input);
