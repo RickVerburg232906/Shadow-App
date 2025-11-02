@@ -51,7 +51,7 @@
         </div>
 
         <div>
-          <h3 style="margin: 10px 0 6px;">Keuzes (aantal)</h3>
+          <h3 id="lunchChoiceCountsTitle" style="margin: 10px 0 6px;">Keuzes (aantal)</h3>
           <div id="lunchChoiceCounts" style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
             <!-- Dynamisch gevuld -->
           </div>
@@ -438,22 +438,37 @@
           // Render
           lunchTotalEaters.textContent = String(totalYes);
           lunchChoiceCounts.innerHTML = '';
-          if (perChoice.size === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'muted';
-            empty.style.gridColumn = '1 / -1';
-            empty.textContent = 'Geen keuzes gevonden voor deze datum.';
-            lunchChoiceCounts.appendChild(empty);
+          
+          // Check of er alleen "Geen keuze" is (betekent: geen keuze-eten beschikbaar)
+          const onlyNoChoice = perChoice.size === 1 && perChoice.has('Geen keuze');
+          const lunchChoiceCountsTitle = document.getElementById('lunchChoiceCountsTitle');
+          
+          if (onlyNoChoice) {
+            // Verberg de hele keuzes sectie als er alleen "Geen keuze" is
+            if (lunchChoiceCountsTitle) lunchChoiceCountsTitle.style.display = 'none';
+            lunchChoiceCounts.style.display = 'none';
           } else {
-            const entries = Array.from(perChoice.entries()).sort((a,b) => a[0].localeCompare(b[0]));
-            for (const [name, count] of entries) {
-              const l = document.createElement('div');
-              l.textContent = name;
-              const v = document.createElement('div');
-              v.className = 'value';
-              v.textContent = String(count);
-              lunchChoiceCounts.appendChild(l);
-              lunchChoiceCounts.appendChild(v);
+            // Toon de keuzes sectie
+            if (lunchChoiceCountsTitle) lunchChoiceCountsTitle.style.display = 'block';
+            lunchChoiceCounts.style.display = 'grid';
+            
+            if (perChoice.size === 0) {
+              const empty = document.createElement('div');
+              empty.className = 'muted';
+              empty.style.gridColumn = '1 / -1';
+              empty.textContent = 'Geen keuzes gevonden voor deze datum.';
+              lunchChoiceCounts.appendChild(empty);
+            } else {
+              const entries = Array.from(perChoice.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+              for (const [name, count] of entries) {
+                const l = document.createElement('div');
+                l.textContent = name;
+                const v = document.createElement('div');
+                v.className = 'value';
+                v.textContent = String(count);
+                lunchChoiceCounts.appendChild(l);
+                lunchChoiceCounts.appendChild(v);
+              }
             }
           }
           if (lunchOverviewStatus) lunchOverviewStatus.textContent = '✅ Gereed';
