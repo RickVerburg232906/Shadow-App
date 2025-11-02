@@ -25,7 +25,7 @@
     <link rel="apple-touch-icon" href="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif">
     <meta name="theme-color" content="#0f172a">
     
-    <script type="module" crossorigin src="/assets/main-XsaSU9iy.js"></script>
+    <script type="module" crossorigin src="/assets/main-Br-0vnAz.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/main-qh3BrTsa.css">
   </head>
   <body>
@@ -75,9 +75,36 @@
           <div class="card">
             <h1>Inschrijven voor Landelijke rit</h1>
             <p class="hint">Zoek op achternaam (Hoofletter gevoelig) en toon jouw QR.</p>
+            
             <div class="row">
               <input id="nameInput" placeholder="Achternaam..." />
             </div>
+            
+            <!-- Lunch keuze sectie -->
+            <div id="lunchChoiceSection" style="display:none; margin-top:16px;">
+              <div class="seg-wrap">
+                <div class="seg-label"><strong>Eet u mee tijdens de lunch?</strong></div>
+                <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze">
+                  <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false">Ja</button>
+                  <button type="button" id="lunchNo" class="seg-btn" role="radio" aria-checked="false">Nee</button>
+                </div>
+              </div>
+              
+              <!-- Lunch details (alleen zichtbaar bij "Ja") -->
+              <div id="lunchDetailsSection" style="display:none; margin-top:16px;">
+                <div style="margin-bottom:12px;">
+                  <strong>Vast eten:</strong>
+                  <p id="vastEtenDisplay" class="muted" style="margin:4px 0;">Laden...</p>
+                </div>
+                <div style="margin-bottom:12px;">
+                  <strong>Kies uw voorkeur (1 optie):</strong>
+                  <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+                    <!-- Dynamische keuze buttons komen hier -->
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div id="yearhangerRow" style="margin-top:8px; display:none;">
               <div class="seg-wrap">
                 <div class="seg-label"><strong>Wilt u een Jaarhanger?</strong></div>
