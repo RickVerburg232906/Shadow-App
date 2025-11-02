@@ -242,8 +242,14 @@ async function renderLunchUI(choice) {
   if (lunchYes && lunchNo) {
     lunchYes.classList.toggle("active", choice === "ja");
     lunchNo.classList.toggle("active", choice === "nee");
+    lunchYes.classList.toggle("yes", choice === "ja");
+    lunchNo.classList.toggle("no", choice === "nee");
     lunchYes.setAttribute("aria-checked", String(choice === "ja"));
     lunchNo.setAttribute("aria-checked", String(choice === "nee"));
+    
+    // Verwijder kleuren van niet-actieve buttons
+    if (choice !== "ja") lunchYes.classList.remove("yes");
+    if (choice !== "nee") lunchNo.classList.remove("no");
   }
   
   if (choice === "nee") {
