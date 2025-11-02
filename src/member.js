@@ -779,19 +779,11 @@ if (yearhangerNo) {
   }
 
   async function handleFocus() {
+    // Leeg het invoerveld zodra het focus krijgt
+    try { if (nameInput) nameInput.value = ""; } catch(_) {}
+    // Verberg huidige selectie en suggesties
     resetSelection();
-    const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
-    if (term.length >= 1) {
-      try { 
-        const items = await queryByLastNamePrefix(term); 
-        if (items && items.length) showSuggestions(items); 
-        else hideSuggestions(); 
-      }
-      catch (e) { 
-        hideSuggestions();
-        showError(getErrorMessage(e));
-      }
-    } else { hideSuggestions(); }
+    hideSuggestions();
   }
   async function onInputChanged() {
     if (_debounceHandle) clearTimeout(_debounceHandle);
