@@ -108,6 +108,19 @@
                 </summary>
                 
                 <div class="lunch-content" style="margin-top: 16px;">
+                  <!-- Disclaimer wanneer gescand -->
+                  <div id="lunchScannedDisclaimer" style="display: none; padding: 12px; margin-bottom: 16px; background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 18px;">ℹ️</span>
+                      <div>
+                        <strong style="color: #fbbf24; font-size: 14px;">Let op:</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                          U bent al ingecheckt voor deze rit. Uw lunch keuze kan niet meer worden gewijzigd.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div class="seg-wrap">
                     <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze" style="width: 100%;">
                       <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
