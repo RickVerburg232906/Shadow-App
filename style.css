@@ -101,7 +101,8 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
   list-style: none;
   user-select: none;
 }
-#lunchChoiceSection details[open] summary .toggle-icon { transform: rotate(180deg); }
+#lunchChoiceSection details summary .toggle-icon { transform: rotate(-90deg); }
+#lunchChoiceSection details[open] summary .toggle-icon { transform: rotate(0deg); }
 #lunchChoiceSection summary::-webkit-details-marker { display: none; }
 #lunchChoiceSection summary::marker { display: none; }
 
@@ -120,7 +121,8 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
   list-style: none;
   user-select: none;
 }
-#yearhangerRow details[open] summary .toggle-icon { transform: rotate(180deg); }
+#yearhangerRow details summary .toggle-icon { transform: rotate(-90deg); }
+#yearhangerRow details[open] summary .toggle-icon { transform: rotate(0deg); }
 #yearhangerRow summary::-webkit-details-marker { display: none; }
 #yearhangerRow summary::marker { display: none; }
 
