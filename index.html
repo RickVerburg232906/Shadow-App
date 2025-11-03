@@ -121,17 +121,26 @@
                     </div>
                   </div>
                   
-                  <!-- Informatieve melding over deadline -->
-                  <div id="lunchDeadlineInfo" style="padding: 12px; margin-bottom: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 18px;">💡</span>
-                      <div>
-                        <strong style="color: #3b82f6; font-size: 14px;">Belangrijk:</strong>
-                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
-                          Maak uw lunch keuze <strong>vóór het inchecken</strong>. Na het inchecken kan uw keuze niet meer worden gewijzigd.
-                        </p>
+                  <!-- Lunch details (alleen zichtbaar bij "Ja") - BOVEN vast menu -->
+                  <div id="lunchDetailsSection" style="display:none; margin-bottom:20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div id="keuzeEtenSection" style="margin-bottom:0;">
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <span style="font-size: 20px;">🍴</span>
+                        <strong style="font-size: 15px;">Kies uw voorkeur (selecteer 1 optie):</strong>
+                      </div>
+                      <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:10px;">
+                        <!-- Dynamische keuze buttons komen hier -->
                       </div>
                     </div>
+                  </div>
+                  
+                  <!-- Vast menu voor iedereen (altijd zichtbaar) -->
+                  <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                      <span style="font-size: 20px;">🥖</span>
+                      <strong style="font-size: 15px;">Vast menu voor iedereen:</strong>
+                    </div>
+                    <p id="vastEtenDisplay" class="muted" style="margin:0; font-size: 14px; line-height: 1.6;">Laden...</p>
                   </div>
                   
                   <div class="seg-wrap">
@@ -145,23 +154,15 @@
                     </div>
                   </div>
                   
-                  <!-- Lunch details (alleen zichtbaar bij "Ja") -->
-                  <div id="lunchDetailsSection" style="display:none; margin-top:20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                    <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
-                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                        <span style="font-size: 20px;">🥖</span>
-                        <strong style="font-size: 15px;">Vast menu voor iedereen:</strong>
-                      </div>
-                      <p id="vastEtenDisplay" class="muted" style="margin:0; font-size: 14px; line-height: 1.6;">Laden...</p>
-                    </div>
-                    
-                    <div id="keuzeEtenSection" style="margin-bottom:12px;">
-                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                        <span style="font-size: 20px;">🍴</span>
-                        <strong style="font-size: 15px;">Kies uw voorkeur (selecteer 1 optie):</strong>
-                      </div>
-                      <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:10px;">
-                        <!-- Dynamische keuze buttons komen hier -->
+                  <!-- Informatieve melding over deadline (altijd zichtbaar) -->
+                  <div id="lunchDeadlineInfo" style="padding: 12px; margin-top: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 18px;">💡</span>
+                      <div>
+                        <strong style="color: #3b82f6; font-size: 14px;">Belangrijk:</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                          Maak uw lunch keuze <strong>vóór het inchecken</strong>. Na het inchecken kan uw keuze niet meer worden gewijzigd.
+                        </p>
                       </div>
                     </div>
                   </div>

@@ -20,9 +20,11 @@ export function applyAdminLevel() {
   try {
     const lvl = sessionStorage.getItem("admin_level") || "admin";
     const adminView = document.getElementById("viewAdmin");
+    
     if (!adminView) return;
     
     const cards = Array.from(adminView.querySelectorAll(".card"));
+    
     if (lvl === "root") {
       // Hoofdadmin: toon alles
       cards.forEach(card => { 
@@ -35,13 +37,19 @@ export function applyAdminLevel() {
       const nav = document.querySelector(".subtabs");
       if (nav) nav.removeAttribute("hidden");
     } else {
-      // Beperkte admin: alleen QR + Handmatig
+      // Beperkte admin: QR + Handmatig + Lunch overzicht zichtbaar
       document.body.dataset.role = "admin";
       cards.forEach(card => {
         const id = card.id || "";
-        const keep = (id === "qrScanCard") || (id === "manualRideCard");
-        card.style.display = keep ? "" : "none";
-        if (!keep) card.setAttribute("hidden", "hidden");
+        // Lunch overzicht is nu ook zichtbaar voor normale admins
+        const keep = (id === "qrScanCard") || (id === "manualRideCard") || (id === "cardLunchOverview");
+        if (keep) {
+          card.style.display = "block";
+          card.removeAttribute("hidden");
+        } else {
+          card.style.display = "none";
+          card.setAttribute("hidden", "hidden");
+        }
       });
       
       // Hide navigation for regular admin (they only have access to scan page)

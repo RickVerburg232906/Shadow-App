@@ -295,18 +295,30 @@ function showLunchChoice() {
       lunchChoiceSection.style.transform = 'translateY(0)';
     }, 10);
     
+    // Laad en toon het vaste eten menu (altijd zichtbaar)
+    loadLunchOptions().then(({ vastEten }) => {
+      if (vastEtenDisplay) {
+        vastEtenDisplay.textContent = vastEten.length > 0 
+          ? vastEten.join(', ') 
+          : 'Geen vast eten beschikbaar';
+      }
+    }).catch(err => {
+      console.error('Fout bij laden vast eten:', err);
+      if (vastEtenDisplay) {
+        vastEtenDisplay.textContent = 'Fout bij laden menu';
+      }
+    });
+    
     // Vind het details element
     if (!lunchDetailsElement && lunchChoiceSection) {
       lunchDetailsElement = lunchChoiceSection.querySelector('details');
     }
     
-    // Toon/verberg info meldingen op basis van scan status
+    // Toon/verberg disclaimer op basis van scan status
     if (lunchScannedDisclaimer) {
       lunchScannedDisclaimer.style.display = _isScannedForRide ? 'block' : 'none';
     }
-    if (lunchDeadlineInfo) {
-      lunchDeadlineInfo.style.display = _isScannedForRide ? 'none' : 'block';
-    }
+    // lunchDeadlineInfo blijft altijd zichtbaar
     
     // Disable ja/nee buttons als lid al gescand is
     if (lunchYes && lunchNo) {
@@ -515,9 +527,8 @@ async function renderLunchUI(choice) {
             const isScanned = await checkIfCurrentMemberIsScanned();
             if (isScanned) {
               _isScannedForRide = true;
-              // Toon disclaimer en verberg info melding
+              // Toon disclaimer
               if (lunchScannedDisclaimer) lunchScannedDisclaimer.style.display = 'block';
-              if (lunchDeadlineInfo) lunchDeadlineInfo.style.display = 'none';
               // Disable alle buttons
               if (lunchYes) {
                 lunchYes.disabled = true;
@@ -629,9 +640,8 @@ if (lunchYes) {
     const isScanned = await checkIfCurrentMemberIsScanned();
     if (isScanned) {
       _isScannedForRide = true;
-      // Toon disclaimer en verberg info melding
+      // Toon disclaimer
       if (lunchScannedDisclaimer) lunchScannedDisclaimer.style.display = 'block';
-      if (lunchDeadlineInfo) lunchDeadlineInfo.style.display = 'none';
       // Disable buttons
       lunchYes.disabled = true;
       lunchNo.disabled = true;
@@ -651,9 +661,8 @@ if (lunchNo) {
     const isScanned = await checkIfCurrentMemberIsScanned();
     if (isScanned) {
       _isScannedForRide = true;
-      // Toon disclaimer en verberg info melding
+      // Toon disclaimer
       if (lunchScannedDisclaimer) lunchScannedDisclaimer.style.display = 'block';
-      if (lunchDeadlineInfo) lunchDeadlineInfo.style.display = 'none';
       // Disable buttons
       lunchYes.disabled = true;
       lunchNo.disabled = true;
