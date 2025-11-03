@@ -36,6 +36,13 @@ export function applyAdminLevel() {
       // Show navigation for root admin
       const nav = document.querySelector(".subtabs");
       if (nav) nav.removeAttribute("hidden");
+      
+      // Show dropdown for root admin
+      const dropdown = document.querySelector(".admin-nav-dropdown");
+      if (dropdown) {
+        dropdown.style.display = "";
+        dropdown.removeAttribute("hidden");
+      }
     } else {
       // Beperkte admin: QR + Handmatig + Lunch overzicht zichtbaar
       document.body.dataset.role = "admin";
@@ -55,6 +62,13 @@ export function applyAdminLevel() {
       // Hide navigation for regular admin (they only have access to scan page)
       const nav = document.querySelector(".subtabs");
       if (nav) nav.setAttribute("hidden", "");
+      
+      // Hide dropdown for regular admin
+      const dropdown = document.querySelector(".admin-nav-dropdown");
+      if (dropdown) {
+        dropdown.style.display = "none";
+        dropdown.setAttribute("hidden", "hidden");
+      }
     }
   } catch (_) {}
 }
