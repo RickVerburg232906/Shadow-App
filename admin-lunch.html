@@ -20,42 +20,16 @@
     <!-- Subtabs -->
     <main class="container">
 
-      <nav class="subtabs" aria-label="Admin secties">
-        <a href="admin-scan.html" class="subtab" aria-pressed="false">Scannen & Handmatig</a>
-        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
-        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
-        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
-        <a href="admin-lunch.html" class="subtab" aria-pressed="true">Lunch inplannen</a>
-        <a href="admin-dev.html" class="subtab" aria-pressed="false">Dev</a>
-      </nav>
-
-      <!-- Overzicht: totaal en per keuze -->
-      <section class="card" id="cardLunchOverview">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 24px;">📊</span>
-          <div>
-            <h2 style="margin: 0;">Overzicht lunch</h2>
-            <p id="lunchOverviewDateTitle" class="muted" style="margin: 4px 0 0 0; font-size: 14px;">Eerstvolgende rit: —</p>
-          </div>
-        </div>
-        <div class="row" style="margin: 8px 0 12px; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <span id="lunchOverviewStatus" class="muted" style="min-height:20px;"></span>
-        </div>
-
-        <div class="row" style="margin: 6px 0 10px;">
-          <div class="kv">
-            <div class="label">Aantal eters</div>
-            <div id="lunchTotalEaters" class="value">—</div>
-          </div>
-        </div>
-
-        <div>
-          <h3 id="lunchChoiceCountsTitle" style="margin: 10px 0 6px;">Keuzes (aantal)</h3>
-          <div id="lunchChoiceCounts" style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
-            <!-- Dynamisch gevuld -->
-          </div>
-        </div>
-      </section>
+      <div class="admin-nav-dropdown">
+        <select id="adminNavSelect" class="admin-nav-select">
+          <option value="admin-scan.html">Scannen & Handmatig</option>
+          <option value="admin-planning.html">Planning & Beheer</option>
+          <option value="admin-passwords.html">Wachtwoorden</option>
+          <option value="admin-stats.html">Inschrijvingen & Sterren</option>
+          <option value="admin-lunch.html" selected>Lunch inplannen</option>
+          <option value="admin-dev.html">Dev</option>
+        </select>
+      </div>
 
       <!-- Page content -->
       <section class="card" id="cardLunchIntro">
@@ -552,6 +526,14 @@
         a.click();
         URL.revokeObjectURL(url);
       });
+
+      // Dropdown navigation handler
+      const navSelect = document.getElementById('adminNavSelect');
+      if (navSelect) {
+        navSelect.addEventListener('change', (e) => {
+          window.location.href = e.target.value;
+        });
+      }
     </script>
 
     <!-- Shared app scripts -->

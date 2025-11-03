@@ -42,14 +42,16 @@
     </header>
 
     <main class="wrap">
-      <nav class="subtabs" aria-label="Admin secties">
-        <a href="admin-scan.html" class="subtab" aria-pressed="true">Scannen & Handmatig</a>
-        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
-        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
-        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
-        <a href="admin-lunch.html" class="subtab" aria-pressed="false">Lunch inplannen</a>
-        <a href="admin-dev.html" class="subtab" aria-pressed="false">Dev</a>
-      </nav>
+      <div class="admin-nav-dropdown">
+        <select id="adminNavSelect" class="admin-nav-select">
+          <option value="admin-scan.html" selected>Scannen & Handmatig</option>
+          <option value="admin-planning.html">Planning & Beheer</option>
+          <option value="admin-passwords.html">Wachtwoorden</option>
+          <option value="admin-stats.html">Inschrijvingen & Sterren</option>
+          <option value="admin-lunch.html">Lunch inplannen</option>
+          <option value="admin-dev.html">Dev</option>
+        </select>
+      </div>
 
       <section id="viewAdmin" class="view active">
         <div class="card" id="qrScanCard">
@@ -123,6 +125,14 @@
       import { db } from './src/firebase.js';
       import { collection, orderBy, startAfter, limit, getDocs, query } from 'firebase/firestore';
       
+      // Dropdown navigation handler
+      const navSelect = document.getElementById('adminNavSelect');
+      if (navSelect) {
+        navSelect.addEventListener('change', (e) => {
+          window.location.href = e.target.value;
+        });
+      }
+
       // Check authentication before loading the page
       if (checkAdminAuth()) {
         // Apply admin level restrictions after DOM is ready
