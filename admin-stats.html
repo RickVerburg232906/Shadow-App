@@ -42,18 +42,17 @@
     </header>
 
     <main class="wrap">
-      <header class="site-header">
-        <h1>Inschrijvingen & Sterren</h1>
-      </header>
 
-      <nav class="subtabs" aria-label="Admin secties">
-        <a href="admin-scan.html" class="subtab" aria-pressed="false">Scannen & Handmatig</a>
-        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
-        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
-        <a href="admin-stats.html" class="subtab" aria-pressed="true">Inschrijvingen & Sterren</a>
-        <a href="admin-lunch.html" class="subtab" aria-pressed="false">Lunch inplannen</a>
-        <a href="admin-dev.html" class="subtab" aria-pressed="false">Dev</a>
-      </nav>
+      <div class="admin-nav-dropdown">
+        <select id="adminNavSelect" class="admin-nav-select">
+          <option value="admin-scan.html">Scannen & Handmatig</option>
+          <option value="admin-planning.html">Planning & Beheer</option>
+          <option value="admin-passwords.html">Wachtwoorden</option>
+          <option value="admin-stats.html" selected>Inschrijvingen & Sterren</option>
+          <option value="admin-lunch.html">Lunch inplannen</option>
+          <option value="admin-dev.html">Dev</option>
+        </select>
+      </div>
 
       <section id="viewAdmin" class="view active">
         <div class="card" id="rideStatsCard">
@@ -101,6 +100,14 @@
     <script type="module">
       import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
       
+      // Dropdown navigation handler
+      const navSelect = document.getElementById('adminNavSelect');
+      if (navSelect) {
+        navSelect.addEventListener('change', (e) => {
+          window.location.href = e.target.value;
+        });
+      }
+
       // Check authentication and ensure root admin access
       if (checkAdminAuth()) {
         const adminLevel = sessionStorage.getItem("admin_level");

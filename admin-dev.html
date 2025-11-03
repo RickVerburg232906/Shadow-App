@@ -18,16 +18,17 @@
     </header>
 
     <main class="wrap">
-      <h1>Dev tools</h1>
 
-      <nav class="subtabs" aria-label="Admin secties" id="adminSubtabs">
-        <a href="admin-scan.html" class="subtab" aria-pressed="false">Scannen & Handmatig</a>
-        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
-        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
-        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
-        <a href="admin-lunch.html" class="subtab" aria-pressed="false">Lunch inplannen</a>
-        <a href="admin-dev.html" class="subtab" aria-pressed="true">Dev</a>
-      </nav>
+      <div class="admin-nav-dropdown">
+        <select id="adminNavSelect" class="admin-nav-select">
+          <option value="admin-scan.html">Scannen & Handmatig</option>
+          <option value="admin-planning.html">Planning & Beheer</option>
+          <option value="admin-passwords.html">Wachtwoorden</option>
+          <option value="admin-stats.html">Inschrijvingen & Sterren</option>
+          <option value="admin-lunch.html">Lunch inplannen</option>
+          <option value="admin-dev.html" selected>Dev</option>
+        </select>
+      </div>
 
       <section class="card">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
@@ -56,6 +57,14 @@
     <script type="module">
       import { checkAdminAuth, applyAdminLevel } from '/src/auth.js';
       import { initAdminView } from '/src/admin.js';
+
+      // Dropdown navigation handler
+      const navSelect = document.getElementById('adminNavSelect');
+      if (navSelect) {
+        navSelect.addEventListener('change', (e) => {
+          window.location.href = e.target.value;
+        });
+      }
 
       // Alleen root admins voor deze pagina
       if (checkAdminAuth()) {

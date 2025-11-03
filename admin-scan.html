@@ -42,18 +42,16 @@
     </header>
 
     <main class="wrap">
-      <header class="site-header">
-        <h1>Scannen & Handmatig Registreren</h1>
-      </header>
-
-      <nav class="subtabs" aria-label="Admin secties">
-        <a href="admin-scan.html" class="subtab" aria-pressed="true">Scannen & Handmatig</a>
-        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
-        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
-        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
-        <a href="admin-lunch.html" class="subtab" aria-pressed="false">Lunch inplannen</a>
-        <a href="admin-dev.html" class="subtab" aria-pressed="false">Dev</a>
-      </nav>
+      <div class="admin-nav-dropdown">
+        <select id="adminNavSelect" class="admin-nav-select">
+          <option value="admin-scan.html" selected>Scannen & Handmatig</option>
+          <option value="admin-planning.html">Planning & Beheer</option>
+          <option value="admin-passwords.html">Wachtwoorden</option>
+          <option value="admin-stats.html">Inschrijvingen & Sterren</option>
+          <option value="admin-lunch.html">Lunch inplannen</option>
+          <option value="admin-dev.html">Dev</option>
+        </select>
+      </div>
 
       <section id="viewAdmin" class="view active">
         <div class="card" id="qrScanCard">
@@ -88,6 +86,34 @@
           </div>
           <div id="adminManualStatus" class="status"></div>
         </div>
+
+        <!-- Lunch overzicht sectie -->
+        <div class="card" id="cardLunchOverview" style="display: block !important;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="font-size: 24px;">📊</span>
+            <div>
+              <h3 style="margin: 0;">Lunch overzicht</h3>
+              <p id="lunchOverviewDateTitle" class="muted" style="margin: 4px 0 0 0; font-size: 14px;">Eerstvolgende rit: —</p>
+            </div>
+          </div>
+          <div class="row" style="margin: 8px 0 12px; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <span id="lunchOverviewStatus" class="muted" style="min-height:20px;"></span>
+          </div>
+
+          <div class="row" style="margin: 6px 0 10px;">
+            <div class="kv">
+              <div class="label">Aantal eters</div>
+              <div id="lunchTotalEaters" class="value">—</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 id="lunchChoiceCountsTitle" style="margin: 10px 0 6px;">Keuzes (aantal)</h4>
+            <div id="lunchChoiceCounts" style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
+              <!-- Dynamisch gevuld -->
+            </div>
+          </div>
+        </div>
       </section>
     </main>
 
@@ -95,11 +121,144 @@
 
     <script type="module">
       import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
+      import { getPlannedDates } from './src/member.js';
+      import { db } from './src/firebase.js';
+      import { collection, orderBy, startAfter, limit, getDocs, query } from 'firebase/firestore';
       
+      // Dropdown navigation handler
+      const navSelect = document.getElementById('adminNavSelect');
+      if (navSelect) {
+        navSelect.addEventListener('change', (e) => {
+          window.location.href = e.target.value;
+        });
+      }
+
       // Check authentication before loading the page
       if (checkAdminAuth()) {
-        applyAdminLevel();
+        // Apply admin level restrictions after DOM is ready
+        setTimeout(() => {
+          applyAdminLevel();
+        }, 100);
       }
+
+      // ===== Lunch overzicht (automatisch voor eerstvolgende rit) =====
+      const lunchOverviewDateTitle = document.getElementById('lunchOverviewDateTitle');
+      const lunchOverviewStatus = document.getElementById('lunchOverviewStatus');
+      const lunchTotalEaters = document.getElementById('lunchTotalEaters');
+      const lunchChoiceCounts = document.getElementById('lunchChoiceCounts');
+
+      async function getNextPlannedRideYMD() {
+        try {
+          const planned = await getPlannedDates();
+          const list = (Array.isArray(planned) ? planned : []).map(d => {
+            if (typeof d === 'string' && /\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10);
+            try {
+              const dt = new Date(d);
+              if (!isNaN(dt)) return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+            } catch(_) {}
+            return '';
+          }).filter(Boolean).sort();
+          const today = new Date();
+          const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+          // Kies de eerste datum die vandaag of later is
+          const next = list.find(d => d >= todayYMD);
+          return next || '';
+        } catch (_) { return ''; }
+      }
+
+      async function computeLunchOverview() {
+        try {
+          if (lunchOverviewStatus) lunchOverviewStatus.textContent = 'Ritdatum ophalen…';
+          const ymd = await getNextPlannedRideYMD();
+          
+          if (!ymd) {
+            lunchTotalEaters.textContent = '—';
+            lunchChoiceCounts.innerHTML = '';
+            if (lunchOverviewDateTitle) lunchOverviewDateTitle.textContent = 'Geen eerstvolgende rit gepland';
+            if (lunchOverviewStatus) lunchOverviewStatus.textContent = 'Geen toekomstige ritdatums';
+            return;
+          }
+          
+          // Toon de datum in de titel
+          if (lunchOverviewDateTitle) lunchOverviewDateTitle.textContent = `Eerstvolgende rit: ${ymd}`;
+          
+          if (lunchOverviewStatus) lunchOverviewStatus.textContent = 'Tellen…';
+          let totalYes = 0;
+          const perChoice = new Map();
+
+          let last = null;
+          const pageSize = 400;
+          while (true) {
+            let qRef = null;
+            if (last) {
+              qRef = query(collection(db, 'members'), orderBy('__name__'), startAfter(last), limit(pageSize));
+            } else {
+              qRef = query(collection(db, 'members'), orderBy('__name__'), limit(pageSize));
+            }
+            const snap = await getDocs(qRef);
+            if (snap.empty) break;
+
+            snap.forEach(docSnap => {
+              const d = docSnap.data() || {};
+              const deel = (d.lunchDeelname || '').toString().toLowerCase();
+              const dateMatch = (d.lunchRideDateYMD || '').toString().slice(0,10) === ymd;
+              if (deel === 'ja' && dateMatch) {
+                totalYes++;
+                const keuzeRaw = (d.lunchKeuze || '').toString().trim();
+                const key = keuzeRaw || 'Geen keuze';
+                perChoice.set(key, (perChoice.get(key) || 0) + 1);
+              }
+            });
+
+            last = snap.docs[snap.docs.length - 1];
+            if (snap.size < pageSize) break;
+          }
+
+          // Render
+          lunchTotalEaters.textContent = String(totalYes);
+          lunchChoiceCounts.innerHTML = '';
+          
+          // Check of er alleen "Geen keuze" is (betekent: geen keuze-eten beschikbaar)
+          const onlyNoChoice = perChoice.size === 1 && perChoice.has('Geen keuze');
+          const lunchChoiceCountsTitle = document.getElementById('lunchChoiceCountsTitle');
+          
+          if (onlyNoChoice) {
+            // Verberg de hele keuzes sectie als er alleen "Geen keuze" is
+            if (lunchChoiceCountsTitle) lunchChoiceCountsTitle.style.display = 'none';
+            lunchChoiceCounts.style.display = 'none';
+          } else {
+            // Toon de keuzes sectie
+            if (lunchChoiceCountsTitle) lunchChoiceCountsTitle.style.display = 'block';
+            lunchChoiceCounts.style.display = 'grid';
+            
+            if (perChoice.size === 0) {
+              const empty = document.createElement('div');
+              empty.className = 'muted';
+              empty.style.gridColumn = '1 / -1';
+              empty.textContent = 'Geen keuzes gevonden voor deze datum.';
+              lunchChoiceCounts.appendChild(empty);
+            } else {
+              const entries = Array.from(perChoice.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+              for (const [name, count] of entries) {
+                const l = document.createElement('div');
+                l.textContent = name;
+                const v = document.createElement('div');
+                v.className = 'value';
+                v.textContent = String(count);
+                lunchChoiceCounts.appendChild(l);
+                lunchChoiceCounts.appendChild(v);
+              }
+            }
+          }
+          if (lunchOverviewStatus) lunchOverviewStatus.textContent = '✅ Gereed';
+        } catch (e) {
+          console.error('Overzicht tellen mislukt', e);
+          if (lunchOverviewStatus) lunchOverviewStatus.textContent = '❌ Mislukt';
+        }
+      }
+
+      // Init overview bij laden van de pagina
+      computeLunchOverview();
     </script>
     <script type="module" src="/src/main.js"></script>
   </body>
