@@ -79,8 +79,8 @@
       import { checkAdminAuth, applyAdminLevel } from '/src/auth.js';
       import { initAdminView } from '/src/admin.js';
       import { getPlannedDates } from '/src/member.js';
-      import { db } from '/src/firebase.js';
-      import { doc, setDoc, getDoc, serverTimestamp, collection, orderBy, startAfter, limit, getDocs, query } from 'firebase/firestore';
+      import { db, doc, getDoc, serverTimestamp, collection, orderBy, startAfter, limit, getDocs, query } from '/src/firebase.js';
+      import { withRetry, updateOrCreateDoc } from '/src/firebase-helpers.js';
 
       // Guard: alle admins hebben toegang tot lunch planning
       checkAdminAuth({ redirectTo: '/' });
@@ -97,16 +97,16 @@
       async function saveLunchData(vastItems, keuzeItems) {
         clearTimeout(saveTimeout);
         saveTimeout = setTimeout(async () => {
-          try {
-            await setDoc(lunchRef, {
-              vastEten: vastItems,
-              keuzeEten: keuzeItems,
-              updatedAt: serverTimestamp()
-            }, { merge: true });
-            console.log('Lunch data opgeslagen');
-          } catch (e) {
-            console.error('Fout bij opslaan lunch data:', e);
-          }
+            try {
+              await withRetry(() => updateOrCreateDoc(lunchRef, {
+                vastEten: vastItems,
+                keuzeEten: keuzeItems,
+                updatedAt: serverTimestamp()
+              }), { retries: 3 });
+              console.log('Lunch data opgeslagen');
+            } catch (e) {
+              console.error('Fout bij opslaan lunch data:', e);
+            }
         }, 500); // 500ms debounce
       }
 

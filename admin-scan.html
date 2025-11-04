@@ -256,9 +256,8 @@
 
     <script type="module">
       import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
-      import { getPlannedDates } from './src/member.js';
-      import { db } from './src/firebase.js';
-      import { collection, orderBy, startAfter, limit, getDocs, query } from 'firebase/firestore';
+  import { getPlannedDates } from './src/member.js';
+  import { db, collection, orderBy, startAfter, limit, getDocs, query } from './src/firebase.js';
       
       // Dropdown navigation handler
       const navSelect = document.getElementById('adminNavSelect');
@@ -398,9 +397,9 @@
     
     <script type="module">
       // Handmatig boeken voor de leden-inschrijfsectie (vervangt QR in admin-scan)
-      import { getPlannedDates } from './src/member.js';
-      import { db } from './src/firebase.js';
-      import { doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore';
+  import { getPlannedDates } from './src/member.js';
+  import { db, doc, getDoc, arrayUnion } from './src/firebase.js';
+  import { withRetry, updateOrCreateDoc } from './src/firebase-helpers.js';
 
       function toYMD(d) {
         try {
@@ -474,19 +473,20 @@
             }
 
             btn.addEventListener('click', async () => {
-              try {
-                btn.disabled = true;
-                btn.textContent = `${label} • opslaan…`;
-                await setDoc(doc(db, 'members', String(memberId)), { ScanDatums: arrayUnion(ymd) }, { merge: true });
-                btn.textContent = `✔️ ${label}`;
-                existing.add(ymd);
-                if (statusEl) statusEl.textContent = `Rit ${label} toegevoegd aan ${memberId}.`;
-              } catch (e) {
-                console.error('Handmatig boeken mislukt', e);
-                btn.disabled = false;
-                btn.textContent = label;
-                if (statusEl) statusEl.textContent = '❌ Opslaan mislukt. Controleer je verbinding of rechten.';
-              }
+                try {
+                  btn.disabled = true;
+                  btn.textContent = `${label} • opslaan…`;
+                  // Prefer update; fall back to merge-create if doc missing. Wrap in retry.
+                  await withRetry(() => updateOrCreateDoc(doc(db, 'members', String(memberId)), { ScanDatums: arrayUnion(ymd) }), { retries: 3 });
+                  btn.textContent = `✔️ ${label}`;
+                  existing.add(ymd);
+                  if (statusEl) statusEl.textContent = `Rit ${label} toegevoegd aan ${memberId}.`;
+                } catch (e) {
+                  console.error('Handmatig boeken mislukt', e);
+                  btn.disabled = false;
+                  btn.textContent = label;
+                  if (statusEl) statusEl.textContent = '❌ Opslaan mislukt. Controleer je verbinding of rechten.';
+                }
             });
 
             listEl.appendChild(btn);

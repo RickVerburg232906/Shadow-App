@@ -1,8 +1,8 @@
 // landelijke-signup.js — Universele functies voor landelijke rit signup
 import QRCode from "qrcode";
-import { db } from "./firebase.js";
-import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, setDoc, serverTimestamp } from "firebase/firestore";
-import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
+import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, serverTimestamp } from "./firebase.js";
+import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
+import { getPlannedDates, plannedStarsWithHighlights, loadLunchOptions } from "./member.js";
 
 // ========== Helper functies ==========
 
@@ -108,23 +108,7 @@ function getErrorMessage(error) {
 
 // ========== Lunch functies ==========
 
-export async function loadLunchOptions() {
-  try {
-    const lunchRef = doc(db, 'globals', 'lunch');
-    const snap = await getDoc(lunchRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      return {
-        vastEten: Array.isArray(data.vastEten) ? data.vastEten : [],
-        keuzeEten: Array.isArray(data.keuzeEten) ? data.keuzeEten : []
-      };
-    }
-    return { vastEten: [], keuzeEten: [] };
-  } catch (e) {
-    console.error('Fout bij laden lunch opties:', e);
-    return { vastEten: [], keuzeEten: [] };
-  }
-}
+// loadLunchOptions is provided by src/member.js (cached)
 
 // ========== Query functies ==========
 
@@ -358,12 +342,12 @@ export async function checkAndCleanupOldLunchChoice(memberId, memberData) {
 
     const today = todayYMD();
     if (today > rideYMD) {
-      await setDoc(doc(db, "members", String(memberId)), {
+      await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), {
         lunchDeelname: null,
         lunchKeuze: null,
         lunchTimestamp: null,
         lunchRideDateYMD: null
-      }, { merge: true });
+      }), { retries: 2 });
       console.log(`Lunch keuze gewist voor lid ${memberId} — rit ${rideYMD} voorbij (${today}).`);
     }
   } catch (e) {
@@ -381,12 +365,12 @@ export async function saveLunchChoice(memberId, lunchChoice, selectedKeuzeEten) 
     const keuzeEtenValue = (isVastMenuOnly || selectedKeuzeEten.length === 0) ? null : selectedKeuzeEten[0];
     const rideYMD = await getNextPlannedRideYMD();
     
-    await setDoc(doc(db, "members", String(memberId)), { 
+    await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), { 
       lunchDeelname: lunchChoice,
       lunchKeuze: keuzeEtenValue,
       lunchTimestamp: serverTimestamp(),
       lunchRideDateYMD: rideYMD || null
-    }, { merge: true });
+    }), { retries: 3 });
     
     return true;
   } catch (e) {
@@ -406,7 +390,7 @@ export async function saveYearhanger(memberId, yearhangerValue) {
     const v = (yearhangerValue === "Ja" || yearhangerValue === true) ? "Ja" : 
               (yearhangerValue === "Nee" || yearhangerValue === false) ? "Nee" : null;
     
-    await setDoc(doc(db, "members", String(memberId)), { Jaarhanger: v }, { merge: true });
+  await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), { Jaarhanger: v }), { retries: 3 });
     
     return v;
   } catch (e) {

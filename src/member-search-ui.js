@@ -26,7 +26,7 @@ import {
   openQrFullscreenFromCanvas,
 } from './landelijke-signup.js';
 import { getPlannedDates, plannedStarsWithHighlights } from './member.js';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from './firebase.js';
 import { db } from './firebase.js';
 
 export function initMemberSearchSection(config) {

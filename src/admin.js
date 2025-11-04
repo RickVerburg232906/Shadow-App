@@ -97,9 +97,9 @@
 })();
 
 import * as XLSX from "xlsx";
-import { db, writeBatch, doc } from "./firebase.js";
+import { db, writeBatch, doc, arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "./firebase.js";
+import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
-import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "firebase/firestore";
 
 // ====== Globale ritdatums cache ======
 let PLANNED_DATES = [];
@@ -655,7 +655,7 @@ function initRidePlannerSection() {
         return;
       }
       setStatus("Opslaan…");
-      await setDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }, { merge: true });
+  await withRetry(() => updateOrCreateDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }), { retries: 3 });
       setStatus("✅ Planning opgeslagen");
     } catch (e) {
       console.error("[ridePlan] savePlan error", e);
