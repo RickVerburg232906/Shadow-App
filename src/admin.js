@@ -101,6 +101,92 @@ import { db, writeBatch, doc, arrayUnion, collection, endAt, getDoc, getDocs, in
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
 
+// Helper: enable long-press (hold) on a canvas to export as JPG
+function enableCanvasLongPressExport(canvas, filename = null, holdMs = 2000) {
+  if (!canvas) return;
+  let timer = null;
+  let startX = 0, startY = 0;
+  const maxMove = 12; // pixels allowed before cancelling
+
+  const clearTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
+
+  const triggerDownload = (blob) => {
+    if (!blob) return;
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename || 'chart.jpg';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    try { if (typeof showToast === 'function') showToast('✅ JPG opgeslagen'); } catch(_) {}
+  };
+
+  const fallbackDataUrl = () => {
+    try {
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      fetch(dataUrl).then(r => r.blob()).then(triggerDownload).catch((e) => { console.error(e); try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {} });
+    } catch (e) {
+      console.error('fallbackDataUrl failed', e);
+      try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
+    }
+  };
+
+  const doExport = () => {
+    try {
+      // Ask user for confirmation before generating/downloading the JPG
+      try {
+        const message = filename ? `Wilt u de grafiek als JPG downloaden (${filename})?` : 'Wilt u de grafiek als JPG downloaden?';
+        if (!window.confirm(message)) return;
+      } catch (_) {
+        // If confirm is unavailable for some reason, proceed
+      }
+
+      if (canvas.toBlob) {
+        canvas.toBlob((blob) => {
+          if (blob) triggerDownload(blob); else fallbackDataUrl();
+        }, 'image/jpeg', 0.92);
+      } else {
+        fallbackDataUrl();
+      }
+    } catch (e) {
+      console.error('Long-press export failed', e);
+      try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
+    }
+  };
+
+  const onStart = (ev) => {
+    // record start point for move threshold
+    if (ev.touches && ev.touches[0]) { startX = ev.touches[0].clientX; startY = ev.touches[0].clientY; }
+    else { startX = ev.clientX || 0; startY = ev.clientY || 0; }
+    clearTimer();
+    timer = setTimeout(() => { timer = null; doExport(); }, holdMs);
+  };
+
+  const onMove = (ev) => {
+    if (!timer) return;
+    const x = (ev.touches && ev.touches[0]) ? ev.touches[0].clientX : (ev.clientX || 0);
+    const y = (ev.touches && ev.touches[0]) ? ev.touches[0].clientY : (ev.clientY || 0);
+    if (Math.hypot(x - startX, y - startY) > maxMove) clearTimer();
+  };
+
+  const onEnd = () => clearTimer();
+
+  // Pointer events preferred
+  canvas.addEventListener('pointerdown', onStart, { passive: true });
+  canvas.addEventListener('pointermove', onMove, { passive: true });
+  canvas.addEventListener('pointerup', onEnd, { passive: true });
+  canvas.addEventListener('pointercancel', onEnd, { passive: true });
+
+  // Touch/mouse fallbacks for older browsers
+  canvas.addEventListener('touchstart', onStart, { passive: true });
+  canvas.addEventListener('touchmove', onMove, { passive: true });
+  canvas.addEventListener('touchend', onEnd, { passive: true });
+  canvas.addEventListener('mousedown', onStart, { passive: true });
+  canvas.addEventListener('mousemove', onMove, { passive: true });
+  canvas.addEventListener('mouseup', onEnd, { passive: true });
+}
+
 // ====== Globale ritdatums cache ======
 let PLANNED_DATES = [];
 
@@ -193,6 +279,49 @@ async function countMembersPerDate(plannedYMDs, regionFilter) {
 }
 
 let _rideStatsChart = null;
+// Lazy-load Chart.js (ESM build from CDN). Cached in _ChartModule to avoid re-fetch.
+let _ChartModule = null;
+async function loadChart() {
+  if (_ChartModule) return _ChartModule;
+  // Try to load an ESM build first (smaller, tree-shakeable when supported)
+  try {
+    _ChartModule = await import('https://cdn.jsdelivr.net/npm/chart.js/dist/chart.esm.min.js');
+    return _ChartModule;
+  } catch (e) {
+    // If ESM import fails in the browser (often due to nested bare specifiers like @kurkle/color),
+    // fallback to injecting the UMD bundle which includes dependencies and exposes `window.Chart`.
+    try {
+      // If Chart is already present (e.g., loaded previously), reuse it
+      if (typeof window !== 'undefined' && window.Chart) {
+        _ChartModule = { default: window.Chart, Chart: window.Chart };
+        return _ChartModule;
+      }
+
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        // UMD bundle that contains dependencies bundled in
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js';
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = (err) => reject(err || new Error('Chart UMD load error'));
+        document.head.appendChild(script);
+      });
+
+      if (typeof window !== 'undefined' && window.Chart) {
+        _ChartModule = { default: window.Chart, Chart: window.Chart };
+        return _ChartModule;
+      }
+      // If still no Chart, throw original error
+      console.error('Kon Chart.js niet dynamisch laden (UMD fallback mislukte)', e);
+      _ChartModule = null;
+      return null;
+    } catch (err) {
+      console.error('Kon Chart.js niet dynamisch laden', e, err);
+      _ChartModule = null;
+      return null;
+    }
+  }
+}
 async function initRideStatsChart() {
   const canvas = document.getElementById("rideStatsChart");
   const statusEl = document.getElementById("rideStatsStatus");
@@ -221,33 +350,69 @@ async function initRideStatsChart() {
       // Destroy oud chart om memory leaks te voorkomen
       try { if (_rideStatsChart) { _rideStatsChart.destroy(); _rideStatsChart = null; } } catch(_) {}
 
-      // eslint-disable-next-line no-undef
+      // Dynamically load Chart.js when we first render the stats chart
+      const ChartModule = await loadChart();
+      const ChartCtor = (ChartModule && (ChartModule.default || ChartModule.Chart)) || null;
+      if (!ChartCtor) {
+        if (statusEl) statusEl.textContent = '❌ Chart.js niet beschikbaar';
+        return;
+      }
       const ctx = canvas.getContext("2d");
-      _rideStatsChart = new Chart(ctx, {
+
+      // Create a pleasing blue gradient for the bars
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height || 300);
+      grad.addColorStop(0, '#60a5fa'); // light
+      grad.addColorStop(1, '#2563eb'); // deep
+
+      _rideStatsChart = new ChartCtor(ctx, {
         type: "bar",
         data: {
           labels,
           datasets: [{
             label: "Inschrijvingen",
             data,
-            // geen specifieke kleuren zetten; Chart.js kiest defaults
+            backgroundColor: grad,
+            borderRadius: 8,
+            borderSkipped: false,
+            barPercentage: 0.85,
+            categoryPercentage: 0.9
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: 6, right: 6, bottom: 6, left: 6 } },
           scales: {
-            x: { title: { display: true, text: "Ritdatum" } },
-            y: { beginAtZero: true, title: { display: true, text: "Aantal leden" }, ticks: { precision: 0 } }
+            x: {
+              title: { display: true, text: "Ritdatum" },
+              grid: { display: false },
+              ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 12 }
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Aantal leden" },
+              ticks: { precision: 0 },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            }
           },
           plugins: {
+            title: { display: true, text: 'Inschrijvingen per rit', font: { size: 14 } },
             legend: { display: false },
-            tooltip: { callbacks: {
-              label: (ctx) => ` ${ctx.parsed.y} inschrijvingen`
-            }}
-          }
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#fff',
+              bodyColor: '#fff',
+              padding: 8,
+              callbacks: {
+                label: (ctx) => ` ${ctx.parsed.y} inschrijvingen`
+              }
+            }
+          },
+          animation: { duration: 600, easing: 'easeOutQuad' }
         }
       });
+      // Enable long-press (2s) export on the canvas for convenience
+      try { enableCanvasLongPressExport(canvas, 'inschrijvingen-per-rit.jpg', 2000); } catch (_) {}
       if (statusEl) statusEl.textContent = `✅ Gegevens geladen (${data.reduce((a,b)=>a+b,0)} totaal)`;
     } catch (e) {
       console.error(e);
@@ -366,30 +531,66 @@ async function initStarDistributionChart() {
       // Destroy oud chart
       try { if (_starDistChart) { _starDistChart.destroy(); _starDistChart = null; } } catch(_) {}
 
-      // eslint-disable-next-line no-undef
+      // Dynamically load Chart.js when rendering the star distribution
+      const ChartModule = await loadChart();
+      const ChartCtor = (ChartModule && (ChartModule.default || ChartModule.Chart)) || null;
+      if (!ChartCtor) {
+        if (statusEl) statusEl.textContent = '❌ Chart.js niet beschikbaar';
+        return;
+      }
       const ctx = canvas.getContext("2d");
-      _starDistChart = new Chart(ctx, {
+
+      // Gradient for star distribution (green hues)
+      const grad2 = ctx.createLinearGradient(0, 0, 0, canvas.height || 240);
+      grad2.addColorStop(0, '#86efac');
+      grad2.addColorStop(1, '#16a34a');
+
+      _starDistChart = new ChartCtor(ctx, {
         type: "bar",
         data: {
           labels,
           datasets: [{
             label: "Aantal leden",
-            data
+            data,
+            backgroundColor: grad2,
+            borderRadius: 6,
+            borderSkipped: false,
+            barPercentage: 0.8,
+            categoryPercentage: 0.9
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: 6, right: 6, bottom: 6, left: 6 } },
           scales: {
-            x: { title: { display: true, text: "Aantal sterren (0.."+N+")" } },
-            y: { beginAtZero: true, title: { display: true, text: "Aantal leden" }, ticks: { precision: 0 } }
+            x: {
+              title: { display: true, text: "Aantal sterren (0.."+N+")" },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Aantal leden" },
+              ticks: { precision: 0 },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            }
           },
           plugins: {
+            title: { display: true, text: 'Sterrenverdeling (Jaarhanger = Ja)' },
             legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y} leden` } }
-          }
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#fff',
+              bodyColor: '#fff',
+              padding: 8,
+              callbacks: { label: (ctx) => ` ${ctx.parsed.y} leden` }
+            }
+          },
+          animation: { duration: 600, easing: 'easeOutQuad' }
         }
       });
+      // Enable long-press (2s) export on the star distribution canvas
+      try { enableCanvasLongPressExport(canvas, 'sterrenverdeling.jpg', 2000); } catch (_) {}
       const totaal = data.reduce((a,b)=>a+b,0);
       if (statusEl) statusEl.textContent = `✅ Gegevens geladen (leden met Jaarhanger=Ja: ${totaal})`;
     } catch (e) {
@@ -562,8 +763,7 @@ export function initAdminView() {
     // Sterrenverdeling (Jaarhanger=Ja)
     try { initStarDistributionChart(); } catch (_) {}
 
-    try { attachChartExportJPGNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistJPG", "sterrenverdeling.jpg"); } catch(_) {}
-    try { attachChartExportJPGNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsJPG", "inschrijvingen-per-rit.jpg"); } catch(_) {}
+  // Export buttons removed in favor of long-press export on the canvases
   }
 
   // Dev tools page: reset Jaarhanger en Lunch
