@@ -163,7 +163,6 @@
                       </div>
                     </div>
                   </div>
-                </div>
               </details>
             </div>
             
@@ -189,7 +188,6 @@
                       </button>
                     </div>
                   </div>
-                </div>
 
                   <div id="jaarhangerInfo" style="display:none; margin: 16px 0 8px 0;">
                     <details class="muted" style="margin-top:4px;">
@@ -527,6 +525,25 @@
         // Eerste poging ook direct
         setTimeout(() => maybeRender(), 300);
       }
+
+      // Zorg dat na keuze Jaarhanger de gegevens-sectie in beeld komt
+      function ensureResultVisibleAndScroll() {
+        const id = (memberNoEl?.textContent || '').trim();
+        if (!id || id === '—') return; // geen selectie, niets tonen
+        if (resultEl) {
+          resultEl.style.display = 'grid';
+          resultEl.style.visibility = '';
+          // Laat de browser eerst lay-outen en scroll dan vloeiend in beeld
+          setTimeout(() => {
+            try { resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch {}
+          }, 50);
+        }
+      }
+
+      const yhYes = document.getElementById('yearhangerYes');
+      const yhNo = document.getElementById('yearhangerNo');
+      yhYes?.addEventListener('click', ensureResultVisibleAndScroll);
+      yhNo?.addEventListener('click', ensureResultVisibleAndScroll);
     </script>
     <script type="module">
       // Alleen initializer voor Admin Landelijke Signup; de lid-inschrijvingssectie gebruikt de logica uit member.js/main.js
