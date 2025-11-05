@@ -304,6 +304,25 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
   padding: 8px 10px;
   border-radius: 8px;
 }
+/* Year filter styling: compact and integrated with admin nav */
+.admin-filter-select {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  min-width: 120px;
+  display: block;
+  width: 100%;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23e5e7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 36px;
+}
+.admin-filter-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); border-color: #3b82f6; }
+.admin-filter-select option { background: var(--card); color: var(--text); }
 #rideRegionFilter:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59,130,246,0.12);

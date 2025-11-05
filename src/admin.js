@@ -333,7 +333,23 @@ async function initRideStatsChart() {
       if (statusEl) statusEl.textContent = "Laden…";
       const planned = (await ensureRideDatesLoaded()) || [];
       // Normaliseer naar YYYY-MM-DD en sorteer
-      const plannedYMDs = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
+      const plannedYMDsAll = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
+      // Year filter (optional)
+      const yearSelect = document.getElementById('rideYearFilter');
+      let selectedYear = yearSelect ? (yearSelect.value || '') : '';
+      // If the year select exists but has not been populated yet, populate with available years
+      if (yearSelect && yearSelect.options.length <= 1) {
+        const years = Array.from(new Set(plannedYMDsAll.map(d => d.slice(0,4)))).sort().reverse();
+        years.forEach(y => {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.textContent = y;
+          yearSelect.appendChild(opt);
+        });
+        // listen for changes
+        yearSelect.addEventListener('change', () => render(), { passive: true });
+      }
+      const plannedYMDs = selectedYear ? plannedYMDsAll.filter(d => d.slice(0,4) === selectedYear) : plannedYMDsAll;
       if (!plannedYMDs.length) {
         if (statusEl) statusEl.textContent = "Geen geplande datums.";
         return;
@@ -523,7 +539,21 @@ async function initStarDistributionChart() {
     try {
       if (statusEl) statusEl.textContent = "Laden…";
       const planned = (await ensureRideDatesLoaded()) || [];
-      const plannedYMDs = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
+      const plannedYMDsAll = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
+      // Respect selected year if present
+      const yearSelect = document.getElementById('rideYearFilter');
+      let selectedYear = yearSelect ? (yearSelect.value || '') : '';
+      if (yearSelect && yearSelect.options.length <= 1) {
+        const years = Array.from(new Set(plannedYMDsAll.map(d => d.slice(0,4)))).sort().reverse();
+        years.forEach(y => {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.textContent = y;
+          yearSelect.appendChild(opt);
+        });
+        yearSelect.addEventListener('change', () => render(), { passive: true });
+      }
+      const plannedYMDs = selectedYear ? plannedYMDsAll.filter(d => d.slice(0,4) === selectedYear) : plannedYMDsAll;
       const N = plannedYMDs.length;
       if (!N) { if (statusEl) statusEl.textContent = "Geen geplande datums."; return; }
 
