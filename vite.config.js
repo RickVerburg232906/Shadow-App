@@ -13,6 +13,7 @@ export default defineConfig({
         adminStats: resolve(__dirname, 'admin-stats.html'),
         adminLunch: resolve(__dirname, 'admin-lunch.html'),
         adminDev: resolve(__dirname, 'admin-dev.html'),
+        adminExcel: resolve(__dirname, 'admin-excel.html'),
       },
     }
   }

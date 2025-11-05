@@ -97,9 +97,93 @@
 })();
 
 import * as XLSX from "xlsx";
-import { db, writeBatch, doc } from "./firebase.js";
+import { db, writeBatch, doc, arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "./firebase.js";
+import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
-import { arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "firebase/firestore";
+
+// Helper: attach a full-width, nicely-styled download button under a chart canvas
+function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
+  try {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    let btn = document.getElementById(btnId);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = btnId;
+      btn.type = 'button';
+      btn.textContent = 'Download JPG';
+      btn.className = 'chart-download-btn';
+      // sensible inline defaults for older environments; primary styling in CSS
+      btn.style.display = 'block';
+      btn.style.width = '100%';
+      btn.style.boxSizing = 'border-box';
+      btn.style.marginTop = '10px';
+      btn.style.padding = '10px 14px';
+      btn.style.borderRadius = '10px';
+      btn.style.border = 'none';
+      btn.style.cursor = 'pointer';
+      btn.style.fontWeight = '700';
+    }
+
+    const placeBelowChart = () => {
+      try {
+        const chartBox = canvas.parentElement; // expect .chart-box
+        if (chartBox && chartBox.parentElement) {
+          if (btn.parentElement !== chartBox.parentElement) chartBox.insertAdjacentElement('afterend', btn);
+        } else {
+          if (btn.parentElement !== canvas.parentElement) canvas.insertAdjacentElement('afterend', btn);
+        }
+      } catch (_) {}
+    };
+
+    placeBelowChart();
+
+    const triggerDownload = (blob) => {
+      if (!blob) return;
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename || (canvasId + '.jpg');
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    };
+
+    btn.onclick = () => {
+      try {
+        if (canvas.toBlob) {
+          canvas.toBlob((blob) => {
+            if (blob) triggerDownload(blob);
+            else {
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+              fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
+            }
+          }, 'image/jpeg', 0.92);
+        } else {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
+        }
+      } catch (e) {
+        console.error('JPG export failed:', e);
+        try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
+        alert('JPG export mislukt.');
+      }
+    };
+
+    // Re-place when layout changes
+    const ensurePlaced = () => placeBelowChart();
+    window.addEventListener('resize', ensurePlaced);
+    const adminView = document.getElementById('viewAdmin');
+    adminView?.addEventListener('click', () => setTimeout(ensurePlaced, 0));
+    if (adminView && window.MutationObserver) {
+      const mo = new MutationObserver(() => ensurePlaced());
+      mo.observe(adminView, { childList: true, subtree: true });
+    }
+  } catch (e) {
+    console.error('attachChartDownloadButtonFullWidth failed', e);
+  }
+}
 
 // ====== Globale ritdatums cache ======
 let PLANNED_DATES = [];
@@ -193,6 +277,49 @@ async function countMembersPerDate(plannedYMDs, regionFilter) {
 }
 
 let _rideStatsChart = null;
+// Lazy-load Chart.js (ESM build from CDN). Cached in _ChartModule to avoid re-fetch.
+let _ChartModule = null;
+async function loadChart() {
+  if (_ChartModule) return _ChartModule;
+  // Try to load an ESM build first (smaller, tree-shakeable when supported)
+  try {
+    _ChartModule = await import('https://cdn.jsdelivr.net/npm/chart.js/dist/chart.esm.min.js');
+    return _ChartModule;
+  } catch (e) {
+    // If ESM import fails in the browser (often due to nested bare specifiers like @kurkle/color),
+    // fallback to injecting the UMD bundle which includes dependencies and exposes `window.Chart`.
+    try {
+      // If Chart is already present (e.g., loaded previously), reuse it
+      if (typeof window !== 'undefined' && window.Chart) {
+        _ChartModule = { default: window.Chart, Chart: window.Chart };
+        return _ChartModule;
+      }
+
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        // UMD bundle that contains dependencies bundled in
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js';
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = (err) => reject(err || new Error('Chart UMD load error'));
+        document.head.appendChild(script);
+      });
+
+      if (typeof window !== 'undefined' && window.Chart) {
+        _ChartModule = { default: window.Chart, Chart: window.Chart };
+        return _ChartModule;
+      }
+      // If still no Chart, throw original error
+      console.error('Kon Chart.js niet dynamisch laden (UMD fallback mislukte)', e);
+      _ChartModule = null;
+      return null;
+    } catch (err) {
+      console.error('Kon Chart.js niet dynamisch laden', e, err);
+      _ChartModule = null;
+      return null;
+    }
+  }
+}
 async function initRideStatsChart() {
   const canvas = document.getElementById("rideStatsChart");
   const statusEl = document.getElementById("rideStatsStatus");
@@ -213,7 +340,9 @@ async function initRideStatsChart() {
       }
   // Respect region filter if present
   const selectedRegion = regionSelect ? (regionSelect.value || null) : null;
-  if (regionStatus) regionStatus.textContent = selectedRegion ? `Regio: ${selectedRegion}` : "";
+  // regionStatus previously showed `Regio: <name>` but the chart title now contains the region,
+  // so we avoid duplicating that text in the UI. Leave the status element empty.
+  // if (regionStatus) regionStatus.textContent = selectedRegion ? `Regio: ${selectedRegion}` : "";
   const counts = await countMembersPerDate(plannedYMDs, selectedRegion);
       const labels = plannedYMDs;
       const data = plannedYMDs.map(d => counts.get(d) || 0);
@@ -221,33 +350,72 @@ async function initRideStatsChart() {
       // Destroy oud chart om memory leaks te voorkomen
       try { if (_rideStatsChart) { _rideStatsChart.destroy(); _rideStatsChart = null; } } catch(_) {}
 
-      // eslint-disable-next-line no-undef
-      const ctx = canvas.getContext("2d");
-      _rideStatsChart = new Chart(ctx, {
+      // Dynamically load Chart.js when we first render the stats chart
+      const ChartModule = await loadChart();
+      const ChartCtor = (ChartModule && (ChartModule.default || ChartModule.Chart)) || null;
+      if (!ChartCtor) {
+        if (statusEl) statusEl.textContent = '❌ Chart.js niet beschikbaar';
+        return;
+      }
+
+  const ctx = canvas.getContext("2d");
+  // Title should reflect selected region when a region filter is active
+  const titleText = selectedRegion ? `Inschrijvingen per rit — ${selectedRegion}` : 'Inschrijvingen per rit';
+
+      // Create a pleasing blue gradient for the bars
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height || 300);
+      grad.addColorStop(0, '#60a5fa'); // light
+      grad.addColorStop(1, '#2563eb'); // deep
+
+      _rideStatsChart = new ChartCtor(ctx, {
         type: "bar",
         data: {
           labels,
           datasets: [{
             label: "Inschrijvingen",
             data,
-            // geen specifieke kleuren zetten; Chart.js kiest defaults
+            backgroundColor: grad,
+            borderRadius: 8,
+            borderSkipped: false,
+            barPercentage: 0.85,
+            categoryPercentage: 0.9
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: 6, right: 6, bottom: 6, left: 6 } },
           scales: {
-            x: { title: { display: true, text: "Ritdatum" } },
-            y: { beginAtZero: true, title: { display: true, text: "Aantal leden" }, ticks: { precision: 0 } }
+            x: {
+              title: { display: true, text: "Ritdatum" },
+              grid: { display: false },
+              ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 12 }
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Aantal leden" },
+              ticks: { precision: 0 },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            }
           },
           plugins: {
+            title: { display: true, text: titleText, font: { size: 14 } },
             legend: { display: false },
-            tooltip: { callbacks: {
-              label: (ctx) => ` ${ctx.parsed.y} inschrijvingen`
-            }}
-          }
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#fff',
+              bodyColor: '#fff',
+              padding: 8,
+              callbacks: {
+                label: (ctx) => ` ${ctx.parsed.y} inschrijvingen`
+              }
+            }
+          },
+          animation: { duration: 600, easing: 'easeOutQuad' }
         }
       });
+  // Add full-width download button under the chart
+  try { attachChartDownloadButtonFullWidth('rideStatsChart', 'downloadRideStatsBtn', 'inschrijvingen-per-rit.jpg'); } catch (_) {}
       if (statusEl) statusEl.textContent = `✅ Gegevens geladen (${data.reduce((a,b)=>a+b,0)} totaal)`;
     } catch (e) {
       console.error(e);
@@ -366,30 +534,66 @@ async function initStarDistributionChart() {
       // Destroy oud chart
       try { if (_starDistChart) { _starDistChart.destroy(); _starDistChart = null; } } catch(_) {}
 
-      // eslint-disable-next-line no-undef
+      // Dynamically load Chart.js when rendering the star distribution
+      const ChartModule = await loadChart();
+      const ChartCtor = (ChartModule && (ChartModule.default || ChartModule.Chart)) || null;
+      if (!ChartCtor) {
+        if (statusEl) statusEl.textContent = '❌ Chart.js niet beschikbaar';
+        return;
+      }
       const ctx = canvas.getContext("2d");
-      _starDistChart = new Chart(ctx, {
+
+      // Gradient for star distribution (green hues)
+      const grad2 = ctx.createLinearGradient(0, 0, 0, canvas.height || 240);
+      grad2.addColorStop(0, '#86efac');
+      grad2.addColorStop(1, '#16a34a');
+
+      _starDistChart = new ChartCtor(ctx, {
         type: "bar",
         data: {
           labels,
           datasets: [{
             label: "Aantal leden",
-            data
+            data,
+            backgroundColor: grad2,
+            borderRadius: 6,
+            borderSkipped: false,
+            barPercentage: 0.8,
+            categoryPercentage: 0.9
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: 6, right: 6, bottom: 6, left: 6 } },
           scales: {
-            x: { title: { display: true, text: "Aantal sterren (0.."+N+")" } },
-            y: { beginAtZero: true, title: { display: true, text: "Aantal leden" }, ticks: { precision: 0 } }
+            x: {
+              title: { display: true, text: "Aantal sterren (0.."+N+")" },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Aantal leden" },
+              ticks: { precision: 0 },
+              grid: { color: 'rgba(148,163,184,0.12)' }
+            }
           },
           plugins: {
+            title: { display: true, text: 'Sterrenverdeling (Jaarhanger = Ja)' },
             legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y} leden` } }
-          }
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#fff',
+              bodyColor: '#fff',
+              padding: 8,
+              callbacks: { label: (ctx) => ` ${ctx.parsed.y} leden` }
+            }
+          },
+          animation: { duration: 600, easing: 'easeOutQuad' }
         }
       });
+  // Add full-width download button under the star distribution chart
+  try { attachChartDownloadButtonFullWidth('starDistChart', 'downloadStarDistBtn', 'sterrenverdeling.jpg'); } catch (_) {}
       const totaal = data.reduce((a,b)=>a+b,0);
       if (statusEl) statusEl.textContent = `✅ Gegevens geladen (leden met Jaarhanger=Ja: ${totaal})`;
     } catch (e) {
@@ -412,14 +616,15 @@ export function initAdminView() {
   const slug = base.replace(/\.html?$/, ''); // e.g. 'admin-scan', 'index'
   const isAdminScan = slug === 'admin-scan';
   const isAdminPlanning = slug === 'admin-planning';
+  const isAdminExcel = slug === 'admin-excel';
   const isAdminPasswords = slug === 'admin-passwords';
   const isAdminStats = slug === 'admin-stats';
   const isAdminLunch = slug === 'admin-lunch';
   const isAdminDev = slug === 'admin-dev';
   const isIndexPage = slug === 'index' || fullPath === '/';
 
-  // Excel upload logic (Planning page)
-  if (isAdminPlanning || isIndexPage) {
+  // Excel upload logic (moved to dedicated admin-excel page)
+  if (isAdminExcel) {
     const fileInput = $("fileInput");
     const fileName  = $("fileName");
     const uploadBtn = $("uploadBtn");
@@ -526,13 +731,8 @@ export function initAdminView() {
     $("uploadBtn")?.addEventListener("click", handleUpload);
 
     // ===== Reset-alle-ritten (popup bevestiging) =====
-    const resetBtn = document.getElementById("resetRidesBtn");
-    const resetStatus = document.getElementById("resetStatus");
-    resetBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllRidesCount(resetStatus);
-    });
+    // Note: the reset button belongs on the planning page; initialization
+    // is performed inside initRidePlannerSection so it runs when on that page.
 
     // ===== Reset Jaarhanger (popup bevestiging) =====
     const resetJBtn = document.getElementById("resetJaarhangerBtn");
@@ -543,8 +743,9 @@ export function initAdminView() {
       await resetAllJaarhanger(resetJStatus);
     });
 
-    // ===== Ritten plannen (globaal) =====
-    initRidePlannerSection();
+  // ===== Ritten plannen (globaal) =====
+  // Note: initRidePlannerSection should only run on the planning page (or index).
+  // It was previously accidentally called here inside the admin-excel branch.
   }
 
   // ===== Handmatig rit registreren (Scan page) =====
@@ -555,6 +756,11 @@ export function initAdminView() {
     try { initAdminQRScanner(); } catch (_) {}
   }
 
+  // Ritten plannen (globaal) - init only on the planning page or index
+  if (isAdminPlanning || isIndexPage) {
+    try { initRidePlannerSection(); } catch (_) {}
+  }
+
   // Stats page
   if (isAdminStats || isIndexPage) {
     // Ritstatistieken
@@ -562,8 +768,7 @@ export function initAdminView() {
     // Sterrenverdeling (Jaarhanger=Ja)
     try { initStarDistributionChart(); } catch (_) {}
 
-    try { attachChartExportJPGNextToReload("reloadStarDistBtn", "starDistChart", "btnStarDistJPG", "sterrenverdeling.jpg"); } catch(_) {}
-    try { attachChartExportJPGNextToReload("reloadStatsBtn", "rideStatsChart", "btnRideStatsJPG", "inschrijvingen-per-rit.jpg"); } catch(_) {}
+  // Export buttons removed in favor of long-press export on the canvases
   }
 
   // Dev tools page: reset Jaarhanger en Lunch
@@ -655,7 +860,7 @@ function initRidePlannerSection() {
         return;
       }
       setStatus("Opslaan…");
-      await setDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }, { merge: true });
+  await withRetry(() => updateOrCreateDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }), { retries: 3 });
       setStatus("✅ Planning opgeslagen");
     } catch (e) {
       console.error("[ridePlan] savePlan error", e);
@@ -678,6 +883,17 @@ function initRidePlannerSection() {
   });
   reloadBtn?.addEventListener("click", loadPlan);
 
+  // ===== Reset-alle-ritten (popup bevestiging) =====
+  try {
+    const resetBtn = document.getElementById("resetRidesBtn");
+    const resetStatus = document.getElementById("resetStatus");
+    resetBtn?.addEventListener("click", async () => {
+      const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
+      if (!ok) return;
+      await resetAllRidesCount(resetStatus);
+    });
+  } catch (_) {}
+
   // Auto-load bij openen Admin tab
   loadPlan();
 }
@@ -699,21 +915,28 @@ async function bookRide(lid, naam, rideDateYMD) {
   const memberRef = doc(db, "members", id);
 
   // Transaction: lees -> check -> conditioneel updaten
+  // Use tx.update when the document exists (so FieldValue.increment/arrayUnion are applied reliably)
+  // If the document is missing, create it with explicit values.
   const res = await runTransaction(db, async (tx) => {
     const snap = await tx.get(memberRef);
-    const data = snap.exists() ? snap.data() : {};
-    const currentCount = Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
-    const scans = Array.isArray(data?.ScanDatums) ? data.ScanDatums.map(String) : [];
+    const data = snap.exists() ? snap.data() : null;
+    const currentCount = data && Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
+    const scans = data && Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
     const hasDate = scans.includes(ymd);
 
     if (hasDate) {
-      // Geen wijziging; niets bijschrijven
-      tx.set(memberRef, { ridesCount: currentCount, ScanDatums: scans.length ? scans : [] }, { merge: true });
+      // Nothing to change
       return { changed: false, newTotal: currentCount, ymd };
+    }
+
+    if (snap.exists()) {
+      // Apply increment and arrayUnion via update so sentinel values are processed correctly
+      tx.update(memberRef, { ridesCount: increment(1), ScanDatums: arrayUnion(ymd) });
+      return { changed: true, newTotal: currentCount + 1, ymd };
     } else {
-      const newTotal = currentCount + 1;
-      tx.set(memberRef, { ridesCount: increment(1), ScanDatums: arrayUnion(ymd) }, { merge: true });
-      return { changed: true, newTotal, ymd };
+      // New document: set initial ridesCount and ScanDatums
+      tx.set(memberRef, { ridesCount: 1, ScanDatums: [ymd] });
+      return { changed: true, newTotal: 1, ymd };
     }
   });
 
@@ -1151,10 +1374,12 @@ async function resetAllRidesCount(statusEl) {
   if (!statusEl) return;
   statusEl.textContent = "Voorbereiden…";
   let total = 0;
+  let updated = 0;
+  let skipped = 0;
 
   try {
-    let last = null;
-    const pageSize = 400; // veilig onder batch-limiet
+  let last = null;
+  const pageSize = 400; // veilig onder batch-limiet
 
     while (true) {
       let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
@@ -1164,18 +1389,37 @@ async function resetAllRidesCount(statusEl) {
       if (snapshot.empty) break;
 
       let batch = writeBatch(db);
+      let batchCount = 0;
       snapshot.forEach((docSnap) => {
-        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0, ScanDatums: [] }, { merge: true });
+        try {
+          const data = docSnap.data() || {};
+          const current = Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
+          // Only reset ridesCount when it's not already 0. Preserve ScanDatums.
+          if (current !== 0) {
+            batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
+            batchCount += 1;
+            updated += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch (e) {
+          console.error('resetAllRidesCount: skipping doc due to error', docSnap.id, e);
+          skipped += 1;
+        }
       });
-      await batch.commit();
+      if (batchCount > 0) await batch.commit();
       total += snapshot.size;
-      statusEl.textContent = `Gerest: ${total} leden…`;
+      statusEl.textContent = `Verwerkt: ${total} leden…`;
 
       last = snapshot.docs[snapshot.docs.length - 1];
       if (snapshot.size < pageSize) break;
     }
 
-    statusEl.textContent = `✅ Klaar. Alle ridesCount naar 0 gezet voor ${total} leden.`;
+  // Show a brief success message with counts, then clear after a delay so it doesn't permanently overlay UI
+  if (statusEl) {
+    statusEl.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
+    setTimeout(() => { try { statusEl.textContent = ''; } catch(_) {} }, 6000);
+  }
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
@@ -1187,7 +1431,8 @@ async function resetAllJaarhanger(statusEl) {
   if (!statusEl) return;
   statusEl.textContent = "Voorbereiden…";
   let total = 0;
-
+  let updated = 0;
+  let skipped = 0;
   try {
     let last = null;
     const pageSize = 400; // veilig onder batch-limiet
@@ -1200,19 +1445,36 @@ async function resetAllJaarhanger(statusEl) {
       if (snapshot.empty) break;
 
       let batch = writeBatch(db);
+      let batchCount = 0;
       snapshot.forEach((docSnap) => {
-        // set Jaarhanger to empty string "" (explicitly)
-        batch.set(doc(db, "members", docSnap.id), { Jaarhanger: "" }, { merge: true });
+        try {
+          const data = docSnap.data() || {};
+          const cur = (data?.Jaarhanger ?? "");
+          if (cur !== "") {
+            batch.set(doc(db, "members", docSnap.id), { Jaarhanger: "" }, { merge: true });
+            batchCount += 1;
+            updated += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch (e) {
+          console.error('resetAllJaarhanger: skipping doc due to error', docSnap.id, e);
+          skipped += 1;
+        }
       });
-      await batch.commit();
+      if (batchCount > 0) await batch.commit();
       total += snapshot.size;
-      statusEl.textContent = `Gerest Jaarhanger voor: ${total} leden…`;
+      statusEl.textContent = `Verwerkt: ${total} leden…`;
 
       last = snapshot.docs[snapshot.docs.length - 1];
       if (snapshot.size < pageSize) break;
     }
 
-    statusEl.textContent = `✅ Klaar. Jaarhanger gereset voor ${total} leden.`;
+  // Show a brief success message with counts, then clear after a delay so it doesn't permanently overlay UI
+  if (statusEl) {
+    statusEl.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
+    setTimeout(() => { try { statusEl.textContent = ''; } catch(_) {} }, 6000);
+  }
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten Jaarhanger: ${e?.message || e}`;
@@ -1228,6 +1490,8 @@ async function resetAllLunch(statusEl) {
   try {
     let last = null;
     const pageSize = 400; // veilig onder batch-limiet
+    let updated = 0;
+    let skipped = 0;
 
     while (true) {
       let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
@@ -1237,23 +1501,41 @@ async function resetAllLunch(statusEl) {
       if (snapshot.empty) break;
 
       let batch = writeBatch(db);
+      let batchCount = 0;
       snapshot.forEach((docSnap) => {
-        batch.set(doc(db, "members", docSnap.id), {
-          lunchDeelname: null,
-          lunchKeuze: null,
-          lunchTimestamp: null,
-          lunchRideDateYMD: null
-        }, { merge: true });
+        try {
+          const data = docSnap.data() || {};
+          const hasAny = (data.lunchDeelname != null) || (data.lunchKeuze != null) || (data.lunchTimestamp != null) || (data.lunchRideDateYMD != null);
+          if (hasAny) {
+            batch.set(doc(db, "members", docSnap.id), {
+              lunchDeelname: null,
+              lunchKeuze: null,
+              lunchTimestamp: null,
+              lunchRideDateYMD: null
+            }, { merge: true });
+            batchCount += 1;
+            updated += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch (e) {
+          console.error('resetAllLunch: skipping doc due to error', docSnap.id, e);
+          skipped += 1;
+        }
       });
-      await batch.commit();
+      if (batchCount > 0) await batch.commit();
       total += snapshot.size;
-      statusEl.textContent = `Lunch gereset voor: ${total} leden…`;
+      statusEl.textContent = `Verwerkt: ${total} leden…`;
 
       last = snapshot.docs[snapshot.docs.length - 1];
       if (snapshot.size < pageSize) break;
     }
 
-    statusEl.textContent = `✅ Klaar. Lunchgegevens gereset voor ${total} leden.`;
+  // Show a brief success message with counts, then clear after a delay so it doesn't permanently overlay UI
+  if (statusEl) {
+    statusEl.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
+    setTimeout(() => { try { statusEl.textContent = ''; } catch(_) {} }, 6000);
+  }
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten Lunch: ${e?.message || e}`;

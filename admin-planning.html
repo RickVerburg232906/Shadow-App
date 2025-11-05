@@ -18,8 +18,8 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" href="assets/logo_MC_nieuw_trans_300.gif">
     <meta name="theme-color" content="#0f172a">
-    <script src="https://unpkg.com/html5-qrcode" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/html5-qrcode" defer></script>
+  <!-- Chart.js will be loaded dynamically by the stats page when needed -->
   </head>
   <body>
     <div id="appSplash" class="app-splash" aria-hidden="false">
@@ -45,27 +45,17 @@
 
       <div class="admin-nav-dropdown">
         <select id="adminNavSelect" class="admin-nav-select">
-          <option value="admin-scan.html">Scannen & Handmatig</option>
-          <option value="admin-planning.html" selected>Planning & Beheer</option>
+          <option value="admin-scan.html">Inschrijftafel</option>
+          <option value="admin-planning.html" selected>Begin van het jaar</option>
           <option value="admin-passwords.html">Wachtwoorden</option>
-          <option value="admin-stats.html">Inschrijvingen & Sterren</option>
+          <option value="admin-stats.html">Ritten data</option>
           <option value="admin-lunch.html">Lunch inplannen</option>
-          <option value="admin-dev.html">Dev</option>
+            <option value="admin-excel.html">Excel import / export</option>
+            <option value="admin-dev.html">Dev</option>
         </select>
       </div>
 
-        <div class="card" id="excelUploadCard">
-          <h1>Admin: Excel uploaden</h1>
-          <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
-          <div class="row">
-            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
-            <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-            <span id="fileName" class="file-name">Geen bestand gekozen</span>
-            <button id="uploadBtn">Uploaden</button>
-          </div>
-          <div id="status" class="status"></div>
-          <div id="log" class="log"></div>
-        </div>
+        <!-- Excel upload verplaatst naar admin-excel.html -->
 
       <section id="viewAdmin" class="view active">
         <div class="card" id="ridePlannerCard">

@@ -2,6 +2,7 @@
 import { initMemberView, getPlannedDates } from "./member.js";
 import { initAdminView } from "./admin.js";
 import { db, doc, getDoc, setDoc } from "./firebase.js";
+import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,11 +15,11 @@ async function ensurePasswordsLoaded() {
   if (PASSWORDS) return PASSWORDS;
   const ref = doc(db, "globals", "passwords");
   const snap = await getDoc(ref);
-  if (!snap.exists()) {
-    const defaults = { inschrijftafel: "Shadow", hoofdadmin: "1100", updatedAt: Date.now() };
-    await setDoc(ref, defaults, { merge: true });
-    PASSWORDS = defaults;
-  } else {
+    if (!snap.exists()) {
+      const defaults = { inschrijftafel: "Shadow", hoofdadmin: "1100", updatedAt: Date.now() };
+      await withRetry(() => updateOrCreateDoc(ref, defaults), { retries: 2 });
+      PASSWORDS = defaults;
+    } else {
     const data = snap.data() || {};
     PASSWORDS = {
       inschrijftafel: String(data.inschrijftafel || "Shadow"),
@@ -29,7 +30,7 @@ async function ensurePasswordsLoaded() {
 }
 async function setInschrijftafelPwd(newPwd) {
   const ref = doc(db, "globals", "passwords");
-  await setDoc(ref, { inschrijftafel: String(newPwd || ""), updatedAt: Date.now() }, { merge: true });
+  await withRetry(() => updateOrCreateDoc(ref, { inschrijftafel: String(newPwd || ""), updatedAt: Date.now() }), { retries: 2 });
   PASSWORDS = { ...(PASSWORDS || {}), inschrijftafel: String(newPwd || "") };
 }
 async function getInschrijftafelPwd() {
@@ -38,7 +39,7 @@ async function getInschrijftafelPwd() {
 }
 async function setHoofdAdminPwd(newPwd) {
   const ref = doc(db, "globals", "passwords");
-  await setDoc(ref, { hoofdadmin: String(newPwd || ""), updatedAt: Date.now() }, { merge: true });
+  await withRetry(() => updateOrCreateDoc(ref, { hoofdadmin: String(newPwd || ""), updatedAt: Date.now() }), { retries: 2 });
   PASSWORDS = { ...(PASSWORDS || {}), hoofdadmin: String(newPwd || "") };
 }
 async function getHoofdAdminPwd() {

@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hoofdadmin – Lunch inplannen</title>
     <link rel="manifest" href="/assets/manifest-sHx4Fanv.webmanifest">
-    <script type="module" crossorigin src="/assets/adminLunch-yTfOo4Sp.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/main-BgS9YNCb.js">
-    <link rel="modulepreload" crossorigin href="/assets/auth-j86TSB5S.js">
-    <link rel="stylesheet" crossorigin href="/assets/main-48g4n5ju.css">
+    <script type="module" crossorigin src="/assets/adminLunch-B3wWQbI5.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/main-aWjTIM0E.js">
+    <link rel="modulepreload" crossorigin href="/assets/auth-B5TraknJ.js">
+    <link rel="stylesheet" crossorigin href="/assets/main-8MLr2DRM.css">
   </head>
   <body data-role="guest">
     <!-- Topbar -->
@@ -22,15 +22,19 @@
 
     <!-- Subtabs -->
     <main class="container">
-      <h1>Lunch inplannen</h1>
 
-      <nav class="subtabs" aria-label="Admin secties">
-        <a href="admin-scan.html" class="subtab" aria-pressed="false">Scannen & Handmatig</a>
-        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
-        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
-        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
-        <a href="admin-lunch.html" class="subtab" aria-pressed="true">Lunch inplannen</a>
-      </nav>
+      <div class="admin-nav-dropdown">
+        <select id="adminNavSelect" class="admin-nav-select">
+          <option value="admin-scan.html">Inschrijftafel</option>
+          <option value="admin-planning.html">Begin van het jaar</option>
+          <option value="admin-passwords.html">Wachtwoorden</option>
+          <option value="admin-stats.html">Ritten data</option>
+          <option value="admin-lunch.html" selected>Lunch inplannen</option>
+                      <option value="admin-excel.html">Excel import / export</option>
+
+          <option value="admin-dev.html">Dev</option>
+        </select>
+      </div>
 
       <!-- Page content -->
       <section class="card" id="cardLunchIntro">

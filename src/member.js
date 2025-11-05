@@ -1,19 +1,50 @@
 // member.js — geplande-sterren met highlight op basis van ScanDatums
 import QRCode from "qrcode";
-import { db } from "./firebase.js";
-import { getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
+import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, serverTimestamp } from "./firebase.js";
+import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 
 // ------- Planning (geplande datums) -------
 export async function getPlannedDates() {
   try {
+    // Simple in-memory cache to minimize repeated reads
+    const now = Date.now();
+    const TTL = 30 * 1000; // 30s
+    if (getPlannedDates._cache && (now - getPlannedDates._cacheAt) < TTL) {
+      return getPlannedDates._cache;
+    }
     const ref = doc(db, "globals", "ridePlan");
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : {};
     const arr = Array.isArray(data.plannedDates) ? data.plannedDates : [];
-    return arr.filter(Boolean);
+    const filtered = arr.filter(Boolean);
+    getPlannedDates._cache = filtered;
+    getPlannedDates._cacheAt = Date.now();
+    return filtered;
   } catch (e) {
     console.error("Kon plannedDates niet laden:", e);
     return [];
+  }
+}
+
+// --- Lunch keuze (module-level cached) ---
+export async function loadLunchOptions() {
+  try {
+    const now = Date.now();
+    const TTL = 60 * 1000; // cache lunch options for 60s
+    if (loadLunchOptions._cache && (now - (loadLunchOptions._cacheAt || 0)) < TTL) {
+      return loadLunchOptions._cache;
+    }
+    const lunchRef = doc(db, 'globals', 'lunch');
+    const snap = await getDoc(lunchRef);
+    const res = snap.exists()
+      ? { vastEten: Array.isArray(snap.data().vastEten) ? snap.data().vastEten : [], keuzeEten: Array.isArray(snap.data().keuzeEten) ? snap.data().keuzeEten : [] }
+      : { vastEten: [], keuzeEten: [] };
+    loadLunchOptions._cache = res;
+    loadLunchOptions._cacheAt = Date.now();
+    return res;
+  } catch (e) {
+    console.error('Fout bij laden lunch opties:', e);
+    return { vastEten: [], keuzeEten: [] };
   }
 }
 
@@ -49,12 +80,20 @@ export function plannedStarsWithHighlights(plannedDates, scanDates) {
 let STAR_MAX = 5;
 export async function loadStarMax() {
   try {
+    const now = Date.now();
+    const TTL = 5 * 60 * 1000; // 5 minutes
+    if (loadStarMax._cacheAt && (now - loadStarMax._cacheAt) < TTL) {
+      return STAR_MAX;
+    }
     const ref = doc(db, "globals", "starConfig");
     const snap = await getDoc(ref);
     const max = snap.exists() && typeof snap.data().max === "number" ? snap.data().max : 5;
     STAR_MAX = Math.max(1, Math.floor(max));
+    loadStarMax._cacheAt = Date.now();
+    return STAR_MAX;
   } catch {
     STAR_MAX = 5;
+    return STAR_MAX;
   }
 }
 function ridesToStars(count) {
@@ -205,23 +244,6 @@ function hideError() {
 }
 
 // --- Lunch keuze functies ---
-async function loadLunchOptions() {
-  try {
-    const lunchRef = doc(db, 'globals', 'lunch');
-    const snap = await getDoc(lunchRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      return {
-        vastEten: Array.isArray(data.vastEten) ? data.vastEten : [],
-        keuzeEten: Array.isArray(data.keuzeEten) ? data.keuzeEten : []
-      };
-    }
-    return { vastEten: [], keuzeEten: [] };
-  } catch (e) {
-    console.error('Fout bij laden lunch opties:', e);
-    return { vastEten: [], keuzeEten: [] };
-  }
-}
 
 // Helpers om datums te vergelijken in lokale tijd (YYYY-MM-DD)
 function todayYMD() {
@@ -588,12 +610,13 @@ async function saveLunchChoice() {
     // Koppel keuze aan de eerstvolgende ritdatum (vandaag of later)
     const rideYMD = await getNextPlannedRideYMD();
     
-    await setDoc(doc(db, "members", String(selectedDoc.id)), { 
+    // Use safe helper to prefer update and fall back to merge-create if missing
+    await withRetry(() => updateOrCreateDoc(doc(db, "members", String(selectedDoc.id)), {
       lunchDeelname: _lunchChoice,
       lunchKeuze: keuzeEtenValue,
       lunchTimestamp: serverTimestamp(),
       lunchRideDateYMD: rideYMD || null
-    }, { merge: true });
+    }), { retries: 3 });
     
     // Na het opslaan, check of er al een jaarhanger keuze is
     // Als lunch keuze "nee" is OF als lunch "ja" is met een keuze (of vast-menu), en er is al een jaarhanger
@@ -806,7 +829,8 @@ async function saveYearhanger(val) {
     const loadingIndicator = document.getElementById("loadingIndicator");
     if (loadingIndicator) loadingIndicator.style.display = "flex";
     
-    await setDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }, { merge: true });
+  // Save jaarhanger using safe update to avoid unnecessary merges
+  await withRetry(() => updateOrCreateDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }), { retries: 3 });
   updateJaarhangerBadge();
     // After saving the Jaarhanger choice, generate QR for the selected member
     try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
@@ -1041,12 +1065,12 @@ if (yearhangerNo) {
       const today = todayYMD();
       // Verwijder keuze wanneer de dag NA de rit is aangebroken (today > rideYMD)
       if (today > rideYMD) {
-        await setDoc(doc(db, "members", String(memberId)), {
+        await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), {
           lunchDeelname: null,
           lunchKeuze: null,
           lunchTimestamp: null,
           lunchRideDateYMD: null
-        }, { merge: true });
+        }), { retries: 2 });
         console.log(`Lunch keuze gewist voor lid ${memberId} — rit ${rideYMD} voorbij (${today}).`);
       }
     } catch (e) {
@@ -1158,36 +1182,51 @@ if (yearhangerNo) {
 
       // Live ridesCount (feature behouden — elders gebruiken indien gewenst)
       try { if (unsubscribe) unsubscribe(); } catch(_) {}
-      unsubscribe = onSnapshot(doc(db, "members", entry.id), (snap) => {
-      
-const d = snap.exists() ? snap.data() : {};
-const count = typeof d.ridesCount === "number" ? d.ridesCount : 0;
-// console.debug("Live ridesCount:", count, ridesToStars(count));
-// ⭐ Live update van sterren op basis van actuele ScanDatums
-const scanDatumsLive = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-  getPlannedDates().then((planned) => {
-  if (!planned || planned.length === 0) {
-    if (rRides) {
-      rRides.innerHTML = '<span style="color: var(--muted); font-size: 14px;">Geen ritten gepland</span>';
-      rRides.setAttribute("title", "Er zijn nog geen landelijke ritten ingepland voor dit jaar");
-      rRides.removeAttribute("aria-label");
-      rRides.style.letterSpacing = "";
-      rRides.style.fontSize = "";
-    }
-  } else {
-    const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
-    if (rRides) {
-      rRides.innerHTML = starsHtml || "—";
-      rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
-      rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
-      rRides.style.letterSpacing = "3px";
-      rRides.style.fontSize = "20px";
-    }
-  }
-}).catch(() => {});
-const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
-renderYearhangerUI(jh || _yearhangerVal || null);
-});
+      // Debounced snapshot handler to avoid rapid UI churn when many updates arrive
+      const processMemberSnapshot = async (snap) => {
+        try {
+          const d = snap.exists() ? snap.data() : {};
+          const scanDatumsLive = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+          try {
+            const planned = await getPlannedDates();
+            if (!planned || planned.length === 0) {
+              if (rRides) {
+                rRides.innerHTML = '<span style="color: var(--muted); font-size: 14px;">Geen ritten gepland</span>';
+                rRides.setAttribute("title", "Er zijn nog geen landelijke ritten ingepland voor dit jaar");
+                rRides.removeAttribute("aria-label");
+                rRides.style.letterSpacing = "";
+                rRides.style.fontSize = "";
+              }
+            } else {
+              const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatumsLive);
+              if (rRides) {
+                rRides.innerHTML = starsHtml || "—";
+                rRides.setAttribute("title", stars ? tooltip : "Geen ingeplande datums");
+                rRides.setAttribute("aria-label", stars ? `Sterren per datum (gepland: ${plannedNorm.length})` : "Geen ingeplande datums");
+                rRides.style.letterSpacing = "3px";
+                rRides.style.fontSize = "20px";
+              }
+            }
+          } catch(_) {}
+          const jh = (d && typeof d.Jaarhanger === "string") ? d.Jaarhanger : "";
+          renderYearhangerUI(jh || _yearhangerVal || null);
+        } catch (e) {
+          // swallow errors from rapid updates
+          console.debug('member snapshot handler error', e);
+        }
+      };
+
+      // simple debounce wrapper (scoped to this selection)
+      const debouncedProcess = (function(){
+        let t = null;
+        const wait = 150; // ms
+        return (snap) => {
+          if (t) clearTimeout(t);
+          t = setTimeout(() => { try { processMemberSnapshot(snap); } catch(_) {} }, wait);
+        };
+      })();
+
+      unsubscribe = onSnapshot(doc(db, "members", entry.id), debouncedProcess);
 
       // QR generation is conditional: only if Jaarhanger already set AND lunch choice is made
       const hasLunchChoice = savedLunchChoice !== null;

@@ -22,11 +22,13 @@
 
       <div class="admin-nav-dropdown">
         <select id="adminNavSelect" class="admin-nav-select">
-          <option value="admin-scan.html">Scannen & Handmatig</option>
-          <option value="admin-planning.html">Planning & Beheer</option>
+          <option value="admin-scan.html">Inschrijftafel</option>
+          <option value="admin-planning.html">Begin van het jaar</option>
           <option value="admin-passwords.html">Wachtwoorden</option>
-          <option value="admin-stats.html">Inschrijvingen & Sterren</option>
+          <option value="admin-stats.html">Ritten data</option>
           <option value="admin-lunch.html" selected>Lunch inplannen</option>
+                      <option value="admin-excel.html">Excel import / export</option>
+
           <option value="admin-dev.html">Dev</option>
         </select>
       </div>
@@ -79,8 +81,8 @@
       import { checkAdminAuth, applyAdminLevel } from '/src/auth.js';
       import { initAdminView } from '/src/admin.js';
       import { getPlannedDates } from '/src/member.js';
-      import { db } from '/src/firebase.js';
-      import { doc, setDoc, getDoc, serverTimestamp, collection, orderBy, startAfter, limit, getDocs, query } from 'firebase/firestore';
+      import { db, doc, getDoc, serverTimestamp, collection, orderBy, startAfter, limit, getDocs, query } from '/src/firebase.js';
+      import { withRetry, updateOrCreateDoc } from '/src/firebase-helpers.js';
 
       // Guard: alle admins hebben toegang tot lunch planning
       checkAdminAuth({ redirectTo: '/' });
@@ -97,16 +99,16 @@
       async function saveLunchData(vastItems, keuzeItems) {
         clearTimeout(saveTimeout);
         saveTimeout = setTimeout(async () => {
-          try {
-            await setDoc(lunchRef, {
-              vastEten: vastItems,
-              keuzeEten: keuzeItems,
-              updatedAt: serverTimestamp()
-            }, { merge: true });
-            console.log('Lunch data opgeslagen');
-          } catch (e) {
-            console.error('Fout bij opslaan lunch data:', e);
-          }
+            try {
+              await withRetry(() => updateOrCreateDoc(lunchRef, {
+                vastEten: vastItems,
+                keuzeEten: keuzeItems,
+                updatedAt: serverTimestamp()
+              }), { retries: 3 });
+              console.log('Lunch data opgeslagen');
+            } catch (e) {
+              console.error('Fout bij opslaan lunch data:', e);
+            }
         }, 500); // 500ms debounce
       }
 
