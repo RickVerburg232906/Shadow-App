@@ -261,7 +261,7 @@
     <script type="module">
       import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
   import { getPlannedDates } from './src/member.js';
-  import { db, collection, orderBy, startAfter, limit, getDocs, query } from './src/firebase.js';
+  import { db, collection, orderBy, startAfter, limit, getDocs, query, onSnapshot, where } from './src/firebase.js';
       
       // Dropdown navigation handler
       const navSelect = document.getElementById('adminNavSelect');
@@ -389,6 +389,49 @@
             }
           }
           if (lunchOverviewStatus) lunchOverviewStatus.textContent = '✅ Gereed';
+
+          // Store current overview state so live updates can apply deltas instead of re-scanning
+          try {
+            const memberState = new Map(); // memberId -> { deel, keuze, date }
+            // Build a baseline memberState by doing a single-pass query for members on this date.
+            (async () => {
+              try {
+                const ms = new Map();
+                let last2 = null;
+                const pageSize2 = 400;
+                while (true) {
+                  let qRef2 = null;
+                  if (last2) {
+                    qRef2 = query(collection(db, 'members'), orderBy('__name__'), startAfter(last2), limit(pageSize2));
+                  } else {
+                    qRef2 = query(collection(db, 'members'), orderBy('__name__'), limit(pageSize2));
+                  }
+                  const snap2 = await getDocs(qRef2);
+                  if (snap2.empty) break;
+                  snap2.forEach(docSnap => {
+                    const d = docSnap.data() || {};
+                    const dateMatch = (d.lunchRideDateYMD || '').toString().slice(0,10) === ymd;
+                    if (dateMatch) {
+                      const deel = (d.lunchDeelname || '').toString().toLowerCase();
+                      const keuze = (d.lunchKeuze || '').toString().trim();
+                      ms.set(docSnap.id, { deel, keuze, date: ymd });
+                    }
+                  });
+                  last2 = snap2.docs[snap2.docs.length - 1];
+                  if (snap2.size < pageSize2) break;
+                }
+                window.__lunchOverview = { ymd, hasChoices, totalYes, perChoiceMap: perChoice, memberState: ms };
+              } catch (e) {
+                console.debug('Failed to build memberState for lunch overview; live updates may be less accurate', e);
+                window.__lunchOverview = { ymd, hasChoices, totalYes, perChoiceMap: perChoice, memberState: new Map() };
+              }
+            })();
+          } catch (e) { /* ignore */ }
+
+          // Determine if there are per-choice menu options (exclude single 'Geen keuze')
+          const hasChoices = perChoice.size > 0 && !(perChoice.size === 1 && perChoice.has('Geen keuze'));
+          // (Re)setup targeted live listener for this date and mode
+          try { setupLunchLiveListener(ymd, hasChoices); } catch (e) { console.debug('setupLunchLiveListener failed', e); }
         } catch (e) {
           console.error('Overzicht tellen mislukt', e);
           if (lunchOverviewStatus) lunchOverviewStatus.textContent = '❌ Mislukt';
@@ -397,12 +440,156 @@
 
       // Init overview bij laden van de pagina
       computeLunchOverview();
+
+      // --- Live listener wiring helper for the lunch overview ---
+      function setupLunchLiveListener(ymd, hasChoices) {
+        // Unsubscribe previous listener if present
+        try { if (window.__unsubLunchOverview) { window.__unsubLunchOverview(); delete window.__unsubLunchOverview; } } catch (_) {}
+        if (!ymd) return; // nothing to listen for
+
+        // Build a targeted query: always filter by date. If menu choices exist, only listen
+        // for documents that have a lunchKeuze (so a chosen meal triggers updates).
+        let q = null;
+        try {
+          if (hasChoices) {
+            q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd), where('lunchKeuze', '!=', ''));
+          } else {
+            // No specific choices -> listen for anyone assigned to this date (yes/no changes)
+            q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd));
+          }
+        } catch (e) {
+          // Fallback to broad date-only query if compound queries aren't allowed in this env
+          q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd));
+        }
+
+        let debounce = null;
+        // Helper to render perChoiceMap into the DOM
+        function renderChoiceCounts(perChoiceMap) {
+          try {
+            lunchChoiceCounts.innerHTML = '';
+            const onlyNoChoice = perChoiceMap.size === 1 && perChoiceMap.has('Geen keuze');
+            if (onlyNoChoice) {
+              if (lunchChoiceCountsTitle) lunchChoiceCountsTitle.style.display = 'none';
+              lunchChoiceCounts.style.display = 'none';
+              return;
+            }
+            if (lunchChoiceCountsTitle) lunchChoiceCountsTitle.style.display = 'block';
+            lunchChoiceCounts.style.display = 'grid';
+            if (perChoiceMap.size === 0) {
+              const empty = document.createElement('div');
+              empty.className = 'muted';
+              empty.style.gridColumn = '1 / -1';
+              empty.textContent = 'Geen keuzes gevonden voor deze datum.';
+              lunchChoiceCounts.appendChild(empty);
+              return;
+            }
+            const entries = Array.from(perChoiceMap.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+            for (const [name, count] of entries) {
+              const l = document.createElement('div');
+              l.textContent = name;
+              const v = document.createElement('div');
+              v.className = 'value';
+              v.textContent = String(count);
+              lunchChoiceCounts.appendChild(l);
+              lunchChoiceCounts.appendChild(v);
+            }
+          } catch (e) { /* ignore render errors */ }
+        }
+
+        try {
+          const unsub = onSnapshot(q, (snap) => {
+            // If we don't have baseline state, fallback to full recompute
+            const base = window.__lunchOverview;
+            if (!base || !base.memberState) {
+              if (debounce) clearTimeout(debounce);
+              debounce = setTimeout(() => computeLunchOverview(), 300);
+              return;
+            }
+
+            // Process doc changes incrementally
+            let changed = false;
+            for (const change of snap.docChanges()) {
+              try {
+                const id = change.doc.id;
+                const d = change.doc.data() || {};
+                const newDate = (d.lunchRideDateYMD || '').toString().slice(0,10);
+                const newDeel = (d.lunchDeelname || '').toString().toLowerCase();
+                const newKeuze = (d.lunchKeuze || '').toString().trim();
+
+                const prev = base.memberState.get(id) || { deel: '', keuze: '', date: '' };
+
+                // Case: document now belongs to this date but previously didn't -> added
+                if (newDate === base.ymd && prev.date !== base.ymd) {
+                  // Added into this date
+                  if (newDeel === 'ja') base.totalYes += 1;
+                  // increment perChoice if applicable
+                  const key = newKeuze || 'Geen keuze';
+                  base.perChoiceMap.set(key, (base.perChoiceMap.get(key) || 0) + 1);
+                  base.memberState.set(id, { deel: newDeel, keuze: newKeuze, date: base.ymd });
+                  changed = true;
+                  continue;
+                }
+
+                // Case: document left this date -> removed
+                if (prev.date === base.ymd && newDate !== base.ymd) {
+                  if (prev.deel === 'ja') base.totalYes = Math.max(0, base.totalYes - 1);
+                  const prevKey = prev.keuze || 'Geen keuze';
+                  base.perChoiceMap.set(prevKey, Math.max(0, (base.perChoiceMap.get(prevKey) || 1) - 1));
+                  if (base.perChoiceMap.get(prevKey) === 0) base.perChoiceMap.delete(prevKey);
+                  base.memberState.delete(id);
+                  changed = true;
+                  continue;
+                }
+
+                // Case: document remained on this date -> modified
+                if (prev.date === base.ymd && newDate === base.ymd) {
+                  // deel change
+                  if (prev.deel !== newDeel) {
+                    if (prev.deel === 'ja') base.totalYes = Math.max(0, base.totalYes - 1);
+                    if (newDeel === 'ja') base.totalYes += 1;
+                    prev.deel = newDeel;
+                    changed = true;
+                  }
+                  // keuze change
+                  if ((prev.keuze || '') !== (newKeuze || '')) {
+                    const prevKey = (prev.keuze || 'Geen keuze');
+                    base.perChoiceMap.set(prevKey, Math.max(0, (base.perChoiceMap.get(prevKey) || 1) - 1));
+                    if (base.perChoiceMap.get(prevKey) === 0) base.perChoiceMap.delete(prevKey);
+                    const newKey = (newKeuze || 'Geen keuze');
+                    base.perChoiceMap.set(newKey, (base.perChoiceMap.get(newKey) || 0) + 1);
+                    prev.keuze = newKeuze;
+                    changed = true;
+                  }
+                  base.memberState.set(id, prev);
+                  continue;
+                }
+              } catch (e) {
+                console.debug('Error processing lunch doc change', e);
+              }
+            }
+
+            if (changed) {
+              // Update DOM with new totals
+              lunchTotalEaters.textContent = String(window.__lunchOverview.totalYes);
+              renderChoiceCounts(window.__lunchOverview.perChoiceMap);
+            }
+          }, (err) => {
+            console.warn('Lunch live snapshot error', err);
+          });
+          window.__unsubLunchOverview = unsub;
+        } catch (e) {
+          console.debug('Failed to attach lunch live snapshot', e);
+        }
+      }
+      // Init overview bij laden van de pagina
+      // (computeLunchOverview will call setupLunchLiveListener with the correct date/mode)
+      // computeLunchOverview(); already called above
     </script>
     
     <script type="module">
       // Handmatig boeken voor de leden-inschrijfsectie (vervangt QR in admin-scan)
   import { getPlannedDates } from './src/member.js';
-  import { db, doc, getDoc, arrayUnion } from './src/firebase.js';
+  import { db, doc, getDoc, arrayUnion, runTransaction, increment } from './src/firebase.js';
   import { withRetry, updateOrCreateDoc } from './src/firebase-helpers.js';
 
       function toYMD(d) {
@@ -483,22 +670,25 @@
                   btn.disabled = true;
                   btn.textContent = `${label} • opslaan…`;
 
-                  // Read current document to compute numeric ridesCount (avoid relying on FieldValue.increment symbol)
-                  let currentCount = 0;
-                  try {
-                    const snapCur = await getDoc(doc(db, 'members', String(memberId)));
+                  // Use a transaction to atomically check/add the scandatum and increment ridesCount.
+                  // This avoids races and also avoids relying on a non-imported `increment` sentinel.
+                  await withRetry(() => runTransaction(db, async (tx) => {
+                    const mRef = doc(db, 'members', String(memberId));
+                    const snapCur = await tx.get(mRef);
                     if (snapCur.exists()) {
                       const dcur = snapCur.data() || {};
-                      const rc = Number(dcur?.ridesCount);
-                      currentCount = Number.isFinite(rc) ? rc : 0;
+                      const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
+                      if (existing.has(ymd)) {
+                        // Already registered for this date; nothing to do.
+                        return;
+                      }
+                      // Use FieldValue.arrayUnion + increment for atomic update
+                      tx.update(mRef, { ScanDatums: arrayUnion(ymd), ridesCount: increment(1) });
+                    } else {
+                      // Doc doesn't exist yet — create with initial values
+                      tx.set(mRef, { ScanDatums: [ymd], ridesCount: 1 });
                     }
-                  } catch (_) { /* ignore read errors and assume 0 */ }
-
-                  const newCount = currentCount + 1;
-                  console.debug('admin-scan: adding scandatum', { memberId, ymd, currentCount, newCount });
-
-                  // Prefer update; fall back to merge-create if doc missing. Wrap in retry.
-                  await withRetry(() => updateOrCreateDoc(doc(db, 'members', String(memberId)), { ScanDatums: arrayUnion(ymd), ridesCount: newCount }), { retries: 3 });
+                  }), { retries: 3 });
 
                   btn.textContent = `${label} — geregistreerd`;
                   // keep original date as hover/title for clarity

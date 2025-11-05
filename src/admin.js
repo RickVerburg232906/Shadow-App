@@ -1374,10 +1374,12 @@ async function resetAllRidesCount(statusEl) {
   if (!statusEl) return;
   statusEl.textContent = "Voorbereiden…";
   let total = 0;
+  let updated = 0;
+  let skipped = 0;
 
   try {
-    let last = null;
-    const pageSize = 400; // veilig onder batch-limiet
+  let last = null;
+  const pageSize = 400; // veilig onder batch-limiet
 
     while (true) {
       let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
@@ -1387,30 +1389,37 @@ async function resetAllRidesCount(statusEl) {
       if (snapshot.empty) break;
 
       let batch = writeBatch(db);
+      let batchCount = 0;
       snapshot.forEach((docSnap) => {
         try {
           const data = docSnap.data() || {};
           const current = Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
-          const scans = Array.isArray(data?.ScanDatums) ? data.ScanDatums : [];
-          // Only write when ridesCount is not already 0 or there are ScanDatums to clear.
+          // Only reset ridesCount when it's not already 0. Preserve ScanDatums.
           if (current !== 0) {
-            // Only reset ridesCount to 0. Preserve ScanDatums (do not clear them).
             batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
+            batchCount += 1;
+            updated += 1;
+          } else {
+            skipped += 1;
           }
         } catch (e) {
-          // If anything goes wrong for a single doc, skip it but log.
           console.error('resetAllRidesCount: skipping doc due to error', docSnap.id, e);
+          skipped += 1;
         }
       });
-      await batch.commit();
+      if (batchCount > 0) await batch.commit();
       total += snapshot.size;
-      statusEl.textContent = `Gerest: ${total} leden…`;
+      statusEl.textContent = `Verwerkt: ${total} leden…`;
 
       last = snapshot.docs[snapshot.docs.length - 1];
       if (snapshot.size < pageSize) break;
     }
 
-    statusEl.textContent = `✅ Klaar. Alle ridesCount naar 0 gezet voor ${total} leden.`;
+  // Show a brief success message with counts, then clear after a delay so it doesn't permanently overlay UI
+  if (statusEl) {
+    statusEl.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
+    setTimeout(() => { try { statusEl.textContent = ''; } catch(_) {} }, 6000);
+  }
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
@@ -1422,7 +1431,8 @@ async function resetAllJaarhanger(statusEl) {
   if (!statusEl) return;
   statusEl.textContent = "Voorbereiden…";
   let total = 0;
-
+  let updated = 0;
+  let skipped = 0;
   try {
     let last = null;
     const pageSize = 400; // veilig onder batch-limiet
@@ -1435,19 +1445,36 @@ async function resetAllJaarhanger(statusEl) {
       if (snapshot.empty) break;
 
       let batch = writeBatch(db);
+      let batchCount = 0;
       snapshot.forEach((docSnap) => {
-        // set Jaarhanger to empty string "" (explicitly)
-        batch.set(doc(db, "members", docSnap.id), { Jaarhanger: "" }, { merge: true });
+        try {
+          const data = docSnap.data() || {};
+          const cur = (data?.Jaarhanger ?? "");
+          if (cur !== "") {
+            batch.set(doc(db, "members", docSnap.id), { Jaarhanger: "" }, { merge: true });
+            batchCount += 1;
+            updated += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch (e) {
+          console.error('resetAllJaarhanger: skipping doc due to error', docSnap.id, e);
+          skipped += 1;
+        }
       });
-      await batch.commit();
+      if (batchCount > 0) await batch.commit();
       total += snapshot.size;
-      statusEl.textContent = `Gerest Jaarhanger voor: ${total} leden…`;
+      statusEl.textContent = `Verwerkt: ${total} leden…`;
 
       last = snapshot.docs[snapshot.docs.length - 1];
       if (snapshot.size < pageSize) break;
     }
 
-    statusEl.textContent = `✅ Klaar. Jaarhanger gereset voor ${total} leden.`;
+  // Show a brief success message with counts, then clear after a delay so it doesn't permanently overlay UI
+  if (statusEl) {
+    statusEl.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
+    setTimeout(() => { try { statusEl.textContent = ''; } catch(_) {} }, 6000);
+  }
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten Jaarhanger: ${e?.message || e}`;
@@ -1463,6 +1490,8 @@ async function resetAllLunch(statusEl) {
   try {
     let last = null;
     const pageSize = 400; // veilig onder batch-limiet
+    let updated = 0;
+    let skipped = 0;
 
     while (true) {
       let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
@@ -1472,23 +1501,41 @@ async function resetAllLunch(statusEl) {
       if (snapshot.empty) break;
 
       let batch = writeBatch(db);
+      let batchCount = 0;
       snapshot.forEach((docSnap) => {
-        batch.set(doc(db, "members", docSnap.id), {
-          lunchDeelname: null,
-          lunchKeuze: null,
-          lunchTimestamp: null,
-          lunchRideDateYMD: null
-        }, { merge: true });
+        try {
+          const data = docSnap.data() || {};
+          const hasAny = (data.lunchDeelname != null) || (data.lunchKeuze != null) || (data.lunchTimestamp != null) || (data.lunchRideDateYMD != null);
+          if (hasAny) {
+            batch.set(doc(db, "members", docSnap.id), {
+              lunchDeelname: null,
+              lunchKeuze: null,
+              lunchTimestamp: null,
+              lunchRideDateYMD: null
+            }, { merge: true });
+            batchCount += 1;
+            updated += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch (e) {
+          console.error('resetAllLunch: skipping doc due to error', docSnap.id, e);
+          skipped += 1;
+        }
       });
-      await batch.commit();
+      if (batchCount > 0) await batch.commit();
       total += snapshot.size;
-      statusEl.textContent = `Lunch gereset voor: ${total} leden…`;
+      statusEl.textContent = `Verwerkt: ${total} leden…`;
 
       last = snapshot.docs[snapshot.docs.length - 1];
       if (snapshot.size < pageSize) break;
     }
 
-    statusEl.textContent = `✅ Klaar. Lunchgegevens gereset voor ${total} leden.`;
+  // Show a brief success message with counts, then clear after a delay so it doesn't permanently overlay UI
+  if (statusEl) {
+    statusEl.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
+    setTimeout(() => { try { statusEl.textContent = ''; } catch(_) {} }, 6000);
+  }
   } catch (e) {
     console.error(e);
     statusEl.textContent = `❌ Fout bij resetten Lunch: ${e?.message || e}`;
