@@ -101,90 +101,88 @@ import { db, writeBatch, doc, arrayUnion, collection, endAt, getDoc, getDocs, in
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
 
-// Helper: enable long-press (hold) on a canvas to export as JPG
-function enableCanvasLongPressExport(canvas, filename = null, holdMs = 2000) {
-  if (!canvas) return;
-  let timer = null;
-  let startX = 0, startY = 0;
-  const maxMove = 12; // pixels allowed before cancelling
+// Helper: attach a full-width, nicely-styled download button under a chart canvas
+function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
+  try {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
 
-  const clearTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
-
-  const triggerDownload = (blob) => {
-    if (!blob) return;
-    const a = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = filename || 'chart.jpg';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
-    try { if (typeof showToast === 'function') showToast('✅ JPG opgeslagen'); } catch(_) {}
-  };
-
-  const fallbackDataUrl = () => {
-    try {
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      fetch(dataUrl).then(r => r.blob()).then(triggerDownload).catch((e) => { console.error(e); try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {} });
-    } catch (e) {
-      console.error('fallbackDataUrl failed', e);
-      try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
+    let btn = document.getElementById(btnId);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = btnId;
+      btn.type = 'button';
+      btn.textContent = 'Download JPG';
+      btn.className = 'chart-download-btn';
+      // sensible inline defaults for older environments; primary styling in CSS
+      btn.style.display = 'block';
+      btn.style.width = '100%';
+      btn.style.boxSizing = 'border-box';
+      btn.style.marginTop = '10px';
+      btn.style.padding = '10px 14px';
+      btn.style.borderRadius = '10px';
+      btn.style.border = 'none';
+      btn.style.cursor = 'pointer';
+      btn.style.fontWeight = '700';
     }
-  };
 
-  const doExport = () => {
-    try {
-      // Ask user for confirmation before generating/downloading the JPG
+    const placeBelowChart = () => {
       try {
-        const message = filename ? `Wilt u de grafiek als JPG downloaden (${filename})?` : 'Wilt u de grafiek als JPG downloaden?';
-        if (!window.confirm(message)) return;
-      } catch (_) {
-        // If confirm is unavailable for some reason, proceed
-      }
+        const chartBox = canvas.parentElement; // expect .chart-box
+        if (chartBox && chartBox.parentElement) {
+          if (btn.parentElement !== chartBox.parentElement) chartBox.insertAdjacentElement('afterend', btn);
+        } else {
+          if (btn.parentElement !== canvas.parentElement) canvas.insertAdjacentElement('afterend', btn);
+        }
+      } catch (_) {}
+    };
 
-      if (canvas.toBlob) {
-        canvas.toBlob((blob) => {
-          if (blob) triggerDownload(blob); else fallbackDataUrl();
-        }, 'image/jpeg', 0.92);
-      } else {
-        fallbackDataUrl();
+    placeBelowChart();
+
+    const triggerDownload = (blob) => {
+      if (!blob) return;
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename || (canvasId + '.jpg');
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    };
+
+    btn.onclick = () => {
+      try {
+        if (canvas.toBlob) {
+          canvas.toBlob((blob) => {
+            if (blob) triggerDownload(blob);
+            else {
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+              fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
+            }
+          }, 'image/jpeg', 0.92);
+        } else {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
+        }
+      } catch (e) {
+        console.error('JPG export failed:', e);
+        try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
+        alert('JPG export mislukt.');
       }
-    } catch (e) {
-      console.error('Long-press export failed', e);
-      try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
+    };
+
+    // Re-place when layout changes
+    const ensurePlaced = () => placeBelowChart();
+    window.addEventListener('resize', ensurePlaced);
+    const adminView = document.getElementById('viewAdmin');
+    adminView?.addEventListener('click', () => setTimeout(ensurePlaced, 0));
+    if (adminView && window.MutationObserver) {
+      const mo = new MutationObserver(() => ensurePlaced());
+      mo.observe(adminView, { childList: true, subtree: true });
     }
-  };
-
-  const onStart = (ev) => {
-    // record start point for move threshold
-    if (ev.touches && ev.touches[0]) { startX = ev.touches[0].clientX; startY = ev.touches[0].clientY; }
-    else { startX = ev.clientX || 0; startY = ev.clientY || 0; }
-    clearTimer();
-    timer = setTimeout(() => { timer = null; doExport(); }, holdMs);
-  };
-
-  const onMove = (ev) => {
-    if (!timer) return;
-    const x = (ev.touches && ev.touches[0]) ? ev.touches[0].clientX : (ev.clientX || 0);
-    const y = (ev.touches && ev.touches[0]) ? ev.touches[0].clientY : (ev.clientY || 0);
-    if (Math.hypot(x - startX, y - startY) > maxMove) clearTimer();
-  };
-
-  const onEnd = () => clearTimer();
-
-  // Pointer events preferred
-  canvas.addEventListener('pointerdown', onStart, { passive: true });
-  canvas.addEventListener('pointermove', onMove, { passive: true });
-  canvas.addEventListener('pointerup', onEnd, { passive: true });
-  canvas.addEventListener('pointercancel', onEnd, { passive: true });
-
-  // Touch/mouse fallbacks for older browsers
-  canvas.addEventListener('touchstart', onStart, { passive: true });
-  canvas.addEventListener('touchmove', onMove, { passive: true });
-  canvas.addEventListener('touchend', onEnd, { passive: true });
-  canvas.addEventListener('mousedown', onStart, { passive: true });
-  canvas.addEventListener('mousemove', onMove, { passive: true });
-  canvas.addEventListener('mouseup', onEnd, { passive: true });
+  } catch (e) {
+    console.error('attachChartDownloadButtonFullWidth failed', e);
+  }
 }
 
 // ====== Globale ritdatums cache ======
@@ -411,8 +409,8 @@ async function initRideStatsChart() {
           animation: { duration: 600, easing: 'easeOutQuad' }
         }
       });
-      // Enable long-press (2s) export on the canvas for convenience
-      try { enableCanvasLongPressExport(canvas, 'inschrijvingen-per-rit.jpg', 2000); } catch (_) {}
+  // Add full-width download button under the chart
+  try { attachChartDownloadButtonFullWidth('rideStatsChart', 'downloadRideStatsBtn', 'inschrijvingen-per-rit.jpg'); } catch (_) {}
       if (statusEl) statusEl.textContent = `✅ Gegevens geladen (${data.reduce((a,b)=>a+b,0)} totaal)`;
     } catch (e) {
       console.error(e);
@@ -589,8 +587,8 @@ async function initStarDistributionChart() {
           animation: { duration: 600, easing: 'easeOutQuad' }
         }
       });
-      // Enable long-press (2s) export on the star distribution canvas
-      try { enableCanvasLongPressExport(canvas, 'sterrenverdeling.jpg', 2000); } catch (_) {}
+  // Add full-width download button under the star distribution chart
+  try { attachChartDownloadButtonFullWidth('starDistChart', 'downloadStarDistBtn', 'sterrenverdeling.jpg'); } catch (_) {}
       const totaal = data.reduce((a,b)=>a+b,0);
       if (statusEl) statusEl.textContent = `✅ Gegevens geladen (leden met Jaarhanger=Ja: ${totaal})`;
     } catch (e) {
