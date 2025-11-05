@@ -340,7 +340,9 @@ async function initRideStatsChart() {
       }
   // Respect region filter if present
   const selectedRegion = regionSelect ? (regionSelect.value || null) : null;
-  if (regionStatus) regionStatus.textContent = selectedRegion ? `Regio: ${selectedRegion}` : "";
+  // regionStatus previously showed `Regio: <name>` but the chart title now contains the region,
+  // so we avoid duplicating that text in the UI. Leave the status element empty.
+  // if (regionStatus) regionStatus.textContent = selectedRegion ? `Regio: ${selectedRegion}` : "";
   const counts = await countMembersPerDate(plannedYMDs, selectedRegion);
       const labels = plannedYMDs;
       const data = plannedYMDs.map(d => counts.get(d) || 0);
@@ -355,7 +357,10 @@ async function initRideStatsChart() {
         if (statusEl) statusEl.textContent = '❌ Chart.js niet beschikbaar';
         return;
       }
-      const ctx = canvas.getContext("2d");
+
+  const ctx = canvas.getContext("2d");
+  // Title should reflect selected region when a region filter is active
+  const titleText = selectedRegion ? `Inschrijvingen per rit — ${selectedRegion}` : 'Inschrijvingen per rit';
 
       // Create a pleasing blue gradient for the bars
       const grad = ctx.createLinearGradient(0, 0, 0, canvas.height || 300);
@@ -394,7 +399,7 @@ async function initRideStatsChart() {
             }
           },
           plugins: {
-            title: { display: true, text: 'Inschrijvingen per rit', font: { size: 14 } },
+            title: { display: true, text: titleText, font: { size: 14 } },
             legend: { display: false },
             tooltip: {
               backgroundColor: '#0f172a',
