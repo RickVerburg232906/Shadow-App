@@ -188,6 +188,28 @@ function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
 // ====== Globale ritdatums cache ======
 let PLANNED_DATES = [];
 
+// Helper: read the year selection panel and return an array of selected year strings.
+function getSelectedYearsFromPanel() {
+  try {
+    const yearPanel = document.getElementById('rideYearPanel');
+    if (!yearPanel) return [];
+    const allChk = yearPanel.querySelector('input.all-checkbox');
+    const explicit = Array.from(yearPanel.querySelectorAll('input.year-checkbox:not(.all-checkbox):checked')).map(i => i.value).filter(Boolean);
+    if ((allChk && allChk.checked) || explicit.length === 0) {
+      // treat as all years: enumerate from available items
+      const years = Array.from(new Set(Array.from(yearPanel.querySelectorAll('input.year-checkbox:not(.all-checkbox)')).map(i => i.value))).filter(Boolean);
+      return years.sort().reverse();
+    }
+    return explicit;
+  } catch (e) { return []; }
+}
+
+function getActiveYear() {
+  const sel = getSelectedYearsFromPanel();
+  if (!sel || sel.length === 0) return String(new Date().getFullYear());
+  return sel.length === 1 ? sel[0] : sel[0];
+}
+
 
 // Reset zowel ridesCount als ScanDatums
 
@@ -334,34 +356,154 @@ async function initRideStatsChart() {
       const planned = (await ensureRideDatesLoaded()) || [];
       // Normaliseer naar YYYY-MM-DD en sorteer
       const plannedYMDsAll = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
-      // Year filter (optional)
-      const yearSelect = document.getElementById('rideYearFilter');
-      let selectedYear = yearSelect ? (yearSelect.value || '') : '';
-      // If the year select exists but has not been populated yet, populate with available years
-      if (yearSelect && yearSelect.options.length <= 1) {
-        const years = Array.from(new Set(plannedYMDsAll.map(d => d.slice(0,4)))).sort().reverse();
-        years.forEach(y => {
-          const opt = document.createElement('option');
-          opt.value = y;
-          opt.textContent = y;
-          yearSelect.appendChild(opt);
-        });
-        // listen for changes
-        yearSelect.addEventListener('change', () => render(), { passive: true });
+      // Year filter UI: custom multi-select panel (button + panel)
+      const yearToggle = document.getElementById('rideYearToggle');
+      const yearPanel = document.getElementById('rideYearPanel');
+      // Populate yearPanel once with checkbox items
+      if (yearPanel) {
+        // If year items (excluding the master 'all' item) are missing, populate them
+        const existingYearItems = yearPanel.querySelectorAll('.year-item:not(.year-all)').length;
+        if (existingYearItems === 0) {
+          const years = Array.from(new Set(plannedYMDsAll.map(d => d.slice(0,4)))).sort().reverse();
+          for (const y of years) {
+            const item = document.createElement('label');
+            item.className = 'year-item';
+            const chk = document.createElement('input');
+            chk.type = 'checkbox'; chk.value = y; chk.className = 'year-checkbox';
+            const span = document.createElement('span'); span.textContent = y;
+            item.appendChild(chk); item.appendChild(span);
+            yearPanel.appendChild(item);
+          }
+        }
+
+        // Master 'Alle jaren' checkbox behavior
+        const allChk = yearPanel.querySelector('input.all-checkbox');
+        // Default: if present and no explicit selection stored, keep master checked
+        if (allChk && typeof allChk.checked === 'boolean') {
+          // When master toggles, set all individual checkboxes to the same state
+          if (!allChk.dataset._wired) {
+            allChk.addEventListener('change', () => {
+              const items = yearPanel.querySelectorAll('input.year-checkbox:not(.all-checkbox)');
+              items.forEach(i => i.checked = allChk.checked);
+              updateYearToggleText();
+              // Broadcast year change for other page parts
+              document.dispatchEvent(new CustomEvent('admin:yearChange', { detail: { selected: getSelectedYearsFromPanel() } }));
+              // Defer render slightly to avoid interfering with the originating click event
+              setTimeout(() => render(), 0);
+            }, { passive: true });
+            allChk.dataset._wired = '1';
+          }
+        }
+
+        // Ensure each individual checkbox updates the master checkbox state
+        const bindIndividual = () => {
+          const items = yearPanel.querySelectorAll('input.year-checkbox:not(.all-checkbox)');
+          items.forEach((chk) => {
+            // Avoid double-binding by checking a marker
+            if (chk.dataset._wired) return;
+            chk.addEventListener('change', () => {
+              const allItems = yearPanel.querySelectorAll('input.year-checkbox:not(.all-checkbox)');
+              const allChecked = Array.from(allItems).length > 0 && Array.from(allItems).every(i => i.checked);
+              if (allChk) allChk.checked = allChecked;
+              updateYearToggleText();
+              // Broadcast year change for other page parts
+              document.dispatchEvent(new CustomEvent('admin:yearChange', { detail: { selected: getSelectedYearsFromPanel() } }));
+              // Defer render slightly to avoid interfering with the checkbox click
+              setTimeout(() => render(), 0);
+            }, { passive: true });
+            chk.dataset._wired = '1';
+          });
+        };
+        bindIndividual();
+
+        // Toggle open/close (wire once)
+        if (yearToggle && !yearToggle.dataset._wired) {
+          yearToggle.addEventListener('click', (ev) => { ev.stopPropagation(); if (yearPanel) { yearPanel.hidden = !yearPanel.hidden; yearPanel.setAttribute('aria-hidden', String(yearPanel.hidden)); } });
+          yearToggle.dataset._wired = '1';
+        }
+        // Click outside to close (wire once)
+        if (!document._rideYearPanelWired) {
+          document.addEventListener('click', (ev) => {
+            if (yearPanel && !yearPanel.hidden && !yearPanel.contains(ev.target) && ev.target !== yearToggle) {
+              yearPanel.hidden = true; yearPanel.setAttribute('aria-hidden', 'true');
+            }
+          });
+          document._rideYearPanelWired = true;
+        }
+        yearPanel.addEventListener('click', (ev) => ev.stopPropagation());
       }
-      const plannedYMDs = selectedYear ? plannedYMDsAll.filter(d => d.slice(0,4) === selectedYear) : plannedYMDsAll;
+
+      function updateYearToggleText() {
+        if (!yearToggle) return;
+        const allChk = yearPanel ? yearPanel.querySelector('input.all-checkbox') : null;
+        if (allChk && allChk.checked) {
+          yearToggle.textContent = 'Alle jaren ▾';
+          return;
+        }
+        const sel = yearPanel ? Array.from(yearPanel.querySelectorAll('input.year-checkbox:not(.all-checkbox):checked')).map(i => i.value) : [];
+        yearToggle.textContent = sel.length ? (sel.join(', ') + ' ▾') : 'Alle jaren ▾';
+      }
+
+    // collect selected years (may be multiple) using shared helper
+    const selectedYears = getSelectedYearsFromPanel();
+    // If exactly one year selected, show that year's planned dates. Otherwise default to all dates (handled later for multi-year rendering)
+    const plannedYMDs = (selectedYears.length === 1) ? plannedYMDsAll.filter(d => d.slice(0,4) === selectedYears[0]) : plannedYMDsAll;
+      // Ensure toggle text reflects current state
+      updateYearToggleText();
       if (!plannedYMDs.length) {
         if (statusEl) statusEl.textContent = "Geen geplande datums.";
         return;
       }
-  // Respect region filter if present
-  const selectedRegion = regionSelect ? (regionSelect.value || null) : null;
-  // regionStatus previously showed `Regio: <name>` but the chart title now contains the region,
-  // so we avoid duplicating that text in the UI. Leave the status element empty.
-  // if (regionStatus) regionStatus.textContent = selectedRegion ? `Regio: ${selectedRegion}` : "";
-  const counts = await countMembersPerDate(plannedYMDs, selectedRegion);
-      const labels = plannedYMDs;
-      const data = plannedYMDs.map(d => counts.get(d) || 0);
+      // Respect region filter if present
+      const selectedRegion = regionSelect ? (regionSelect.value || null) : null;
+      // regionStatus previously showed `Regio: <name>` but the chart title now contains the region,
+      // so we avoid duplicating that text in the UI. Leave the status element empty.
+      // if (regionStatus) regionStatus.textContent = selectedRegion ? `Regio: ${selectedRegion}` : "";
+
+  // Year selection may be multiple. Use the selection computed above (`selectedYears`).
+  // (selectedYears was derived from selectedYearsInitial, but if none were checked we expanded to allYears)
+
+  let labels = [];
+  let datasets = [];
+  // Helper: when showing a single year we prefer to label the x-axis as Rit 1, Rit 2, ...
+  // but keep the actual planned dates available for tooltip titles.
+  let plannedYMDsForTooltips = null;
+
+      if (selectedYears && selectedYears.length > 1) {
+        // Multi-year mode for rides chart: preserve previous behavior (per-year counts per slot)
+        const years = selectedYears.slice();
+        const perYearDates = years.map(y => plannedYMDsAll.filter(d => d.slice(0,4) === y));
+        const maxSlots = Math.max(...perYearDates.map(a => a.length));
+        // labels: Rit 1, Rit 2, ...
+        labels = Array.from({length: maxSlots}, (_,i) => `Rit ${i+1}`);
+
+        // color palette (repeat if needed)
+        const palette = ['#2563eb','#06b6d4','#f97316','#10b981','#8b5cf6','#ef4444','#f59e0b'];
+
+        // For each year build a dataset array aligned to slots
+        for (let yi = 0; yi < years.length; yi++) {
+          const year = years[yi];
+          const dates = perYearDates[yi] || [];
+          // compute counts for these dates
+          const counts = await countMembersPerDate(dates, selectedRegion);
+          const data = [];
+          for (let i = 0; i < maxSlots; i++) {
+            const d = dates[i] || null;
+            data.push(d ? (counts.get(d) || 0) : 0);
+          }
+          datasets.push({ label: year, data, backgroundColor: palette[yi % palette.length], borderRadius: 6 });
+        }
+      } else {
+        // Single-year or none selected -> use Rit labels on the x-axis, but keep real dates for tooltips
+        const counts = await countMembersPerDate(plannedYMDs, selectedRegion);
+        plannedYMDsForTooltips = plannedYMDs.slice();
+        labels = plannedYMDs.map((_, i) => `Rit ${i+1}`);
+        const data = plannedYMDs.map(d => counts.get(d) || 0);
+        datasets = [{ label: 'Inschrijvingen', data, backgroundColor: (ctx => {
+          // gradient will be applied in Chart options later; keep solid fallback
+          return '#2563eb';
+        }) }];
+      }
 
       // Destroy oud chart om memory leaks te voorkomen
       try { if (_rideStatsChart) { _rideStatsChart.destroy(); _rideStatsChart = null; } } catch(_) {}
@@ -375,37 +517,39 @@ async function initRideStatsChart() {
       }
 
   const ctx = canvas.getContext("2d");
-  // Title should reflect selected region when a region filter is active
-  const titleText = selectedRegion ? `Inschrijvingen per rit — ${selectedRegion}` : 'Inschrijvingen per rit';
+  // Title should reflect selected region and/or selected year when applicable
+  let titleText = 'Inschrijvingen per rit';
+  if (selectedRegion) titleText += ` — ${selectedRegion}`;
+  // If exactly one year is selected, append the year to the title (e.g. "Inschrijvingen per rit — 2025")
+  if (Array.isArray(selectedYears) && selectedYears.length === 1) {
+    titleText += ` — ${selectedYears[0]}`;
+  }
 
       // Create a pleasing blue gradient for the bars
       const grad = ctx.createLinearGradient(0, 0, 0, canvas.height || 300);
       grad.addColorStop(0, '#60a5fa'); // light
       grad.addColorStop(1, '#2563eb'); // deep
 
+      // Build chart datasets: if single dataset provided earlier, allow gradient
+      const chartDatasets = datasets.map((ds, idx) => {
+        if (typeof ds.backgroundColor === 'function') {
+          return Object.assign({}, ds, { backgroundColor: grad, borderRadius: 8, borderSkipped: false, barPercentage: 0.85, categoryPercentage: 0.9 });
+        }
+        return Object.assign({}, ds, { borderRadius: 8, borderSkipped: false, barPercentage: 0.85, categoryPercentage: 0.9 });
+      });
+
       _rideStatsChart = new ChartCtor(ctx, {
         type: "bar",
-        data: {
-          labels,
-          datasets: [{
-            label: "Inschrijvingen",
-            data,
-            backgroundColor: grad,
-            borderRadius: 8,
-            borderSkipped: false,
-            barPercentage: 0.85,
-            categoryPercentage: 0.9
-          }]
-        },
+        data: { labels, datasets: chartDatasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           layout: { padding: { top: 6, right: 6, bottom: 6, left: 6 } },
           scales: {
             x: {
-              title: { display: true, text: "Ritdatum" },
+              title: { display: true, text: "Rit" },
               grid: { display: false },
-              ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 12 }
+              ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
             },
             y: {
               beginAtZero: true,
@@ -416,14 +560,20 @@ async function initRideStatsChart() {
           },
           plugins: {
             title: { display: true, text: titleText, font: { size: 14 } },
-            legend: { display: false },
+            // Only show legend when multiple datasets are present (multi-year mode)
+            legend: { display: (Array.isArray(chartDatasets) && chartDatasets.length > 1), position: 'top' },
             tooltip: {
               backgroundColor: '#0f172a',
               titleColor: '#fff',
               bodyColor: '#fff',
               padding: 8,
               callbacks: {
-                label: (ctx) => ` ${ctx.parsed.y} inschrijvingen`
+                // Show the actual planned date as tooltip title when available, otherwise fall back to the axis label
+                title: (items) => {
+                  const ix = items[0].dataIndex;
+                  return (plannedYMDsForTooltips && plannedYMDsForTooltips[ix]) || labels[ix] || '';
+                },
+                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} inschrijvingen`
               }
             }
           },
@@ -432,7 +582,21 @@ async function initRideStatsChart() {
       });
   // Add full-width download button under the chart
   try { attachChartDownloadButtonFullWidth('rideStatsChart', 'downloadRideStatsBtn', 'inschrijvingen-per-rit.jpg'); } catch (_) {}
-      if (statusEl) statusEl.textContent = `✅ Gegevens geladen (${data.reduce((a,b)=>a+b,0)} totaal)`;
+      if (statusEl) {
+        try {
+          let totalCount = 0;
+          if (Array.isArray(chartDatasets) && chartDatasets.length) {
+            for (const ds of chartDatasets) {
+              if (Array.isArray(ds.data)) totalCount += ds.data.reduce((a,b)=>a + (Number(b) || 0), 0);
+            }
+          } else if (Array.isArray(datasets) && datasets.length && Array.isArray(datasets[0].data)) {
+            totalCount = datasets[0].data.reduce((a,b)=>a + (Number(b) || 0), 0);
+          }
+          statusEl.textContent = `✅ Gegevens geladen (${totalCount} totaal)`;
+        } catch (e) {
+          statusEl.textContent = `✅ Gegevens geladen`;
+        }
+      }
     } catch (e) {
       console.error(e);
       if (statusEl) statusEl.textContent = "❌ Laden mislukt";
@@ -528,6 +692,57 @@ async function buildStarBucketsForYearhangerYes(plannedYMDs) {
   return buckets;
 }
 
+// Multi-year aware buckets: accepts an array of year strings (e.g. ['2025','2024'])
+// Returns an array where each element is the buckets array for that year (index-aligned with input years).
+async function buildStarBucketsForYears(years) {
+  // years: ['2025','2024', ...]
+  const yearCount = years.length;
+  // track counts per year as Map(count -> frequency)
+  const maps = Array.from({length: yearCount}, () => new Map());
+
+  try {
+    let last = null;
+    const pageSize = 400;
+    while (true) {
+      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
+      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
+
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) break;
+
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data() || {};
+        if ((d.Jaarhanger || "").toString() !== "Ja") return; // filter only Jaarhanger=Ja
+        const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+        // Normalize scans to YMD array
+        const scanYMDs = scansRaw.map(s => (typeof s === 'string' ? s.slice(0,10) : '')).filter(Boolean);
+        for (let yi = 0; yi < yearCount; yi++) {
+          const yr = years[yi];
+          // Count scans in this calendar year
+          let cnt = 0;
+          for (const ymd of scanYMDs) { if (ymd.slice(0,4) === yr) cnt++; }
+          const m = maps[yi];
+          m.set(cnt, (m.get(cnt) || 0) + 1);
+        }
+      });
+
+      last = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.size < pageSize) break;
+    }
+  } catch (e) {
+    console.error('[starDist multi-year] bouwen mislukt', e);
+  }
+
+  // Convert maps to buckets arrays (0..max)
+  const bucketsPerYear = maps.map(m => {
+    const max = Math.max(...Array.from(m.keys(), k => Number(k)), 0);
+    const arr = new Array(max + 1).fill(0);
+    for (const [k,v] of m.entries()) { arr[Number(k)] = v; }
+    return arr;
+  });
+  return bucketsPerYear;
+}
+
 let _starDistChart = null;
 async function initStarDistributionChart() {
   const canvas = document.getElementById("starDistChart");
@@ -540,26 +755,73 @@ async function initStarDistributionChart() {
       if (statusEl) statusEl.textContent = "Laden…";
       const planned = (await ensureRideDatesLoaded()) || [];
       const plannedYMDsAll = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
-      // Respect selected year if present
-      const yearSelect = document.getElementById('rideYearFilter');
-      let selectedYear = yearSelect ? (yearSelect.value || '') : '';
-      if (yearSelect && yearSelect.options.length <= 1) {
-        const years = Array.from(new Set(plannedYMDsAll.map(d => d.slice(0,4)))).sort().reverse();
-        years.forEach(y => {
-          const opt = document.createElement('option');
-          opt.value = y;
-          opt.textContent = y;
-          yearSelect.appendChild(opt);
-        });
-        yearSelect.addEventListener('change', () => render(), { passive: true });
-      }
-      const plannedYMDs = selectedYear ? plannedYMDsAll.filter(d => d.slice(0,4) === selectedYear) : plannedYMDsAll;
-      const N = plannedYMDs.length;
-      if (!N) { if (statusEl) statusEl.textContent = "Geen geplande datums."; return; }
+  // Respect selected year(s) using the shared helper (centralized selection)
+  // getSelectedYearsFromPanel() returns available years when none explicitly checked,
+  // so it already behaves as an "all years" fallback.
+  const selYears = getSelectedYearsFromPanel();
+  const allYears = Array.from(new Set(plannedYMDsAll.map(d => d.slice(0,4)))).sort().reverse();
+  // ensure we have a sensible array if helper for some reason returns empty
+  const selectedYears = (Array.isArray(selYears) && selYears.length) ? selYears : allYears.slice();
 
-      const buckets = await buildStarBucketsForYearhangerYes(plannedYMDs);
-      const labels = Array.from({length: N+1}, (_,i) => String(i));
-      const data = buckets;
+  // If multiple years selected -> multi-year mode, otherwise use single-year as before
+  if (selectedYears.length > 1) {
+        // Build per-year planned date arrays
+  const bucketsPerYear = await buildStarBucketsForYears(selectedYears);
+        const maxN = Math.max(...bucketsPerYear.map(b => b.length - 1));
+        const labels = Array.from({length: maxN + 1}, (_,i) => String(i));
+
+        // prepare datasets
+        const palette = ['#2563eb','#06b6d4','#f97316','#10b981','#8b5cf6','#ef4444','#f59e0b'];
+        const datasets = bucketsPerYear.map((buckets, idx) => ({
+          label: selectedYears[idx],
+          data: Array.from({length: maxN + 1}, (_,i) => buckets[i] || 0),
+          backgroundColor: palette[idx % palette.length],
+          borderRadius: 6
+        }));
+
+        // Destroy old chart
+        try { if (_starDistChart) { _starDistChart.destroy(); _starDistChart = null; } } catch(_) {}
+        const ChartModule = await loadChart();
+        const ChartCtor = (ChartModule && (ChartModule.default || ChartModule.Chart)) || null;
+        if (!ChartCtor) { if (statusEl) statusEl.textContent = '❌ Chart.js niet beschikbaar'; return; }
+        const ctx = canvas.getContext('2d');
+        const grad2 = ctx.createLinearGradient(0, 0, 0, canvas.height || 240);
+        grad2.addColorStop(0, '#86efac'); grad2.addColorStop(1, '#16a34a');
+
+        _starDistChart = new ChartCtor(ctx, {
+          type: 'bar',
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 6, right: 6, bottom: 6, left: 6 } },
+            scales: {
+              x: { title: { display: true, text: 'Aantal sterren' }, grid: { display: false } },
+              y: { beginAtZero: true, title: { display: true, text: 'Aantal leden' }, ticks: { precision: 0 } }
+            },
+            plugins: {
+              title: { display: true, text: 'Sterrenverdeling per jaar (Jaarhanger = Ja)' },
+              legend: { display: true, position: 'top' },
+              tooltip: {
+                backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#fff', padding: 8,
+                callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} leden` }
+              }
+            }
+          }
+        });
+        try { attachChartDownloadButtonFullWidth('starDistChart', 'downloadStarDistBtn', 'sterrenverdeling.jpg'); } catch (_) {}
+        const totaal = datasets.reduce((s, ds) => s + (Array.isArray(ds.data) ? ds.data.reduce((a,b)=>a+b,0) : 0), 0);
+        if (statusEl) statusEl.textContent = `✅ Gegevens geladen (leden met Jaarhanger=Ja: ${totaal})`;
+        return;
+      }
+
+    // Single-year fallback: count ScanDatums per calendar year (ignore ridePlan)
+    const selectedYear = selectedYears.length === 1 ? selectedYears[0] : String(new Date().getFullYear());
+    const bucketsPerYearSingle = await buildStarBucketsForYears([selectedYear]);
+    const buckets = (bucketsPerYearSingle && bucketsPerYearSingle[0]) ? bucketsPerYearSingle[0] : [0];
+    const N = Math.max(0, buckets.length - 1);
+  const labels = Array.from({length: buckets.length}, (_,i) => String(i));
+  const data = buckets;
 
       // Destroy oud chart
       try { if (_starDistChart) { _starDistChart.destroy(); _starDistChart = null; } } catch(_) {}
@@ -577,6 +839,11 @@ async function initStarDistributionChart() {
       const grad2 = ctx.createLinearGradient(0, 0, 0, canvas.height || 240);
       grad2.addColorStop(0, '#86efac');
       grad2.addColorStop(1, '#16a34a');
+
+      // Build title for star distribution: append year when exactly one year selected
+      const starTitle = (Array.isArray(selectedYears) && selectedYears.length === 1)
+        ? `Sterrenverdeling (Jaarhanger = Ja) — ${selectedYears[0]}`
+        : 'Sterrenverdeling (Jaarhanger = Ja)';
 
       _starDistChart = new ChartCtor(ctx, {
         type: "bar",
@@ -609,7 +876,7 @@ async function initStarDistributionChart() {
             }
           },
           plugins: {
-            title: { display: true, text: 'Sterrenverdeling (Jaarhanger = Ja)' },
+            title: { display: true, text: starTitle },
             legend: { display: false },
             tooltip: {
               backgroundColor: '#0f172a',
@@ -634,6 +901,12 @@ async function initStarDistributionChart() {
 
   await render();
   if (reloadBtn) reloadBtn.addEventListener("click", () => render(), { passive: true });
+  // React to centralized year selection changes dispatched from the year panel
+  if (typeof document !== 'undefined') {
+    document.addEventListener('admin:yearChange', (ev) => {
+      try { setTimeout(() => render(), 0); } catch(_) {}
+    }, { passive: true });
+  }
 }
 
 export function initAdminView() {

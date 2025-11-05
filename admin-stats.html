@@ -55,9 +55,15 @@
         </select>
         <!-- compact filters aligned with nav (Year filter visually integrated) -->
         <div style="margin-top:12px;">
-          <select id="rideYearFilter" aria-label="Filter per jaar" class="admin-filter-select">
-            <option value="">Alle jaren</option>
-          </select>
+          <div id="rideYearFilter" class="multi-select">
+            <button id="rideYearToggle" type="button" class="admin-filter-select">Alle jaren ▾</button>
+            <div id="rideYearPanel" class="multi-select-panel" hidden aria-hidden="true">
+              <label class="year-item year-all">
+                <input type="checkbox" class="year-checkbox all-checkbox" value="ALL" checked />
+                <span>Alle jaren</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
