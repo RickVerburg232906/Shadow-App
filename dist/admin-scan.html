@@ -11,18 +11,34 @@
       .splash-logo{width:110px;height:auto;margin:0 auto 12px;display:block}
       .splash-progress{height:10px;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin:10px 0}
       .splash-progress-bar{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);width:0%;transition:width .3s ease}
+      
+      /* Inklapbare pijl: links (ingeklapt) → onder (uitgeklapt) */
+      details summary .toggle-icon {
+        transform: rotate(-90deg);
+      }
+      details[open] summary .toggle-icon {
+        transform: rotate(0deg);
+      }
+      details summary::-webkit-details-marker {
+        display: none;
+      }
+      details summary::marker {
+        display: none;
+      }
     </style>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/assets/manifest-sHx4Fanv.webmanifest">
     <link rel="apple-touch-icon" href="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif">
     <meta name="theme-color" content="#0f172a">
-    <script src="https://unpkg.com/html5-qrcode" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script type="module" crossorigin src="/assets/adminScan-DtnoIvc2.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/main-BgS9YNCb.js">
-    <link rel="modulepreload" crossorigin href="/assets/auth-j86TSB5S.js">
-    <link rel="stylesheet" crossorigin href="/assets/main-48g4n5ju.css">
+  <!-- html5-qrcode is loaded dynamically only when needed (avoid double-loading) -->
+  <!-- Chart.js is loaded dynamically by the stats page when needed -->
+  <!-- Preload main module to warm the module graph (helps vite/multi-page module startup) -->
+  <link rel="modulepreload" href="/assets/main-Ch2tWcku.js">
+    <script type="module" crossorigin src="/assets/adminScan-BHbEgzqx.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/main-SA5p8KqH.js">
+    <link rel="modulepreload" crossorigin href="/assets/auth-B5TraknJ.js">
+    <link rel="stylesheet" crossorigin href="/assets/main-DIO2z0CV.css">
   </head>
   <body>
     <div id="appSplash" class="app-splash" aria-hidden="false">
@@ -45,17 +61,16 @@
     </header>
 
     <main class="wrap">
-      <header class="site-header">
-        <h1>Scannen & Handmatig Registreren</h1>
-      </header>
-
-      <nav class="subtabs" aria-label="Admin secties">
-        <a href="admin-scan.html" class="subtab" aria-pressed="true">Scannen & Handmatig</a>
-        <a href="admin-planning.html" class="subtab" aria-pressed="false">Planning & Beheer</a>
-        <a href="admin-passwords.html" class="subtab" aria-pressed="false">Wachtwoorden</a>
-        <a href="admin-stats.html" class="subtab" aria-pressed="false">Inschrijvingen & Sterren</a>
-        <a href="admin-lunch.html" class="subtab" aria-pressed="false">Lunch inplannen</a>
-      </nav>
+      <div class="admin-nav-dropdown">
+        <select id="adminNavSelect" class="admin-nav-select">
+          <option value="admin-scan.html" selected>Inschrijftafel</option>
+          <option value="admin-planning.html">Begin van het jaar</option>
+          <option value="admin-passwords.html">Wachtwoorden</option>
+          <option value="admin-stats.html">Ritten data</option>
+          <option value="admin-lunch.html">Lunch inplannen</option>
+          <option value="admin-dev.html">Dev</option>
+        </select>
+      </div>
 
       <section id="viewAdmin" class="view active">
         <div class="card" id="qrScanCard">
@@ -70,30 +85,181 @@
           <div id="adminQRResult" class="muted" style="margin-top:8px;"></div>
         </div>
 
-        <div class="card" id="manualRideCard">
-          <h3>Handmatig rit registreren</h3>
-          <p class="muted">Zoek op achternaam (Hoofletter gevoelig), kies het juiste lid en klik op een <em>ritdatum</em> hieronder om direct te registreren.</p>
-          <div class="row">
-            <input id="adminManualSearchInput" placeholder="Achternaam..." autocomplete="off" />
-            <button id="adminManualClear" class="btn btn-ghost">Wissen</button>
-          </div>
-          <ul id="adminManualSuggest" class="suggest" role="listbox" aria-label="Suggesties"></ul>
-          <div id="adminManualError" class="error" style="display:none"></div>
-          <div id="adminManualResult" class="result" style="display:none">
-            <div class="column">
-              <div class="kv"><span class="label">Naam</span><span class="value" id="adminMName">—</span></div>
-              <div class="kv"><span class="label">LidNr</span><span class="value" id="adminMMemberNo">—</span></div>
-              <div class="kv"><span class="label">Geregistreerde ritten</span><span class="value" id="adminMRidesCount">—</span></div>
-              <div class="kv"><span class="label">Rit kiezen</span><span class="value"><span id="adminRideHint" class="muted">Kies een ritdatum hieronder.</span></span></div>
-              <div id="adminRideButtons" class="chip-list" role="group" aria-label="Kies ritdatum"></div>
+        <!-- Vervangen door exacte inschrijven-rit sectie van index.html -->
+        <section id="landelijkeSignup" data-ride-signup="true" hidden>
+          <div class="card" id="manualRideCard">
+            <h1>Handmatig inschrijven</h1>
+            <p class="hint">Zoek op achternaam of voornaam (Hoofletter gevoelig).</p>
+            
+            <div class="row">
+              <input id="nameInput" placeholder="achternaam of voornaam" />
+            </div>
+            
+            <!-- Lunch keuze sectie -->
+            <div id="lunchChoiceSection" style="display:none; margin-top:24px;">
+              <details open style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border-radius: 12px; padding: 20px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <summary style="cursor: pointer; list-style: none; user-select: none; display: flex; align-items: center; gap: 12px;">
+                  <div style="flex: 1;">
+                    <h3 style="margin: 0; font-size: 20px;">Lunch deelname</h3>
+                    <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 14px;">
+                      <span id="lunchSummaryText">Vraag of de deelnemer mee-eet tijdens de lunch</span>
+                    </p>
+                    <span id="lunchSelectionBadge" style="display: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap;"></span>
+                  </div>
+                  <span class="toggle-icon" style="font-size: 24px; transition: transform 0.3s ease;">▼</span>
+                </summary>
+                
+                <div class="lunch-content" style="margin-top: 16px;">
+                  <!-- Disclaimer wanneer gescand -->
+                  <div id="lunchScannedDisclaimer" style="display: none; padding: 12px; margin-bottom: 16px; background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 18px;">ℹ️</span>
+                      <div>
+                        <strong style="color: #fbbf24; font-size: 14px;">Let op:</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                          U bent al ingecheckt voor deze rit. Uw lunch keuze kan niet meer worden gewijzigd.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Lunch details (alleen zichtbaar bij "Ja") - BOVEN vast menu -->
+                  <div id="lunchDetailsSection" style="display:none; margin-bottom:20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div id="keuzeEtenSection" style="margin-bottom:0;">
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <span style="font-size: 20px;">🍴</span>
+                        <strong style="font-size: 15px;">Vraag welk eten de deelnemer wil:</strong>
+                      </div>
+                      <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:10px;">
+                        <!-- Dynamische keuze buttons komen hier -->
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Vast menu voor iedereen (altijd zichtbaar) -->
+                  <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                      <span style="font-size: 20px;">🥖</span>
+                      <strong style="font-size: 15px;">Vast menu voor iedereen:</strong>
+                    </div>
+                    <p id="vastEtenDisplay" class="muted" style="margin:0; font-size: 14px; line-height: 1.6;">Laden...</p>
+                  </div>
+                  
+                  <div class="seg-wrap">
+                    <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze" style="width: 100%;">
+                      <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
+                        ✓ Ja, ik eet mee
+                      </button>
+                      <button type="button" id="lunchNo" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
+                        ✕ Nee, bedankt
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- Informatieve melding over deadline (altijd zichtbaar) -->
+                  <div id="lunchDeadlineInfo" style="padding: 12px; margin-top: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 18px;">💡</span>
+                      <div>
+                        <strong style="color: #3b82f6; font-size: 14px;">Belangrijk:</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
+                          Zeg dat de deelnemer zijn lunch keuze <strong>vóór het inchecken</strong> moet maken. Na het inchecken kan de keuze niet meer worden gewijzigd.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+              </details>
+            </div>
+            
+            <div id="yearhangerRow" style="margin-top:8px; display:none;">
+              <details open style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border-radius: 12px; padding: 20px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <summary style="cursor: pointer; list-style: none; user-select: none; display: flex; align-items: center; gap: 12px;">
+                  <div style="flex: 1;">
+                    <h3 style="margin: 0; font-size: 20px;">Jaarhanger</h3>
+                    <p class="muted" style="margin: 4px 0 0 0; font-size: 14px;">Vraag of de deelnemer een jaarhanger wil</p>
+                    <span id="jaarhangerSelectionBadge" style="display: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap;"></span>
+                  </div>
+                  <span class="toggle-icon" style="font-size: 24px; transition: transform 0.3s ease;">▼</span>
+                </summary>
+
+                <div class="jaarhanger-content" style="margin-top: 16px;">
+                  <div class="seg-wrap">
+                    <div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger" style="width: 100%; display: flex; flex-direction: row; gap: 0; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; overflow: hidden;">
+                      <button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false" style="width: 50%; padding: 14px; font-size: 16px; font-weight: 600; border: none;">
+                        ✓ Ja
+                      </button>
+                      <button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false" style="width: 50%; padding: 14px; font-size: 16px; font-weight: 600; border: none; border-left: 1px solid rgba(255, 255, 255, 0.15);">
+                        ✕ Nee
+                      </button>
+                    </div>
+                  </div>
+
+                  <div id="jaarhangerInfo" style="display:none; margin: 16px 0 8px 0;">
+                    <details class="muted" style="margin-top:4px;">
+                      <summary>Wat is een jaarhanger?</summary>
+                      <div style="margin-top:8px;">
+                        Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De "moederpin" kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt. De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. Da's pas een collectors item!
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <ul id="suggestions" class="suggest"></ul>
+            <div id="error" class="error" style="display:none"></div>
+            <div id="loadingIndicator" class="loading-indicator" style="display:none;">
+              <div class="spinner"></div>
+              <span class="loading-text">Gegevens laden...</span>
+            </div>
+            <div id="result" class="result" style="display:none">
+              <div class="column">
+                <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
+                <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
+                <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
+                <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
+                <div style="height:4px;"></div>
+                <h4 style="margin: 8px 0 6px 0;">Eerdere ritten (handmatig boeken)</h4>
+                <div id="manualPastRidesList" class="muted" style="display:grid; gap:8px;"></div>
+                <div id="manualPastRidesStatus" class="small muted" style="min-height:18px;"></div>
+              </div>
             </div>
           </div>
-          <div id="adminManualStatus" class="status"></div>
+        </section>
+
+        <!-- Lunch overzicht sectie -->
+        <div class="card" id="cardLunchOverview" style="display: block !important;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="font-size: 24px;">📊</span>
+            <div>
+              <h3 style="margin: 0;">Lunch overzicht</h3>
+              <p id="lunchOverviewDateTitle" class="muted" style="margin: 4px 0 0 0; font-size: 14px;">Eerstvolgende rit: —</p>
+            </div>
+          </div>
+          <div class="row" style="margin: 8px 0 12px; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <span id="lunchOverviewStatus" class="muted" style="min-height:20px;"></span>
+          </div>
+
+          <div class="row" style="margin: 6px 0 10px;">
+            <div class="kv">
+              <div class="label">Aantal eters</div>
+              <div id="lunchTotalEaters" class="value">—</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 id="lunchChoiceCountsTitle" style="margin: 10px 0 6px;">Keuzes (aantal)</h4>
+            <div id="lunchChoiceCounts" style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
+              <!-- Dynamisch gevuld -->
+            </div>
+          </div>
         </div>
       </section>
     </main>
 
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
-
+
+    
+    
   </body>
 </html>

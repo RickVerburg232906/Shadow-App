@@ -616,14 +616,15 @@ export function initAdminView() {
   const slug = base.replace(/\.html?$/, ''); // e.g. 'admin-scan', 'index'
   const isAdminScan = slug === 'admin-scan';
   const isAdminPlanning = slug === 'admin-planning';
+  const isAdminExcel = slug === 'admin-excel';
   const isAdminPasswords = slug === 'admin-passwords';
   const isAdminStats = slug === 'admin-stats';
   const isAdminLunch = slug === 'admin-lunch';
   const isAdminDev = slug === 'admin-dev';
   const isIndexPage = slug === 'index' || fullPath === '/';
 
-  // Excel upload logic (Planning page)
-  if (isAdminPlanning || isIndexPage) {
+  // Excel upload logic (moved to dedicated admin-excel page)
+  if (isAdminExcel) {
     const fileInput = $("fileInput");
     const fileName  = $("fileName");
     const uploadBtn = $("uploadBtn");
@@ -730,13 +731,8 @@ export function initAdminView() {
     $("uploadBtn")?.addEventListener("click", handleUpload);
 
     // ===== Reset-alle-ritten (popup bevestiging) =====
-    const resetBtn = document.getElementById("resetRidesBtn");
-    const resetStatus = document.getElementById("resetStatus");
-    resetBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllRidesCount(resetStatus);
-    });
+    // Note: the reset button belongs on the planning page; initialization
+    // is performed inside initRidePlannerSection so it runs when on that page.
 
     // ===== Reset Jaarhanger (popup bevestiging) =====
     const resetJBtn = document.getElementById("resetJaarhangerBtn");
@@ -747,8 +743,9 @@ export function initAdminView() {
       await resetAllJaarhanger(resetJStatus);
     });
 
-    // ===== Ritten plannen (globaal) =====
-    initRidePlannerSection();
+  // ===== Ritten plannen (globaal) =====
+  // Note: initRidePlannerSection should only run on the planning page (or index).
+  // It was previously accidentally called here inside the admin-excel branch.
   }
 
   // ===== Handmatig rit registreren (Scan page) =====
@@ -757,6 +754,11 @@ export function initAdminView() {
 
     // Init QR-scanner sectie (Admin)
     try { initAdminQRScanner(); } catch (_) {}
+  }
+
+  // Ritten plannen (globaal) - init only on the planning page or index
+  if (isAdminPlanning || isIndexPage) {
+    try { initRidePlannerSection(); } catch (_) {}
   }
 
   // Stats page
@@ -881,6 +883,17 @@ function initRidePlannerSection() {
   });
   reloadBtn?.addEventListener("click", loadPlan);
 
+  // ===== Reset-alle-ritten (popup bevestiging) =====
+  try {
+    const resetBtn = document.getElementById("resetRidesBtn");
+    const resetStatus = document.getElementById("resetStatus");
+    resetBtn?.addEventListener("click", async () => {
+      const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
+      if (!ok) return;
+      await resetAllRidesCount(resetStatus);
+    });
+  } catch (_) {}
+
   // Auto-load bij openen Admin tab
   loadPlan();
 }
@@ -902,21 +915,28 @@ async function bookRide(lid, naam, rideDateYMD) {
   const memberRef = doc(db, "members", id);
 
   // Transaction: lees -> check -> conditioneel updaten
+  // Use tx.update when the document exists (so FieldValue.increment/arrayUnion are applied reliably)
+  // If the document is missing, create it with explicit values.
   const res = await runTransaction(db, async (tx) => {
     const snap = await tx.get(memberRef);
-    const data = snap.exists() ? snap.data() : {};
-    const currentCount = Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
-    const scans = Array.isArray(data?.ScanDatums) ? data.ScanDatums.map(String) : [];
+    const data = snap.exists() ? snap.data() : null;
+    const currentCount = data && Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
+    const scans = data && Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
     const hasDate = scans.includes(ymd);
 
     if (hasDate) {
-      // Geen wijziging; niets bijschrijven
-      tx.set(memberRef, { ridesCount: currentCount, ScanDatums: scans.length ? scans : [] }, { merge: true });
+      // Nothing to change
       return { changed: false, newTotal: currentCount, ymd };
+    }
+
+    if (snap.exists()) {
+      // Apply increment and arrayUnion via update so sentinel values are processed correctly
+      tx.update(memberRef, { ridesCount: increment(1), ScanDatums: arrayUnion(ymd) });
+      return { changed: true, newTotal: currentCount + 1, ymd };
     } else {
-      const newTotal = currentCount + 1;
-      tx.set(memberRef, { ridesCount: increment(1), ScanDatums: arrayUnion(ymd) }, { merge: true });
-      return { changed: true, newTotal, ymd };
+      // New document: set initial ridesCount and ScanDatums
+      tx.set(memberRef, { ridesCount: 1, ScanDatums: [ymd] });
+      return { changed: true, newTotal: 1, ymd };
     }
   });
 
@@ -1368,7 +1388,19 @@ async function resetAllRidesCount(statusEl) {
 
       let batch = writeBatch(db);
       snapshot.forEach((docSnap) => {
-        batch.set(doc(db, "members", docSnap.id), { ridesCount: 0, ScanDatums: [] }, { merge: true });
+        try {
+          const data = docSnap.data() || {};
+          const current = Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
+          const scans = Array.isArray(data?.ScanDatums) ? data.ScanDatums : [];
+          // Only write when ridesCount is not already 0 or there are ScanDatums to clear.
+          if (current !== 0) {
+            // Only reset ridesCount to 0. Preserve ScanDatums (do not clear them).
+            batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
+          }
+        } catch (e) {
+          // If anything goes wrong for a single doc, skip it but log.
+          console.error('resetAllRidesCount: skipping doc due to error', docSnap.id, e);
+        }
       });
       await batch.commit();
       total += snapshot.size;

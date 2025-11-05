@@ -60,10 +60,10 @@
     <main class="wrap">
       <div class="admin-nav-dropdown">
         <select id="adminNavSelect" class="admin-nav-select">
-          <option value="admin-scan.html" selected>Scannen & Handmatig</option>
-          <option value="admin-planning.html">Planning & Beheer</option>
+          <option value="admin-scan.html" selected>Inschrijftafel</option>
+          <option value="admin-planning.html">Begin van het jaar</option>
           <option value="admin-passwords.html">Wachtwoorden</option>
-          <option value="admin-stats.html">Inschrijvingen & Sterren</option>
+          <option value="admin-stats.html">Ritten data</option>
           <option value="admin-lunch.html">Lunch inplannen</option>
           <option value="admin-dev.html">Dev</option>
         </select>
@@ -478,8 +478,24 @@
                 try {
                   btn.disabled = true;
                   btn.textContent = `${label} • opslaan…`;
+
+                  // Read current document to compute numeric ridesCount (avoid relying on FieldValue.increment symbol)
+                  let currentCount = 0;
+                  try {
+                    const snapCur = await getDoc(doc(db, 'members', String(memberId)));
+                    if (snapCur.exists()) {
+                      const dcur = snapCur.data() || {};
+                      const rc = Number(dcur?.ridesCount);
+                      currentCount = Number.isFinite(rc) ? rc : 0;
+                    }
+                  } catch (_) { /* ignore read errors and assume 0 */ }
+
+                  const newCount = currentCount + 1;
+                  console.debug('admin-scan: adding scandatum', { memberId, ymd, currentCount, newCount });
+
                   // Prefer update; fall back to merge-create if doc missing. Wrap in retry.
-                  await withRetry(() => updateOrCreateDoc(doc(db, 'members', String(memberId)), { ScanDatums: arrayUnion(ymd) }), { retries: 3 });
+                  await withRetry(() => updateOrCreateDoc(doc(db, 'members', String(memberId)), { ScanDatums: arrayUnion(ymd), ridesCount: newCount }), { retries: 3 });
+
                   btn.textContent = `✔️ ${label}`;
                   existing.add(ymd);
                   if (statusEl) statusEl.textContent = `Rit ${label} toegevoegd aan ${memberId}.`;
