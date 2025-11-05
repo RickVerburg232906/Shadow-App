@@ -467,9 +467,11 @@
 
             const label = formatDateNL(ymd);
             if (existing.has(ymd)) {
-              btn.textContent = `✔️ ${label}`;
+              btn.textContent = `${label} — geregistreerd`;
               btn.disabled = true;
               btn.setAttribute('aria-disabled', 'true');
+              // keep original date as hover/title for clarity
+              btn.title = label;
             } else {
               btn.textContent = label;
             }
@@ -496,9 +498,12 @@
                   // Prefer update; fall back to merge-create if doc missing. Wrap in retry.
                   await withRetry(() => updateOrCreateDoc(doc(db, 'members', String(memberId)), { ScanDatums: arrayUnion(ymd), ridesCount: newCount }), { retries: 3 });
 
-                  btn.textContent = `✔️ ${label}`;
+                  btn.textContent = `${label} — geregistreerd`;
+                  // keep original date as hover/title for clarity
+                  btn.title = label;
                   existing.add(ymd);
-                  if (statusEl) statusEl.textContent = `Rit ${label} toegevoegd aan ${memberId}.`;
+                  // The button now shows the registered state, so we don't need the separate status line.
+                  // if (statusEl) statusEl.textContent = `Rit ${label} toegevoegd aan ${memberId}.`;
                 } catch (e) {
                   console.error('Handmatig boeken mislukt', e);
                   btn.disabled = false;
