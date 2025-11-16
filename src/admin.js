@@ -437,8 +437,16 @@ async function initRideStatsChart() {
         // Click outside to close (wire once)
         if (!document._rideYearPanelWired) {
           document.addEventListener('click', (ev) => {
-            if (yearPanel && !yearPanel.hidden && !yearPanel.contains(ev.target) && ev.target !== yearToggle) {
-              yearPanel.hidden = true; yearPanel.setAttribute('aria-hidden', 'true');
+            try {
+              if (!yearPanel || yearPanel.hidden) return;
+              // If the click target is a native select or inside one, don't close the year panel
+              const target = ev && ev.target;
+              const clickedSelect = target && ( (target.tagName === 'SELECT') || (typeof target.closest === 'function' && target.closest('select')) );
+              if (!yearPanel.contains(target) && target !== yearToggle && !clickedSelect) {
+                yearPanel.hidden = true; yearPanel.setAttribute('aria-hidden', 'true');
+              }
+            } catch (e) {
+              // swallow errors to avoid breaking global click handling
             }
           });
           document._rideYearPanelWired = true;
