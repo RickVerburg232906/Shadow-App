@@ -1108,6 +1108,12 @@ function initRidePlannerSection() {
   const d4 = $("rideDate4");
   const d5 = $("rideDate5");
   const d6 = $("rideDate6");
+  const r1 = $("rideRegion1");
+  const r2 = $("rideRegion2");
+  const r3 = $("rideRegion3");
+  const r4 = $("rideRegion4");
+  const r5 = $("rideRegion5");
+  const r6 = $("rideRegion6");
   const reloadBtn = $("reloadRidePlanBtn");
   const statusEl = $("ridePlanStatus");
 
@@ -1123,6 +1129,7 @@ function initRidePlannerSection() {
     const arr = Array.isArray(dates) ? dates : [];
     const vals = (arr.slice(0,6).concat(Array(6))).slice(0,6).map(v => v || "");
     [d1,d2,d3,d4,d5,d6].forEach((el, i) => { if (el) el.value = vals[i] || ""; });
+    // Regions will be populated separately by loadPlan (mapped by date)
   }
 
   let isLoadingPlan = false;
@@ -1131,14 +1138,34 @@ function initRidePlannerSection() {
       setStatus("Laden…");
       isLoadingPlan = true;
       const snap = await getDoc(planRef);
+      let dates = [];
       if (snap.exists()) {
         const data = snap.data() || {};
-        const dates = Array.isArray(data.plannedDates) ? data.plannedDates : [];
+        dates = Array.isArray(data.plannedDates) ? data.plannedDates : [];
         setInputs(dates);
         setStatus(`✅ ${dates.length} datums geladen`);
       } else {
         setInputs([]);
         setStatus("Nog geen planning opgeslagen.");
+      }
+
+      // Load regions mapping (date -> region) and populate selects
+      try {
+        const regionsRef = doc(db, "globals", "rideRegions");
+        const rSnap = await getDoc(regionsRef);
+        const regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
+        // populate region selects with current regions (values will be set after options loaded)
+        await populateRegionOptions();
+        // assign mapped values
+        const map = regionsMap || {};
+        [[d1,r1],[d2,r2],[d3,r3],[d4,r4],[d5,r5],[d6,r6]].forEach(([dateEl, regionEl]) => {
+          try {
+            const ymd = (dateEl && dateEl.value) ? dateEl.value.slice(0,10) : "";
+            if (ymd && map[ymd] && regionEl) regionEl.value = map[ymd];
+          } catch(_) {}
+        });
+      } catch (e) {
+        console.error('Kon rideRegions niet laden', e);
       }
     } catch (e) {
       console.error("[ridePlan] loadPlan error", e);
@@ -1148,11 +1175,37 @@ function initRidePlannerSection() {
     }
   }
 
+  // Populate region selects with options from members' regions
+  async function populateRegionOptions() {
+    try {
+      const regions = await getAllRegions();
+      const inserts = ['',''].map(()=>null); // noop
+      const opts = ['<option value="">Regio (alles)</option>'].concat(regions.map(r => `<option value="${r}">${r}</option>`)).join('');
+      [r1,r2,r3,r4,r5,r6].forEach(sel => { if (sel) sel.innerHTML = opts; });
+    } catch (e) {
+      console.error('populateRegionOptions failed', e);
+    }
+  }
+
   function collectDates() {
+    // Collect date values (preserve unique values and order)
     const vals = [d1,d2,d3,d4,d5,d6].map(el => (el && el.value || "").trim()).filter(Boolean);
     const uniq = Array.from(new Set(vals));
-    uniq.sort(); // YYYY-MM-DD sort
+    uniq.sort(); // keep sorted for compatibility
     return uniq;
+  }
+
+  function collectRegionsByDate() {
+    // Return object mapping normalized date -> selected region
+    const pairs = [[d1,r1],[d2,r2],[d3,r3],[d4,r4],[d5,r5],[d6,r6]];
+    const map = {};
+    pairs.forEach(([dateEl, regionEl]) => {
+      try {
+        const ymd = (dateEl && dateEl.value) ? dateEl.value.slice(0,10) : "";
+        if (ymd) map[ymd] = (regionEl && regionEl.value) ? regionEl.value : "";
+      } catch(_) {}
+    });
+    return map;
   }
 
   async function savePlan() {
@@ -1163,7 +1216,12 @@ function initRidePlannerSection() {
         return;
       }
       setStatus("Opslaan…");
-  await withRetry(() => updateOrCreateDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }), { retries: 3 });
+      // collect regions mapping by date
+      const regionsMap = collectRegionsByDate();
+      await withRetry(() => updateOrCreateDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }), { retries: 3 });
+      // save regions mapping in a separate globals doc (date -> region)
+      const regionsRef = doc(db, "globals", "rideRegions");
+      await withRetry(() => updateOrCreateDoc(regionsRef, { regions: regionsMap, updatedAt: serverTimestamp() }), { retries: 3 });
       setStatus("✅ Planning opgeslagen");
     } catch (e) {
       console.error("[ridePlan] savePlan error", e);
@@ -1182,6 +1240,10 @@ function initRidePlannerSection() {
   [d1,d2,d3,d4,d5,d6].forEach(el => {
     if (!el) return;
     el.addEventListener('input', scheduleSave, { passive: true });
+    el.addEventListener('change', scheduleSave, { passive: true });
+  });
+  [r1,r2,r3,r4,r5,r6].forEach(el => {
+    if (!el) return;
     el.addEventListener('change', scheduleSave, { passive: true });
   });
   reloadBtn?.addEventListener("click", loadPlan);
