@@ -431,39 +431,14 @@ async function initRideStatsChart() {
 
         // Toggle open/close (wire once)
         if (yearToggle && !yearToggle.dataset._wired) {
-          yearToggle.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            if (!yearPanel) return;
-            const wasHidden = yearPanel.hidden;
-            yearPanel.hidden = !wasHidden;
-            yearPanel.setAttribute('aria-hidden', String(yearPanel.hidden));
-            // Record the open timestamp when panel is opened. This helps avoid iOS'
-            // native-select race where a quick tap elsewhere immediately closes the panel.
-            if (!yearPanel.hidden) {
-              try { document._rideYearPanelOpenedAt = Date.now(); } catch(_) { document._rideYearPanelOpenedAt = 0; }
-            } else {
-              try { document._rideYearPanelOpenedAt = 0; } catch(_) { document._rideYearPanelOpenedAt = 0; }
-            }
-          });
+          yearToggle.addEventListener('click', (ev) => { ev.stopPropagation(); if (yearPanel) { yearPanel.hidden = !yearPanel.hidden; yearPanel.setAttribute('aria-hidden', String(yearPanel.hidden)); } });
           yearToggle.dataset._wired = '1';
         }
         // Click outside to close (wire once)
         if (!document._rideYearPanelWired) {
           document.addEventListener('click', (ev) => {
-            try {
-              if (!yearPanel || yearPanel.hidden) return;
-              const target = ev && ev.target;
-              // If the click target is a native select or inside one, don't close the year panel
-              const clickedSelect = target && ( (target.tagName === 'SELECT') || (typeof target.closest === 'function' && target.closest('select')) );
-              if (clickedSelect) return; // allow immediate interaction with selects
-              // If the panel was just opened, ignore immediate outside clicks for a short grace period
-              const openedAt = Number(document._rideYearPanelOpenedAt || 0);
-              if (openedAt && (Date.now() - openedAt) < 350) return;
-              if (!yearPanel.contains(target) && target !== yearToggle) {
-                yearPanel.hidden = true; yearPanel.setAttribute('aria-hidden', 'true');
-              }
-            } catch (e) {
-              // swallow errors to avoid breaking global click handling
+            if (yearPanel && !yearPanel.hidden && !yearPanel.contains(ev.target) && ev.target !== yearToggle) {
+              yearPanel.hidden = true; yearPanel.setAttribute('aria-hidden', 'true');
             }
           });
           document._rideYearPanelWired = true;

@@ -16,6 +16,8 @@
       details summary .toggle-icon {
         transform: rotate(-90deg);
       }
+
+      /* updateTodayButton moved into the module script; keeping styles only in this block */
       details[open] summary .toggle-icon {
         transform: rotate(0deg);
       }
@@ -219,6 +221,10 @@
                 <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
                 <div style="height:4px;"></div>
                 <h4 style="margin: 8px 0 6px 0;">Eerdere ritten (handmatig boeken)</h4>
+                <div style="margin:8px 0; display:flex; align-items:center; gap:8px;">
+                  <button type="button" id="manualTodayBtn" class="btn">Vandaag</button>
+                  <span id="manualTodayStatus" class="small muted" style="min-height:18px;"></span>
+                </div>
                 <div id="manualPastRidesList" class="muted" style="display:grid; gap:8px;"></div>
                 <div id="manualPastRidesStatus" class="small muted" style="min-height:18px;"></div>
               </div>
@@ -260,7 +266,7 @@
 
     <script type="module">
       import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
-  import { getPlannedDates } from './src/member.js';
+  import { getPlannedDates, plannedStarsWithHighlights } from './src/member.js';
   import { db, collection, orderBy, startAfter, limit, getDocs, query, onSnapshot, where } from './src/firebase.js';
       
       // Dropdown navigation handler
@@ -588,12 +594,17 @@
     
     <script type="module">
       // Handmatig boeken voor de leden-inschrijfsectie (vervangt QR in admin-scan)
-  import { getPlannedDates } from './src/member.js';
+  import { getPlannedDates, plannedStarsWithHighlights } from './src/member.js';
   import { db, doc, getDoc, arrayUnion, runTransaction, increment } from './src/firebase.js';
   import { withRetry, updateOrCreateDoc } from './src/firebase-helpers.js';
 
       function toYMD(d) {
         try {
+          // Support raw strings like '2025-11-16', Date objects, and Firestore Timestamps
+          if (d && typeof d.toDate === 'function') {
+            // Firestore Timestamp
+            d = d.toDate();
+          }
           if (typeof d === 'string' && /\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10);
           const dt = new Date(d);
           if (!isNaN(dt)) return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
@@ -606,6 +617,61 @@
           const dt = new Date(Number(y), Number(m)-1, Number(d));
           return dt.toLocaleDateString('nl-NL', { day:'2-digit', month:'long', year:'numeric' });
         } catch { return ymd; }
+      }
+
+      // Update the Today quick-book button to reflect whether 'today' is already registered
+      async function updateTodayButton(memberId) {
+        const btn = document.getElementById('manualTodayBtn');
+        const statusEl = document.getElementById('manualTodayStatus');
+        if (!btn) return;
+        const today = new Date();
+        const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+        const titleLabel = formatDateNL(todayYMD);
+
+        // If no member selected, reset the button to default
+        if (!memberId || memberId === '—') {
+          try { btn.disabled = false; btn.removeAttribute('aria-disabled'); btn.textContent = 'Vandaag'; btn.title = ''; if (statusEl) statusEl.textContent = ''; } catch(_) {}
+          return;
+        }
+
+        try {
+          const snap = await getDoc(doc(db, 'members', String(memberId)));
+          if (!snap.exists()) {
+            try { btn.disabled = false; btn.removeAttribute('aria-disabled'); btn.textContent = 'Vandaag'; btn.title = titleLabel; } catch(_) {}
+            return;
+          }
+          const d = snap.data() || {};
+          const existing = new Set((Array.isArray(d.ScanDatums) ? d.ScanDatums : []).map(toYMD).filter(Boolean));
+          if (existing.has(todayYMD)) {
+            // Already registered: show registered appearance and disable button
+            try {
+              btn.textContent = `✅ Vandaag — geregistreerd`;
+              btn.disabled = true;
+              btn.setAttribute('aria-disabled', 'true');
+              btn.title = titleLabel;
+            } catch(_) {}
+
+            // Also update the stars UI for consistency
+            try {
+              const planned = await getPlannedDates();
+              const rRidesEl = document.getElementById('rRidesCount');
+              if (rRidesEl) {
+                const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+                const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
+                rRidesEl.innerHTML = starsHtml || '—';
+                rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
+                rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
+                rRidesEl.style.letterSpacing = '3px';
+                rRidesEl.style.fontSize = '20px';
+              }
+            } catch(_) {}
+          } else {
+            // Not registered: ensure the button is enabled and shows 'Vandaag'
+            try { btn.disabled = false; btn.removeAttribute('aria-disabled'); btn.textContent = 'Vandaag'; btn.title = titleLabel; } catch(_) {}
+          }
+        } catch (e) {
+          console.error('updateTodayButton failed', e);
+        }
       }
 
       async function renderManualPastRides(memberId) {
@@ -647,16 +713,13 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn';
-            btn.style.textAlign = 'left';
-            btn.style.justifyContent = 'space-between';
-            btn.style.display = 'flex';
-            btn.style.alignItems = 'center';
-            btn.style.gap = '10px';
+            // Use stylesheet for layout/styling so buttons match the past-rides CSS rules
             btn.dataset.ymd = ymd;
 
             const label = formatDateNL(ymd);
             if (existing.has(ymd)) {
-              btn.textContent = `${label} — geregistreerd`;
+              // Show same registered appearance as the Today button: green with check
+              btn.textContent = `✅ ${label} — geregistreerd`;
               btn.disabled = true;
               btn.setAttribute('aria-disabled', 'true');
               // keep original date as hover/title for clarity
@@ -690,7 +753,7 @@
                     }
                   }), { retries: 3 });
 
-                  btn.textContent = `${label} — geregistreerd`;
+                  btn.textContent = `✅ ${label} — geregistreerd`;
                   // keep original date as hover/title for clarity
                   btn.title = label;
                   existing.add(ymd);
@@ -706,6 +769,8 @@
 
             listEl.appendChild(btn);
           });
+          // Ensure the Today button reflects the current member state after rendering the past rides
+          try { await updateTodayButton(memberId); } catch(_) {}
         } catch (e) {
           console.error('Past rides render failed', e);
           if (statusEl) statusEl.textContent = '❌ Ritten laden mislukt.';
@@ -717,7 +782,7 @@
       const memberNoEl = document.getElementById('rMemberNo');
       let lastMemberId = '';
 
-      function maybeRender() {
+      async function maybeRender() {
         const id = (memberNoEl?.textContent || '').trim();
         // Als er geen geldige selectie is, verberg het resultaatkader
         if (!id || id === '—') {
@@ -728,10 +793,12 @@
         lastMemberId = id;
         // Geldige selectie: toon resultaat en render lijst
         if (resultEl) { resultEl.style.display = 'grid'; resultEl.style.visibility = ''; }
-        renderManualPastRides(id);
+        // Render past rides and update the Today button state asynchronously
+        try { await renderManualPastRides(id); } catch(_) {}
+        try { await updateTodayButton(id); } catch(_) {}
       }
 
-      if (resultEl && memberNoEl) {
+        if (resultEl && memberNoEl) {
         const mo = new MutationObserver(() => {
           // Reageer op wijzigingen en bepaal zichtbaar/verborgen op basis van selectie
           maybeRender();
@@ -739,6 +806,134 @@
         mo.observe(resultEl, { attributes: true, childList: true, subtree: true, characterData: true });
         // Eerste poging ook direct
         setTimeout(() => maybeRender(), 300);
+
+        // Wire the "Vandaag" quick-book button: checks planned dates and books today atomically
+        (function wireTodayButton() {
+          const btn = document.getElementById('manualTodayBtn');
+          const statusEl = document.getElementById('manualTodayStatus');
+          if (!btn) return;
+          btn.addEventListener('click', async () => {
+            let origText = btn.textContent;
+            try {
+              if (statusEl) statusEl.textContent = '';
+              const memberId = (memberNoEl?.textContent || '').trim();
+              if (!memberId || memberId === '—') { if (statusEl) statusEl.textContent = 'Kies eerst een lid.'; return; }
+              const today = new Date();
+              const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+              // Precompute the human label so Today matches past-ride button labels
+              const label = formatDateNL(todayYMD);
+
+              // Ensure today is a planned ride date
+              const planned = await getPlannedDates();
+              const plannedYMDs = (Array.isArray(planned) ? planned.map(toYMD).filter(Boolean) : []);
+              if (!plannedYMDs.includes(todayYMD)) {
+                // Show the message directly in the Today button and make it red briefly
+                try {
+                  const msg = 'Vandaag is geen geplande ritdatum.';
+                  // Set visible text and error styling. Don't set disabled/aria-disabled here because
+                  // selectors targeting [disabled] or [aria-disabled] force the green registered style.
+                  btn.textContent = msg;
+                  btn.classList.add('btn-error');
+                  // Make non-interactive via CSS (pointer-events) so it behaves like disabled without triggering green styles
+                  if (statusEl) statusEl.textContent = '';
+                  // Restore the button to default after a short delay
+                  setTimeout(() => {
+                    try { btn.classList.remove('btn-error'); btn.textContent = 'Vandaag'; } catch(_) {}
+                  }, 3000);
+                } catch(_) {}
+                return;
+              }
+
+              // Check quickly if already registered -> if so, show the registered state
+              try {
+                const snapCheck = await getDoc(doc(db, 'members', String(memberId)));
+                if (snapCheck.exists()) {
+                  const dcur = snapCheck.data() || {};
+                  const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
+                  if (existing.has(todayYMD)) {
+                    // Show registered state on the button (green) and keep title as the actual date
+                    // Use "Vandaag" in the visible label so it's clear which button is today
+                    btn.textContent = `✅ Vandaag — geregistreerd`;
+                    btn.disabled = true;
+                    btn.setAttribute('aria-disabled', 'true');
+                    btn.title = label;
+                    // Refresh small bits
+                    try { renderManualPastRides(memberId); } catch(_) {}
+                    // Update rides display using the same stars renderer as elsewhere
+                    try {
+                      const rRidesEl = document.getElementById('rRidesCount');
+                      if (rRidesEl) {
+                        const scanDates = Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : [];
+                        const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
+                        rRidesEl.innerHTML = starsHtml || '—';
+                        rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
+                        rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
+                        rRidesEl.style.letterSpacing = '3px';
+                        rRidesEl.style.fontSize = '20px';
+                      }
+                    } catch(_) {}
+                    return;
+                  }
+                }
+              } catch (e) {
+                // ignore check error and proceed to attempt transaction
+              }
+
+              btn.disabled = true;
+              // Use the localized word 'Vandaag' during save so the button clearly represents today
+              btn.textContent = `Vandaag • opslaan…`;
+
+              await withRetry(() => runTransaction(db, async (tx) => {
+                const mRef = doc(db, 'members', String(memberId));
+                const snapCur = await tx.get(mRef);
+                if (snapCur.exists()) {
+                  const dcur = snapCur.data() || {};
+                  const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
+                  if (existing.has(todayYMD)) {
+                    // nothing to do
+                    return;
+                  }
+                  tx.update(mRef, { ScanDatums: arrayUnion(todayYMD), ridesCount: increment(1) });
+                } else {
+                  tx.set(mRef, { ScanDatums: [todayYMD], ridesCount: 1 });
+                }
+              }), { retries: 3 });
+
+              // Success: set registered appearance (show green check + text)
+              // Show "Vandaag" for clarity instead of the full date
+              btn.textContent = `✅ Vandaag — geregistreerd`;
+              btn.disabled = true;
+              btn.setAttribute('aria-disabled', 'true');
+              btn.title = label;
+
+              // Refresh past rides list and rides count
+              try { renderManualPastRides(memberId); } catch(_) {}
+              try {
+                const snap = await getDoc(doc(db, 'members', String(memberId)));
+                if (snap.exists()) {
+                  const d = snap.data() || {};
+                  try {
+                    const rRidesEl = document.getElementById('rRidesCount');
+                    if (rRidesEl) {
+                      const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+                      const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
+                      rRidesEl.innerHTML = starsHtml || '—';
+                      rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
+                      rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
+                      rRidesEl.style.letterSpacing = '3px';
+                      rRidesEl.style.fontSize = '20px';
+                    }
+                  } catch(_) {}
+                }
+              } catch(_) {}
+
+            } catch (e) {
+              console.error('Handmatig boeken vandaag mislukt', e);
+              if (statusEl) statusEl.textContent = '❌ Opslaan mislukt.';
+              try { btn.disabled = false; btn.textContent = origText; } catch(_) {}
+            }
+          });
+        })();
       }
 
       // Zorg dat na keuze Jaarhanger de gegevens-sectie in beeld komt

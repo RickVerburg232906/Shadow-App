@@ -179,6 +179,27 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
 .btn-ghost { background:transparent; border-color:#334155; }
 .btn.primary { background:#1f2937; border-color:#3b82f6; }
 
+/* Error variant for buttons (red) */
+.btn.btn-error {
+  background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04));
+  border-color: rgba(239,68,68,0.14);
+  color: #fee2e2;
+  box-shadow: none;
+}
+.btn.btn-error:hover { filter: brightness(1.02); box-shadow: 0 8px 20px rgba(239,68,68,0.06); transform: translateY(-1px); }
+.btn.btn-error:active { transform: translateY(0); }
+
+/* Stronger selector for Today-button error state to override the disabled green rule */
+#manualTodayBtn.btn-error,
+#manualTodayBtn.btn-error:hover,
+#manualTodayBtn.btn-error:active {
+  background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04)) !important;
+  border-color: rgba(239,68,68,0.14) !important;
+  color: #fee2e2 !important;
+  box-shadow: none !important;
+  pointer-events: none !important; /* make non-interactive without setting disabled */
+}
+
 /* Ensure unclassed buttons still look decent (avoid affecting tabs/subtabs/seg-btn) */
 button:not(.btn):not(.tab):not(.subtab):not(.seg-btn) {
   background:#1f2937; border:1px solid #334155; color:var(--text);
@@ -535,6 +556,38 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
   opacity: 0.98;
 }
 #manualPastRidesList .btn[disabled] { pointer-events: none; }
+
+/* Ensure the standalone "Vandaag" quick-book button shows the same registered (green) appearance when disabled */
+#manualTodayBtn[disabled],
+#manualTodayBtn[aria-disabled="true"] {
+  background: linear-gradient(90deg, rgba(34,197,94,0.06), rgba(16,185,129,0.03));
+  border-color: rgba(34,197,94,0.08);
+  color: #dcfce7; /* light green */
+  cursor: default;
+  box-shadow: none;
+  opacity: 0.98;
+}
+
+/* Make the standalone Today quick-book button visually match the past-rides buttons */
+#manualTodayBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  text-align: left;
+  font-weight: 700;
+  transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
+  min-height: 44px;
+}
+#manualTodayBtn:hover { transform: translateY(-2px); filter: brightness(1.04); box-shadow: 0 10px 28px rgba(0,0,0,0.45); }
+#manualTodayBtn:active { transform: translateY(0); }
+
 
 /* Small meta text on the right side when present (keeps contrast) */
 #manualPastRidesList .meta { color: var(--muted); font-weight:600; font-size:0.95rem }
