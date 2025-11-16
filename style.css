@@ -223,11 +223,76 @@ input {
 input::placeholder { color: #94a3b8; opacity: .85; }
 input:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); border-color: #3b82f6; }
 
-select {
-  padding:10px 12px; border-radius:10px; border:1px solid #334155; background:#0b1220; color:var(--text);
+/* Unified, modern dropdown styling for native <select> elements */
+:root { --dropdown-bg: #0b1220; --dropdown-border: #334155; --dropdown-radius: 10px; --dropdown-padding: 10px 12px; }
+
+select,
+.select-wrapper select,
+.admin-filter-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: var(--dropdown-bg);
+  color: var(--text);
+  border: 1px solid var(--dropdown-border);
+  padding: var(--dropdown-padding);
+  padding-right: 40px; /* space for custom arrow */
+  border-radius: var(--dropdown-radius);
   font-size: 16px;
+  line-height: 1.3;
+  transition: box-shadow .12s ease, border-color .12s ease, transform .06s ease;
+  min-height: 44px;
 }
-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); border-color: #3b82f6; }
+
+/* provide a light custom arrow using inline SVG so it looks consistent across browsers */
+.select-wrapper,
+.admin-filter-select {
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23e5e7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); }
+
+select:focus,
+.admin-filter-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
+  border-color: #3b82f6;
+}
+
+select[multiple], select[size], .multi-select-panel {
+  padding-right: 12px; /* multiple selects don't need arrow spacing */
+  min-height: auto;
+}
+
+/* Options / optgroup readability */
+option, optgroup { background: var(--card); color: var(--text); }
+optgroup { font-weight:700; color: var(--muted); }
+
+/* small variant for compact filters */
+.select-sm { padding: 8px 10px; min-height:36px; font-size:14px; }
+
+/* Responsive: ensure dropdowns don't overflow on tiny screens */
+@media (max-width:420px) {
+  select, .admin-filter-select { font-size: 15px; padding: 10px 10px 10px 12px; }
+}
+
+/* Ensure specific project select variants inherit the unified look */
+.admin-nav-select,
+.ride-region,
+#multiYearMode,
+#rideRegionFilter {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23e5e7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 40px;
+}
+
+/* small visual tweak for inline-styled selects to ensure contrast */
+#rideRegionFilter[style], #multiYearMode[style] { background: var(--card) !important; color: var(--text) !important; border: 1px solid var(--border) !important; }
 
 .qr-reader { width:100%; min-height: 240px; border:1px dashed #334155; border-radius:12px; padding:8px; }
 
