@@ -71,12 +71,23 @@
         <div class="card" id="rideStatsCard">
           <h3>Inschrijvingen per rit</h3>
           <p class="muted">Aantal ingeschreven leden per geplande ritdatum (o.b.v. <code>ScanDatums</code>).</p>
-          <div class="row" style="gap:12px; align-items:center;">
-            <label for="rideRegionFilter" class="small muted" style="margin-right:8px;">Regio:</label>
-            <select id="rideRegionFilter" aria-label="Filter per regio" style="min-width:160px;padding:8px;border-radius:8px;border:1px solid #374151;background:transparent;color:var(--text)">
-              <option value="">Alles</option>
-            </select>
-            <span id="rideRegionStatus" class="status" style="margin-left:8px"></span>
+          <div class="filters-panel" style="display:flex;flex-direction:column;gap:8px;max-width:420px;">
+            <div class="row" style="gap:12px; align-items:center;">
+              <label for="rideRegionFilter" class="small muted" style="min-width:56px;">Regio:</label>
+              <select id="rideRegionFilter" aria-label="Filter per regio" style="width:220px;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #374151;background:transparent;color:var(--text)">
+                <option value="">Alles</option>
+              </select>
+              <span id="rideRegionStatus" class="status" style="margin-left:8px"></span>
+            </div>
+
+            <!-- Multi-year filter control placed under the region select for clarity -->
+            <div id="multiYearModeWrap" style="display:flex;gap:8px;align-items:center;">
+              <label for="multiYearMode" class="small muted" style="min-width:56px;">Filter:</label>
+              <select id="multiYearMode" style="width:220px;box-sizing:border-box;padding:6px 8px;border-radius:8px;border:1px solid #374151;background:transparent;color:var(--text)">
+                <option value="rit">Rit</option>
+                <option value="regio">Regio</option>
+              </select>
+            </div>
           </div>
           <div class="chart-box"><canvas id="rideStatsChart" aria-label="Barchart inschrijvingen per rit"></canvas></div>
           <div class="row" style="gap:12px;align-items:center;margin-top:8px;">

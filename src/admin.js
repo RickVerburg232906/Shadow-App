@@ -1,98 +1,111 @@
 // ===== JPG export naast 'Herladen' (admin-only) =====
 (function() {
-  function waitForElement(getter, { tries=50, delay=200 } = {}) {
+  function waitForElement(getter, { tries = 50, delay = 200 } = {}) {
     return new Promise((resolve) => {
-      let count = 0;
-      const tick = () => {
-        const el = getter();
-        if (el) return resolve(el);
-        if (++count >= tries) return resolve(null);
-        setTimeout(tick, delay);
-      };
-      tick();
+      let attempts = 0;
+      const iv = setInterval(() => {
+        try {
+          const el = getter();
+          if (el) { clearInterval(iv); resolve(el); return; }
+          attempts += 1;
+          if (attempts >= tries) { clearInterval(iv); resolve(null); }
+        } catch (e) {
+          // swallow and retry
+        }
+      }, delay);
     });
   }
-  function attachChartExportJPGNextToReload(reloadBtnId, canvasId, btnId, filename) {
-    const doAttach = async () => {
-      const adminView = document.getElementById("viewAdmin");
-      if (!adminView) return; // only in admin
-      const canvas = await waitForElement(() => adminView.querySelector("#" + canvasId));
-      if (!canvas) return;
-      const reloadBtn = await waitForElement(() => adminView.querySelector("#" + reloadBtnId));
 
-      let btn = document.getElementById(btnId);
-      if (!btn) {
-        btn = document.createElement("button");
-        btn.id = btnId;
-        btn.type = "button";
-        btn.className = (reloadBtn && reloadBtn.className) || "btn btn-ghost";
-        btn.textContent = "Export JPG";
-        btn.style.marginLeft = "8px";
-        btn.style.marginTop = "6px";
-      }
-      const placeNextToReload = () => {
-        try { if (reloadBtn && reloadBtn.nextSibling !== btn) reloadBtn.insertAdjacentElement("afterend", btn); } catch(_) {}
-      };
-      const placeBelowChart = () => {
-        try {
-          const chartBox = canvas.parentElement; // .chart-box
-          if (chartBox && chartBox.parentElement) {
-            // Insert after chart-box, before the status row
-            if (btn.parentElement !== chartBox.parentElement) {
-              chartBox.insertAdjacentElement("afterend", btn);
-            }
-          }
-        } catch(_) {}
-      };
-      if (reloadBtn) placeNextToReload(); else placeBelowChart();
+  // Attach a simple JPG download button below a canvas (kept minimal and resilient)
+  function attachChartExportJPGNextToReload(canvasId, _chartBoxId, filename = null) {
+    async function doAttach() {
+      try {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
 
-      const triggerDownload = (blob) => {
-        const a = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        a.href = url;
-        a.download = filename || (canvasId + ".jpg");
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
-      };
-
-      btn.onclick = () => {
-        try {
-          if (canvas.toBlob) {
-            canvas.toBlob((blob) => {
-              if (blob) triggerDownload(blob);
-              else {
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-                fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
-              }
-            }, "image/jpeg", 0.92);
-          } else {
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-            fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
-          }
-        } catch (e) {
-          console.error("JPG export failed:", e);
-          alert("JPG export mislukt.");
+        let btn = document.getElementById('downloadJpgBtn');
+        if (!btn) {
+          btn = document.createElement('button');
+          btn.id = 'downloadJpgBtn';
+          btn.type = 'button';
+          btn.textContent = 'Download JPG';
+          btn.className = 'chart-download-btn';
+          btn.style.display = 'block';
+          btn.style.width = '100%';
+          btn.style.boxSizing = 'border-box';
+          btn.style.marginTop = '10px';
+          btn.style.padding = '10px 14px';
+          btn.style.borderRadius = '10px';
+          btn.style.border = 'none';
+          btn.style.cursor = 'pointer';
+          btn.style.fontWeight = '700';
         }
-      };
 
-      const ensurePlaced = () => {
-        if (reloadBtn) placeNextToReload(); else placeBelowChart();
-      };
-      if (reloadBtn) reloadBtn.addEventListener("click", () => setTimeout(ensurePlaced, 0));
-      window.addEventListener("resize", ensurePlaced);
-      document.getElementById("adminSubtabs")?.addEventListener("click", () => setTimeout(ensurePlaced, 0));
-      if (adminView && window.MutationObserver) {
-        const mo = new MutationObserver(() => ensurePlaced());
-        mo.observe(adminView, { childList: true, subtree: true });
+        const placeBelowChart = () => {
+          try {
+            const chartBox = canvas.parentElement;
+            if (chartBox && chartBox.parentElement) {
+              if (btn.parentElement !== chartBox.parentElement) chartBox.insertAdjacentElement('afterend', btn);
+            } else {
+              if (btn.parentElement !== canvas.parentElement) canvas.insertAdjacentElement('afterend', btn);
+            }
+          } catch (_) {}
+        };
+
+        placeBelowChart();
+
+        const triggerDownload = (blob) => {
+          if (!blob) return;
+          const a = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          a.href = url;
+          a.download = filename || (canvasId + '.jpg');
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+        };
+
+        btn.onclick = () => {
+          try {
+            if (canvas.toBlob) {
+              canvas.toBlob((blob) => {
+                if (blob) triggerDownload(blob);
+                else {
+                  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+                  fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
+                }
+              }, 'image/jpeg', 0.92);
+            } else {
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+              fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
+            }
+          } catch (e) {
+            console.error('JPG export failed:', e);
+            try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
+            alert('JPG export mislukt.');
+          }
+        };
+
+        const ensurePlaced = () => placeBelowChart();
+        window.addEventListener('resize', ensurePlaced);
+        document.getElementById('adminSubtabs')?.addEventListener('click', () => setTimeout(ensurePlaced, 0));
+        const adminView = document.getElementById('viewAdmin');
+        if (adminView && window.MutationObserver) {
+          const mo = new MutationObserver(() => ensurePlaced());
+          mo.observe(adminView, { childList: true, subtree: true });
+        }
+        ensurePlaced();
+      } catch (e) {
+        // silently ignore attach errors
       }
-      ensurePlaced();
-    };
+    }
+
     doAttach();
-    if (document.readyState !== "complete" && document.readyState !== "interactive") {
-      document.addEventListener("DOMContentLoaded", doAttach, { once: true });
+    if (document.readyState !== 'complete' && document.readyState !== 'interactive') {
+      document.addEventListener('DOMContentLoaded', doAttach, { once: true });
     }
   }
+
   window.attachChartExportJPGNextToReload = attachChartExportJPGNextToReload;
 })();
 
@@ -470,34 +483,133 @@ async function initRideStatsChart() {
   let plannedYMDsForTooltips = null;
 
       if (selectedYears && selectedYears.length > 1) {
-        // Multi-year mode for rides chart: preserve previous behavior (per-year counts per slot)
+        // Multi-year mode for rides chart: provide a choice to view either per-slot (Rit) or aggregated by Regio
         const years = selectedYears.slice();
         const perYearDates = years.map(y => plannedYMDsAll.filter(d => d.slice(0,4) === y));
-        const maxSlots = Math.max(...perYearDates.map(a => a.length));
-        // labels: Rit 1, Rit 2, ...
-        labels = Array.from({length: maxSlots}, (_,i) => `Rit ${i+1}`);
 
-        // color palette (repeat if needed)
-        const palette = ['#2563eb','#06b6d4','#f97316','#10b981','#8b5cf6','#ef4444','#f59e0b'];
-
-        // For each year build a dataset array aligned to slots
-        for (let yi = 0; yi < years.length; yi++) {
-          const year = years[yi];
-          const dates = perYearDates[yi] || [];
-          // compute counts for these dates
-          const counts = await countMembersPerDate(dates, selectedRegion);
-          const data = [];
-          for (let i = 0; i < maxSlots; i++) {
-            const d = dates[i] || null;
-            data.push(d ? (counts.get(d) || 0) : 0);
+        // Ensure a small UI control exists to toggle multi-year view mode (Rit vs Regio)
+        try {
+          const regionRow = regionSelect ? regionSelect.parentElement : null;
+          if (regionRow) {
+            let modeWrap = document.getElementById('multiYearModeWrap');
+            if (!modeWrap) {
+              modeWrap = document.createElement('div');
+              modeWrap.id = 'multiYearModeWrap';
+              // place under the region filter row
+              modeWrap.style.display = 'block';
+              modeWrap.style.marginTop = '8px';
+              modeWrap.innerHTML = `<label for="multiYearMode" class="small muted" style="display:block;margin-bottom:6px;">Filter:</label>`;
+              const sel = document.createElement('select');
+              sel.id = 'multiYearMode';
+              sel.style.padding = '6px 8px';
+              sel.style.borderRadius = '8px';
+              sel.style.background = 'transparent';
+              sel.innerHTML = '<option value="rit">Rit</option><option value="regio">Regio</option>';
+              modeWrap.appendChild(sel);
+              // insert after the regionRow so it appears on its own line under the region select
+              try {
+                if (regionRow.parentElement) regionRow.parentElement.insertBefore(modeWrap, regionRow.nextSibling);
+                else regionRow.appendChild(modeWrap);
+              } catch (e) {
+                regionRow.appendChild(modeWrap);
+              }
+              sel.addEventListener('change', () => {
+                // Re-render chart when mode changes
+                setTimeout(() => render(), 0);
+              }, { passive: true });
+            }
           }
-          datasets.push({ label: year, data, backgroundColor: palette[yi % palette.length], borderRadius: 6 });
+        } catch (e) {
+          console.error('Kon multi-year mode control niet toevoegen', e);
+        }
+
+        // Determine selected mode (default to 'rit')
+        const modeEl = document.getElementById('multiYearMode');
+        const mode = (modeEl && modeEl.value) ? modeEl.value : 'rit';
+
+        if (mode === 'rit') {
+          // Preserve previous behavior (per-year counts per slot)
+          const maxSlots = Math.max(...perYearDates.map(a => a.length));
+          // labels: Rit 1, Rit 2, ... (simple numeric slot labels)
+          labels = Array.from({length: maxSlots}, (_,i) => `Rit ${i+1}`);
+
+          // color palette (repeat if needed)
+          const palette = ['#2563eb','#06b6d4','#f97316','#10b981','#8b5cf6','#ef4444','#f59e0b'];
+
+          // For each year build a dataset array aligned to slots
+          for (let yi = 0; yi < years.length; yi++) {
+            const year = years[yi];
+            const dates = perYearDates[yi] || [];
+            // compute counts for these dates
+            const counts = await countMembersPerDate(dates, selectedRegion);
+            const data = [];
+            for (let i = 0; i < maxSlots; i++) {
+              const d = dates[i] || null;
+              data.push(d ? (counts.get(d) || 0) : 0);
+            }
+            datasets.push({ label: year, data, backgroundColor: palette[yi % palette.length], borderRadius: 6 });
+          }
+        } else {
+          // mode === 'regio': aggregate counts by region across the selected years
+          // Load regions mapping (date -> region)
+          let regionsMap = {};
+          try {
+            const regionsRef = doc(db, "globals", "rideRegions");
+            const rSnap = await getDoc(regionsRef);
+            regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
+          } catch (e) {
+            console.error('Kon rideRegions niet laden voor regio-aggregatie', e);
+          }
+
+          // Build set of all region labels present in the selected years' planned dates
+          const regionLabelsSet = new Set();
+          for (let yi = 0; yi < years.length; yi++) {
+            const dates = perYearDates[yi] || [];
+            for (const d of dates) {
+              const rname = (d && regionsMap[d]) ? regionsMap[d] : '';
+              regionLabelsSet.add(rname || 'Regio (alles)');
+            }
+          }
+          const regionLabels = Array.from(regionLabelsSet).sort((a,b) => a.localeCompare(b));
+          labels = regionLabels.slice();
+
+          // For each year, compute counts per region by summing counts for dates in that region
+          const palette = ['#2563eb','#06b6d4','#f97316','#10b981','#8b5cf6','#ef4444','#f59e0b'];
+          for (let yi = 0; yi < years.length; yi++) {
+            const year = years[yi];
+            const dates = perYearDates[yi] || [];
+            const counts = await countMembersPerDate(dates, selectedRegion);
+            const data = regionLabels.map((rLab) => {
+              // sum counts for dates in this year that map to rLab
+              let sum = 0;
+              for (const d of dates) {
+                const rname = (d && regionsMap[d]) ? regionsMap[d] : '';
+                const labelKey = rname || 'Regio (alles)';
+                if (labelKey === rLab) sum += (counts.get(d) || 0);
+              }
+              return sum;
+            });
+            datasets.push({ label: year, data, backgroundColor: palette[yi % palette.length], borderRadius: 6 });
+          }
         }
       } else {
         // Single-year or none selected -> use Rit labels on the x-axis, but keep real dates for tooltips
         const counts = await countMembersPerDate(plannedYMDs, selectedRegion);
         plannedYMDsForTooltips = plannedYMDs.slice();
-        labels = plannedYMDs.map((_, i) => `Rit ${i+1}`);
+        // Load regions mapping (date -> region) so we can append the region name to each Rit label
+        let regionsMap = {};
+        try {
+          const regionsRef = doc(db, "globals", "rideRegions");
+          const rSnap = await getDoc(regionsRef);
+          regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
+        } catch (e) {
+          console.error('Kon rideRegions niet laden voor chart labels', e);
+        }
+
+        labels = plannedYMDs.map((d, i) => {
+          const region = (d && regionsMap[d]) ? regionsMap[d] : '';
+          return region ? `Rit ${i+1} — ${region}` : `Rit ${i+1}`;
+        });
         const data = plannedYMDs.map(d => counts.get(d) || 0);
         datasets = [{ label: 'Inschrijvingen', data, backgroundColor: (ctx => {
           // gradient will be applied in Chart options later; keep solid fallback
@@ -604,6 +716,14 @@ async function initRideStatsChart() {
   }
 
   await render();
+  // Ensure pre-created multiYearMode select (if present in DOM) triggers re-render when changed
+  try {
+    const preSel = document.getElementById('multiYearMode');
+    if (preSel && !preSel.dataset._wired) {
+      preSel.addEventListener('change', () => { setTimeout(() => render(), 0); }, { passive: true });
+      preSel.dataset._wired = '1';
+    }
+  } catch (e) { console.error('Kon multiYearMode hook niet binden', e); }
   if (reloadBtn) reloadBtn.addEventListener("click", () => render(), { passive: true });
   // Populate region select asynchronously
   (async () => {
@@ -755,68 +875,9 @@ async function initStarDistributionChart() {
       if (statusEl) statusEl.textContent = "Laden…";
       const planned = (await ensureRideDatesLoaded()) || [];
       const plannedYMDsAll = planned.map(d => (typeof d === "string" ? d.slice(0,10) : "")).filter(Boolean).sort();
-  // Respect selected year(s) using the shared helper (centralized selection)
-  // getSelectedYearsFromPanel() returns available years when none explicitly checked,
-  // so it already behaves as an "all years" fallback.
-  const selYears = getSelectedYearsFromPanel();
-  const allYears = Array.from(new Set(plannedYMDsAll.map(d => d.slice(0,4)))).sort().reverse();
-  // ensure we have a sensible array if helper for some reason returns empty
-  const selectedYears = (Array.isArray(selYears) && selYears.length) ? selYears : allYears.slice();
-
-  // If multiple years selected -> multi-year mode, otherwise use single-year as before
-  if (selectedYears.length > 1) {
-        // Build per-year planned date arrays
-  const bucketsPerYear = await buildStarBucketsForYears(selectedYears);
-        const maxN = Math.max(...bucketsPerYear.map(b => b.length - 1));
-        const labels = Array.from({length: maxN + 1}, (_,i) => String(i));
-
-        // prepare datasets
-        const palette = ['#2563eb','#06b6d4','#f97316','#10b981','#8b5cf6','#ef4444','#f59e0b'];
-        const datasets = bucketsPerYear.map((buckets, idx) => ({
-          label: selectedYears[idx],
-          data: Array.from({length: maxN + 1}, (_,i) => buckets[i] || 0),
-          backgroundColor: palette[idx % palette.length],
-          borderRadius: 6
-        }));
-
-        // Destroy old chart
-        try { if (_starDistChart) { _starDistChart.destroy(); _starDistChart = null; } } catch(_) {}
-        const ChartModule = await loadChart();
-        const ChartCtor = (ChartModule && (ChartModule.default || ChartModule.Chart)) || null;
-        if (!ChartCtor) { if (statusEl) statusEl.textContent = '❌ Chart.js niet beschikbaar'; return; }
-        const ctx = canvas.getContext('2d');
-        const grad2 = ctx.createLinearGradient(0, 0, 0, canvas.height || 240);
-        grad2.addColorStop(0, '#86efac'); grad2.addColorStop(1, '#16a34a');
-
-        _starDistChart = new ChartCtor(ctx, {
-          type: 'bar',
-          data: { labels, datasets },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: { padding: { top: 6, right: 6, bottom: 6, left: 6 } },
-            scales: {
-              x: { title: { display: true, text: 'Aantal sterren' }, grid: { display: false } },
-              y: { beginAtZero: true, title: { display: true, text: 'Aantal leden' }, ticks: { precision: 0 } }
-            },
-            plugins: {
-              title: { display: true, text: 'Sterrenverdeling per jaar (Jaarhanger = Ja)' },
-              legend: { display: true, position: 'top' },
-              tooltip: {
-                backgroundColor: '#0f172a', titleColor: '#fff', bodyColor: '#fff', padding: 8,
-                callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} leden` }
-              }
-            }
-          }
-        });
-        try { attachChartDownloadButtonFullWidth('starDistChart', 'downloadStarDistBtn', 'sterrenverdeling.jpg'); } catch (_) {}
-        const totaal = datasets.reduce((s, ds) => s + (Array.isArray(ds.data) ? ds.data.reduce((a,b)=>a+b,0) : 0), 0);
-        if (statusEl) statusEl.textContent = `✅ Gegevens geladen (leden met Jaarhanger=Ja: ${totaal})`;
-        return;
-      }
-
-    // Single-year fallback: count ScanDatums per calendar year (ignore ridePlan)
-    const selectedYear = selectedYears.length === 1 ? selectedYears[0] : String(new Date().getFullYear());
+  // Star distribution should be independent from the global year selection UI.
+  // Always render for the current calendar year to avoid surprising multi-year aggregation.
+  const selectedYear = String(new Date().getFullYear());
     const bucketsPerYearSingle = await buildStarBucketsForYears([selectedYear]);
     const buckets = (bucketsPerYearSingle && bucketsPerYearSingle[0]) ? bucketsPerYearSingle[0] : [0];
     const N = Math.max(0, buckets.length - 1);
@@ -840,10 +901,8 @@ async function initStarDistributionChart() {
       grad2.addColorStop(0, '#86efac');
       grad2.addColorStop(1, '#16a34a');
 
-      // Build title for star distribution: append year when exactly one year selected
-      const starTitle = (Array.isArray(selectedYears) && selectedYears.length === 1)
-        ? `Sterrenverdeling (Jaarhanger = Ja) — ${selectedYears[0]}`
-        : 'Sterrenverdeling (Jaarhanger = Ja)';
+      // Build title for star distribution (tied to selectedYear which is the current calendar year)
+      const starTitle = `Sterrenverdeling (Jaarhanger = Ja) — ${selectedYear}`;
 
       _starDistChart = new ChartCtor(ctx, {
         type: "bar",
@@ -902,11 +961,7 @@ async function initStarDistributionChart() {
   await render();
   if (reloadBtn) reloadBtn.addEventListener("click", () => render(), { passive: true });
   // React to centralized year selection changes dispatched from the year panel
-  if (typeof document !== 'undefined') {
-    document.addEventListener('admin:yearChange', (ev) => {
-      try { setTimeout(() => render(), 0); } catch(_) {}
-    }, { passive: true });
-  }
+  // Do NOT react to admin:yearChange — star distribution stays tied to the calendar year only.
 }
 
 export function initAdminView() {
