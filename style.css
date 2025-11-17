@@ -179,6 +179,27 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
 .btn-ghost { background:transparent; border-color:#334155; }
 .btn.primary { background:#1f2937; border-color:#3b82f6; }
 
+/* Error variant for buttons (red) */
+.btn.btn-error {
+  background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04));
+  border-color: rgba(239,68,68,0.14);
+  color: #fee2e2;
+  box-shadow: none;
+}
+.btn.btn-error:hover { filter: brightness(1.02); box-shadow: 0 8px 20px rgba(239,68,68,0.06); transform: translateY(-1px); }
+.btn.btn-error:active { transform: translateY(0); }
+
+/* Stronger selector for Today-button error state to override the disabled green rule */
+#manualTodayBtn.btn-error,
+#manualTodayBtn.btn-error:hover,
+#manualTodayBtn.btn-error:active {
+  background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04)) !important;
+  border-color: rgba(239,68,68,0.14) !important;
+  color: #fee2e2 !important;
+  box-shadow: none !important;
+  pointer-events: none !important; /* make non-interactive without setting disabled */
+}
+
 /* Ensure unclassed buttons still look decent (avoid affecting tabs/subtabs/seg-btn) */
 button:not(.btn):not(.tab):not(.subtab):not(.seg-btn) {
   background:#1f2937; border:1px solid #334155; color:var(--text);
@@ -223,11 +244,76 @@ input {
 input::placeholder { color: #94a3b8; opacity: .85; }
 input:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); border-color: #3b82f6; }
 
-select {
-  padding:10px 12px; border-radius:10px; border:1px solid #334155; background:#0b1220; color:var(--text);
+/* Unified, modern dropdown styling for native <select> elements */
+:root { --dropdown-bg: #0b1220; --dropdown-border: #334155; --dropdown-radius: 10px; --dropdown-padding: 10px 12px; }
+
+select,
+.select-wrapper select,
+.admin-filter-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: var(--dropdown-bg);
+  color: var(--text);
+  border: 1px solid var(--dropdown-border);
+  padding: var(--dropdown-padding);
+  padding-right: 40px; /* space for custom arrow */
+  border-radius: var(--dropdown-radius);
   font-size: 16px;
+  line-height: 1.3;
+  transition: box-shadow .12s ease, border-color .12s ease, transform .06s ease;
+  min-height: 44px;
 }
-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); border-color: #3b82f6; }
+
+/* provide a light custom arrow using inline SVG so it looks consistent across browsers */
+.select-wrapper,
+.admin-filter-select {
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23e5e7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); }
+
+select:focus,
+.admin-filter-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
+  border-color: #3b82f6;
+}
+
+select[multiple], select[size], .multi-select-panel {
+  padding-right: 12px; /* multiple selects don't need arrow spacing */
+  min-height: auto;
+}
+
+/* Options / optgroup readability */
+option, optgroup { background: var(--card); color: var(--text); }
+optgroup { font-weight:700; color: var(--muted); }
+
+/* small variant for compact filters */
+.select-sm { padding: 8px 10px; min-height:36px; font-size:14px; }
+
+/* Responsive: ensure dropdowns don't overflow on tiny screens */
+@media (max-width:420px) {
+  select, .admin-filter-select { font-size: 15px; padding: 10px 10px 10px 12px; }
+}
+
+/* Ensure specific project select variants inherit the unified look */
+.admin-nav-select,
+.ride-region,
+#multiYearMode,
+#rideRegionFilter {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23e5e7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 40px;
+}
+
+/* small visual tweak for inline-styled selects to ensure contrast */
+#rideRegionFilter[style], #multiYearMode[style] { background: var(--card) !important; color: var(--text) !important; border: 1px solid var(--border) !important; }
 
 .qr-reader { width:100%; min-height: 240px; border:1px dashed #334155; border-radius:12px; padding:8px; }
 
@@ -323,6 +409,17 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
 }
 .admin-filter-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); border-color: #3b82f6; }
 .admin-filter-select option { background: var(--card); color: var(--text); }
+
+/* Multi-select dropdown (compact) */
+.multi-select { position: relative; width: 100%; }
+.multi-select-panel {
+  position: absolute; left: 0; right: 0; z-index: 9999; background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; margin-top: 6px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); max-height: 260px; overflow:auto;
+}
+.multi-select-panel .year-item { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:8px; }
+.multi-select-panel .year-item:hover { background: rgba(255,255,255,0.02); }
+.multi-select-panel input[type="checkbox"] { width:18px; height:18px; }
+.multi-select .admin-filter-select { text-align:left; }
 #rideRegionFilter:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
@@ -424,11 +521,11 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
 .chip.selected{outline:2px solid #3b82f6; background:#1f2937}
 
 /* -------- Manual past rides list buttons (admin-scan) -------- */
-#manualPastRidesList {
+#manualPastRidesList, #pastRidesList {
   display: grid;
   gap: 8px;
 }
-#manualPastRidesList .btn {
+#manualPastRidesList .btn, #pastRidesList .btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -443,14 +540,16 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
   font-weight: 700;
   transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
 }
-#manualPastRidesList .btn:hover {
+#manualPastRidesList .btn:hover, #pastRidesList .btn:hover {
   transform: translateY(-2px);
   filter: brightness(1.04);
   box-shadow: 0 10px 28px rgba(0,0,0,0.45);
 }
-#manualPastRidesList .btn:active { transform: translateY(0); }
+#manualPastRidesList .btn:active, #pastRidesList .btn:active { transform: translateY(0); }
 #manualPastRidesList .btn[disabled],
-#manualPastRidesList .btn[aria-disabled="true"] {
+#pastRidesList .btn[disabled],
+#manualPastRidesList .btn[aria-disabled="true"],
+#pastRidesList .btn[aria-disabled="true"] {
   background: linear-gradient(90deg, rgba(34,197,94,0.06), rgba(16,185,129,0.03));
   border-color: rgba(34,197,94,0.08);
   color: #dcfce7; /* light green */
@@ -458,10 +557,44 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
   box-shadow: none;
   opacity: 0.98;
 }
-#manualPastRidesList .btn[disabled] { pointer-events: none; }
+ #manualPastRidesList .btn[disabled], #pastRidesList .btn[disabled] { pointer-events: none; }
+
+/* Ensure the standalone "Vandaag" quick-book button shows the same registered (green) appearance when disabled */
+#manualTodayBtn[disabled],
+#manualTodayBtn[aria-disabled="true"] {
+  background: linear-gradient(90deg, rgba(34,197,94,0.06), rgba(16,185,129,0.03));
+  border-color: rgba(34,197,94,0.08);
+  color: #dcfce7; /* light green */
+  cursor: default;
+  box-shadow: none;
+  opacity: 0.98;
+}
+#manualTodayBtn[disabled],
+#manualTodayBtn[aria-disabled="true"] { pointer-events: none; }
+
+/* Make the standalone Today quick-book button visually match the past-rides buttons */
+#manualTodayBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  text-align: left;
+  font-weight: 700;
+  transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
+  min-height: 44px;
+}
+#manualTodayBtn:hover { transform: translateY(-2px); filter: brightness(1.04); box-shadow: 0 10px 28px rgba(0,0,0,0.45); }
+#manualTodayBtn:active { transform: translateY(0); }
+
 
 /* Small meta text on the right side when present (keeps contrast) */
-#manualPastRidesList .meta { color: var(--muted); font-weight:600; font-size:0.95rem }
+#manualPastRidesList .meta, #pastRidesList .meta { color: var(--muted); font-weight:600; font-size:0.95rem }
 
 
 /* --- Fullbleed card to use full viewport width --- */

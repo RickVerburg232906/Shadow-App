@@ -11,6 +11,17 @@
       .splash-logo{width:110px;height:auto;margin:0 auto 12px;display:block}
       .splash-progress{height:10px;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin:10px 0}
       .splash-progress-bar{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);width:0%;transition:width .3s ease}
+      /* Planner: each ride on its own row with region select to the right */
+      .row{display:flex;flex-direction:column;gap:10px}
+      .ride-slot{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;width:100%}
+      .ride-slot input[type="date"], .ride-slot .ride-region{height:38px;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+      /* Allow flexible sizing but keep date left and region right */
+      .ride-slot input[type="date"]{flex:0 1 55%;min-width:120px}
+      .ride-slot .ride-region{flex:0 1 40%;min-width:120px}
+      /* On very small viewports allow the inputs to shrink slightly */
+      @media (max-width:420px){
+        .ride-slot input[type="date"], .ride-slot .ride-region{flex:1 1 48%;min-width:100px}
+      }
     </style>
     <link rel="stylesheet" href="/style.css">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -61,13 +72,43 @@
         <div class="card" id="ridePlannerCard">
           <h3>Ritten plannen</h3>
           <p class="muted">Vul minimaal 5 datums in (6e is optioneel). Dit wordt opgeslagen als globale instelling in Firestore.</p>
-          <div class="row" style="flex-wrap:wrap; gap:10px;">
-            <input type="date" id="rideDate1" />
-            <input type="date" id="rideDate2" />
-            <input type="date" id="rideDate3" />
-            <input type="date" id="rideDate4" />
-            <input type="date" id="rideDate5" />
-            <input type="date" id="rideDate6" />
+          <div class="row no-wrap" style="flex-wrap:nowrap; gap:10px;">
+            <div class="ride-slot">
+              <input type="date" id="rideDate1" />
+              <select id="rideRegion1" class="ride-region">
+                <option value="">Regio (alles)</option>
+              </select>
+            </div>
+            <div class="ride-slot">
+              <input type="date" id="rideDate2" />
+              <select id="rideRegion2" class="ride-region">
+                <option value="">Regio (alles)</option>
+              </select>
+            </div>
+            <div class="ride-slot">
+              <input type="date" id="rideDate3" />
+              <select id="rideRegion3" class="ride-region">
+                <option value="">Regio (alles)</option>
+              </select>
+            </div>
+            <div class="ride-slot">
+              <input type="date" id="rideDate4" />
+              <select id="rideRegion4" class="ride-region">
+                <option value="">Regio (alles)</option>
+              </select>
+            </div>
+            <div class="ride-slot">
+              <input type="date" id="rideDate5" />
+              <select id="rideRegion5" class="ride-region">
+                <option value="">Regio (alles)</option>
+              </select>
+            </div>
+            <div class="ride-slot">
+              <input type="date" id="rideDate6" />
+              <select id="rideRegion6" class="ride-region">
+                <option value="">Regio (alles)</option>
+              </select>
+            </div>
           </div>
           <div class="row" style="gap:12px; align-items:center;">
             <span id="ridePlanStatus" class="status"></span>

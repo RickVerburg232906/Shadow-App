@@ -49,7 +49,7 @@ export function applyAdminLevel() {
       cards.forEach(card => {
         const id = card.id || "";
         // Lunch overzicht is nu ook zichtbaar voor normale admins
-        const keep = (id === "qrScanCard") || (id === "manualRideCard") || (id === "cardLunchOverview");
+        const keep = (id === "qrScanCard") || (id === "manualRideCard") || (id === "cardLunchOverview") || (id === "cardPastRidesRegister");
         if (keep) {
           card.style.display = "block";
           card.removeAttribute("hidden");

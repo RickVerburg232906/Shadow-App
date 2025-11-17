@@ -16,6 +16,8 @@
       details summary .toggle-icon {
         transform: rotate(-90deg);
       }
+
+      /* updateTodayButton moved into the module script; keeping styles only in this block */
       details[open] summary .toggle-icon {
         transform: rotate(0deg);
       }
@@ -71,6 +73,34 @@
         </select>
       </div>
 
+              <!-- Lunch overzicht sectie -->
+        <div class="card" id="cardLunchOverview" style="display: block !important;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="font-size: 24px;">📊</span>
+            <div>
+              <h3 style="margin: 0;">Lunch overzicht</h3>
+              <p id="lunchOverviewDateTitle" class="muted" style="margin: 4px 0 0 0; font-size: 14px;">Eerstvolgende rit: —</p>
+            </div>
+          </div>
+          <div class="row" style="margin: 8px 0 12px; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <span id="lunchOverviewStatus" class="muted" style="min-height:20px;"></span>
+          </div>
+
+          <div class="row" style="margin: 6px 0 10px;">
+            <div class="kv">
+              <div class="label">Aantal eters</div>
+              <div id="lunchTotalEaters" class="value">—</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 id="lunchChoiceCountsTitle" style="margin: 10px 0 6px;">Keuzes (aantal)</h4>
+            <div id="lunchChoiceCounts" style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
+              <!-- Dynamisch gevuld -->
+            </div>
+          </div>
+        </div>
+        
       <section id="viewAdmin" class="view active">
         <div class="card" id="qrScanCard">
           <h3>QR code scannen</h3>
@@ -137,11 +167,13 @@
                   
                   <!-- Vast menu voor iedereen (altijd zichtbaar) -->
                   <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                      <span style="font-size: 20px;">🥖</span>
-                      <strong style="font-size: 15px;">Vast menu voor iedereen:</strong>
+                    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:8px;">
+                      <div style="font-size:28px; line-height:1;">🥖</div>
+                      <div style="flex:1;">
+                        <div style="font-size:15px; font-weight:700; color:var(--text);">Vast menu voor iedereen</div>
+                        <div id="vastEtenDisplay" class="muted" style="margin-top:6px; font-size:14px; line-height:1.4;">Brood</div>
+                      </div>
                     </div>
-                    <p id="vastEtenDisplay" class="muted" style="margin:0; font-size: 14px; line-height: 1.6;">Laden...</p>
                   </div>
                   
                   <div class="seg-wrap">
@@ -218,41 +250,36 @@
                 <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
                 <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
                 <div style="height:4px;"></div>
-                <h4 style="margin: 8px 0 6px 0;">Eerdere ritten (handmatig boeken)</h4>
-                <div id="manualPastRidesList" class="muted" style="display:grid; gap:8px;"></div>
-                <div id="manualPastRidesStatus" class="small muted" style="min-height:18px;"></div>
+                <h4 style="margin: 8px 0 6px 0;">Handmatig inschrijven</h4>
+                <div style="margin:8px 0; display:flex; align-items:center; gap:8px;">
+                  <button type="button" id="manualTodayBtn" class="btn">Vandaag</button>
+                  <span id="manualTodayStatus" class="small muted" style="min-height:18px;"></span>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Lunch overzicht sectie -->
-        <div class="card" id="cardLunchOverview" style="display: block !important;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="font-size: 24px;">📊</span>
+        <div class="card" id="cardPastRidesRegister" style="margin-top:12px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <span style="font-size: 24px;">🗂️</span>
             <div>
-              <h3 style="margin: 0;">Lunch overzicht</h3>
-              <p id="lunchOverviewDateTitle" class="muted" style="margin: 4px 0 0 0; font-size: 14px;">Eerstvolgende rit: —</p>
-            </div>
-          </div>
-          <div class="row" style="margin: 8px 0 12px; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <span id="lunchOverviewStatus" class="muted" style="min-height:20px;"></span>
-          </div>
-
-          <div class="row" style="margin: 6px 0 10px;">
-            <div class="kv">
-              <div class="label">Aantal eters</div>
-              <div id="lunchTotalEaters" class="value">—</div>
+              <h3 style="margin:0;">Eerdere ritten registreren</h3>
+              <p class="muted" style="margin:4px 0 0 0; font-size:14px;">Selecteer een deelnemer uit de dropdown en boek eerdere ritten (handmatig).</p>
             </div>
           </div>
 
-          <div>
-            <h4 id="lunchChoiceCountsTitle" style="margin: 10px 0 6px;">Keuzes (aantal)</h4>
-            <div id="lunchChoiceCounts" style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
-              <!-- Dynamisch gevuld -->
-            </div>
+          <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap;">
+            <input id="pastRidesNameInput" placeholder="achternaam of voornaam" />
+            <span id="pastRidesLoading" class="muted" style="display:none">Laden…</span>
+            <span id="pastRidesError" class="muted" style="display:none"></span>
           </div>
+          <ul id="pastRidesSuggestions" class="suggest"></ul>
+
+          <div id="pastRidesList" class="muted" style="margin-top:12px; display:grid; gap:8px;"></div>
+          <div id="pastRidesStatus" class="small muted" style="min-height:18px;"></div>
         </div>
+
       </section>
     </main>
 
@@ -260,7 +287,7 @@
 
     <script type="module">
       import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
-  import { getPlannedDates } from './src/member.js';
+  import { getPlannedDates, plannedStarsWithHighlights, setSelectedDocFromEntry } from './src/member.js';
   import { db, collection, orderBy, startAfter, limit, getDocs, query, onSnapshot, where } from './src/firebase.js';
       
       // Dropdown navigation handler
@@ -588,12 +615,17 @@
     
     <script type="module">
       // Handmatig boeken voor de leden-inschrijfsectie (vervangt QR in admin-scan)
-  import { getPlannedDates } from './src/member.js';
-  import { db, doc, getDoc, arrayUnion, runTransaction, increment } from './src/firebase.js';
+  import { getPlannedDates, plannedStarsWithHighlights } from './src/member.js';
+  import { db, doc, getDoc, arrayUnion, runTransaction, increment, collection, query, orderBy, startAfter, limit, getDocs } from './src/firebase.js';
   import { withRetry, updateOrCreateDoc } from './src/firebase-helpers.js';
 
       function toYMD(d) {
         try {
+          // Support raw strings like '2025-11-16', Date objects, and Firestore Timestamps
+          if (d && typeof d.toDate === 'function') {
+            // Firestore Timestamp
+            d = d.toDate();
+          }
           if (typeof d === 'string' && /\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10);
           const dt = new Date(d);
           if (!isNaN(dt)) return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
@@ -608,9 +640,67 @@
         } catch { return ymd; }
       }
 
-      async function renderManualPastRides(memberId) {
-        const listEl = document.getElementById('manualPastRidesList');
-        const statusEl = document.getElementById('manualPastRidesStatus');
+      // Update the Today quick-book button to reflect whether 'today' is already registered
+      async function updateTodayButton(memberId) {
+        const btn = document.getElementById('manualTodayBtn');
+        const statusEl = document.getElementById('manualTodayStatus');
+        if (!btn) return;
+        const today = new Date();
+        const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+        const titleLabel = formatDateNL(todayYMD);
+
+        // If no member selected, reset the button to default
+        if (!memberId || memberId === '—') {
+          try { btn.disabled = false; btn.removeAttribute('aria-disabled'); btn.classList.remove('btn-error'); btn.textContent = 'Vandaag'; btn.title = ''; if (statusEl) statusEl.textContent = ''; } catch(_) {}
+          return;
+        }
+
+        try {
+          const snap = await getDoc(doc(db, 'members', String(memberId)));
+          if (!snap.exists()) {
+            try { btn.disabled = false; btn.removeAttribute('aria-disabled'); btn.textContent = 'Vandaag'; btn.title = titleLabel; } catch(_) {}
+            return;
+          }
+          const d = snap.data() || {};
+          const existing = new Set((Array.isArray(d.ScanDatums) ? d.ScanDatums : []).map(toYMD).filter(Boolean));
+          if (existing.has(todayYMD)) {
+            // Already registered: show registered appearance and disable button
+            try {
+              btn.classList.remove('btn-error');
+              btn.textContent = `✅ Vandaag — geregistreerd`;
+              btn.disabled = true;
+              btn.setAttribute('aria-disabled', 'true');
+              btn.title = titleLabel;
+            } catch(_) {}
+
+            // Also update the stars UI for consistency
+            try {
+              const planned = await getPlannedDates();
+              const rRidesEl = document.getElementById('rRidesCount');
+              if (rRidesEl) {
+                const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+                const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
+                rRidesEl.innerHTML = starsHtml || '—';
+                rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
+                rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
+                rRidesEl.style.letterSpacing = '3px';
+                rRidesEl.style.fontSize = '20px';
+              }
+            } catch(_) {}
+          } else {
+            // Not registered: ensure the button is enabled and shows 'Vandaag'
+            try { btn.classList.remove('btn-error'); btn.disabled = false; btn.removeAttribute('aria-disabled'); btn.textContent = 'Vandaag'; btn.title = titleLabel; } catch(_) {}
+          }
+        } catch (e) {
+          console.error('updateTodayButton failed', e);
+        }
+      }
+
+      async function renderManualPastRides(memberId, opts = {}) {
+        const listId = opts.listId || 'manualPastRidesList';
+        const statusId = opts.statusId || 'manualPastRidesStatus';
+        const listEl = document.getElementById(listId);
+        const statusEl = document.getElementById(statusId);
         if (!listEl) return;
         listEl.innerHTML = '';
         if (statusEl) statusEl.textContent = '';
@@ -647,19 +737,13 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn';
-            btn.style.textAlign = 'left';
-            btn.style.justifyContent = 'space-between';
-            btn.style.display = 'flex';
-            btn.style.alignItems = 'center';
-            btn.style.gap = '10px';
             btn.dataset.ymd = ymd;
 
             const label = formatDateNL(ymd);
             if (existing.has(ymd)) {
-              btn.textContent = `${label} — geregistreerd`;
+              btn.textContent = `✅ ${label} — geregistreerd`;
               btn.disabled = true;
               btn.setAttribute('aria-disabled', 'true');
-              // keep original date as hover/title for clarity
               btn.title = label;
             } else {
               btn.textContent = label;
@@ -670,32 +754,22 @@
                   btn.disabled = true;
                   btn.textContent = `${label} • opslaan…`;
 
-                  // Use a transaction to atomically check/add the scandatum and increment ridesCount.
-                  // This avoids races and also avoids relying on a non-imported `increment` sentinel.
                   await withRetry(() => runTransaction(db, async (tx) => {
                     const mRef = doc(db, 'members', String(memberId));
                     const snapCur = await tx.get(mRef);
                     if (snapCur.exists()) {
                       const dcur = snapCur.data() || {};
                       const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
-                      if (existing.has(ymd)) {
-                        // Already registered for this date; nothing to do.
-                        return;
-                      }
-                      // Use FieldValue.arrayUnion + increment for atomic update
+                      if (existing.has(ymd)) { return; }
                       tx.update(mRef, { ScanDatums: arrayUnion(ymd), ridesCount: increment(1) });
                     } else {
-                      // Doc doesn't exist yet — create with initial values
                       tx.set(mRef, { ScanDatums: [ymd], ridesCount: 1 });
                     }
                   }), { retries: 3 });
 
-                  btn.textContent = `${label} — geregistreerd`;
-                  // keep original date as hover/title for clarity
+                  btn.textContent = `✅ ${label} — geregistreerd`;
                   btn.title = label;
                   existing.add(ymd);
-                  // The button now shows the registered state, so we don't need the separate status line.
-                  // if (statusEl) statusEl.textContent = `Rit ${label} toegevoegd aan ${memberId}.`;
                 } catch (e) {
                   console.error('Handmatig boeken mislukt', e);
                   btn.disabled = false;
@@ -706,18 +780,26 @@
 
             listEl.appendChild(btn);
           });
+
+          // Alleen de Today button bij de leden-inschrijfsectie bijwerken (oude plek)
+          if (listId === 'manualPastRidesList') {
+            try { await updateTodayButton(memberId); } catch(_) {}
+          }
         } catch (e) {
           console.error('Past rides render failed', e);
           if (statusEl) statusEl.textContent = '❌ Ritten laden mislukt.';
         }
       }
 
+      // Expose for other module scripts to reuse
+      try { window.renderManualPastRides = renderManualPastRides; } catch(_) {}
+
       // Observeer wijzigingen aan de leden-inschrijfsectie en render past rides bij selectie
       const resultEl = document.getElementById('result');
       const memberNoEl = document.getElementById('rMemberNo');
       let lastMemberId = '';
 
-      function maybeRender() {
+      async function maybeRender() {
         const id = (memberNoEl?.textContent || '').trim();
         // Als er geen geldige selectie is, verberg het resultaatkader
         if (!id || id === '—') {
@@ -728,10 +810,12 @@
         lastMemberId = id;
         // Geldige selectie: toon resultaat en render lijst
         if (resultEl) { resultEl.style.display = 'grid'; resultEl.style.visibility = ''; }
-        renderManualPastRides(id);
+        // Render past rides and update the Today button state asynchronously
+        try { await renderManualPastRides(id); } catch(_) {}
+        try { await updateTodayButton(id); } catch(_) {}
       }
 
-      if (resultEl && memberNoEl) {
+        if (resultEl && memberNoEl) {
         const mo = new MutationObserver(() => {
           // Reageer op wijzigingen en bepaal zichtbaar/verborgen op basis van selectie
           maybeRender();
@@ -739,6 +823,139 @@
         mo.observe(resultEl, { attributes: true, childList: true, subtree: true, characterData: true });
         // Eerste poging ook direct
         setTimeout(() => maybeRender(), 300);
+
+        // Wire the "Vandaag" quick-book button: checks planned dates and books today atomically
+        (function wireTodayButton() {
+          const btn = document.getElementById('manualTodayBtn');
+          const statusEl = document.getElementById('manualTodayStatus');
+          if (!btn) return;
+          btn.addEventListener('click', async () => {
+            let origText = btn.textContent;
+            try {
+              if (statusEl) statusEl.textContent = '';
+              const memberId = (memberNoEl?.textContent || '').trim();
+              if (!memberId || memberId === '—') { if (statusEl) statusEl.textContent = 'Kies eerst een lid.'; return; }
+              const today = new Date();
+              const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+              // Precompute the human label so Today matches past-ride button labels
+              const label = formatDateNL(todayYMD);
+
+              // Ensure today is a planned ride date
+              const planned = await getPlannedDates();
+              const plannedYMDs = (Array.isArray(planned) ? planned.map(toYMD).filter(Boolean) : []);
+                if (!plannedYMDs.includes(todayYMD)) {
+                // Show the message directly in the Today button and make it red for a short cooldown
+                try {
+                  const msg = 'Vandaag is geen geplande ritdatum.';
+                  // Set visible text and error styling. Don't set disabled/aria-disabled here because
+                  // selectors targeting [disabled] or [aria-disabled] force the green registered style.
+                  btn.textContent = msg;
+                  btn.classList.add('btn-error');
+                  // Make non-interactive via CSS (pointer-events) so it behaves like disabled without triggering green styles
+                  if (statusEl) statusEl.textContent = '';
+                  // Ensure we don't stack multiple timers
+                  try { if (btn.__clearErrorTimeout) { clearTimeout(btn.__clearErrorTimeout); delete btn.__clearErrorTimeout; } } catch(_) {}
+                  // Clear the red visual after 2 seconds
+                  try {
+                    btn.__clearErrorTimeout = setTimeout(() => {
+                      try { btn.classList.remove('btn-error'); btn.textContent = 'Vandaag'; } catch(_) {}
+                      try { delete btn.__clearErrorTimeout; } catch(_) {}
+                    }, 2000);
+                  } catch(_) {}
+                } catch(_) {}
+                return;
+              }
+
+              // Check quickly if already registered -> if so, show the registered state
+              try {
+                const snapCheck = await getDoc(doc(db, 'members', String(memberId)));
+                if (snapCheck.exists()) {
+                  const dcur = snapCheck.data() || {};
+                  const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
+                  if (existing.has(todayYMD)) {
+                    // Show registered state on the button (green) and keep title as the actual date
+                    // Use "Vandaag" in the visible label so it's clear which button is today
+                    btn.textContent = `✅ Vandaag — geregistreerd`;
+                    btn.disabled = true;
+                    btn.setAttribute('aria-disabled', 'true');
+                    btn.title = label;
+                    // Refresh small bits
+                    try { renderManualPastRides(memberId); } catch(_) {}
+                    // Update rides display using the same stars renderer as elsewhere
+                    try {
+                      const rRidesEl = document.getElementById('rRidesCount');
+                      if (rRidesEl) {
+                        const scanDates = Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : [];
+                        const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
+                        rRidesEl.innerHTML = starsHtml || '—';
+                        rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
+                        rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
+                        rRidesEl.style.letterSpacing = '3px';
+                        rRidesEl.style.fontSize = '20px';
+                      }
+                    } catch(_) {}
+                    return;
+                  }
+                }
+              } catch (e) {
+                // ignore check error and proceed to attempt transaction
+              }
+
+              btn.disabled = true;
+              // Use the localized word 'Vandaag' during save so the button clearly represents today
+              btn.textContent = `Vandaag • opslaan…`;
+
+              await withRetry(() => runTransaction(db, async (tx) => {
+                const mRef = doc(db, 'members', String(memberId));
+                const snapCur = await tx.get(mRef);
+                if (snapCur.exists()) {
+                  const dcur = snapCur.data() || {};
+                  const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
+                  if (existing.has(todayYMD)) {
+                    // nothing to do
+                    return;
+                  }
+                  tx.update(mRef, { ScanDatums: arrayUnion(todayYMD), ridesCount: increment(1) });
+                } else {
+                  tx.set(mRef, { ScanDatums: [todayYMD], ridesCount: 1 });
+                }
+              }), { retries: 3 });
+
+              // Success: set registered appearance (show green check + text)
+              // Show "Vandaag" for clarity instead of the full date
+              btn.textContent = `✅ Vandaag — geregistreerd`;
+              btn.disabled = true;
+              btn.setAttribute('aria-disabled', 'true');
+              btn.title = label;
+
+              // Refresh past rides list and rides count
+              try { renderManualPastRides(memberId); } catch(_) {}
+              try {
+                const snap = await getDoc(doc(db, 'members', String(memberId)));
+                if (snap.exists()) {
+                  const d = snap.data() || {};
+                  try {
+                    const rRidesEl = document.getElementById('rRidesCount');
+                    if (rRidesEl) {
+                      const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
+                      const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
+                      rRidesEl.innerHTML = starsHtml || '—';
+                      rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
+                      rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
+                      rRidesEl.style.letterSpacing = '3px';
+                      rRidesEl.style.fontSize = '20px';
+                    }
+                  } catch(_) {}
+                }
+              } catch(_) {}
+
+            } catch (e) {
+              console.error('Handmatig boeken vandaag mislukt', e);
+              if (statusEl) statusEl.textContent = '❌ Opslaan mislukt.';
+              try { btn.disabled = false; btn.textContent = origText; } catch(_) {}
+            }
+          });
+        })();
       }
 
       // Zorg dat na keuze Jaarhanger de gegevens-sectie in beeld komt
@@ -759,6 +976,8 @@
       const yhNo = document.getElementById('yearhangerNo');
       yhYes?.addEventListener('click', ensureResultVisibleAndScroll);
       yhNo?.addEventListener('click', ensureResultVisibleAndScroll);
+
+      // (Replaced dropdown population with autocomplete initialization below)
     </script>
     <script type="module">
       // Alleen initializer voor Admin Landelijke Signup; de lid-inschrijvingssectie gebruikt de logica uit member.js/main.js
@@ -781,6 +1000,103 @@
         qrPrivacyTextId: 'adminSignupQrPrivacy',
         enableQrFullscreen: true,
       });
+
+      // Autocomplete for 'Eerdere ritten registreren' — hergebruikt member-search-ui
+      initMemberSearchSection({
+        nameInputId: 'pastRidesNameInput',
+        suggestionsListId: 'pastRidesSuggestions',
+        errorId: 'pastRidesError',
+        loadingId: 'pastRidesLoading',
+        resultBoxId: 'result',
+        fields: {
+          nameId: 'rName',
+          memberNoId: 'rMemberNo',
+          ridesCountId: 'rRidesCount',
+          regionId: 'rRegion',
+        },
+        withQr: false,
+        onSelected: async (entry) => {
+          try {
+            // Reset lastMemberId so the MutationObserver/maybeRender path will re-run
+            try { lastMemberId = ''; } catch(_) {}
+
+            // Ensure the result box is visible
+            try {
+              const resultBox = document.getElementById('result');
+              if (resultBox) { resultBox.style.display = 'grid'; resultBox.style.visibility = ''; }
+            } catch(_) {}
+
+            // Fetch the freshest member document from the DB to avoid stale data/caching issues
+            let fresh = null;
+            try {
+              const snap = await getDoc(doc(db, 'members', String(entry?.id || '')));
+              if (snap && snap.exists()) fresh = snap.data() || {};
+            } catch (e) { /* ignore fetch errors and fall back to entry.data */ }
+
+            // Populate the basic result fields using the freshest data available
+            try {
+              const data = fresh || entry?.data || {};
+              const rNameEl = document.getElementById('rName');
+              const rMemberNoEl = document.getElementById('rMemberNo');
+              const rRegionEl = document.getElementById('rRegion');
+              if (rNameEl) {
+                const tussen = (data['Tussen voegsel'] || '').trim();
+                const full = [data['Voor naam'] || '', tussen ? tussen : '', data['Naam'] || ''].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+                rNameEl.textContent = full || (data['Naam'] ? data['Naam'] : '—');
+              }
+              if (rMemberNoEl) rMemberNoEl.textContent = String(entry?.id || '—');
+              if (rRegionEl) rRegionEl.textContent = (data['Regio Omschrijving'] || '—');
+
+              // Update rides stars from the fresh data
+              try {
+                const planned = await getPlannedDates();
+                const rRidesEl = document.getElementById('rRidesCount');
+                const scanDates = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
+                const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
+                if (rRidesEl) {
+                  rRidesEl.innerHTML = starsHtml || '—';
+                  rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
+                  rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
+                  rRidesEl.style.letterSpacing = '3px';
+                  rRidesEl.style.fontSize = '20px';
+                }
+              } catch(_) {}
+            } catch(_) {}
+
+            // Inform member module about this selection so jaarhanger/lunch UI shows correctly
+            try { await setSelectedDocFromEntry(entry); } catch(e) { console.error('setSelectedDocFromEntry error', e); }
+
+            // Force a fresh render of the past rides list into the new card
+            try { await window.renderManualPastRides(entry.id, { listId: 'pastRidesList', statusId: 'pastRidesStatus' }); } catch(e) { console.error('renderManualPastRides error', e); }
+
+            // Ensure the Today button reflects whether today is already scanned for this member
+            try { await updateTodayButton(entry.id); } catch (e) { console.error('updateTodayButton error', e); }
+
+            // Ensure the result area is scrolled into view for operator convenience
+            try { ensureResultVisibleAndScroll(); } catch(_) {}
+          } catch (e) { console.error('pastRides onSelected failed', e); }
+        }
+      });
+
+      // If operator focuses the past-rides search after a red error state, clear the red visual
+      // (keeps red state persistent until the operator explicitly starts a new search)
+      try {
+        const pastInput = document.getElementById('pastRidesNameInput');
+        const clearRedVisual = () => {
+          try {
+            const btn = document.getElementById('manualTodayBtn');
+            if (!btn) return;
+            // Only clear the red visual, don't re-enable the button if it was disabled (green)
+            if (btn.classList.contains('btn-error') && !btn.disabled) {
+              btn.classList.remove('btn-error');
+              btn.textContent = 'Vandaag';
+            }
+          } catch(_) {}
+        };
+        pastInput?.addEventListener('focus', clearRedVisual);
+        // Also clear on every input event so typing immediately removes the red visual
+        pastInput?.addEventListener('input', clearRedVisual);
+      } catch(_) {}
 
       // Maak de gekopieerde leden-inschrijfsectie zichtbaar in admin (consent-gate is niet van toepassing hier)
       setTimeout(() => {

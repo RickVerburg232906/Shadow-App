@@ -3,6 +3,55 @@ import QRCode from "qrcode";
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 
+// Export helper so other modules (admin pages) can signal a selection
+export async function setSelectedDocFromEntry(entry) {
+  try {
+    if (!entry || !entry.id) return;
+    // Set module-local selectedDoc so other handlers (saveYearhanger etc.) work
+    selectedDoc = entry;
+    // Fetch freshest member document
+    let memberData = entry.data || {};
+    try {
+      const snap = await getDoc(doc(db, 'members', String(entry.id)));
+      if (snap && snap.exists()) memberData = snap.data() || memberData;
+    } catch (_) {}
+
+    // Populate lunch-related module state from the member document
+    _lunchChoice = (memberData && typeof memberData.lunchDeelname === 'string') ? memberData.lunchDeelname : _lunchChoice;
+    _selectedKeuzeEten = [];
+    if (memberData && memberData.lunchKeuze) {
+      _selectedKeuzeEten = [memberData.lunchKeuze];
+    }
+
+    // Decide whether the jaarhanger UI should be shown and render appropriately
+    const isVastMenuOnly = _selectedKeuzeEten.length > 0 && _selectedKeuzeEten[0] === 'vast-menu';
+    const shouldShowJaarhanger = _lunchChoice === "nee" || (_lunchChoice === "ja" && (_selectedKeuzeEten.length > 0 || isVastMenuOnly));
+    if (shouldShowJaarhanger) {
+      try {
+        const snap2 = await getDoc(doc(db, 'members', String(entry.id)));
+        const data2 = snap2 && snap2.exists() ? snap2.data() : memberData;
+        const existingJaarhanger = data2?.Jaarhanger;
+        if (existingJaarhanger === 'Ja' || existingJaarhanger === 'Nee') {
+          _yearhangerVal = existingJaarhanger;
+          renderYearhangerUI(existingJaarhanger);
+          try { await generateQrForEntry(selectedDoc); } catch(_) {}
+        } else {
+          renderYearhangerUI(null);
+        }
+      } catch (e) {
+        console.error('setSelectedDocFromEntry: failed to evaluate jaarhanger', e);
+        try { renderYearhangerUI(null); } catch(_) {}
+      }
+    } else {
+      // Hide jaarhanger if not applicable
+      try { if (yearhangerRow) yearhangerRow.style.display = 'none'; } catch(_) {}
+      try { const info = document.getElementById('jaarhangerInfo'); if (info) info.style.display = 'none'; } catch(_) {}
+    }
+  } catch (e) {
+    console.error('setSelectedDocFromEntry failed', e);
+  }
+}
+
 // ------- Planning (geplande datums) -------
 export async function getPlannedDates() {
   try {
@@ -1054,12 +1103,12 @@ if (yearhangerNo) {
   async function checkAndCleanupOldLunchChoice(memberId, memberData) {
     try {
       // Als er geen lunchkeuze is, niets te doen
-      if (!memberData || (!memberData.lunchDeelname && !memberData.lunchKeuze)) return;
+      if (!memberData || (!memberData.lunchDeelname && !memberData.lunchKeuze)) return false;
 
       const rideYMD = typeof memberData.lunchRideDateYMD === 'string' ? memberData.lunchRideDateYMD.slice(0,10) : '';
       if (!rideYMD) {
         // Als er geen gekoppelde ritdatum is, wijzig niets (we verwijderen niets op tijd alleen).
-        return;
+        return false;
       }
 
       const today = todayYMD();
@@ -1072,9 +1121,12 @@ if (yearhangerNo) {
           lunchRideDateYMD: null
         }), { retries: 2 });
         console.log(`Lunch keuze gewist voor lid ${memberId} — rit ${rideYMD} voorbij (${today}).`);
+        return true;
       }
+      return false;
     } catch (e) {
       console.error('Fout bij cleanup lunch data (op basis van ritdatum):', e);
+      return false;
     }
   }
 
@@ -1083,10 +1135,38 @@ if (yearhangerNo) {
     hideError();
     
     try {
-      const data = entry.data || {};
-      
+      // Zorg dat we werken met de meest recente versie van het leden-document.
+      // Haal eerst vers document op in plaats van te vertrouwen op de (mogelijk stale) entry.data
+      let data = entry.data || {};
+      try {
+        const docSnapInit = await getDoc(doc(db, "members", entry.id));
+        if (docSnapInit.exists()) {
+          data = docSnapInit.data();
+          entry.data = data;
+        }
+      } catch (e) {
+        console.error('Fout bij ophalen van vers member doc (fallback naar entry.data):', e);
+      }
+
       // Check of lunch keuze ouder is dan 1 dag en verwijder indien nodig
-      await checkAndCleanupOldLunchChoice(entry.id, data);
+      // Work on the fresh `data` we just fetched so cleanup acts on up-to-date state
+      const cleaned = await checkAndCleanupOldLunchChoice(entry.id, data);
+      if (cleaned) {
+        try {
+          const freshSnap = await getDoc(doc(db, "members", entry.id));
+          if (freshSnap.exists()) {
+            // Gebruik de verse data voor verdere logica zodat UI geen verouderde waarden toont
+            data = freshSnap.data();
+            // Zorg er ook voor dat 'entry.data' overeenkomt met de nieuwste state
+            entry.data = data;
+          } else {
+            data = {};
+            entry.data = data;
+          }
+        } catch (e) {
+          console.error('Fout bij herladen member na cleanup:', e);
+        }
+      }
       
       // Check of dit lid al is gescand voor de eerstvolgende rit
       const nextRideYMD = await getNextPlannedRideYMD();
