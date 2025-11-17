@@ -521,11 +521,11 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
 .chip.selected{outline:2px solid #3b82f6; background:#1f2937}
 
 /* -------- Manual past rides list buttons (admin-scan) -------- */
-#manualPastRidesList {
+#manualPastRidesList, #pastRidesList {
   display: grid;
   gap: 8px;
 }
-#manualPastRidesList .btn {
+#manualPastRidesList .btn, #pastRidesList .btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -540,14 +540,16 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
   font-weight: 700;
   transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
 }
-#manualPastRidesList .btn:hover {
+#manualPastRidesList .btn:hover, #pastRidesList .btn:hover {
   transform: translateY(-2px);
   filter: brightness(1.04);
   box-shadow: 0 10px 28px rgba(0,0,0,0.45);
 }
-#manualPastRidesList .btn:active { transform: translateY(0); }
+#manualPastRidesList .btn:active, #pastRidesList .btn:active { transform: translateY(0); }
 #manualPastRidesList .btn[disabled],
-#manualPastRidesList .btn[aria-disabled="true"] {
+#pastRidesList .btn[disabled],
+#manualPastRidesList .btn[aria-disabled="true"],
+#pastRidesList .btn[aria-disabled="true"] {
   background: linear-gradient(90deg, rgba(34,197,94,0.06), rgba(16,185,129,0.03));
   border-color: rgba(34,197,94,0.08);
   color: #dcfce7; /* light green */
@@ -555,7 +557,7 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
   box-shadow: none;
   opacity: 0.98;
 }
-#manualPastRidesList .btn[disabled] { pointer-events: none; }
+ #manualPastRidesList .btn[disabled], #pastRidesList .btn[disabled] { pointer-events: none; }
 
 /* Ensure the standalone "Vandaag" quick-book button shows the same registered (green) appearance when disabled */
 #manualTodayBtn[disabled],
@@ -567,6 +569,8 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
   box-shadow: none;
   opacity: 0.98;
 }
+#manualTodayBtn[disabled],
+#manualTodayBtn[aria-disabled="true"] { pointer-events: none; }
 
 /* Make the standalone Today quick-book button visually match the past-rides buttons */
 #manualTodayBtn {
@@ -590,7 +594,7 @@ canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,
 
 
 /* Small meta text on the right side when present (keeps contrast) */
-#manualPastRidesList .meta { color: var(--muted); font-weight:600; font-size:0.95rem }
+#manualPastRidesList .meta, #pastRidesList .meta { color: var(--muted); font-weight:600; font-size:0.95rem }
 
 
 /* --- Fullbleed card to use full viewport width --- */

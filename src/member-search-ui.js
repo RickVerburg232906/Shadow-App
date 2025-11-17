@@ -25,7 +25,7 @@ import {
   generateQrForEntry,
   openQrFullscreenFromCanvas,
 } from './landelijke-signup.js';
-import { getPlannedDates, plannedStarsWithHighlights } from './member.js';
+import { getPlannedDates, plannedStarsWithHighlights, setSelectedDocFromEntry } from './member.js';
 import { doc, onSnapshot, getDoc } from './firebase.js';
 import { db } from './firebase.js';
 
@@ -260,7 +260,13 @@ export function initMemberSearchSection(config) {
         if (resultBox) resultBox.style.display = 'grid';
       }
 
-      // Notificeer caller dat er een entry is gekozen zodat extra UI gerenderd kan worden
+      // Notify member module about the selection so module-level state (jaarhanger/lunch)
+      // is updated consistently across different search UIs. Then notify caller.
+      try {
+        if (typeof setSelectedDocFromEntry === 'function') {
+          try { await setSelectedDocFromEntry(entry); } catch (_) {}
+        }
+      } catch (_) {}
       try {
         if (typeof onSelected === 'function') {
           onSelected(entry, { resultBoxId, config });

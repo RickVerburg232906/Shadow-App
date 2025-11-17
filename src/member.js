@@ -3,6 +3,55 @@ import QRCode from "qrcode";
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 
+// Export helper so other modules (admin pages) can signal a selection
+export async function setSelectedDocFromEntry(entry) {
+  try {
+    if (!entry || !entry.id) return;
+    // Set module-local selectedDoc so other handlers (saveYearhanger etc.) work
+    selectedDoc = entry;
+    // Fetch freshest member document
+    let memberData = entry.data || {};
+    try {
+      const snap = await getDoc(doc(db, 'members', String(entry.id)));
+      if (snap && snap.exists()) memberData = snap.data() || memberData;
+    } catch (_) {}
+
+    // Populate lunch-related module state from the member document
+    _lunchChoice = (memberData && typeof memberData.lunchDeelname === 'string') ? memberData.lunchDeelname : _lunchChoice;
+    _selectedKeuzeEten = [];
+    if (memberData && memberData.lunchKeuze) {
+      _selectedKeuzeEten = [memberData.lunchKeuze];
+    }
+
+    // Decide whether the jaarhanger UI should be shown and render appropriately
+    const isVastMenuOnly = _selectedKeuzeEten.length > 0 && _selectedKeuzeEten[0] === 'vast-menu';
+    const shouldShowJaarhanger = _lunchChoice === "nee" || (_lunchChoice === "ja" && (_selectedKeuzeEten.length > 0 || isVastMenuOnly));
+    if (shouldShowJaarhanger) {
+      try {
+        const snap2 = await getDoc(doc(db, 'members', String(entry.id)));
+        const data2 = snap2 && snap2.exists() ? snap2.data() : memberData;
+        const existingJaarhanger = data2?.Jaarhanger;
+        if (existingJaarhanger === 'Ja' || existingJaarhanger === 'Nee') {
+          _yearhangerVal = existingJaarhanger;
+          renderYearhangerUI(existingJaarhanger);
+          try { await generateQrForEntry(selectedDoc); } catch(_) {}
+        } else {
+          renderYearhangerUI(null);
+        }
+      } catch (e) {
+        console.error('setSelectedDocFromEntry: failed to evaluate jaarhanger', e);
+        try { renderYearhangerUI(null); } catch(_) {}
+      }
+    } else {
+      // Hide jaarhanger if not applicable
+      try { if (yearhangerRow) yearhangerRow.style.display = 'none'; } catch(_) {}
+      try { const info = document.getElementById('jaarhangerInfo'); if (info) info.style.display = 'none'; } catch(_) {}
+    }
+  } catch (e) {
+    console.error('setSelectedDocFromEntry failed', e);
+  }
+}
+
 // ------- Planning (geplande datums) -------
 export async function getPlannedDates() {
   try {
