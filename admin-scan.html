@@ -972,6 +972,9 @@
         }
       }
 
+      // Exposeer deze helper globaal zodat andere modules (zoals member.js) hem kunnen aanroepen
+      try { if (typeof window !== 'undefined') window.ensureResultVisibleAndScroll = ensureResultVisibleAndScroll; } catch(_) {}
+
       const yhYes = document.getElementById('yearhangerYes');
       const yhNo = document.getElementById('yearhangerNo');
       yhYes?.addEventListener('click', ensureResultVisibleAndScroll);

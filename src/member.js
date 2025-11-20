@@ -833,13 +833,21 @@ function renderYearhangerUI(val) {
   if (!yearhangerDetailsElement && yearhangerRow) {
     yearhangerDetailsElement = yearhangerRow.querySelector('details');
   }
-  if (yearhangerDetailsElement && v !== null) {
-    // Keuze bestaat al: houd ingeklapt
-    yearhangerDetailsElement.open = false;
-  } else if (yearhangerDetailsElement && v === null) {
-    // Geen keuze: open de sectie
-    yearhangerDetailsElement.open = true;
+  // Open de jaarhanger details zodat operator direct de info en knoppen ziet
+  if (!yearhangerDetailsElement && yearhangerRow) {
+    yearhangerDetailsElement = yearhangerRow.querySelector('details');
   }
+  try {
+    if (yearhangerDetailsElement) {
+      // Open details only when there is no saved jaarhanger choice (v === null).
+      // If a choice exists (Ja/Nee) keep the section collapsed.
+      try {
+        yearhangerDetailsElement.open = (v === null);
+      } catch (_) {
+        // ignore
+      }
+    }
+  } catch (_) {}
   
   // Toon uitleg pas als jaarhangerRow zichtbaar is
   const info = document.getElementById("jaarhangerInfo");
@@ -856,6 +864,12 @@ function renderYearhangerUI(val) {
     if (v !== "Nee") yearhangerNo.classList.remove("no");
   }
   updateJaarhangerBadge();
+  // Zorg dat de operator meteen de result sectie (en daarmee de "Vandaag" knop) ziet
+  try {
+    if (typeof window !== 'undefined' && typeof window.ensureResultVisibleAndScroll === 'function') {
+      window.ensureResultVisibleAndScroll();
+    }
+  } catch (_) {}
 }
 async function saveYearhanger(val) {
   try {
