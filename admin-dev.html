@@ -34,12 +34,10 @@
 
       <section class="card">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <span style="font-size: 22px;">🧪</span>
           <h2 style="margin:0;">Reset acties</h2>
         </div>
-        <p class="muted" style="margin: 6px 0 12px 0;">Gevaarlijk: deze acties passen alle leden aan. Alleen gebruiken voor tests of bij jaarswitch.</p>
         <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap;">
-          <button id="resetJaarhangerBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset Jaarhanger voor alle leden</button>
+          <button id="resetJaarhangerBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset alle Jaarhanger </button>
           <span id="resetJaarhangerStatus" class="status"></span>
         </div>
         <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap; margin-top:10px;">
@@ -47,16 +45,9 @@
           <span id="resetLunchStatus" class="status"></span>
         </div>
         <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap; margin-top:10px;">
-          <button id="clearScanDatumsBtn" class="btn" style="border-color:#ef4444;">⚠️ Verwijder alle ScanDatums (DEV)</button>
+          <button id="clearScanDatumsBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset alle ScanDatums</button>
           <span id="clearScanDatumsStatus" class="status"></span>
         </div>
-        <details class="muted" style="margin-top:12px;">
-          <summary>Wat wordt gereset?</summary>
-          <ul>
-            <li>Jaarhanger: veld <code>Jaarhanger</code> wordt leeg gemaakt ("") voor alle members</li>
-            <li>Lunch: velden <code>lunchDeelname</code>, <code>lunchKeuze</code>, <code>lunchTimestamp</code>, <code>lunchRideDateYMD</code> worden op <code>null</code> gezet</li>
-          </ul>
-        </details>
       </section>
     </main>
 
