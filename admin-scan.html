@@ -76,14 +76,13 @@
               <!-- Lunch overzicht sectie -->
         <div class="card" id="cardLunchOverview" style="display: block !important;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="font-size: 24px;">📊</span>
             <div>
               <h3 style="margin: 0;">Lunch overzicht</h3>
               <p id="lunchOverviewDateTitle" class="muted" style="margin: 4px 0 0 0; font-size: 14px;">Eerstvolgende rit: —</p>
             </div>
           </div>
           <div class="row" style="margin: 8px 0 12px; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <span id="lunchOverviewStatus" class="muted" style="min-height:20px;"></span>
+            <span id="lunchOverviewStatus" class="muted"></span>
           </div>
 
           <div class="row" style="margin: 6px 0 10px;">
@@ -415,7 +414,16 @@
               }
             }
           }
-          if (lunchOverviewStatus) lunchOverviewStatus.textContent = '✅ Gereed';
+          if (lunchOverviewStatus) {
+            // We're done loading — clear status immediately so nothing remains visible.
+            if (lunchOverviewStatus._fadeTimer) {
+              clearTimeout(lunchOverviewStatus._fadeTimer);
+              lunchOverviewStatus._fadeTimer = null;
+            }
+            lunchOverviewStatus.textContent = '';
+            lunchOverviewStatus.style.transition = '';
+            lunchOverviewStatus.style.opacity = '';
+          }
 
           // Store current overview state so live updates can apply deltas instead of re-scanning
           try {

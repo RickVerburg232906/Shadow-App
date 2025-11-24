@@ -443,7 +443,16 @@
               }
             }
           }
-          if (lunchOverviewStatus) lunchOverviewStatus.textContent = '✅ Gereed';
+          if (lunchOverviewStatus) {
+            // Done loading — clear status immediately so only loading messages are shown.
+            if (lunchOverviewStatus._fadeTimer) {
+              clearTimeout(lunchOverviewStatus._fadeTimer);
+              lunchOverviewStatus._fadeTimer = null;
+            }
+            lunchOverviewStatus.textContent = '';
+            lunchOverviewStatus.style.transition = '';
+            lunchOverviewStatus.style.opacity = '';
+          }
         } catch (e) {
           console.error('Overzicht tellen mislukt', e);
           if (lunchOverviewStatus) lunchOverviewStatus.textContent = '❌ Mislukt';
