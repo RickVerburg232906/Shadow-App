@@ -1095,11 +1095,14 @@ export function initAdminView() {
     // ===== Reset Jaarhanger (popup bevestiging) =====
     const resetJBtn = document.getElementById("resetJaarhangerBtn");
     const resetJStatus = document.getElementById("resetJaarhangerStatus");
-    resetJBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllJaarhanger(resetJStatus);
-    });
+    if (resetJBtn && !resetJBtn.dataset._wired) {
+      resetJBtn.addEventListener("click", async () => {
+        const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
+        if (!ok) return;
+        await resetAllJaarhanger(resetJStatus);
+      });
+      resetJBtn.dataset._wired = '1';
+    }
 
   // ===== Ritten plannen (globaal) =====
   // Note: initRidePlannerSection should only run on the planning page (or index).
@@ -1133,19 +1136,25 @@ export function initAdminView() {
   if (isAdminDev || isIndexPage) {
     const resetJBtn = document.getElementById("resetJaarhangerBtn");
     const resetJStatus = document.getElementById("resetJaarhangerStatus");
-    resetJBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllJaarhanger(resetJStatus);
-    });
+    if (resetJBtn && !resetJBtn.dataset._wired) {
+      resetJBtn.addEventListener("click", async () => {
+        const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
+        if (!ok) return;
+        await resetAllJaarhanger(resetJStatus);
+      });
+      resetJBtn.dataset._wired = '1';
+    }
 
     const resetLBtn = document.getElementById("resetLunchBtn");
     const resetLStatus = document.getElementById("resetLunchStatus");
-    resetLBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je ALLE lunchgegevens (deelname/keuze/timestamp/ritdatum) voor alle leden wilt resetten? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllLunch(resetLStatus);
-    });
+    if (resetLBtn && !resetLBtn.dataset._wired) {
+      resetLBtn.addEventListener("click", async () => {
+        const ok = window.confirm("Weet je zeker dat je ALLE lunchgegevens (deelname/keuze/timestamp/ritdatum) voor alle leden wilt resetten? Dit kan niet ongedaan worden gemaakt.");
+        if (!ok) return;
+        await resetAllLunch(resetLStatus);
+      });
+      resetLBtn.dataset._wired = '1';
+    }
   }
 }
 
