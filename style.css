@@ -106,6 +106,51 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
 #lunchChoiceSection summary::-webkit-details-marker { display: none; }
 #lunchChoiceSection summary::marker { display: none; }
 
+/* Keuze-eten preview (read-only) */
+#keuzeEtenPreviewWrap {
+  margin-bottom: 12px;
+  display: none; /* shown only when there are keuze items */
+}
+#keuzeEtenPreview {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--muted);
+}
+.keuze-chip {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.04);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* Choice buttons styling (keuzeEtenButtons) — ensure clear tappable targets */
+#keuzeEtenButtons .seg-btn {
+  min-width: 140px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--text);
+  font-weight: 700;
+}
+#keuzeEtenButtons .seg-btn:hover { filter: brightness(1.03); }
+#keuzeEtenButtons .seg-btn.active {
+  background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.06));
+  border-color: rgba(16,185,129,0.3);
+  color: #10b981;
+}
+
+/* Make the preview chips slightly subdued on very small screens */
+@media (max-width:420px) {
+  .keuze-chip { font-size: 13px; padding: 6px 8px; }
+  #keuzeEtenButtons .seg-btn { min-width: 120px; padding: 10px 12px; }
+}
+
 /* Collapsible Jaarhanger section (same style as lunch) */
 #yearhangerRow { margin-bottom: 16px; }
 #yearhangerRow details {
