@@ -54,7 +54,7 @@
       </div>
 
       <div class="card" id="excelUploadCard">
-        <h1>Admin: Excel uploaden</h1>
+        <h1>Excel uploaden</h1>
           <details class="muted" style="margin-top:8px;">
             <summary>Benodigde kolommen</summary>
             <code>LidNr, Naam, Voor naam, Voor letters, Tussen voegsel, regio Omschrijving</code>
@@ -69,20 +69,20 @@
         <div class="row">
           <button id="uploadBtn" class="btn" style="width:100%;">Uploaden</button>
         </div>
+        <div id="status" class="status"></div>
       </div>
 
       <section id="viewAdmin" class="view active">
         <div class="card" id="exportExcelCard">
-          <h1>Export leden (Excel)</h1>
-          <p class="muted">Exporteer leden uit Firestore met vaste kolommen voor rapportage.</p>
-          <div class="row">
-            <button id="exportExcelBtn" class="btn">Export Excel</button>
-            <span id="exportExcelStatus" class="muted" style="margin-left:8px;"></span>
-          </div>
+          <h1>Excel exporteren</h1>
           <details class="muted" style="margin-top:8px;">
             <summary>Geëxporteerde kolommen</summary>
             <code>Naam, Tussen voegsel, Voor letters, Voor naam, ridesCount, regio Omschrijving</code>
           </details>
+          <div class="row">
+            <button id="exportExcelBtn" class="btn">Export Excel</button>
+            <span id="exportExcelStatus" class="muted" style="margin-left:8px;"></span>
+          </div>
         </div>
       </section>
     </main>
