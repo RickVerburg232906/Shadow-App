@@ -66,8 +66,6 @@
         </select>
       </div>
 
-        <!-- Excel upload verplaatst naar admin-excel.html -->
-
       <section id="viewAdmin" class="view active">
         <div class="card" id="ridePlannerCard">
           <h3>Ritten plannen</h3>
@@ -76,37 +74,37 @@
             <div class="ride-slot">
               <input type="date" id="rideDate1" />
               <select id="rideRegion1" class="ride-region">
-                <option value="">Regio (alles)</option>
+                <option value="" disabled selected>Kies regio</option>
               </select>
             </div>
             <div class="ride-slot">
               <input type="date" id="rideDate2" />
               <select id="rideRegion2" class="ride-region">
-                <option value="">Regio (alles)</option>
+                <option value="" disabled selected>Kies regio</option>
               </select>
             </div>
             <div class="ride-slot">
               <input type="date" id="rideDate3" />
               <select id="rideRegion3" class="ride-region">
-                <option value="">Regio (alles)</option>
+                <option value="" disabled selected>Kies regio</option>
               </select>
             </div>
             <div class="ride-slot">
               <input type="date" id="rideDate4" />
               <select id="rideRegion4" class="ride-region">
-                <option value="">Regio (alles)</option>
+                <option value="" disabled selected>Kies regio</option>
               </select>
             </div>
             <div class="ride-slot">
               <input type="date" id="rideDate5" />
               <select id="rideRegion5" class="ride-region">
-                <option value="">Regio (alles)</option>
+                <option value="" disabled selected>Kies regio</option>
               </select>
             </div>
             <div class="ride-slot">
               <input type="date" id="rideDate6" />
               <select id="rideRegion6" class="ride-region">
-                <option value="">Regio (alles)</option>
+                <option value="" disabled selected>Kies regio</option>
               </select>
             </div>
           </div>
@@ -116,7 +114,7 @@
         </div>
 
         <div class="card" id="resetRidesCard">
-          <h3>Beheer: Ritten resetten</h3>
+          <h3>Ritten resetten</h3>
           <p class="muted">Zet <strong>alle</strong> geregistreerde ritten terug naar 0 voor alle leden.</p>
           <button id="resetRidesBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset alle ritten</button>
           <div id="resetStatus" class="status"></div>
