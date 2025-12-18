@@ -630,7 +630,8 @@ async function renderLunchUI(choice) {
             _selectedKeuzeEten = [item]; // Alleen deze ene keuze opslaan
             
             updateLunchBadge();
-            await saveLunchChoice();
+            // Auto-save removed for testing — generate QR with current UI values instead
+            try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
             // Toon jaarhanger direct na keuze
             renderYearhangerUI(_yearhangerVal || null);
             // Klap sectie in na keuze eten selectie
@@ -648,6 +649,12 @@ async function renderLunchUI(choice) {
 
 async function saveLunchChoice() {
   try {
+    // If tests require scanning-only, set `window.DISABLE_AUTO_SAVE = true` in the console
+    // to prevent UI-driven saves from writing to Firestore.
+    if (typeof window !== 'undefined' && window.DISABLE_AUTO_SAVE) {
+      console.info('Auto-save disabled; skipping saveLunchChoice');
+      return;
+    }
     if (!selectedDoc || !selectedDoc.id) return;
     
     // Check of het "vast-menu" dummy waarde is (geen echte keuze)
@@ -724,7 +731,8 @@ if (lunchYes) {
       return;
     }
     await renderLunchUI("ja");
-    await saveLunchChoice();
+    // Auto-save removed for testing — generate QR with current UI values instead
+    try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
   });
 }
 if (lunchNo) {
@@ -747,7 +755,8 @@ if (lunchNo) {
     // Reset de keuze eten selectie wanneer "Nee" wordt gekozen
     _selectedKeuzeEten = [];
     await renderLunchUI("nee");
-    await saveLunchChoice();
+    // Auto-save removed for testing — generate QR with current UI values instead
+    try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
   });
 }
 
@@ -873,6 +882,12 @@ function renderYearhangerUI(val) {
 }
 async function saveYearhanger(val) {
   try {
+    // Allow tests to disable automatic jaarhanger saves by setting
+    // `window.DISABLE_AUTO_SAVE = true` in the browser console.
+    if (typeof window !== 'undefined' && window.DISABLE_AUTO_SAVE) {
+      console.info('Auto-save disabled; skipping saveYearhanger');
+      return;
+    }
     if (!selectedDoc || !selectedDoc.id) return;
     const v = (val==="Ja"||val===true)?"Ja":(val==="Nee"||val===false)?"Nee":null;
     _yearhangerVal = v;
@@ -920,7 +935,10 @@ async function saveYearhanger(val) {
 if (yearhangerYes) {
   yearhangerYes.addEventListener("click", function() {
     renderYearhangerUI("Ja");
-    saveYearhanger("Ja");
+    // Set the in-memory yearhanger value so generateQrForEntry includes it
+    _yearhangerVal = "Ja";
+    // Auto-save removed for testing — generate QR with current UI values instead
+    try { if (selectedDoc) generateQrForEntry(selectedDoc); } catch(_) {}
     // Klap sectie in na selectie
     collapseJaarhangerSection();
   });
@@ -928,7 +946,10 @@ if (yearhangerYes) {
 if (yearhangerNo) {
   yearhangerNo.addEventListener("click", function() {
     renderYearhangerUI("Nee");
-    saveYearhanger("Nee");
+    // Set the in-memory yearhanger value so generateQrForEntry includes it
+    _yearhangerVal = "Nee";
+    // Auto-save removed for testing — generate QR with current UI values instead
+    try { if (selectedDoc) generateQrForEntry(selectedDoc); } catch(_) {}
     // Klap sectie in na selectie
     collapseJaarhangerSection();
   });
@@ -1375,7 +1396,76 @@ if (yearhangerNo) {
 async function generateQrForEntry(entry) {
   try {
     if (!entry) return;
-    const payload = JSON.stringify({ t: "member", uid: entry.id });
+    // Build payload including lunch / jaarhanger values so other devices can process them.
+    // Prefer current UI selections; fall back to stored member values when missing.
+    let payload = JSON.stringify({ t: "member", uid: entry.id });
+    try {
+      // Read UI state from DOM (may be null). Avoid referencing inner-scope module vars.
+      const lunchYesEl = document.getElementById('lunchYes');
+      const lunchNoEl = document.getElementById('lunchNo');
+      const uiLunchDeelname = (lunchYesEl && lunchYesEl.classList.contains('active')) ? 'ja'
+                            : (lunchNoEl && lunchNoEl.classList.contains('active')) ? 'nee'
+                            : null;
+
+      const keuzeWrap = document.getElementById('keuzeEtenButtons');
+      let uiLunchKeuze = null;
+      if (keuzeWrap) {
+        const activeBtn = keuzeWrap.querySelector('button.active');
+        if (activeBtn) uiLunchKeuze = (activeBtn.textContent || '').trim();
+      }
+
+      const yYesEl = document.getElementById('yearhangerYes');
+      const yNoEl = document.getElementById('yearhangerNo');
+      const uiJaarhanger = (yYesEl && yYesEl.classList.contains('active')) ? 'Ja'
+                        : (yNoEl && yNoEl.classList.contains('active')) ? 'Nee'
+                        : null;
+
+      const clientTimestamp = new Date().toISOString();
+      // Compute next planned ride date locally to avoid cross-scope errors
+      const planned = await getPlannedDates();
+      function localToYMD(v) {
+        try {
+          if (typeof v === 'string' && /\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+          const d = new Date(v);
+          if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        } catch (_) {}
+        return '';
+      }
+      const list = (Array.isArray(planned) ? planned : []).map(localToYMD).filter(Boolean).sort();
+      function localTodayYMD() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+      const today = localTodayYMD();
+      const uiRideYMD = list.find(d => d >= today) || '';
+
+      // Read stored values only if UI hasn't provided them
+      const snap = await getDoc(doc(db, 'members', String(entry.id)));
+      const data = snap && snap.exists() ? snap.data() : {};
+
+      const lunchDeelname = uiLunchDeelname !== null ? uiLunchDeelname : (typeof data?.lunchDeelname === 'string' ? data.lunchDeelname : null);
+      const lunchKeuze = uiLunchKeuze !== null ? uiLunchKeuze : (typeof data?.lunchKeuze === 'string' ? data.lunchKeuze : null);
+      const Jaarhanger = uiJaarhanger !== null ? uiJaarhanger : (data?.Jaarhanger || null);
+      const lunchRideDateYMD = uiRideYMD || (data?.lunchRideDateYMD ? String(data.lunchRideDateYMD).slice(0,10) : null);
+
+      const payloadObj = {
+        t: "member",
+        uid: entry.id,
+        lunchDeelname: lunchDeelname,
+        lunchKeuze: lunchKeuze,
+        lunchRideDateYMD: lunchRideDateYMD,
+        lunchTimestamp: clientTimestamp,
+        Jaarhanger: Jaarhanger
+      };
+      payload = JSON.stringify(payloadObj);
+    } catch (e) {
+      // fallback to minimal payload
+      try { console.warn('generateQrForEntry: could not enrich payload, fallback', e); } catch(_){}
+      payload = JSON.stringify({ t: "member", uid: entry.id });
+    }
     const qrCanvas = document.getElementById('qrCanvas');
     const resultBox = document.getElementById('result');
     const errBox = document.getElementById('error');

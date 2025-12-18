@@ -1764,6 +1764,59 @@ function initAdminQRScanner() {
       const out = await bookRide(lid, naam || "", todayYMD);
       const newTotal = out.newTotal;
 
+      // --- Sla eventuele lunch/jaarhanger keuzes (uit QR-payload óf UI) op bij het lid ---
+      try {
+        // Probeer eerst de QR payload te parsen (als het een JSON payload was)
+        let parsed = null;
+        try { parsed = JSON.parse(decodedText || ""); } catch (_) { parsed = null; }
+
+        // UI-waarden (fallback wanneer QR geen waarden bevat)
+        const uiLunchYes = document.getElementById('lunchYes');
+        const uiLunchNo = document.getElementById('lunchNo');
+        const uiLunchDeelname = uiLunchYes && uiLunchYes.classList.contains('active') ? 'ja'
+                              : uiLunchNo && uiLunchNo.classList.contains('active') ? 'nee'
+                              : null;
+        let uiLunchKeuze = null;
+        const keuzeWrap = document.getElementById('keuzeEtenButtons');
+        if (keuzeWrap) {
+          const activeBtn = keuzeWrap.querySelector('button.active');
+          if (activeBtn) uiLunchKeuze = (activeBtn.textContent || '').trim();
+        }
+        const uiYYes = document.getElementById('yearhangerYes');
+        const uiYNo  = document.getElementById('yearhangerNo');
+        const uiJaarhanger = uiYYes && uiYYes.classList.contains('active') ? 'Ja'
+                           : uiYNo && uiYNo.classList.contains('active') ? 'Nee'
+                           : null;
+
+        // Values from QR payload (take precedence over UI)
+        const qrLunchDeelname = parsed && typeof parsed.lunchDeelname === 'string' ? parsed.lunchDeelname : null;
+        const qrLunchKeuze = parsed && typeof parsed.lunchKeuze === 'string' ? parsed.lunchKeuze : null;
+        const qrJaarhanger = parsed && (parsed.Jaarhanger || parsed.jaarhanger) ? (parsed.Jaarhanger || parsed.jaarhanger) : null;
+
+        // Merge: prefer QR values, fallback to UI
+        const lunchDeelname = qrLunchDeelname !== null ? qrLunchDeelname : uiLunchDeelname;
+        const lunchKeuze = qrLunchKeuze !== null ? qrLunchKeuze : uiLunchKeuze;
+        const jaarhangerVal = qrJaarhanger !== null ? qrJaarhanger : uiJaarhanger;
+
+        const ymdForLunch = todayYMD; // bind lunch choice to today's ride
+
+        const toWrite = {};
+        if (lunchDeelname !== null) {
+          toWrite.lunchDeelname = lunchDeelname;
+          toWrite.lunchTimestamp = serverTimestamp();
+          toWrite.lunchRideDateYMD = ymdForLunch;
+        }
+        if (lunchKeuze !== null) toWrite.lunchKeuze = lunchKeuze;
+        if (jaarhangerVal !== null) toWrite.Jaarhanger = jaarhangerVal;
+
+        // Only write when there's something to save
+        if (Object.keys(toWrite).length > 0) {
+          await withRetry(() => updateOrCreateDoc(doc(db, "members", String(lid)), toWrite), { retries: 3 });
+        }
+      } catch (e) {
+        console.error('Opslaan lunch/jaarhanger na scan mislukt', e);
+      }
+
       if (statusEl) statusEl.textContent = out.changed
         ? `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid}) op ${out.ymd}`
         : `ℹ️ ${naam || "(onbekend)"} (${lid}) had ${out.ymd} al geregistreerd — niets aangepast.`;
