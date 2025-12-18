@@ -5,7 +5,9 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 import { getStorage, ref, uploadBytes } from "firebase/storage";
 
-export const firebaseConfig = {
+// --- Firebase configs for different environments ---
+// Keep the existing config as the development config.
+const firebaseConfigDev = {
   apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
   authDomain: "shadow-app-b3fb3.firebaseapp.com",
   projectId: "shadow-app-b3fb3",
@@ -13,6 +15,37 @@ export const firebaseConfig = {
   messagingSenderId: "725156533083",
   appId: "1:725156533083:web:e372fd32d1d0abff4f3f92"
 };
+
+// Production config placeholder — replace with your production Firebase project's values.
+const firebaseConfigProd = {
+  apiKey: "AIzaSyBiV580AjErqJlOhwXR8VTNbY0b1DZJDwM",
+  authDomain: "landelijke-rit.firebaseapp.com",
+  projectId: "landelijke-rit",
+  storageBucket: "landelijke-rit.firebasestorage.app",
+  messagingSenderId: "1001186852750",
+  appId: "1:1001186852750:web:317122d6d230188cd1eedf",
+  measurementId: "G-33G3DH2YFZ"
+};
+
+const firebaseConfigs = {
+  development: firebaseConfigDev,
+  production: firebaseConfigProd
+};
+
+// Determine environment:
+// 1) If `VITE_FIREBASE_ENV` is explicitly set, respect it.
+// 2) Otherwise, treat `import.meta.env.DEV` (Vite dev server / `npm run dev`) as development.
+// 3) All other cases use production.
+const hasMeta = (typeof import.meta !== 'undefined' && import.meta.env);
+const explicit = hasMeta && import.meta.env.VITE_FIREBASE_ENV;
+const isDevServer = hasMeta && Boolean(import.meta.env.DEV);
+const firebaseEnv = explicit || (isDevServer ? 'development' : 'production');
+export const firebaseConfig = firebaseConfigs[firebaseEnv] || firebaseConfigProd;
+export const firebaseEnvironment = firebaseEnv;
+
+try {
+  console.info('[Firebase] selected environment:', firebaseEnvironment, 'projectId:', firebaseConfig && firebaseConfig.projectId);
+} catch (_) {}
 
 const app = initializeApp(firebaseConfig);
 
@@ -111,3 +144,4 @@ const onSnapshot = wrapOnSnapshot(_onSnapshot);
 
 // Re-export helpers
 export { addDoc, arrayUnion, collection, doc, endAt, getDoc, getDocs, increment, limit, orderBy, query, ref, serverTimestamp, setDoc, startAt, startAfter, uploadBytes, where, writeBatch, runTransaction, updateDoc, deleteDoc, onSnapshot };
+

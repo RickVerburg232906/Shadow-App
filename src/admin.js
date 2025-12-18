@@ -127,7 +127,6 @@ function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
       btn.type = 'button';
       btn.textContent = 'Download JPG';
       btn.className = 'chart-download-btn';
-      // sensible inline defaults for older environments; primary styling in CSS
       btn.style.display = 'block';
       btn.style.width = '100%';
       btn.style.boxSizing = 'border-box';
@@ -141,7 +140,7 @@ function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
 
     const placeBelowChart = () => {
       try {
-        const chartBox = canvas.parentElement; // expect .chart-box
+        const chartBox = canvas.parentElement;
         if (chartBox && chartBox.parentElement) {
           if (btn.parentElement !== chartBox.parentElement) chartBox.insertAdjacentElement('afterend', btn);
         } else {
@@ -184,7 +183,6 @@ function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
       }
     };
 
-    // Re-place when layout changes
     const ensurePlaced = () => placeBelowChart();
     window.addEventListener('resize', ensurePlaced);
     const adminView = document.getElementById('viewAdmin');
@@ -459,6 +457,18 @@ async function initRideStatsChart() {
 
     // collect selected years (may be multiple) using shared helper
     const selectedYears = getSelectedYearsFromPanel();
+    // Show/enable the multi-year mode selector only when multiple years are selected
+    try {
+      const multiModeWrap = document.getElementById('multiYearModeWrap');
+      const multiModeSelect = document.getElementById('multiYearMode');
+      if (selectedYears && selectedYears.length > 1) {
+        if (multiModeWrap) multiModeWrap.style.display = 'flex';
+        if (multiModeSelect) multiModeSelect.disabled = false;
+      } else {
+        if (multiModeWrap) multiModeWrap.style.display = 'none';
+        if (multiModeSelect) multiModeSelect.disabled = true;
+      }
+    } catch (_) {}
     // If exactly one year selected, show that year's planned dates. Otherwise default to all dates (handled later for multi-year rendering)
     const plannedYMDs = (selectedYears.length === 1) ? plannedYMDsAll.filter(d => d.slice(0,4) === selectedYears[0]) : plannedYMDsAll;
       // Ensure toggle text reflects current state
@@ -565,9 +575,9 @@ async function initRideStatsChart() {
           const regionLabelsSet = new Set();
           for (let yi = 0; yi < years.length; yi++) {
             const dates = perYearDates[yi] || [];
-            for (const d of dates) {
+              for (const d of dates) {
               const rname = (d && regionsMap[d]) ? regionsMap[d] : '';
-              regionLabelsSet.add(rname || 'Regio (alles)');
+              regionLabelsSet.add(rname || '(geen regio)');
             }
           }
           const regionLabels = Array.from(regionLabelsSet).sort((a,b) => a.localeCompare(b));
@@ -584,7 +594,7 @@ async function initRideStatsChart() {
               let sum = 0;
               for (const d of dates) {
                 const rname = (d && regionsMap[d]) ? regionsMap[d] : '';
-                const labelKey = rname || 'Regio (alles)';
+                const labelKey = rname || '(geen regio)';
                 if (labelKey === rLab) sum += (counts.get(d) || 0);
               }
               return sum;
@@ -902,7 +912,7 @@ async function initStarDistributionChart() {
       grad2.addColorStop(1, '#16a34a');
 
       // Build title for star distribution (tied to selectedYear which is the current calendar year)
-      const starTitle = `Sterrenverdeling (Jaarhanger = Ja) — ${selectedYear}`;
+      const starTitle = `Sterrenverdeling — ${selectedYear}`;
 
       _starDistChart = new ChartCtor(ctx, {
         type: "bar",
@@ -1095,11 +1105,14 @@ export function initAdminView() {
     // ===== Reset Jaarhanger (popup bevestiging) =====
     const resetJBtn = document.getElementById("resetJaarhangerBtn");
     const resetJStatus = document.getElementById("resetJaarhangerStatus");
-    resetJBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllJaarhanger(resetJStatus);
-    });
+    if (resetJBtn && !resetJBtn.dataset._wired) {
+      resetJBtn.addEventListener("click", async () => {
+        const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
+        if (!ok) return;
+        await resetAllJaarhanger(resetJStatus);
+      });
+      resetJBtn.dataset._wired = '1';
+    }
 
   // ===== Ritten plannen (globaal) =====
   // Note: initRidePlannerSection should only run on the planning page (or index).
@@ -1133,19 +1146,25 @@ export function initAdminView() {
   if (isAdminDev || isIndexPage) {
     const resetJBtn = document.getElementById("resetJaarhangerBtn");
     const resetJStatus = document.getElementById("resetJaarhangerStatus");
-    resetJBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllJaarhanger(resetJStatus);
-    });
+    if (resetJBtn && !resetJBtn.dataset._wired) {
+      resetJBtn.addEventListener("click", async () => {
+        const ok = window.confirm("Weet je zeker dat je de Jaarhanger keuze voor ALLE leden wilt resetten naar leeg? Dit kan niet ongedaan worden gemaakt.");
+        if (!ok) return;
+        await resetAllJaarhanger(resetJStatus);
+      });
+      resetJBtn.dataset._wired = '1';
+    }
 
     const resetLBtn = document.getElementById("resetLunchBtn");
     const resetLStatus = document.getElementById("resetLunchStatus");
-    resetLBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je ALLE lunchgegevens (deelname/keuze/timestamp/ritdatum) voor alle leden wilt resetten? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllLunch(resetLStatus);
-    });
+    if (resetLBtn && !resetLBtn.dataset._wired) {
+      resetLBtn.addEventListener("click", async () => {
+        const ok = window.confirm("Weet je zeker dat je ALLE lunchgegevens (deelname/keuze/timestamp/ritdatum) voor alle leden wilt resetten? Dit kan niet ongedaan worden gemaakt.");
+        if (!ok) return;
+        await resetAllLunch(resetLStatus);
+      });
+      resetLBtn.dataset._wired = '1';
+    }
   }
 }
 
@@ -1233,10 +1252,10 @@ function initRidePlannerSection() {
   // Populate region selects with options from members' regions
   async function populateRegionOptions() {
     try {
-      const regions = await getAllRegions();
-      const inserts = ['',''].map(()=>null); // noop
-      const opts = ['<option value="">Regio (alles)</option>'].concat(regions.map(r => `<option value="${r}">${r}</option>`)).join('');
-      [r1,r2,r3,r4,r5,r6].forEach(sel => { if (sel) sel.innerHTML = opts; });
+        const regions = await getAllRegions();
+        // Keep a disabled placeholder so user must actively choose a region
+        const opts = ['<option value="" disabled selected>Kies regio</option>'].concat(regions.map(r => `<option value="${r}">${r}</option>`)).join('');
+        [r1,r2,r3,r4,r5,r6].forEach(sel => { if (sel) sel.innerHTML = opts; });
     } catch (e) {
       console.error('populateRegionOptions failed', e);
     }

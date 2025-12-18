@@ -207,6 +207,19 @@
                 </div>
               </details>
             </div>
+            <div id="lunchChoiceSection" style="display:none; margin-top:24px;"></div>
+            <script type="module">
+              import { renderLunchChoice } from '/src/lunch-ui.js';
+              // Render immediately so `member.js` can find expected elements when it runs
+              renderLunchChoice(document.getElementById('lunchChoiceSection'));
+            </script>
+            
+            <!-- Jaarhanger (mount point) -->
+            <div id="yearhangerRow" style="margin-top:8px; display:none;"></div>
+            <script type="module">
+              import { renderYearhanger } from '/src/yearhanger-ui.js';
+              renderYearhanger(document.getElementById('yearhangerRow'));
+            </script>
 
             <ul id="suggestions" class="suggest"></ul>
             <div id="error" class="error" style="display:none"></div>

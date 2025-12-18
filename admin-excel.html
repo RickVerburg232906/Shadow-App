@@ -55,17 +55,21 @@
 
       <div class="card" id="excelUploadCard">
         <h1>Excel uploaden</h1>
-        <p class="hint">Benodigde kolommen (exact): <code>LidNr</code>, <code>Naam</code>, <code>Voor naam</code>, <code>Voor letters</code>, <code>Tussen voegsel</code>, <code>Regio Omschrijving</code>.</p>
-        <div class="row">
-          <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" />
-          <label for="fileInput" class="btn file-btn">📄 Kies bestand</label>
-          <span id="fileName" class="file-name">Geen bestand gekozen</span>
+          <details class="muted" style="margin-top:8px;">
+            <summary>Benodigde kolommen</summary>
+            <code>LidNr, Naam, Voor naam, Voor letters, Tussen voegsel, regio Omschrijving</code>
+          </details>
+          <div id="fileDropzone" class="row" style="gap:12px; align-items:center; flex-wrap:wrap;">
+          <input id="fileInput" class="file-input" type="file" accept=".xlsx,.xls,.csv" style="display:none" />
+          <div id="fileDropArea" role="button" tabindex="0" style="flex:1; padding:14px; border:2px dashed rgba(148,163,184,0.12); border-radius:10px; text-align:center; cursor:pointer; background:transparent;">
+            <div style="font-weight:600">📄 Kies bestand of sleep hierheen</div>
+            <div id="fileName" class="file-name muted" style="margin-top:6px;">Geen bestand gekozen</div>
+          </div>
         </div>
         <div class="row">
           <button id="uploadBtn" class="btn" style="width:100%;">Uploaden</button>
         </div>
         <div id="status" class="status"></div>
-        <div id="log" class="log"></div>
       </div>
 
       <section id="viewAdmin" class="view active">
@@ -103,6 +107,46 @@
           applyAdminLevel();
         }
       }
+      // Drag & drop file area behavior
+      (function(){
+        const fileInput = document.getElementById('fileInput');
+        const dropArea = document.getElementById('fileDropArea');
+        const fileName = document.getElementById('fileName');
+        if (!fileInput || !dropArea || !fileName) return;
+
+        const setSelected = (file) => {
+          if (!file) return;
+          fileName.textContent = `${file.name} (${Math.round(file.size/1024)} KB)`;
+          // attempt to set fileInput.files via DataTransfer for downstream handlers
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            const ev = new Event('change', { bubbles: true });
+            fileInput.dispatchEvent(ev);
+          } catch (e) {
+            // ignore if not supported
+          }
+        };
+
+        ['dragenter','dragover'].forEach(evt => dropArea.addEventListener(evt, (e)=>{ e.preventDefault(); dropArea.style.background = 'rgba(59,130,246,0.04)'; dropArea.style.borderColor = 'rgba(59,130,246,0.6)'; }, { passive: false }));
+        ['dragleave','drop','dragend'].forEach(evt => dropArea.addEventListener(evt, (e)=>{ e.preventDefault(); dropArea.style.background = 'transparent'; dropArea.style.borderColor = 'rgba(148,163,184,0.12)'; }, { passive: false }));
+
+        dropArea.addEventListener('drop', (e)=>{
+          e.preventDefault();
+          const f = (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) ? e.dataTransfer.files[0] : null;
+          if (f) setSelected(f);
+        }, { passive: false });
+
+        // click opens file picker
+        dropArea.addEventListener('click', ()=> fileInput.click(), { passive: true });
+        dropArea.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+
+        fileInput.addEventListener('change', (e)=>{
+          const f = (fileInput.files && fileInput.files[0]) ? fileInput.files[0] : null;
+          if (f) setSelected(f);
+        });
+      })();
     </script>
     <script type="module" src="/src/main.js"></script>
   </body>
