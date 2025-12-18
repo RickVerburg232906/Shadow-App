@@ -127,7 +127,6 @@ function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
       btn.type = 'button';
       btn.textContent = 'Download JPG';
       btn.className = 'chart-download-btn';
-      // sensible inline defaults for older environments; primary styling in CSS
       btn.style.display = 'block';
       btn.style.width = '100%';
       btn.style.boxSizing = 'border-box';
@@ -141,7 +140,7 @@ function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
 
     const placeBelowChart = () => {
       try {
-        const chartBox = canvas.parentElement; // expect .chart-box
+        const chartBox = canvas.parentElement;
         if (chartBox && chartBox.parentElement) {
           if (btn.parentElement !== chartBox.parentElement) chartBox.insertAdjacentElement('afterend', btn);
         } else {
@@ -184,7 +183,6 @@ function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
       }
     };
 
-    // Re-place when layout changes
     const ensurePlaced = () => placeBelowChart();
     window.addEventListener('resize', ensurePlaced);
     const adminView = document.getElementById('viewAdmin');
@@ -459,6 +457,18 @@ async function initRideStatsChart() {
 
     // collect selected years (may be multiple) using shared helper
     const selectedYears = getSelectedYearsFromPanel();
+    // Show/enable the multi-year mode selector only when multiple years are selected
+    try {
+      const multiModeWrap = document.getElementById('multiYearModeWrap');
+      const multiModeSelect = document.getElementById('multiYearMode');
+      if (selectedYears && selectedYears.length > 1) {
+        if (multiModeWrap) multiModeWrap.style.display = 'flex';
+        if (multiModeSelect) multiModeSelect.disabled = false;
+      } else {
+        if (multiModeWrap) multiModeWrap.style.display = 'none';
+        if (multiModeSelect) multiModeSelect.disabled = true;
+      }
+    } catch (_) {}
     // If exactly one year selected, show that year's planned dates. Otherwise default to all dates (handled later for multi-year rendering)
     const plannedYMDs = (selectedYears.length === 1) ? plannedYMDsAll.filter(d => d.slice(0,4) === selectedYears[0]) : plannedYMDsAll;
       // Ensure toggle text reflects current state
@@ -902,7 +912,7 @@ async function initStarDistributionChart() {
       grad2.addColorStop(1, '#16a34a');
 
       // Build title for star distribution (tied to selectedYear which is the current calendar year)
-      const starTitle = `Sterrenverdeling (Jaarhanger = Ja) — ${selectedYear}`;
+      const starTitle = `Sterrenverdeling — ${selectedYear}`;
 
       _starDistChart = new ChartCtor(ctx, {
         type: "bar",
