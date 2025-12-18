@@ -133,5 +133,64 @@
       }
     </script>
     <script type="module" src="/src/main.js"></script>
+
+    <script>
+      // Auto-hide status messages 2 seconds after they get text, and remove their layout space.
+      (function() {
+        const HIDE_DELAY = 2000;
+
+        function ensureInitialDisplay(el) {
+          if (el._initialDisplay === undefined) {
+            el._initialDisplay = getComputedStyle(el).display || '';
+          }
+        }
+
+        function showElement(el) {
+          ensureInitialDisplay(el);
+          if (el._initialDisplay === 'none') {
+            el.style.display = '';
+          } else {
+            el.style.display = el._initialDisplay;
+          }
+        }
+
+        function hideElement(el) {
+          el.textContent = '';
+          el.style.display = 'none';
+        }
+
+        function scheduleHide(el) {
+          if (!el) return;
+          if (el._hideTimeout) clearTimeout(el._hideTimeout);
+          const text = el.textContent && el.textContent.trim();
+          if (!text) return;
+          showElement(el);
+          el._hideTimeout = setTimeout(() => hideElement(el), HIDE_DELAY);
+        }
+
+        function observeStatusEl(el) {
+          if (!el) return;
+          ensureInitialDisplay(el);
+          if (el.textContent && el.textContent.trim()) scheduleHide(el);
+          const mo = new MutationObserver(() => scheduleHide(el));
+          mo.observe(el, { childList: true, characterData: true, subtree: true });
+        }
+
+        document.querySelectorAll('.status').forEach(observeStatusEl);
+
+        const docObserver = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            for (const node of m.addedNodes) {
+              if (!(node instanceof Element)) continue;
+              if (node.classList && node.classList.contains('status')) {
+                observeStatusEl(node);
+              }
+              node.querySelectorAll && node.querySelectorAll('.status').forEach(observeStatusEl);
+            }
+          }
+        });
+        docObserver.observe(document.body, { childList: true, subtree: true });
+      })();
+    </script>
   </body>
 </html>
