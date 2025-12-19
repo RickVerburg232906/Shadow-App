@@ -3,6 +3,33 @@ import QRCode from "qrcode";
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 
+// Helper: check whether both lunch and jaarhanger selections are present
+function isQrReady() {
+  try {
+    const lunchYesEl = document.getElementById('lunchYes');
+    const lunchNoEl = document.getElementById('lunchNo');
+    const lunchDeelname = (lunchYesEl && lunchYesEl.classList.contains('active')) ? 'ja'
+                       : (lunchNoEl && lunchNoEl.classList.contains('active')) ? 'nee'
+                       : null;
+    if (!lunchDeelname) return false;
+    if (lunchDeelname === 'ja') {
+      const keuzeWrap = document.getElementById('keuzeEtenButtons');
+      if (keuzeWrap) {
+        const btns = keuzeWrap.querySelectorAll('button');
+        if (btns.length > 0) {
+          const active = keuzeWrap.querySelector('button.active');
+          if (!active) return false;
+        }
+      }
+    }
+    const yYes = document.getElementById('yearhangerYes');
+    const yNo = document.getElementById('yearhangerNo');
+    const jaar = (yYes && yYes.classList.contains('active')) || (yNo && yNo.classList.contains('active'));
+    if (!jaar) return false;
+    return true;
+  } catch (_) { return false; }
+}
+
 // Export helper so other modules (admin pages) can signal a selection
 export async function setSelectedDocFromEntry(entry) {
   try {
@@ -525,6 +552,11 @@ async function renderLunchUI(choice) {
     // Dit gebeurt nu via de click handler die await saveLunchChoice() aanroept
     updateLunchBadge();
     collapseLunchSection(); // Klap sectie in na "nee" keuze
+    // Direct tonen van jaarhanger zodat operator meteen kan kiezen tijdens testen
+    if (yearhangerRow) yearhangerRow.style.display = "block";
+    const info = document.getElementById("jaarhangerInfo");
+    if (info) info.style.display = "block";
+    renderYearhangerUI(_yearhangerVal || null);
   } else if (choice === "ja") {
     // Laad en toon lunch details
     if (lunchDetailsSection) lunchDetailsSection.style.display = 'block';
@@ -629,9 +661,9 @@ async function renderLunchUI(choice) {
             btn.classList.add('active', 'yes');
             _selectedKeuzeEten = [item]; // Alleen deze ene keuze opslaan
             
-            updateLunchBadge();
-            // Auto-save removed for testing — generate QR with current UI values instead
-            try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
+              updateLunchBadge();
+              // Generate QR only when both lunch and jaarhanger are set
+              try { if (selectedDoc && isQrReady()) await generateQrForEntry(selectedDoc); } catch(_) {}
             // Toon jaarhanger direct na keuze
             renderYearhangerUI(_yearhangerVal || null);
             // Klap sectie in na keuze eten selectie
@@ -731,8 +763,7 @@ if (lunchYes) {
       return;
     }
     await renderLunchUI("ja");
-    // Auto-save removed for testing — generate QR with current UI values instead
-    try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
+    try { if (selectedDoc && isQrReady()) await generateQrForEntry(selectedDoc); } catch(_) {}
   });
 }
 if (lunchNo) {
@@ -755,8 +786,7 @@ if (lunchNo) {
     // Reset de keuze eten selectie wanneer "Nee" wordt gekozen
     _selectedKeuzeEten = [];
     await renderLunchUI("nee");
-    // Auto-save removed for testing — generate QR with current UI values instead
-    try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
+    try { if (selectedDoc && isQrReady()) await generateQrForEntry(selectedDoc); } catch(_) {}
   });
 }
 
@@ -910,8 +940,8 @@ async function saveYearhanger(val) {
   // Save jaarhanger using safe update to avoid unnecessary merges
   await withRetry(() => updateOrCreateDoc(doc(db, "members", String(selectedDoc.id)), { Jaarhanger: v }), { retries: 3 });
   updateJaarhangerBadge();
-    // After saving the Jaarhanger choice, generate QR for the selected member
-    try { if (selectedDoc) await generateQrForEntry(selectedDoc); } catch(_) {}
+    // After saving the Jaarhanger choice, generate QR only if lunch + jaarhanger are present
+    try { if (selectedDoc && isQrReady()) await generateQrForEntry(selectedDoc); } catch(_) {}
     
     // Hide loading after save completes
     if (loadingIndicator) loadingIndicator.style.display = "none";
@@ -938,7 +968,7 @@ if (yearhangerYes) {
     // Set the in-memory yearhanger value so generateQrForEntry includes it
     _yearhangerVal = "Ja";
     // Auto-save removed for testing — generate QR with current UI values instead
-    try { if (selectedDoc) generateQrForEntry(selectedDoc); } catch(_) {}
+    try { if (selectedDoc && isQrReady()) generateQrForEntry(selectedDoc); } catch(_) {}
     // Klap sectie in na selectie
     collapseJaarhangerSection();
   });
@@ -949,7 +979,7 @@ if (yearhangerNo) {
     // Set the in-memory yearhanger value so generateQrForEntry includes it
     _yearhangerVal = "Nee";
     // Auto-save removed for testing — generate QR with current UI values instead
-    try { if (selectedDoc) generateQrForEntry(selectedDoc); } catch(_) {}
+    try { if (selectedDoc && isQrReady()) generateQrForEntry(selectedDoc); } catch(_) {}
     // Klap sectie in na selectie
     collapseJaarhangerSection();
   });
