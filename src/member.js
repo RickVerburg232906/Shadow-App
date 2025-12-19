@@ -1132,10 +1132,17 @@ if (yearhangerNo) {
   }
 
   async function handleFocus() {
-    // Leeg het invoerveld zodra het focus krijgt
-    try { if (nameInput) nameInput.value = ""; } catch(_) {}
-    // Verberg huidige selectie en suggesties
-    resetSelection();
+    // When focusing the input, do not clear the field immediately.
+    // Clearing here caused race conditions on mobile where a tap
+    // on a suggestion could trigger focus -> clear -> selection race
+    // resulting in missing lunch UI. Instead, select the current
+    // text so the user can quickly start typing a new search, and
+    // just hide suggestions until they type.
+    try {
+      if (nameInput) {
+        try { nameInput.select(); } catch(_) {}
+      }
+    } catch(_) {}
     hideSuggestions();
   }
   async function onInputChanged() {
