@@ -172,13 +172,6 @@ export async function loadStarMax() {
     return STAR_MAX;
   }
 }
-function ridesToStars(count) {
-  const max = STAR_MAX;
-  const n = Math.max(0, Math.floor(Number(count) || 0));
-  const filled = Math.min(n, max);
-  const empty = Math.max(0, max - filled);
-  return "★".repeat(filled) + "☆".repeat(empty);
-}
 
 // === QR Fullscreen overlay ===
 function openQrFullscreenFromCanvas(qrCanvas) {
@@ -230,10 +223,7 @@ function openQrFullscreenFromCanvas(qrCanvas) {
   }
 }
 
-function fmtDate(d) {
-  if (!d || typeof d !== "string" || d.length < 10) return d || "";
-  return `${d.slice(8,10)}-${d.slice(5,7)}-${d.slice(0,4)}`;
-}
+
 
 export async function initMemberView() {
   try {

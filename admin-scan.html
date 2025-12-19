@@ -890,21 +890,60 @@
               // Use the localized word 'Vandaag' during save so the button clearly represents today
               btn.textContent = `Vandaag • opslaan…`;
 
-              await withRetry(() => runTransaction(db, async (tx) => {
-                const mRef = doc(db, 'members', String(memberId));
-                const snapCur = await tx.get(mRef);
-                if (snapCur.exists()) {
-                  const dcur = snapCur.data() || {};
-                  const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
-                  if (existing.has(todayYMD)) {
-                    // nothing to do
-                    return;
-                  }
-                  tx.update(mRef, { ScanDatums: arrayUnion(todayYMD), ridesCount: increment(1) });
-                } else {
-                  tx.set(mRef, { ScanDatums: [todayYMD], ridesCount: 1 });
+              // Collect lunch + jaarhanger UI values so we can save them atomically with the scan
+              try {
+                const lunchYesEl = document.getElementById('lunchYes');
+                const lunchNoEl = document.getElementById('lunchNo');
+                const lunchDeelname = (lunchYesEl && lunchYesEl.classList.contains('active')) ? 'ja'
+                                    : (lunchNoEl && lunchNoEl.classList.contains('active')) ? 'nee'
+                                    : null;
+                let lunchKeuze = null;
+                const keuzeWrap = document.getElementById('keuzeEtenButtons');
+                if (keuzeWrap) {
+                  const activeBtn = keuzeWrap.querySelector('button.active');
+                  if (activeBtn) lunchKeuze = (activeBtn.textContent || '').trim();
                 }
-              }), { retries: 3 });
+                const yYes = document.getElementById('yearhangerYes');
+                const yNo = document.getElementById('yearhangerNo');
+                const jaarVal = (yYes && yYes.classList.contains('active')) ? 'Ja' : (yNo && yNo.classList.contains('active')) ? 'Nee' : null;
+                const clientTs = new Date().toISOString();
+
+                await withRetry(() => runTransaction(db, async (tx) => {
+                  const mRef = doc(db, 'members', String(memberId));
+                  const snapCur = await tx.get(mRef);
+                  const toWrite = { ScanDatums: arrayUnion(todayYMD), ridesCount: increment(1) };
+                  // Attach lunch/yearhanger values when present (null means no selection)
+                  if (lunchDeelname !== null) toWrite.lunchDeelname = lunchDeelname;
+                  if (lunchKeuze !== null) toWrite.lunchKeuze = lunchKeuze;
+                  if (jaarVal !== null) toWrite.Jaarhanger = jaarVal;
+                  // Save client timestamp and the ride date for the lunch selection
+                  toWrite.lunchTimestamp = clientTs;
+                  toWrite.lunchRideDateYMD = todayYMD;
+
+                  if (snapCur.exists()) {
+                    const dcur = snapCur.data() || {};
+                    const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
+                    if (existing.has(todayYMD)) {
+                      // nothing to do for scan date, but still merge in lunch/yearhanger if provided
+                      // update only the additional fields
+                      const updateFields = Object.assign({}, toWrite);
+                      // Remove ScanDatums/ridesCount since already present
+                      delete updateFields.ScanDatums;
+                      delete updateFields.ridesCount;
+                      if (Object.keys(updateFields).length) tx.update(mRef, updateFields);
+                      return;
+                    }
+                    tx.update(mRef, toWrite);
+                  } else {
+                    // New doc: include the fields and arrays
+                    const base = { ScanDatums: [todayYMD], ridesCount: 1 };
+                    tx.set(mRef, Object.assign(base, toWrite));
+                  }
+                }), { retries: 3 });
+              } catch (e) {
+                // If collecting UI values or transaction fails, rethrow to outer catch
+                throw e;
+              }
 
               // Success: set registered appearance (show green check + text)
               // Show "Vandaag" for clarity instead of the full date
