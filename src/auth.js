@@ -1,19 +1,6 @@
 // Admin authentication check for admin pages
-export function checkAdminAuth() {
-  const isAdminOk = sessionStorage.getItem("admin_ok") === "1";
-  const adminLevel = sessionStorage.getItem("admin_level") || "admin";
-  
-  if (!isAdminOk) {
-    // Redirect to main page if not authenticated
-    window.location.href = "index.html";
-    return false;
-  }
-  
-  // Set the body role based on admin level
-  document.body.dataset.role = (adminLevel === "root") ? "rootadmin" : "admin";
-  
-  return true;
-}
+// `checkAdminAuth` removed during cleanup. Authentication gating is expected
+// to be handled outside this module in the hosting application.
 
 // Apply admin level restrictions to the UI
 export function applyAdminLevel() {

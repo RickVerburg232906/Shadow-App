@@ -1,20 +1,6 @@
 // ===== JPG export naast 'Herladen' (admin-only) =====
 (function() {
-  function waitForElement(getter, { tries = 50, delay = 200 } = {}) {
-    return new Promise((resolve) => {
-      let attempts = 0;
-      const iv = setInterval(() => {
-        try {
-          const el = getter();
-          if (el) { clearInterval(iv); resolve(el); return; }
-          attempts += 1;
-          if (attempts >= tries) { clearInterval(iv); resolve(null); }
-        } catch (e) {
-          // swallow and retry
-        }
-      }, delay);
-    });
-  }
+  // Removed unused helper `waitForElement` during cleanup.
 
   // Attach a simple JPG download button below a canvas (kept minimal and resilient)
   function attachChartExportJPGNextToReload(canvasId, _chartBoxId, filename = null) {
@@ -215,11 +201,7 @@ function getSelectedYearsFromPanel() {
   } catch (e) { return []; }
 }
 
-function getActiveYear() {
-  const sel = getSelectedYearsFromPanel();
-  if (!sel || sel.length === 0) return String(new Date().getFullYear());
-  return sel.length === 1 ? sel[0] : sel[0];
-}
+// Removed unused `getActiveYear` helper during cleanup.
 
 
 // Reset zowel ridesCount als ScanDatums
@@ -783,44 +765,7 @@ async function getAllRegions() {
 // =====================================================
 // ======= Sterrenverdeling (alleen Jaarhanger = Ja) ====
 // =====================================================
-async function buildStarBucketsForYearhangerYes(plannedYMDs) {
-  // Buckets 0..N (N = aantal geplande datums)
-  const N = plannedYMDs.length;
-  const buckets = new Array(N + 1).fill(0);
-  const plannedSet = new Set(plannedYMDs);
-
-  try {
-    let last = null;
-    const pageSize = 400;
-    while (true) {
-      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
-      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
-      const snapshot = await getDocs(qRef);
-      if (snapshot.empty) break;
-
-      snapshot.forEach((docSnap) => {
-        const d = docSnap.data() || {};
-        if ((d.Jaarhanger || "").toString() !== "Ja") return; // filter
-        const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-        // normaliseer naar YMD en tel intersectie
-        let cnt = 0;
-        for (const raw of scansRaw) {
-          const ymd = typeof raw === "string" ? raw.slice(0,10) : "";
-          if (ymd && plannedSet.has(ymd)) cnt++;
-        }
-        if (cnt < 0) cnt = 0;
-        if (cnt > N) cnt = N;
-        buckets[cnt] += 1;
-      });
-
-      last = snapshot.docs[snapshot.docs.length - 1];
-      if (snapshot.size < pageSize) break;
-    }
-  } catch (e) {
-    console.error("[starDist] bouwen mislukt", e);
-  }
-  return buckets;
-}
+// Removed unused `buildStarBucketsForYearhangerYes` during cleanup.
 
 // Multi-year aware buckets: accepts an array of year strings (e.g. ['2025','2024'])
 // Returns an array where each element is the buckets array for that year (index-aligned with input years).

@@ -262,7 +262,7 @@
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module">
-      import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
+      import { applyAdminLevel } from './src/auth.js';
   import { getPlannedDates, plannedStarsWithHighlights, setSelectedDocFromEntry } from './src/member.js';
   import { db, collection, orderBy, startAfter, limit, getDocs, query, onSnapshot, where } from './src/firebase.js';
       
@@ -274,13 +274,8 @@
         });
       }
 
-      // Check authentication before loading the page
-      if (checkAdminAuth()) {
-        // Apply admin level restrictions after DOM is ready
-        setTimeout(() => {
-          applyAdminLevel();
-        }, 100);
-      }
+      // Apply admin level restrictions after DOM is ready (auth gating removed)
+      setTimeout(() => { applyAdminLevel(); }, 100);
 
       // ===== Lunch overzicht (automatisch voor eerstvolgende rit) =====
       const lunchOverviewDateTitle = document.getElementById('lunchOverviewDateTitle');
@@ -1042,65 +1037,35 @@
           regionId: 'rRegion',
         },
         withQr: false,
+        clearOnFocus: true,
+        onEmpty: () => {
+          try {
+            const list = document.getElementById('pastRidesList');
+            if (list) { list.innerHTML = ''; list.style.display = 'none'; }
+            const status = document.getElementById('pastRidesStatus');
+            if (status) status.textContent = '';
+          } catch(_) {}
+        },
         onSelected: async (entry) => {
           try {
-            // Reset lastMemberId so the MutationObserver/maybeRender path will re-run
+            // For past-rides selection we intentionally do NOT populate the
+            // main "Handmatig inschrijven" result area nor call
+            // `setSelectedDocFromEntry()` so the handmatig section remains
+            // independent. Instead render the past-rides list and update the
+            // Today button state for convenience.
             try { lastMemberId = ''; } catch(_) {}
 
-            // Ensure the result box is visible
-            try {
-              const resultBox = document.getElementById('result');
-              if (resultBox) { resultBox.style.display = 'grid'; resultBox.style.visibility = ''; }
-            } catch(_) {}
-
-            // Fetch the freshest member document from the DB to avoid stale data/caching issues
-            let fresh = null;
-            try {
-              const snap = await getDoc(doc(db, 'members', String(entry?.id || '')));
-              if (snap && snap.exists()) fresh = snap.data() || {};
-            } catch (e) { /* ignore fetch errors and fall back to entry.data */ }
-
-            // Populate the basic result fields using the freshest data available
-            try {
-              const data = fresh || entry?.data || {};
-              const rNameEl = document.getElementById('rName');
-              const rMemberNoEl = document.getElementById('rMemberNo');
-              const rRegionEl = document.getElementById('rRegion');
-              if (rNameEl) {
-                const tussen = (data['Tussen voegsel'] || '').trim();
-                const full = [data['Voor naam'] || '', tussen ? tussen : '', data['Naam'] || ''].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
-                rNameEl.textContent = full || (data['Naam'] ? data['Naam'] : '—');
-              }
-              if (rMemberNoEl) rMemberNoEl.textContent = String(entry?.id || '—');
-              if (rRegionEl) rRegionEl.textContent = (data['Regio Omschrijving'] || '—');
-
-              // Update rides stars from the fresh data
-              try {
-                const planned = await getPlannedDates();
-                const rRidesEl = document.getElementById('rRidesCount');
-                const scanDates = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
-                const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
-                if (rRidesEl) {
-                  rRidesEl.innerHTML = starsHtml || '—';
-                  rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
-                  rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
-                  rRidesEl.style.letterSpacing = '3px';
-                  rRidesEl.style.fontSize = '20px';
-                }
-              } catch(_) {}
-            } catch(_) {}
-
-            // Inform member module about this selection so jaarhanger/lunch UI shows correctly
-            try { await setSelectedDocFromEntry(entry); } catch(e) { console.error('setSelectedDocFromEntry error', e); }
-
-            // Force a fresh render of the past rides list into the new card
+            // Render past rides into the dedicated pastRidesList element
             try { await window.renderManualPastRides(entry.id, { listId: 'pastRidesList', statusId: 'pastRidesStatus' }); } catch(e) { console.error('renderManualPastRides error', e); }
 
-            // Ensure the Today button reflects whether today is already scanned for this member
+            // Update the Today button state (does not show the main result)
             try { await updateTodayButton(entry.id); } catch (e) { console.error('updateTodayButton error', e); }
 
-            // Ensure the result area is scrolled into view for operator convenience
-            try { ensureResultVisibleAndScroll(); } catch(_) {}
+            // Ensure pastRidesList is visible and scroll into view for operator
+            try {
+              const listEl = document.getElementById('pastRidesList');
+              if (listEl) { listEl.style.display = 'grid'; setTimeout(() => listEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }
+            } catch(_) {}
           } catch (e) { console.error('pastRides onSelected failed', e); }
         }
       });

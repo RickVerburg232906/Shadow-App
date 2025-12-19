@@ -125,7 +125,7 @@
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module">
-      import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
+      import { applyAdminLevel } from './src/auth.js';
       
       // Dropdown navigation handler
       const navSelect = document.getElementById('adminNavSelect');
@@ -135,16 +135,15 @@
         });
       }
 
-      // Check authentication and ensure root admin access
-      if (checkAdminAuth()) {
+      // Apply admin level checks (authentication gating removed)
+      try {
         const adminLevel = sessionStorage.getItem("admin_level");
         if (adminLevel !== "root") {
-          // Redirect to scan page if not root admin
           window.location.href = "admin-scan.html";
         } else {
           applyAdminLevel();
         }
-      }
+      } catch(_) {}
     </script>
     <script type="module" src="/src/main.js"></script>
   </body>

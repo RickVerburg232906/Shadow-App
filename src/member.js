@@ -1086,8 +1086,27 @@ if (yearhangerNo) {
     hideLunchChoice();
     try { if (unsubscribe) unsubscribe(); } catch(_) {}
     unsubscribe = null;
-    if (yearhangerRow) yearhangerRow.style.display = "none";
+    if (yearhangerRow) yearhangerRow.style.display = 'none';
   if (jaarhangerSelectionBadge) jaarhangerSelectionBadge.style.display = 'none';
+    // Ensure jaarhanger in-memory state and UI do not carry over between selections
+    try {
+      _yearhangerVal = null;
+      if (yearhangerYes) {
+        yearhangerYes.classList.remove('active', 'yes');
+        yearhangerYes.setAttribute('aria-checked', 'false');
+        yearhangerYes.disabled = false;
+        yearhangerYes.style.opacity = '';
+        yearhangerYes.style.cursor = '';
+      }
+      if (yearhangerNo) {
+        yearhangerNo.classList.remove('active', 'no');
+        yearhangerNo.setAttribute('aria-checked', 'false');
+        yearhangerNo.disabled = false;
+        yearhangerNo.style.opacity = '';
+        yearhangerNo.style.cursor = '';
+      }
+      jaarhangerDetailsElement = null;
+    } catch(_) {}
     // Verberg uitleg als jaarhangerRow verborgen wordt
     const info = document.getElementById("jaarhangerInfo");
     if (info) info.style.display = "none";
@@ -1561,16 +1580,4 @@ async function generateQrForEntry(entry) {
 }
 
 
-function ensureMemberConsent(){
-  const accepted = window.sessionStorage.getItem(CONSENT_KEY) === "1";
-  const gate = document.getElementById("rideConsentGate");
-  const enrolls = document.querySelectorAll('#viewMember [data-requires-consent="1"]');
-  if (!gate) return;
-  if (accepted){
-    gate.setAttribute("hidden",""); gate.style.display="none";
-    enrolls.forEach(el=>el.removeAttribute("hidden"));
-  } else {
-    gate.removeAttribute("hidden"); gate.style.display="";
-    enrolls.forEach(el=>el.setAttribute("hidden",""));
-  }
-}
+// Removed unused `ensureMemberConsent` helper during cleanup.

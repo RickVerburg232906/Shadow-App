@@ -106,68 +106,7 @@ export function renderLunchChoice(container = null) {
       }
     })();
 
-    // Wire up click handlers: when the user clicks "Ja, ik eet mee",
-    // show the details section and scroll the keuzeEtenSection into view
-    // once its buttons are available (or after a short timeout).
-    (function attachHandlers() {
-      const lunchYesBtn = container.querySelector('#lunchYes');
-      const lunchNoBtn = container.querySelector('#lunchNo');
-      const details = container.querySelector('#lunchDetailsSection');
-      const keuzeSection = container.querySelector('#keuzeEtenSection');
-      const keuzeButtons = container.querySelector('#keuzeEtenButtons');
-
-      const waitForButtons = (timeout = 1500) => {
-        return new Promise((resolve) => {
-          try {
-            if (keuzeButtons && keuzeButtons.children.length > 0) return resolve(true);
-            const start = Date.now();
-            const iv = setInterval(() => {
-              if (keuzeButtons && keuzeButtons.children.length > 0) {
-                clearInterval(iv);
-                return resolve(true);
-              }
-              if (Date.now() - start > timeout) {
-                clearInterval(iv);
-                return resolve(false);
-              }
-            }, 100);
-          } catch (e) {
-            return resolve(false);
-          }
-        });
-      };
-
-      if (lunchYesBtn) {
-        lunchYesBtn.addEventListener('click', async (evt) => {
-          try {
-            if (details) details.style.display = 'block';
-            lunchYesBtn.setAttribute('aria-checked', 'true');
-            if (lunchNoBtn) lunchNoBtn.setAttribute('aria-checked', 'false');
-
-            // Wait briefly for the keuze buttons to be rendered/populated,
-            // then scroll the keuze section into view.
-            await waitForButtons(1500);
-            if (keuzeSection) {
-              try { keuzeSection.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
-            }
-          } catch (e) {
-            console.error('lunch-ui: error handling lunchYes click', e);
-          }
-        });
-      }
-
-      if (lunchNoBtn) {
-        lunchNoBtn.addEventListener('click', () => {
-          try {
-            if (details) details.style.display = 'none';
-            lunchNoBtn.setAttribute('aria-checked', 'true');
-            if (lunchYesBtn) lunchYesBtn.setAttribute('aria-checked', 'false');
-          } catch (e) {
-            console.error('lunch-ui: error handling lunchNo click', e);
-          }
-        });
-      }
-    })();
+    // (Previously attached click handlers were removed during cleanup.)
 
     return container;
   } catch (e) {
