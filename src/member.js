@@ -88,7 +88,7 @@ export async function getPlannedDates() {
     if (getPlannedDates._cache && (now - getPlannedDates._cacheAt) < TTL) {
       return getPlannedDates._cache;
     }
-    const ref = doc(db, "globals", "ridePlan");
+    const ref = doc(db, "globals", "rideConfig");
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : {};
     const arr = Array.isArray(data.plannedDates) ? data.plannedDates : [];

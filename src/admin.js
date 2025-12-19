@@ -209,9 +209,9 @@ function getSelectedYearsFromPanel() {
 async function ensureRideDatesLoaded(){
   try{
     if (Array.isArray(PLANNED_DATES) && PLANNED_DATES.length) return PLANNED_DATES;
-    const planRef = doc(db, "globals", "ridePlan");
-    const snap = await getDoc(planRef);
-    const dates = snap.exists() && Array.isArray(snap.data().plannedDates) ? snap.data().plannedDates.filter(Boolean) : [];
+    const planRef = doc(db, "globals", "rideConfig");
+    const cfgSnap = await getDoc(planRef);
+    const dates = cfgSnap.exists() && Array.isArray(cfgSnap.data().plannedDates) ? cfgSnap.data().plannedDates.filter(Boolean) : [];
     // Normaliseer naar YYYY-MM-DD
     PLANNED_DATES = dates.map(d => {
       if (typeof d === 'string') { const m = d.match(/\d{4}-\d{2}-\d{2}/); if (m) return m[0]; }
@@ -546,8 +546,8 @@ async function initRideStatsChart() {
           // Load regions mapping (date -> region)
           let regionsMap = {};
           try {
-            const regionsRef = doc(db, "globals", "rideRegions");
-            const rSnap = await getDoc(regionsRef);
+            const cfgRef = doc(db, "globals", "rideConfig");
+            const rSnap = await getDoc(cfgRef);
             regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
           } catch (e) {
             console.error('Kon rideRegions niet laden voor regio-aggregatie', e);
@@ -591,8 +591,8 @@ async function initRideStatsChart() {
         // Load regions mapping (date -> region) so we can append the region name to each Rit label
         let regionsMap = {};
         try {
-          const regionsRef = doc(db, "globals", "rideRegions");
-          const rSnap = await getDoc(regionsRef);
+          const cfgRef = doc(db, "globals", "rideConfig");
+          const rSnap = await getDoc(cfgRef);
           regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
         } catch (e) {
           console.error('Kon rideRegions niet laden voor chart labels', e);
@@ -1136,7 +1136,7 @@ function initRidePlannerSection() {
   const reloadBtn = $("reloadRidePlanBtn");
   const statusEl = $("ridePlanStatus");
 
-  const planRef = doc(db, "globals", "ridePlan");
+  const planRef = doc(db, "globals", "rideConfig");
 
   function setStatus(msg, ok = true) {
     if (!statusEl) return;
@@ -1170,9 +1170,7 @@ function initRidePlannerSection() {
 
       // Load regions mapping (date -> region) and populate selects
       try {
-        const regionsRef = doc(db, "globals", "rideRegions");
-        const rSnap = await getDoc(regionsRef);
-        const regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
+        const regionsMap = snap.exists() && snap.data() ? (snap.data().regions || {}) : {};
         // populate region selects with current regions (values will be set after options loaded)
         await populateRegionOptions();
         // assign mapped values
@@ -1239,8 +1237,7 @@ function initRidePlannerSection() {
       const regionsMap = collectRegionsByDate();
       await withRetry(() => updateOrCreateDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }), { retries: 3 });
       // save regions mapping in a separate globals doc (date -> region)
-      const regionsRef = doc(db, "globals", "rideRegions");
-      await withRetry(() => updateOrCreateDoc(regionsRef, { regions: regionsMap, updatedAt: serverTimestamp() }), { retries: 3 });
+      await withRetry(() => updateOrCreateDoc(planRef, { plannedDates: dates, regions: regionsMap, updatedAt: serverTimestamp() }), { retries: 3 });
       setStatus("✅ Planning opgeslagen");
     } catch (e) {
       console.error("[ridePlan] savePlan error", e);
