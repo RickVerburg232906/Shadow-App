@@ -1031,20 +1031,37 @@ if (yearhangerNo) {
     for (const it of items) {
       const li = document.createElement("li");
       li.textContent = fullNameFrom(it.data) + ` — ${it.id}`;
-      li.addEventListener("click", async () => {
+
+      // Robust selection handler that works on touch and click
+      const selectItem = async (ev) => {
+        try { if (ev && typeof ev.preventDefault === 'function') ev.preventDefault(); } catch(_) {}
         selectedDoc = it;
-        // Toon de geselecteerde naam in het invoerveld zodat duidelijk is wie is gekozen
+
+        // Update input reliably for mobile: set value, defaultValue, focus and fire input event
         try {
           if (nameInput) {
-            nameInput.value = li.textContent || (fullNameFrom(it.data) + ` — ${it.id}`);
-            // Plaats de cursor aan het eind (visuele bevestiging, geen nieuw input event)
-            const len = nameInput.value.length;
-            nameInput.setSelectionRange?.(len, len);
+            const text = li.textContent || (fullNameFrom(it.data) + ` — ${it.id}`);
+            nameInput.value = text;
+            nameInput.defaultValue = text;
+            try { nameInput.focus({ preventScroll: true }); } catch(_) { try { nameInput.focus(); } catch(_) {} }
+            try { const len = nameInput.value.length; nameInput.setSelectionRange?.(len, len); } catch(_) {}
+            try { nameInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(_) {}
           }
         } catch(_) {}
-        await renderSelected(it);
-        hideSuggestions();
-      });
+
+        try {
+          await renderSelected(it);
+        } catch (e) {
+          console.error('renderSelected error', e);
+        }
+
+        try { hideSuggestions(); } catch(_) {}
+      };
+
+      li.addEventListener('click', selectItem);
+      // touchstart helps on mobile where click can be preceded by focus events
+      li.addEventListener('touchstart', (e) => { try { e.preventDefault(); selectItem(e); } catch(_) {} }, { passive: false });
+
       suggestList.appendChild(li);
     }
     suggestList.style.display = items.length ? "block" : "none";
@@ -1175,11 +1192,27 @@ if (yearhangerNo) {
   async function handleFind() {
     hideError();
     try {
-      const term = (nameInput && nameInput.value ? nameInput.value : "").trim();
-      if (!term) { hideSuggestions(); return; }
-      
+      const raw = (nameInput && nameInput.value ? nameInput.value : "").trim();
+      if (!raw) { hideSuggestions(); return; }
+
+      // If the input contains a ' — ' suffix with an id, prefer direct lookup by id
+      const idMatch = raw.match(/—\s*(\S+)$/);
+      if (idMatch && idMatch[1]) {
+        const parsedId = idMatch[1].trim();
+        try {
+          // Directly render the selected member by id (renderSelected will fetch the doc)
+          await renderSelected({ id: parsedId, data: null });
+          hideSuggestions();
+          return;
+        } catch (e) {
+          console.debug('Direct id lookup failed, falling back to name search', e);
+        }
+      }
+
+      // Fall back to searching by name prefix
+      const term = raw;
       const items = await queryByLastNamePrefix(term);
-      
+
       if (!items.length) {
         showError("Geen lid met uw achternaam gevonden — ga naar de inschrijfbalie voor meer informatie.");
         hideSuggestions(); 
