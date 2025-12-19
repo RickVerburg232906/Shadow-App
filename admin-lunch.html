@@ -75,15 +75,25 @@
     </main>
 
     <script type="module">
-      import { checkAdminAuth, applyAdminLevel } from '/src/auth.js';
+      import { applyAdminLevel } from '/src/auth.js';
       import { initAdminView } from '/src/admin.js';
       import { getPlannedDates } from '/src/member.js';
       import { db, doc, getDoc, serverTimestamp, collection, orderBy, startAfter, limit, getDocs, query } from '/src/firebase.js';
       import { withRetry, updateOrCreateDoc } from '/src/firebase-helpers.js';
 
-      // Guard: alle admins hebben toegang tot lunch planning
-      checkAdminAuth({ redirectTo: '/' });
-      applyAdminLevel();
+      // Guard: alle admins hebben toegang to lunch planning (sessionStorage-based)
+      (function() {
+        const adminLevel = sessionStorage.getItem("admin_level");
+        if (!adminLevel) {
+          window.location.href = '/admin-scan.html';
+          return;
+        }
+        if (adminLevel !== "root" && adminLevel !== "admin") {
+          window.location.href = '/admin-scan.html';
+          return;
+        }
+        applyAdminLevel();
+      })();
 
       // Minimal page bootstrap using existing admin.js infra
       initAdminView();
