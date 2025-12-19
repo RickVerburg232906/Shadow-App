@@ -114,107 +114,91 @@
         </div>
 
         <!-- Vervangen door exacte inschrijven-rit sectie van index.html -->
-        <section id="landelijkeSignup" data-ride-signup="true" hidden>
+        <section id="landelijkeSignup" data-ride-signup="true">
           <div class="card" id="manualRideCard">
             <h1>Handmatig inschrijven</h1>
-            <p class="hint">Zoek op achternaam of voornaam (Hoofdlettergevoelig).</p>
+            <p class="hint">Zoek op achternaam of voornaam.</p>
             
-            <div class="row">
-              <input id="nameInput" placeholder="achternaam of voornaam" />
-            </div>
-            
-            <!-- Lunch keuze sectie -->
-            <div id="lunchChoiceSection" style="display:none; margin-top:24px;">
-              <details open style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border-radius: 12px; padding: 20px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                <summary style="cursor: pointer; list-style: none; user-select: none; display: flex; align-items: center; gap: 12px;">
-                  <div style="flex: 1;">
-                    <h3 style="margin: 0; font-size: 20px;">Lunch deelname</h3>
-                    <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 14px;">
-                      <span id="lunchSummaryText">Vraag of de deelnemer mee-eet tijdens de lunch</span>
-                    </p>
-                    <span id="lunchSelectionBadge" style="display: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap;"></span>
-                  </div>
-                  <span class="toggle-icon" style="font-size: 24px; transition: transform 0.3s ease;">▼</span>
-                </summary>
-                
-                <div class="lunch-content" style="margin-top: 16px;">
-                  <!-- Disclaimer wanneer gescand -->
-                  <div id="lunchScannedDisclaimer" style="display: none; padding: 12px; margin-bottom: 16px; background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 18px;">ℹ️</span>
-                      <div>
-                        <strong style="color: #fbbf24; font-size: 14px;">Let op:</strong>
-                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
-                          De deelnemer is al ingecheckt voor deze rit. De lunchkeuze kan niet meer worden gewijzigd.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Lunch details (alleen zichtbaar bij "Ja") - BOVEN vast menu -->
-                  <div id="lunchDetailsSection" style="display:none; margin-bottom:20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
-                    <div id="keuzeEtenSection" style="margin-bottom:0;">
-                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                        <span style="font-size: 20px;">🍴</span>
-                        <strong style="font-size: 15px;">Vraag wat de deelnemer wil eten:</strong>
-                      </div>
-                      <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:10px;">
-                        <!-- Dynamische keuze buttons komen hier -->
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Vast menu voor iedereen (altijd zichtbaar) -->
-                  <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
-                    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:8px;">
-                      <div style="font-size:28px; line-height:1;">🥖</div>
-                      <div style="flex:1;">
-                        <div style="font-size:15px; font-weight:700; color:var(--text);">Vast menu voor iedereen</div>
-                        <div id="vastEtenDisplay" class="muted" style="margin-top:6px; font-size:14px; line-height:1.4;">Brood</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div class="seg-wrap">
-                    <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze" style="width: 100%;">
-                      <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                        Ja, ik eet mee
-                      </button>
-                      <button type="button" id="lunchNo" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                        Nee, ik eet niet mee
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <!-- Informatieve melding over deadline (altijd zichtbaar) -->
-                  <div id="lunchDeadlineInfo" style="padding: 12px; margin-top: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 18px;">💡</span>
-                      <div>
-                        <strong style="color: #3b82f6; font-size: 14px;">Belangrijk:</strong>
-                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
-                          Zeg dat de deelnemer zijn lunchkeuze <strong>vóór het inchecken</strong> moet maken. Na het inchecken kan de keuze niet meer worden gewijzigd.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-              </details>
-            </div>
-            <!-- Lunch keuze sectie (mount point) -->
-            <div id="lunchChoiceSection" style="display:none; margin-top:24px;"></div>
+            <div id="adminManualSearchMount"></div>
             <script type="module">
-              import { renderLunchChoice } from '/src/lunch-ui.js';
-              renderLunchChoice(document.getElementById('lunchChoiceSection'));
-            </script>
-            
-            <!-- Jaarhanger (mount point) -->
-            <div id="yearhangerRow" style="margin-top:8px; display:none;"></div>
-            <script type="module">
-              import { renderYearhanger } from '/src/yearhanger-ui.js';
-              renderYearhanger(document.getElementById('yearhangerRow'));
-            </script>
+              import renderMemberSearchInput from '/src/member-search-input.js';
+                import { renderLunchChoice } from '/src/lunch-ui.js';
+                import { renderYearhanger } from '/src/yearhanger-ui.js';
+              // setSelectedDocFromEntry removed — page will handle loading member data itself
 
-            <ul id="suggestions" class="suggest"></ul>
+              const mount = document.getElementById('adminManualSearchMount');
+              const widget = renderMemberSearchInput(mount, { showButton: false, placeholder: 'Naam' });
+              // When the input becomes empty, hide any mounted lunch widget for clarity
+              document.addEventListener('member-search:input', (ev) => {
+                try {
+                  const val = ev && ev.detail && typeof ev.detail.value === 'string' ? ev.detail.value.trim() : '';
+                  if (!val) {
+                    try {
+                      const lc = document.getElementById('lunchChoiceSection');
+                      if (lc) {
+                        try { if (typeof lc.setMember === 'function') lc.setMember(null); } catch(_) {}
+                        try { lc.style.display = 'none'; } catch(_) {}
+                      }
+                      try { const yr = document.getElementById('yearhangerRow_local'); if (yr) yr.style.display = 'none'; } catch(_) {}
+                    } catch(_) {}
+                  }
+                } catch (e) { console.error('member-search input handler (admin) failed', e); }
+              });
+              import('/src/member-search-input.js').then(({ wireAutocomplete }) => {
+                wireAutocomplete(widget, {
+                  onSelected: async (memberId) => {
+                      // When selecting in the Handmatig inschrijven mount, hide the
+                      // past-rides list and render only the manual (inschrijven) UI.
+                      try {
+                        try { const pr = document.getElementById('pastRidesList'); if (pr) pr.innerHTML = ''; } catch(_) {}
+                        try { const ps = document.getElementById('pastRidesStatus'); if (ps) ps.textContent = ''; } catch(_) {}
+                        // Load lunch UI into the lunchChoiceSection and make it visible
+                        try {
+                          const lc = document.getElementById('lunchChoiceSection') || (function(){ const d = document.createElement('div'); d.id='lunchChoiceSection'; d.style.display='none'; d.style.marginTop='24px'; const parent = document.getElementById('manualRideCard') || document.body; parent.appendChild(d); return d; })();
+                          try {
+                            const rc = renderLunchChoice(lc, { persist: false });
+                            if (rc && typeof rc.setMember === 'function') await rc.setMember(memberId);
+                          } catch(_) {}
+                          try { lc.style.display = 'block'; } catch(_) {}
+
+                          // Ensure the jaarhanger is mounted directly under the lunch section
+                          try {
+                            let yr = document.getElementById('yearhangerRow');
+                            if (!yr) {
+                              yr = document.createElement('div');
+                              yr.id = 'yearhangerRow_local';
+                              yr.style.marginTop = '8px';
+                              yr.style.display = 'none';
+                              lc.parentNode.insertBefore(yr, lc.nextSibling);
+                            }
+                            try { renderYearhanger(yr); } catch(_) {}
+                            // Attach a listener (once) that shows the local jaarhanger when lunch completes
+                            try {
+                              if (!window.__yearhanger_lunch_listener) {
+                                document.addEventListener('lunch:completed', (ev) => {
+                                  try {
+                                    const yrEl = document.getElementById('yearhangerRow_local');
+                                    if (!yrEl) return;
+                                    try { yrEl.style.display = 'block'; } catch(_) {}
+                                    try { renderYearhanger(yrEl); } catch(_) {}
+                                    try { if (renderYearhanger && typeof renderYearhanger.renderUI === 'function') renderYearhanger.renderUI(null); } catch(_) {}
+                                    try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                                  } catch (e) { console.error('yearhanger show failed on lunch completed', e); }
+                                });
+                                window.__yearhanger_lunch_listener = true;
+                              }
+                            } catch(_) {}
+                          } catch(_) {}
+                        } catch(_) {}
+                        if (typeof window.renderManualPastRides === 'function') await window.renderManualPastRides(memberId, { listId: 'manualPastRidesList', statusId: 'manualPastRidesStatus' });
+                        if (typeof updateTodayButton === 'function') await updateTodayButton(memberId);
+                      } catch (e) { console.error('admin manual select handling failed', e); }
+                    }
+                });
+              }).catch(e => console.error('failed to load autocomplete', e));
+            </script>
+            
+            <!-- Suggestions removed (centralized search will be provided later) -->
             <div id="error" class="error" style="display:none"></div>
             <div id="loadingIndicator" class="loading-indicator" style="display:none;">
               <div class="spinner"></div>
@@ -237,21 +221,39 @@
           </div>
         </section>
 
-        <div class="card" id="cardPastRidesRegister" style="margin-top:12px;">
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-            <div>
-              <h3 style="margin:0;">Eerdere ritten registreren</h3>
-              <p class="muted" style="margin:4px 0 0 0; font-size:14px;">Selecteer een deelnemer en boek eerdere ritten (handmatig).</p>
-            </div>
+        <div class="card" id="cardPastRidesRegister">
+          <div>
+            <h1>Eerdere ritten registreren</h1>
+            <p class="hint">Selecteer een deelnemer en boek eerdere ritten .</p>
           </div>
+          <script type="module">
+            import renderMemberSearchInput from '/src/member-search-input.js';
+            // renderManualPastRides and updateTodayButton are defined in this page's script
 
+            const pmMount = document.getElementById('pastRidesSearchMount');
+            const pmWidget = renderMemberSearchInput(pmMount, { showButton: false, placeholder: 'Naam' });
+            import('/src/member-search-input.js').then(({ wireAutocomplete }) => {
+              wireAutocomplete(pmWidget, {
+                onSelected: async (memberId) => {
+                  try {
+                    // When selecting in the Past Rides mount, hide the manual
+                    // inschrijven list and render only the past-rides UI.
+                    try { const ml = document.getElementById('manualPastRidesList'); if (ml) ml.innerHTML = ''; } catch(_) {}
+                    try { const ms = document.getElementById('manualPastRidesStatus'); if (ms) ms.textContent = ''; } catch(_) {}
+                    if (typeof window.renderManualPastRides === 'function') await window.renderManualPastRides(memberId, { listId: 'pastRidesList', statusId: 'pastRidesStatus' });
+                    if (typeof updateTodayButton === 'function') await updateTodayButton(memberId);
+                  } catch (e) {
+                    console.error('past rides select failed', e);
+                  }
+                }
+              });
+            }).catch(e => console.error('failed to load autocomplete', e));
+          </script>
           <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap;">
-            <input id="pastRidesNameInput" placeholder="achternaam of voornaam" />
+            <div id="pastRidesSearchMount" style="flex: 1; min-width: 240px;"></div>
             <span id="pastRidesLoading" class="muted" style="display:none">Laden…</span>
             <span id="pastRidesError" class="muted" style="display:none"></span>
           </div>
-          <ul id="pastRidesSuggestions" class="suggest"></ul>
-
           <div id="pastRidesList" class="muted" style="margin-top:12px; display:grid; gap:8px;"></div>
           <div id="pastRidesStatus" class="small muted" style="min-height:18px;"></div>
         </div>
@@ -263,7 +265,7 @@
 
     <script type="module">
       import { applyAdminLevel } from './src/auth.js';
-  import { getPlannedDates, plannedStarsWithHighlights, setSelectedDocFromEntry } from './src/member.js';
+  import { getPlannedDates, plannedStarsWithHighlights } from './src/member.js';
   import { db, collection, orderBy, startAfter, limit, getDocs, query, onSnapshot, where } from './src/firebase.js';
       
       // Dropdown navigation handler
@@ -677,11 +679,23 @@
       }
 
       async function renderManualPastRides(memberId, opts = {}) {
-        const listId = opts.listId || 'manualPastRidesList';
-        const statusId = opts.statusId || 'manualPastRidesStatus';
+        // The template historically used `manualPastRidesList`/`manualPastRidesStatus`.
+        // Some pages use `pastRidesList`/`pastRidesStatus` instead. Prefer explicit
+        // opts, then fall back to whichever element exists in the DOM.
+        const listId = opts.listId || (document.getElementById('manualPastRidesList') ? 'manualPastRidesList' : 'pastRidesList');
+        const statusId = opts.statusId || (document.getElementById('manualPastRidesStatus') ? 'manualPastRidesStatus' : 'pastRidesStatus');
         const listEl = document.getElementById(listId);
         const statusEl = document.getElementById(statusId);
         if (!listEl) return;
+
+        // Prevent duplicate immediate renders: if we've just rendered for the
+        // same member within the last 800ms, skip. This avoids double output
+        // when multiple listeners trigger rendering (selection + mutation observer).
+        const now = Date.now();
+        if (renderManualPastRides._lastMemberId === memberId && (now - (renderManualPastRides._lastAt || 0) < 800)) return;
+        renderManualPastRides._lastMemberId = memberId;
+        renderManualPastRides._lastAt = now;
+
         listEl.innerHTML = '';
         if (statusEl) statusEl.textContent = '';
 
@@ -773,6 +787,28 @@
 
       // Expose for other module scripts to reuse
       try { window.renderManualPastRides = renderManualPastRides; } catch(_) {}
+
+      // Global member selection handler removed: each search mount handles
+      // its own selection and hides the other section to remain mutually exclusive.
+
+      // Clear past-rides and result UI when the search input is cleared
+      try {
+        document.addEventListener('member-search:input', (ev) => {
+          try {
+            const val = (ev && ev.detail && typeof ev.detail.value === 'string') ? ev.detail.value.trim() : '';
+            if (val) return; // only act when input is empty
+            const listIds = ['manualPastRidesList', 'pastRidesList'];
+            const statusIds = ['manualPastRidesStatus', 'pastRidesStatus'];
+            listIds.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+            statusIds.forEach(id => { const s = document.getElementById(id); if (s) s.textContent = ''; });
+            // Hide result card and reset summary fields
+            try { const resultEl = document.getElementById('result'); if (resultEl) resultEl.style.display = 'none'; } catch(_) {}
+            try { const rn = document.getElementById('rName'); if (rn) rn.textContent = '—'; } catch(_) {}
+            try { const rno = document.getElementById('rMemberNo'); if (rno) rno.textContent = '—'; } catch(_) {}
+            try { const rr = document.getElementById('rRidesCount'); if (rr) rr.innerHTML = '—'; } catch(_) {}
+          } catch (e) { console.error('member-search:input handler error', e); }
+        });
+      } catch(_) {}
 
       // Observeer wijzigingen aan de leden-inschrijfsectie en render past rides bij selectie
       const resultEl = document.getElementById('result');
@@ -999,104 +1035,7 @@
 
       // (Replaced dropdown population with autocomplete initialization below)
     </script>
-    <script type="module">
-      // Alleen initializer voor Admin Landelijke Signup; de lid-inschrijvingssectie gebruikt de logica uit member.js/main.js
-      import { initMemberSearchSection } from './src/member-search-ui.js';
-
-      initMemberSearchSection({
-        nameInputId: 'adminSignupNameInput',
-        suggestionsListId: 'adminSignupSuggestions',
-        errorId: 'adminSignupError',
-        loadingId: 'adminSignupLoading',
-        resultBoxId: 'adminSignupResult',
-        fields: {
-          nameId: 'adminSignupName',
-          memberNoId: 'adminSignupMemberNo',
-          ridesCountId: 'adminSignupRidesCount',
-          regionId: 'adminSignupRegion',
-        },
-        withQr: true,
-        qrCanvasId: 'adminSignupQrCanvas',
-        qrPrivacyTextId: 'adminSignupQrPrivacy',
-        enableQrFullscreen: true,
-      });
-
-      // Autocomplete for 'Eerdere ritten registreren' — hergebruikt member-search-ui
-      initMemberSearchSection({
-        nameInputId: 'pastRidesNameInput',
-        suggestionsListId: 'pastRidesSuggestions',
-        errorId: 'pastRidesError',
-        loadingId: 'pastRidesLoading',
-        resultBoxId: 'result',
-        fields: {
-          nameId: 'rName',
-          memberNoId: 'rMemberNo',
-          ridesCountId: 'rRidesCount',
-          regionId: 'rRegion',
-        },
-        withQr: false,
-        clearOnFocus: true,
-        onEmpty: () => {
-          try {
-            const list = document.getElementById('pastRidesList');
-            if (list) { list.innerHTML = ''; list.style.display = 'none'; }
-            const status = document.getElementById('pastRidesStatus');
-            if (status) status.textContent = '';
-          } catch(_) {}
-        },
-        onSelected: async (entry) => {
-          try {
-            // For past-rides selection we intentionally do NOT populate the
-            // main "Handmatig inschrijven" result area nor call
-            // `setSelectedDocFromEntry()` so the handmatig section remains
-            // independent. Instead render the past-rides list and update the
-            // Today button state for convenience.
-            try { lastMemberId = ''; } catch(_) {}
-
-            // Render past rides into the dedicated pastRidesList element
-            try { await window.renderManualPastRides(entry.id, { listId: 'pastRidesList', statusId: 'pastRidesStatus' }); } catch(e) { console.error('renderManualPastRides error', e); }
-
-            // Update the Today button state (does not show the main result)
-            try { await updateTodayButton(entry.id); } catch (e) { console.error('updateTodayButton error', e); }
-
-            // Ensure pastRidesList is visible and scroll into view for operator
-            try {
-              const listEl = document.getElementById('pastRidesList');
-              if (listEl) { listEl.style.display = 'grid'; setTimeout(() => listEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }
-            } catch(_) {}
-          } catch (e) { console.error('pastRides onSelected failed', e); }
-        }
-      });
-
-      // If operator focuses the past-rides search after a red error state, clear the red visual
-      // (keeps red state persistent until the operator explicitly starts a new search)
-      try {
-        const pastInput = document.getElementById('pastRidesNameInput');
-        const clearRedVisual = () => {
-          try {
-            const btn = document.getElementById('manualTodayBtn');
-            if (!btn) return;
-            // Only clear the red visual, don't re-enable the button if it was disabled (green)
-            if (btn.classList.contains('btn-error') && !btn.disabled) {
-              btn.classList.remove('btn-error');
-              btn.textContent = 'Vandaag';
-            }
-          } catch(_) {}
-        };
-        pastInput?.addEventListener('focus', clearRedVisual);
-        // Also clear on every input event so typing immediately removes the red visual
-        pastInput?.addEventListener('input', clearRedVisual);
-      } catch(_) {}
-
-      // Maak de gekopieerde leden-inschrijfsectie zichtbaar in admin (consent-gate is niet van toepassing hier)
-      setTimeout(() => {
-        const signup = document.getElementById('landelijkeSignup');
-        if (signup) {
-          signup.removeAttribute('hidden');
-          signup.style.display = '';
-        }
-      }, 150);
-    </script>
+    <!-- Member search initialization removed from admin-scan to decouple local input-driven queries -->
     
     <script type="module" src="/src/main.js"></script>
   </body>

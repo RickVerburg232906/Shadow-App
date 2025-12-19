@@ -279,7 +279,7 @@ function setupAdminPwdSection() {
       }
       try {
         await setInschrijftafelPwd(v);
-        if (status) { status.textContent = "✅ Nieuw admin-wachtwoord opgeslagen in Firestore."; status.classList.remove("error"); }
+        if (status) { status.textContent = "✅ Nieuw inschrijftafel-wachtwoord opgeslagen in Firestore."; status.classList.remove("error"); }
         input.value = "";
       } catch (e) {
         console.error(e);
@@ -497,7 +497,7 @@ function classifyDays(days) {
   // returns a class name for styling
   if (days === null) return '';
   if (days < 0) return 'passed';
-  if (days <= 3) return 'soon';
+  if (days <= 7) return 'soon';
   return 'upcoming';
 }
 
@@ -510,14 +510,6 @@ function showPlannedRides() {
   const section = document.getElementById('plannedRidesSection');
   if (section) section.style.display = '';
 }
-
-// Example: source of planned rides. In a real app this may come from Firestore.
-const DEFAULT_PLANNED_RIDES = [
-  // ISO dates for consistency
-  '2025-10-25',
-  '2025-11-08',
-  '2025-12-06'
-];
 
 document.addEventListener('DOMContentLoaded', () => {
   try {

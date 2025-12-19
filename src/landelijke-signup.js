@@ -106,10 +106,6 @@ function getErrorMessage(error) {
   return "Er ging iets mis. Probeer het opnieuw of ga naar de inschrijfbalie.";
 }
 
-// ========== Lunch functies ==========
-
-// loadLunchOptions is provided by src/member.js (cached)
-
 // ========== Query functies ==========
 
 export async function queryByLastNamePrefix(prefix) {
@@ -356,26 +352,7 @@ export async function checkAndCleanupOldLunchChoice(memberId, memberData) {
 
 // ========== Save functies ==========
 
-export async function saveLunchChoice(memberId, lunchChoice, selectedKeuzeEten) {
-  try {
-    if (!memberId) return;
-    
-    const isVastMenuOnly = selectedKeuzeEten.length > 0 && selectedKeuzeEten[0] === 'vast-menu';
-    const keuzeEtenValue = (isVastMenuOnly || selectedKeuzeEten.length === 0) ? null : selectedKeuzeEten[0];
-    const rideYMD = await getNextPlannedRideYMD();
-    
-    await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), { 
-      lunchDeelname: lunchChoice,
-      lunchKeuze: keuzeEtenValue,
-      lunchRideDateYMD: rideYMD || null
-    }), { retries: 3 });
-    
-    return true;
-  } catch (e) {
-    console.error("Lunch keuze opslaan mislukt", e);
-    throw e;
-  }
-}
+// `saveLunchChoice` removed — lunch choices are no longer persisted from the UI.
 
 export async function saveYearhanger(memberId, yearhangerValue) {
   try {
