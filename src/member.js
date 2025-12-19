@@ -795,7 +795,7 @@ let yearhangerRow = document.getElementById("yearhangerRow");
 let yearhangerYes = document.getElementById("yearhangerYes");
 let yearhangerNo  = document.getElementById("yearhangerNo");
 let yearhangerDetailsElement = null; // Reference to the details element
-let _yearhangerVal = "Ja"; // default
+let _yearhangerVal = null; // default: no selection until we read Firestore or user clicks
 
 function ensureYearhangerUI() {
   yearhangerRow = document.getElementById("yearhangerRow");
