@@ -33,13 +33,27 @@ const firebaseConfigs = {
 };
 
 // Determine environment:
+// Priority:
 // 1) If `VITE_FIREBASE_ENV` is explicitly set, respect it.
-// 2) Otherwise, treat `import.meta.env.DEV` (Vite dev server / `npm run dev`) as development.
-// 3) All other cases use production.
+// 2) If running on Vercel and `VERCEL_ENV=production`, use production.
+// 3) If running the Vite dev server (`import.meta.env.DEV`) use development.
+// 4) Otherwise default to development to avoid accidental production usage from preview builds.
 const hasMeta = (typeof import.meta !== 'undefined' && import.meta.env);
 const explicit = hasMeta && import.meta.env.VITE_FIREBASE_ENV;
 const isDevServer = hasMeta && Boolean(import.meta.env.DEV);
-const firebaseEnv = explicit || (isDevServer ? 'development' : 'production');
+// Check Vercel env (server-side process env during build or injected env during runtime if configured)
+const isVercelProd = (typeof process !== 'undefined' && process.env && process.env.VERCEL_ENV === 'production') || (hasMeta && import.meta.env.VERCEL_ENV === 'production');
+let firebaseEnv = 'development';
+if (explicit) {
+  firebaseEnv = explicit;
+} else if (isVercelProd) {
+  firebaseEnv = 'production';
+} else if (isDevServer) {
+  firebaseEnv = 'development';
+} else {
+  // Default to development for safety (preview builds / branches should not use production)
+  firebaseEnv = 'development';
+}
 export const firebaseConfig = firebaseConfigs[firebaseEnv] || firebaseConfigProd;
 export const firebaseEnvironment = firebaseEnv;
 
