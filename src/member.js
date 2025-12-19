@@ -692,7 +692,6 @@ async function saveLunchChoice() {
     await withRetry(() => updateOrCreateDoc(doc(db, "members", String(selectedDoc.id)), {
       lunchDeelname: _lunchChoice,
       lunchKeuze: keuzeEtenValue,
-      lunchTimestamp: serverTimestamp(),
       lunchRideDateYMD: rideYMD || null
     }), { retries: 3 });
     
@@ -1191,7 +1190,6 @@ if (yearhangerNo) {
         await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), {
           lunchDeelname: null,
           lunchKeuze: null,
-          lunchTimestamp: null,
           lunchRideDateYMD: null
         }), { retries: 2 });
         console.log(`Lunch keuze gewist voor lid ${memberId} — rit ${rideYMD} voorbij (${today}).`);
@@ -1459,7 +1457,6 @@ async function generateQrForEntry(entry) {
                         : (yNoEl && yNoEl.classList.contains('active')) ? 'Nee'
                         : null;
 
-      const clientTimestamp = new Date().toISOString();
       // Compute next planned ride date locally to avoid cross-scope errors
       const planned = await getPlannedDates();
       function localToYMD(v) {
@@ -1496,7 +1493,6 @@ async function generateQrForEntry(entry) {
         lunchDeelname: lunchDeelname,
         lunchKeuze: lunchKeuze,
         lunchRideDateYMD: lunchRideDateYMD,
-        lunchTimestamp: clientTimestamp,
         Jaarhanger: Jaarhanger
       };
       payload = JSON.stringify(payloadObj);

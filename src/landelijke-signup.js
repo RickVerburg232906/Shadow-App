@@ -345,7 +345,6 @@ export async function checkAndCleanupOldLunchChoice(memberId, memberData) {
       await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), {
         lunchDeelname: null,
         lunchKeuze: null,
-        lunchTimestamp: null,
         lunchRideDateYMD: null
       }), { retries: 2 });
       console.log(`Lunch keuze gewist voor lid ${memberId} — rit ${rideYMD} voorbij (${today}).`);
@@ -368,7 +367,6 @@ export async function saveLunchChoice(memberId, lunchChoice, selectedKeuzeEten) 
     await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), { 
       lunchDeelname: lunchChoice,
       lunchKeuze: keuzeEtenValue,
-      lunchTimestamp: serverTimestamp(),
       lunchRideDateYMD: rideYMD || null
     }), { retries: 3 });
     

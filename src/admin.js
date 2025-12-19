@@ -1748,7 +1748,6 @@ function initAdminQRScanner() {
         const toWrite = {};
         if (lunchDeelname !== null) {
           toWrite.lunchDeelname = lunchDeelname;
-          toWrite.lunchTimestamp = serverTimestamp();
           toWrite.lunchRideDateYMD = ymdForLunch;
         }
         if (lunchKeuze !== null) toWrite.lunchKeuze = lunchKeuze;
@@ -1942,12 +1941,11 @@ async function resetAllLunch(statusEl) {
       snapshot.forEach((docSnap) => {
         try {
           const data = docSnap.data() || {};
-          const hasAny = (data.lunchDeelname != null) || (data.lunchKeuze != null) || (data.lunchTimestamp != null) || (data.lunchRideDateYMD != null);
-          if (hasAny) {
+          const hasAny = (data.lunchDeelname != null) || (data.lunchKeuze != null) || (data.lunchRideDateYMD != null);
+            if (hasAny) {
             batch.set(doc(db, "members", docSnap.id), {
               lunchDeelname: null,
               lunchKeuze: null,
-              lunchTimestamp: null,
               lunchRideDateYMD: null
             }, { merge: true });
             batchCount += 1;

@@ -901,7 +901,6 @@
                 const yYes = document.getElementById('yearhangerYes');
                 const yNo = document.getElementById('yearhangerNo');
                 const jaarVal = (yYes && yYes.classList.contains('active')) ? 'Ja' : (yNo && yNo.classList.contains('active')) ? 'Nee' : null;
-                const clientTs = new Date().toISOString();
 
                 await withRetry(() => runTransaction(db, async (tx) => {
                   const mRef = doc(db, 'members', String(memberId));
@@ -911,8 +910,7 @@
                   if (lunchDeelname !== null) toWrite.lunchDeelname = lunchDeelname;
                   if (lunchKeuze !== null) toWrite.lunchKeuze = lunchKeuze;
                   if (jaarVal !== null) toWrite.Jaarhanger = jaarVal;
-                  // Save client timestamp and the ride date for the lunch selection
-                  toWrite.lunchTimestamp = clientTs;
+                  // Save the ride date for the lunch selection
                   toWrite.lunchRideDateYMD = todayYMD;
 
                   if (snapCur.exists()) {
