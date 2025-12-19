@@ -470,14 +470,14 @@ function updateLunchBadge() {
   const isVastMenuOnly = _selectedKeuzeEten.length > 0 && _selectedKeuzeEten[0] === 'vast-menu';
   
   if (_lunchChoice === "ja" && _selectedKeuzeEten.length > 0 && !isVastMenuOnly) {
-    lunchSelectionBadge.textContent = `✓ Ja · ${_selectedKeuzeEten[0]}`;
+    lunchSelectionBadge.textContent = `Ja · ${_selectedKeuzeEten[0]}`;
     lunchSelectionBadge.style.display = 'block';
     lunchSelectionBadge.style.background = 'rgba(16, 185, 129, 0.2)';
     lunchSelectionBadge.style.color = '#10b981';
     lunchSelectionBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
   } else if (_lunchChoice === "ja" && isVastMenuOnly) {
     // Vast menu alleen: toon simpel "Ja"
-    lunchSelectionBadge.textContent = '✓ Ja';
+    lunchSelectionBadge.textContent = 'Ja';
     lunchSelectionBadge.style.display = 'block';
     lunchSelectionBadge.style.background = 'rgba(16, 185, 129, 0.2)';
     lunchSelectionBadge.style.color = '#10b981';
@@ -489,7 +489,7 @@ function updateLunchBadge() {
     lunchSelectionBadge.style.color = '#ef4444';
     lunchSelectionBadge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
   } else if (_lunchChoice === "ja" && _selectedKeuzeEten.length === 0) {
-    lunchSelectionBadge.textContent = '✓ Ja · Maak een keuze';
+    lunchSelectionBadge.textContent = 'Ja · Maak een keuze';
     lunchSelectionBadge.style.display = 'block';
     lunchSelectionBadge.style.background = 'rgba(251, 191, 36, 0.2)';
     lunchSelectionBadge.style.color = '#fbbf24';
@@ -661,6 +661,18 @@ async function renderLunchUI(choice) {
           });
           keuzeEtenButtons.appendChild(btn);
         });
+
+        // Auto-scroll naar keuze-eten sectie zodat operator direct de keuzes ziet
+        try {
+          setTimeout(() => {
+            if (keuzeEtenSection) {
+              keuzeEtenSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // Focus eerste knop voor toegankelijkheid (voorkom extra scroll)
+              const firstBtn = keuzeEtenButtons.querySelector('button');
+              if (firstBtn) firstBtn.focus({ preventScroll: true });
+            }
+          }, 60);
+        } catch (_) {}
       }
     }
     
@@ -812,13 +824,13 @@ function updateJaarhangerBadge() {
     return;
   }
   if (_yearhangerVal === 'Ja') {
-    jaarhangerSelectionBadge.textContent = '✓ Ja';
+    jaarhangerSelectionBadge.textContent = 'Ja';
     jaarhangerSelectionBadge.style.display = 'block';
     jaarhangerSelectionBadge.style.background = 'rgba(16, 185, 129, 0.2)';
     jaarhangerSelectionBadge.style.color = '#10b981';
     jaarhangerSelectionBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
   } else if (_yearhangerVal === 'Nee') {
-    jaarhangerSelectionBadge.textContent = '✕ Nee';
+    jaarhangerSelectionBadge.textContent = 'Nee';
     jaarhangerSelectionBadge.style.display = 'block';
     jaarhangerSelectionBadge.style.background = 'rgba(239, 68, 68, 0.2)';
     jaarhangerSelectionBadge.style.color = '#ef4444';

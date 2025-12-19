@@ -18,8 +18,8 @@ export function renderYearhanger(container = null) {
         <div class="jaarhanger-content" style="margin-top: 16px;">
           <div class="seg-wrap">
             <div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger" style="width: 100%; display: flex; gap: 0; border-radius: 10px; overflow: hidden;">
-              <button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false" style="flex:1; padding: 14px; font-size: 16px; font-weight: 600; border: none;">✓ Ja</button>
-              <button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false" style="flex:1; padding: 14px; font-size: 16px; font-weight: 600; border: none; border-left: 1px solid rgba(255,255,255,0.08);">✕ Nee</button>
+              <button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false" style="flex:1; padding: 14px; font-size: 16px; font-weight: 600; border: none;">Ja</button>
+              <button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false" style="flex:1; padding: 14px; font-size: 16px; font-weight: 600; border: none; border-left: 1px solid rgba(255,255,255,0.08);">Nee</button>
             </div>
           </div>
 

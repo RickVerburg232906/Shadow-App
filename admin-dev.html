@@ -65,64 +65,62 @@
       }
 
       // Alleen root admins voor deze pagina
-      if (checkAdminAuth()) {
-        const adminLevel = sessionStorage.getItem("admin_level");
-        if (adminLevel !== "root") {
-          window.location.href = "admin-scan.html";
-        } else {
-          applyAdminLevel();
-          initAdminView();
+      const adminLevel = sessionStorage.getItem("admin_level");
+      if (adminLevel !== "root") {
+        window.location.href = "admin-scan.html";
+      } else {
+        applyAdminLevel();
+        initAdminView();
 
-          // Clear all ScanDatums (DEV) — paged + batched updates
-          const clearBtn = document.getElementById('clearScanDatumsBtn');
-          const clearStatus = document.getElementById('clearScanDatumsStatus');
-          if (clearBtn) {
-            clearBtn.addEventListener('click', async () => {
-              if (!confirm('Weet je het zeker? Dit verwijdert alle ScanDatums en zet ridesCount naar 0 voor ALLE leden.')) return;
-              clearBtn.disabled = true;
-              clearStatus.textContent = 'Bezig…';
-              try {
-                let updated = 0;
-                let skipped = 0;
-                const pageSize = 400;
-                let last = null;
-                while (true) {
-                  const q = last ? query(collection(db, 'members'), orderBy('__name__'), startAfter(last), limit(pageSize)) : query(collection(db, 'members'), orderBy('__name__'), limit(pageSize));
-                  const snap = await getDocs(q);
-                  if (snap.empty) break;
+        // Clear all ScanDatums (DEV) — paged + batched updates
+        const clearBtn = document.getElementById('clearScanDatumsBtn');
+        const clearStatus = document.getElementById('clearScanDatumsStatus');
+        if (clearBtn) {
+          clearBtn.addEventListener('click', async () => {
+            if (!confirm('Weet je het zeker? Dit verwijdert alle ScanDatums en zet ridesCount naar 0 voor ALLE leden.')) return;
+            clearBtn.disabled = true;
+            clearStatus.textContent = 'Bezig…';
+            try {
+              let updated = 0;
+              let skipped = 0;
+              const pageSize = 400;
+              let last = null;
+              while (true) {
+                const q = last ? query(collection(db, 'members'), orderBy('__name__'), startAfter(last), limit(pageSize)) : query(collection(db, 'members'), orderBy('__name__'), limit(pageSize));
+                const snap = await getDocs(q);
+                if (snap.empty) break;
 
-                  const batch = writeBatch(db);
-                  snap.forEach(d => {
-                    const data = d.data() || {};
-                    const hasScan = Array.isArray(data.ScanDatums) && data.ScanDatums.length > 0;
-                    const needsZero = Number(data.ridesCount) !== 0;
-                    if (hasScan || needsZero) {
-                      const ref = doc(db, 'members', d.id);
-                      batch.update(ref, { ScanDatums: [], ridesCount: 0 });
-                      updated += 1;
-                    } else {
-                      skipped += 1;
-                    }
-                  });
-
-                  // If batch has updates, commit it
-                  if (updated % pageSize !== 0 || updated > 0) {
-                    await batch.commit();
+                const batch = writeBatch(db);
+                snap.forEach(d => {
+                  const data = d.data() || {};
+                  const hasScan = Array.isArray(data.ScanDatums) && data.ScanDatums.length > 0;
+                  const needsZero = Number(data.ridesCount) !== 0;
+                  if (hasScan || needsZero) {
+                    const ref = doc(db, 'members', d.id);
+                    batch.update(ref, { ScanDatums: [], ridesCount: 0 });
+                    updated += 1;
+                  } else {
+                    skipped += 1;
                   }
+                });
 
-                  last = snap.docs[snap.docs.length - 1];
-                  if (snap.size < pageSize) break;
+                // If batch has updates, commit it
+                if (updated % pageSize !== 0 || updated > 0) {
+                  await batch.commit();
                 }
 
-                clearStatus.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
-              } catch (e) {
-                console.error('Clear ScanDatums failed', e);
-                clearStatus.textContent = '❌ Mislukt: ' + (e?.message || e);
-              } finally {
-                clearBtn.disabled = false;
+                last = snap.docs[snap.docs.length - 1];
+                if (snap.size < pageSize) break;
               }
-            });
-          }
+
+              clearStatus.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
+            } catch (e) {
+              console.error('Clear ScanDatums failed', e);
+              clearStatus.textContent = '❌ Mislukt: ' + (e?.message || e);
+            } finally {
+              clearBtn.disabled = false;
+            }
+          });
         }
       }
     </script>

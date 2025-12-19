@@ -149,10 +149,10 @@
                   <div class="seg-wrap">
                     <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze" style="width: 100%;">
                       <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                        ✓ Ja, ik eet mee
+                        Ja, ik eet mee
                       </button>
                       <button type="button" id="lunchNo" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                        ✕ Nee, ik eet niet mee
+                        Nee, ik eet niet mee
                       </button>
                     </div>
                   </div>
@@ -188,10 +188,10 @@
                   <div class="seg-wrap">
                     <div class="seg-toggle" id="yearhangerToggle" role="radiogroup" aria-label="Jaarhanger">
                       <button type="button" id="yearhangerYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                        ✓ Ja, ik wil een jaarhanger
+                        Ja, ik wil een jaarhanger
                       </button>
                       <button type="button" id="yearhangerNo" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                        ✕ Nee, ik hoef geen jaarhanger
+                        Nee, ik hoef geen jaarhanger
                       </button>
                     </div>
                   </div>
@@ -207,19 +207,8 @@
                 </div>
               </details>
             </div>
-            <div id="lunchChoiceSection" style="display:none; margin-top:24px;"></div>
-            <script type="module">
-              import { renderLunchChoice } from '/src/lunch-ui.js';
-              // Render immediately so `member.js` can find expected elements when it runs
-              renderLunchChoice(document.getElementById('lunchChoiceSection'));
-            </script>
             
-            <!-- Jaarhanger (mount point) -->
-            <div id="yearhangerRow" style="margin-top:8px; display:none;"></div>
-            <script type="module">
-              import { renderYearhanger } from '/src/yearhanger-ui.js';
-              renderYearhanger(document.getElementById('yearhangerRow'));
-            </script>
+            <!-- (Lunch & jaarhanger UI already inlined above; duplicate mount removed) -->
 
             <ul id="suggestions" class="suggest"></ul>
             <div id="error" class="error" style="display:none"></div>
@@ -233,7 +222,7 @@
                 <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
                 <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
                 <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
-                <p>Ga nu naar de inschrijfbalie om in te checken voor de rit.</p>
+                <p>Ga nu naar de inschrijftafel om in te checken voor de rit.</p>
               </div>
               <div class="column" style="align-items:center; gap:8px;">
                 <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
