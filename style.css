@@ -398,6 +398,25 @@ select,
   background-position: right 10px center;
 }
 
+/* Member info card styles (moved from src/member-info.js) */
+.member-card { width: 100%; }
+.member-card.hidden { display: none; }
+.member-card__row { display: flex; gap: 12px; align-items: center; width: 100%; }
+.member-card__main { flex: 1; display: flex; align-items: center; }
+.member-card__meta { display: flex; flex-direction: column; gap: 6px; }
+.member-card__name { font-size: 15px; font-weight: 700; color: var(--accent); }
+.member-card__details { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+.member-card__detail { display: flex; gap: 6px; align-items: center; }
+.member-card__right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.member-card__rides { font-size: 20px; letter-spacing: 3px; }
+.member-card .star.filled { color: #f2c33d; margin-left: 2px; }
+.member-card .star.empty { color: rgba(255,255,255,0.12); margin-left: 2px; }
+
+@media (max-width: 520px) {
+  .member-card__row { flex-direction: column; align-items: stretch; }
+  .member-card__right { align-items: flex-start; }
+}
+
 select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23e5e7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); }
 
 select:focus,

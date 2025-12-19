@@ -94,12 +94,11 @@
             
             <div id="memberSearchMount"></div>
             <script type="module">
-              import renderMemberSearchInput from '/src/member-search-input.js';
+              import renderMemberSearchInput, { wireAutocomplete } from '/src/member-search-input.js';
 
               const mountEl = document.getElementById('memberSearchMount');
               const widget = renderMemberSearchInput(mountEl, { showButton: false, placeholder: 'Naam' });
-              import('/src/member-search-input.js').then(({ wireAutocomplete }) => {
-                wireAutocomplete(widget, {
+              try { wireAutocomplete(widget, {
                   onSelected: async (memberId) => {
                     // Don't call setSelectedDocFromEntry here — emit global event and let
                     // the page/module implement the new selection loading logic.
@@ -108,22 +107,30 @@
                       document.dispatchEvent(ev);
                     } catch (e) { console.error('dispatch member-search:selected failed', e); }
                   }
-                });
-              }).catch(e => console.error('failed to load autocomplete', e));
+                }); } catch(e) { console.error('failed to wire autocomplete', e); }
             </script>
             <div id="lunchChoiceSection" style="margin-top:12px;"></div>
             <script type="module">
               import renderLunchChoice from '/src/lunch-ui.js';
               import { renderYearhanger } from '/src/yearhanger-ui.js';
               const lunchMount = document.getElementById('lunchChoiceSection');
-              const lunchWidget = renderLunchChoice(lunchMount);
+              let lunchWidget = renderLunchChoice(lunchMount);
               document.addEventListener('member-search:selected', (ev) => {
                 try {
                   const id = ev && ev.detail && ev.detail.id ? ev.detail.id : null;
                   if (!id) return;
+                  // Ensure mount is visible and widget exists (may have been cleared)
+                  try { if (lunchMount) { lunchMount.style.display = ''; } } catch(_) {}
+                  try {
+                    const isEmpty = !lunchMount || String(lunchMount.innerHTML || '').trim().length === 0;
+                    if (isEmpty || !lunchWidget) {
+                      try { lunchWidget = renderLunchChoice(lunchMount); } catch(_) { lunchWidget = null; }
+                    }
+                  } catch(_) {}
                   if (lunchWidget && typeof lunchWidget.setMember === 'function') {
-                    lunchWidget.setMember(String(id));
+                    try { lunchWidget.setMember(String(id)); } catch(e) { console.error('lunchWidget.setMember failed', e); }
                   }
+                  // Do not prefill/show jaarhanger here; wait for lunch:completed event
                 } catch (e) { console.error('wiring lunch widget failed', e); }
               });
 
@@ -132,11 +139,30 @@
                 try {
                   const val = ev && ev.detail && typeof ev.detail.value === 'string' ? ev.detail.value.trim() : '';
                   if (!val) {
-                    if (lunchWidget && typeof lunchWidget.setMember === 'function') {
-                      try { lunchWidget.setMember(null); } catch(_) {}
-                    } else if (lunchMount) {
-                      try { lunchMount.style.display = 'none'; } catch(_) {}
-                    }
+                    // Clear lunch widget and hide its container
+                    try {
+                      if (lunchWidget && typeof lunchWidget.setMember === 'function') {
+                        try { lunchWidget.setMember(null); } catch(_) {}
+                      }
+                    } catch(_) {}
+                    try { if (lunchMount) { lunchMount.style.display = 'none'; lunchMount.innerHTML = ''; } } catch(_) {}
+
+                    // Hide local jaarhanger and clear its contents
+                    try { const yr = document.getElementById('yearhangerRow_local'); if (yr) { yr.style.display = 'none'; yr.innerHTML = ''; } } catch(_) {}
+
+                    // Hide result card and reset displayed member fields
+                    try { const resultEl = document.getElementById('result'); if (resultEl) resultEl.style.display = 'none'; } catch(_) {}
+                    try { const rn = document.getElementById('rName'); if (rn) rn.textContent = '—'; } catch(_) {}
+                    try { const rno = document.getElementById('rMemberNo'); if (rno) rno.textContent = '—'; } catch(_) {}
+                    try { const rr = document.getElementById('rRidesCount'); if (rr) rr.innerHTML = '—'; } catch(_) {}
+                    try { const rg = document.getElementById('rRegion'); if (rg) rg.textContent = '—'; } catch(_) {}
+
+                    // Hide loading / error indicators
+                    try { const loading = document.getElementById('loadingIndicator'); if (loading) loading.style.display = 'none'; } catch(_) {}
+                    try { const err = document.getElementById('error'); if (err) err.style.display = 'none'; } catch(_) {}
+
+                    // Clear QR canvas if present
+                    try { const qr = document.getElementById('qrCanvas'); if (qr && qr.getContext) { const ctx = qr.getContext('2d'); ctx.clearRect(0,0,qr.width,qr.height); } } catch(_) {}
                   }
                 } catch (e) { console.error('member-search:input handler failed', e); }
               });
@@ -160,7 +186,6 @@
                       const yrEl = document.getElementById('yearhangerRow_local');
                       if (!yrEl) return;
                       try { yrEl.style.display = 'block'; } catch(_) {}
-                      try { renderYearhanger(yrEl); } catch(err){ console.error('renderYearhanger failed (index)', err); }
                       try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
                     } catch (e) { console.error('yearhanger show failed on lunch completed', e); }
                   });
@@ -176,17 +201,20 @@
               <span class="loading-text">Gegevens laden...</span>
             </div>
             <div id="result" class="result" style="display:none">
-              <div class="column">
-                <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-                <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-                <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
-                <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
-                <p>Ga nu naar de inschrijftafel om in te checken voor de rit.</p>
-              </div>
-              <div class="column" style="align-items:center; gap:8px;">
-                <canvas id="qrCanvas" width="220" height="220" aria-label="QR-code"></canvas>
-              </div>
+              <div id="memberInfoMount"></div>
             </div>
+            <script type="module">
+              import renderMemberInfo from '/src/member-info.js';
+              try {
+                const mount = document.getElementById('memberInfoMount');
+                window.__memberInfo = renderMemberInfo(mount);
+              } catch (e) { console.error('member-info mount failed (index)', e); }
+              document.addEventListener('member-search:selected', (ev) => {
+                try {
+                  // selection handled by lunch widget; member-info will be shown on lunch:completed
+                } catch (e) { console.error('member-info: selection handler suppressed (index)', e); }
+              });
+            </script>
           </div>
         </section>
       </section>

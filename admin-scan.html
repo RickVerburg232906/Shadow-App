@@ -121,7 +121,7 @@
             
             <div id="adminManualSearchMount"></div>
             <script type="module">
-              import renderMemberSearchInput from '/src/member-search-input.js';
+              import renderMemberSearchInput, { wireAutocomplete } from '/src/member-search-input.js';
                 import { renderLunchChoice } from '/src/lunch-ui.js';
                 import { renderYearhanger } from '/src/yearhanger-ui.js';
               // setSelectedDocFromEntry removed — page will handle loading member data itself
@@ -144,8 +144,7 @@
                   }
                 } catch (e) { console.error('member-search input handler (admin) failed', e); }
               });
-              import('/src/member-search-input.js').then(({ wireAutocomplete }) => {
-                wireAutocomplete(widget, {
+              try { wireAutocomplete(widget, {
                   onSelected: async (memberId) => {
                       // When selecting in the Handmatig inschrijven mount, hide the
                       // past-rides list and render only the manual (inschrijven) UI.
@@ -155,15 +154,15 @@
                         // Load lunch UI into the lunchChoiceSection and make it visible
                         try {
                           const lc = document.getElementById('lunchChoiceSection') || (function(){ const d = document.createElement('div'); d.id='lunchChoiceSection'; d.style.display='none'; d.style.marginTop='24px'; const parent = document.getElementById('manualRideCard') || document.body; parent.appendChild(d); return d; })();
+                          let rc = null;
                           try {
-                            const rc = renderLunchChoice(lc, { persist: false });
-                            if (rc && typeof rc.setMember === 'function') await rc.setMember(memberId);
+                            rc = renderLunchChoice(lc, { persist: false });
                           } catch(_) {}
                           try { lc.style.display = 'block'; } catch(_) {}
 
                           // Ensure the jaarhanger is mounted directly under the lunch section
                           try {
-                            let yr = document.getElementById('yearhangerRow');
+                            let yr = document.getElementById('yearhangerRow_local');
                             if (!yr) {
                               yr = document.createElement('div');
                               yr.id = 'yearhangerRow_local';
@@ -172,6 +171,13 @@
                               lc.parentNode.insertBefore(yr, lc.nextSibling);
                             }
                             try { renderYearhanger(yr); } catch(_) {}
+                            // Ensure the main `#result` card is positioned immediately after the jaarhanger
+                            try {
+                              const resultEl = document.getElementById('result');
+                              if (resultEl && yr && yr.parentNode) {
+                                try { yr.parentNode.insertBefore(resultEl, yr.nextSibling); } catch(_) {}
+                              }
+                            } catch(_) {}
                             // Attach a listener (once) that shows the local jaarhanger when lunch completes
                             try {
                               if (!window.__yearhanger_lunch_listener) {
@@ -180,8 +186,6 @@
                                     const yrEl = document.getElementById('yearhangerRow_local');
                                     if (!yrEl) return;
                                     try { yrEl.style.display = 'block'; } catch(_) {}
-                                    try { renderYearhanger(yrEl); } catch(_) {}
-                                    try { if (renderYearhanger && typeof renderYearhanger.renderUI === 'function') renderYearhanger.renderUI(null); } catch(_) {}
                                     try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
                                   } catch (e) { console.error('yearhanger show failed on lunch completed', e); }
                                 });
@@ -189,13 +193,18 @@
                               }
                             } catch(_) {}
                           } catch(_) {}
+
+                          // Finally bind the member to the lunch widget so its internal
+                          // setMember can dispatch the completion event after the
+                          // jaarhanger listener is registered. The jaarhanger and
+                          // member-info will be shown only when `lunch:completed` fires.
+                          try { if (rc && typeof rc.setMember === 'function') await rc.setMember(memberId); } catch(_) {}
                         } catch(_) {}
                         if (typeof window.renderManualPastRides === 'function') await window.renderManualPastRides(memberId, { listId: 'manualPastRidesList', statusId: 'manualPastRidesStatus' });
                         if (typeof updateTodayButton === 'function') await updateTodayButton(memberId);
                       } catch (e) { console.error('admin manual select handling failed', e); }
                     }
-                });
-              }).catch(e => console.error('failed to load autocomplete', e));
+                }); } catch(e) { console.error('failed to wire autocomplete', e); }
             </script>
             
             <!-- Suggestions removed (centralized search will be provided later) -->
@@ -205,19 +214,76 @@
               <span class="loading-text">Gegevens laden...</span>
             </div>
             <div id="result" class="result" style="display:none">
-              <div class="column">
-                <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-                <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-                <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
-                <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
-                <div style="height:4px;"></div>
-                <h4 style="margin: 8px 0 6px 0;">Handmatig inschrijven</h4>
-                <div style="margin:8px 0; display:flex; align-items:center; gap:8px;">
-                  <button type="button" id="manualTodayBtn" class="btn">Vandaag</button>
-                  <span id="manualTodayStatus" class="small muted" style="min-height:18px;"></span>
-                </div>
-              </div>
+              <div id="memberInfoMount"></div>
             </div>
+            <script type="module">
+              import renderMemberInfo from '/src/member-info.js';
+              import { renderYearhanger } from '/src/yearhanger-ui.js';
+              // mount once and expose for other scripts
+              try {
+                const mount = document.getElementById('memberInfoMount');
+                window.__memberInfo = renderMemberInfo(mount);
+              } catch (e) { console.error('member-info mount failed', e); }
+              // Don't reveal member-info or jaarhanger immediately on selection;
+              // only show them when the lunch flow reports completion.
+              document.addEventListener('member-search:selected', (ev) => {
+                try {
+                  // selection is handled by the lunch widget (it will call rc.setMember)
+                } catch (e) { console.error('member-info: selection handler suppressed', e); }
+              });
+
+              // When lunch completes for a member, reveal jaarhanger and member-info
+              try {
+                if (!window.__memberInfo_lunch_listener) {
+                  document.addEventListener('lunch:completed', (ev) => {
+                    try {
+                      const memberId = ev && ev.detail && ev.detail.memberId ? String(ev.detail.memberId) : null;
+                      if (!memberId) return;
+                      // show yearhanger under lunch
+                      try { const yrEl = document.getElementById('yearhangerRow_local'); if (yrEl) { yrEl.style.display = 'block'; } } catch(_) {}
+
+                      // Register a one-time listener that will reveal the member-info only
+                      // when the jaarhanger actually has a value. Register it BEFORE calling
+                      // setMember so prefill dispatches are caught.
+                      try {
+                        let called = false;
+                        const onYearChanged = (yEv) => {
+                          try {
+                            const val = yEv && yEv.detail && yEv.detail.value ? yEv.detail.value : null;
+                            const mid = yEv && yEv.detail && yEv.detail.memberId ? String(yEv.detail.memberId) : null;
+                            if (!val) return; // only react to non-empty values
+                            if (mid && mid !== memberId) return; // ignore other members
+                            if (called) return;
+                            called = true;
+                            try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
+                            try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                          } catch (e) { console.error('yearhanger:changed handler failed', e); }
+                          finally { try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {} }
+                        };
+                        document.addEventListener('yearhanger:changed', onYearChanged);
+                        // safety: don't wait forever — remove listener after 3s
+                        const yrTimeout = setTimeout(() => { try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {} }, 3000);
+
+                        // Now call setMember (may synchronously dispatch a prefill event)
+                        try { renderYearhanger.setMember(memberId); } catch(_) {}
+                        // If renderYearhanger already had a value synchronously and didn't
+                        // dispatch, call member-info as a fallback
+                        try {
+                          const current = (renderYearhanger && typeof renderYearhanger.getValue === 'function') ? renderYearhanger.getValue() : null;
+                          if (current) {
+                            try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
+                            try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                            try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {}
+                            try { clearTimeout(yrTimeout); } catch(_) {}
+                          }
+                        } catch(_) {}
+                      } catch (e) { console.error('yearhanger prefill wiring failed', e); }
+                    } catch (e) { console.error('lunch:completed handler failed', e); }
+                  });
+                  window.__memberInfo_lunch_listener = true;
+                }
+              } catch(_) {}
+            </script>
           </div>
         </section>
 
@@ -227,13 +293,12 @@
             <p class="hint">Selecteer een deelnemer en boek eerdere ritten .</p>
           </div>
           <script type="module">
-            import renderMemberSearchInput from '/src/member-search-input.js';
+            import renderMemberSearchInput, { wireAutocomplete } from '/src/member-search-input.js';
             // renderManualPastRides and updateTodayButton are defined in this page's script
 
             const pmMount = document.getElementById('pastRidesSearchMount');
             const pmWidget = renderMemberSearchInput(pmMount, { showButton: false, placeholder: 'Naam' });
-            import('/src/member-search-input.js').then(({ wireAutocomplete }) => {
-              wireAutocomplete(pmWidget, {
+            try { wireAutocomplete(pmWidget, {
                 onSelected: async (memberId) => {
                   try {
                     // When selecting in the Past Rides mount, hide the manual
@@ -246,8 +311,7 @@
                     console.error('past rides select failed', e);
                   }
                 }
-              });
-            }).catch(e => console.error('failed to load autocomplete', e));
+            }); } catch(e) { console.error('failed to wire autocomplete', e); }
           </script>
           <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap;">
             <div id="pastRidesSearchMount" style="flex: 1; min-width: 240px;"></div>
@@ -1032,6 +1096,8 @@
       const yhNo = document.getElementById('yearhangerNo');
       yhYes?.addEventListener('click', ensureResultVisibleAndScroll);
       yhNo?.addEventListener('click', ensureResultVisibleAndScroll);
+      // When lunch choices are already complete for the selected member, ensure result and jaarhanger are visible
+      try { document.addEventListener('lunch:completed', () => { try { ensureResultVisibleAndScroll(); } catch(_) {} }); } catch(_) {}
 
       // (Replaced dropdown population with autocomplete initialization below)
     </script>

@@ -1,5 +1,6 @@
 // yearhanger-ui.js
 // Renders the jaarhanger HTML fragment into a container element.
+import { db, doc, getDoc } from './firebase.js';
 export function renderYearhanger(container = null) {
   try {
     if (!container) container = document.getElementById('yearhangerRow');
@@ -52,6 +53,11 @@ export function renderYearhanger(container = null) {
       S.info = container.querySelector('#jaarhangerInfo');
       S.badge = container.querySelector('#jaarhangerSelectionBadge');
       S._val = null;
+      // Track the member id the UI is bound to and whether the user manually
+      // changed the jaarhanger (manual override). When a manual override is
+      // present for the same member, programmatic prefill should not overwrite it.
+      S._boundMember = null;
+      S._manualOverride = false;
 
       function updateBadge() {
         try {
@@ -80,7 +86,20 @@ export function renderYearhanger(container = null) {
 
       function renderUI(v) {
         try {
-          S._val = (v === 'Ja' || v === true) ? 'Ja' : (v === 'Nee' || v === false) ? 'Nee' : null;
+          // Preserve an existing explicit value: only clear when explicitly setting
+          // to null and there was no previous value. This prevents clearing a
+          // previously-prefilled jaarhanger when unrelated flows (like lunch)
+          // call `renderUI(null)`.
+          if (v === null) {
+            // keep existing value if present
+            if (S._val !== null) {
+              // do not overwrite
+            } else {
+              S._val = null;
+            }
+          } else {
+            S._val = (v === 'Ja' || v === true) ? 'Ja' : (v === 'Nee' || v === false) ? 'Nee' : null;
+          }
           if (S.row) S.row.style.display = S._val === null ? (S.row.dataset.visibleOnInit === 'true' ? '' : 'block') : 'block';
           if (S.info) S.info.style.display = 'block';
           if (S.yes && S.no) {
@@ -101,17 +120,20 @@ export function renderYearhanger(container = null) {
       try {
         if (S.yes) {
           S.yes.addEventListener('click', () => {
+            // Mark as manual override when the operator clicks
+            S._manualOverride = true;
             renderUI('Ja');
             collapseSection();
-            try { document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail: { value: 'Ja' }, bubbles: true })); } catch(_){}
-          });
+            try { document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail: { value: 'Ja' }, bubbles: true })); } catch(_){}}
+          );
         }
         if (S.no) {
           S.no.addEventListener('click', () => {
+            S._manualOverride = true;
             renderUI('Nee');
             collapseSection();
-            try { document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail: { value: 'Nee' }, bubbles: true })); } catch(_){}
-          });
+            try { document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail: { value: 'Nee' }, bubbles: true })); } catch(_){}}
+          );
         }
       } catch(_) {}
 
@@ -121,6 +143,83 @@ export function renderYearhanger(container = null) {
       renderYearhanger.collapse = collapseSection;
       renderYearhanger.updateBadge = updateBadge;
       renderYearhanger.getValue = () => S._val;
+      // Allow host pages to bind a member id so the jaarhanger UI can prefill from Firestore
+      // `forceClear` optional second arg: when true, will clear UI if no value found.
+      renderYearhanger.setMember = async (memberId, forceClear = false) => {
+        try {
+          // Ensure the UI has been initialized
+          const S = renderYearhanger.ensure ? renderYearhanger.ensure() : null;
+          if (!S) return;
+
+          // If no member provided, clear binding and optionally clear UI
+          if (!memberId) {
+            try { renderYearhanger.renderUI(null); } catch(_) {}
+            S._boundMember = null;
+            S._manualOverride = false;
+            return;
+          }
+
+          try {
+            const ref = doc(db, 'members', String(memberId));
+            const snap = await getDoc(ref);
+
+            if (!snap || !snap.exists()) {
+              // No document found: do not clear UI by default. Bind to this member.
+              if (forceClear) {
+                try { renderYearhanger.renderUI(null); } catch(_) {}
+              }
+              S._boundMember = String(memberId);
+              return;
+            }
+
+            const data = snap.data() || {};
+            // Try multiple common field names and types
+            let raw = null;
+            if (Object.prototype.hasOwnProperty.call(data, 'Jaarhanger')) raw = data.Jaarhanger;
+            else if (Object.prototype.hasOwnProperty.call(data, 'jaarhanger')) raw = data.jaarhanger;
+            else if (Object.prototype.hasOwnProperty.call(data, 'JaarHanger')) raw = data.JaarHanger;
+            else if (Object.prototype.hasOwnProperty.call(data, 'JaarhangerAfgekort')) raw = data.JaarhangerAfgekort;
+
+            let val = null;
+            try {
+              if (typeof raw === 'boolean') {
+                val = raw ? 'Ja' : 'Nee';
+              } else if (typeof raw === 'number') {
+                val = raw === 1 ? 'Ja' : (raw === 0 ? 'Nee' : null);
+              } else if (typeof raw === 'string') {
+                const t = raw.trim().toLowerCase();
+                if (t === 'ja' || t === 'yes' || t === 'y' || t === 'true') val = 'Ja';
+                else if (t === 'nee' || t === 'no' || t === 'n' || t === 'false') val = 'Nee';
+              }
+            } catch(_) { val = null; }
+
+            // If operator manually changed the jaarhanger for this bound member,
+            // prefer their choice and do not overwrite it when setMember is re-run
+            // due to unrelated flows (like lunch changes).
+            const memberStr = String(memberId);
+            if (S._boundMember !== memberStr) {
+              // new member selected -> clear manual override
+              S._manualOverride = false;
+            }
+
+            if (val) {
+              if (!(S._manualOverride && S._boundMember === memberStr)) {
+                try { renderYearhanger.renderUI(val); } catch(_) {}
+                try { renderYearhanger.collapse(); } catch(_) {}
+                try { document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail: { value: val, from: 'prefill', memberId: memberStr }, bubbles: true })); } catch(_) {}
+              }
+              S._boundMember = memberStr;
+            } else {
+              if (forceClear) {
+                try { renderYearhanger.renderUI(null); } catch(_) {}
+              }
+              S._boundMember = memberStr;
+            }
+          } catch (e) {
+            console.error('yearhanger-ui.setMember failed to load member', e);
+          }
+        } catch (e) { console.error('yearhanger-ui.setMember failed', e); }
+      };
     } catch (e) { console.error('yearhanger-ui: wiring failed', e); }
     return container;
   } catch (e) {

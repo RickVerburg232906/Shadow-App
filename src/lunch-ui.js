@@ -419,6 +419,13 @@ export function renderLunchChoice(container = null, opts = {}) {
             if (lunchDetailsSection) { lunchDetailsSection.style.display = 'block'; lunchDetailsSection.hidden = false; }
             if (keuzePreviewWrap) { keuzePreviewWrap.style.display = 'block'; keuzePreviewWrap.hidden = false; }
             if (keuzeWrap) { keuzeWrap.style.display = 'flex'; keuzeWrap.hidden = false; }
+            // Ensure the keuze buttons are scrolled into view for the operator
+            try {
+              // Allow layout to settle slightly when called from other handlers
+              setTimeout(() => {
+                try { if (keuzeWrap) keuzeWrap.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(_) {}
+              }, 60);
+            } catch(_) {}
           }
           return keuzeEten;
         } catch (e) {
@@ -550,7 +557,11 @@ export function renderLunchChoice(container = null, opts = {}) {
                   try { if (lunchDetailsSection) { lunchDetailsSection.style.display = 'block'; lunchDetailsSection.hidden = false; } } catch(_) {}
                   try { if (keuzeSection) { keuzeSection.style.display = 'block'; keuzeSection.hidden = false; } } catch(_) {}
                   try { if (keuzeWrap) { keuzeWrap.style.display = 'flex'; keuzeWrap.hidden = false; } } catch(_) {}
-                  try { const first = keuzeWrap.querySelector('button'); if (first) first.focus({ preventScroll: true }); } catch(_) {}
+                    try { const first = keuzeWrap.querySelector('button'); if (first) first.focus({ preventScroll: true }); } catch(_) {}
+                    // Scroll the keuze buttons into view so operator can see options
+                    try {
+                      setTimeout(() => { try { if (keuzeWrap) keuzeWrap.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(_) {} }, 60);
+                    } catch(_) {}
                 } else {
                   // Keep hidden: operator must press 'Ja' to reveal
                   try { if (lunchDetailsSection) { lunchDetailsSection.style.display = 'none'; lunchDetailsSection.hidden = true; } } catch(_) {}
@@ -584,6 +595,35 @@ export function renderLunchChoice(container = null, opts = {}) {
               if (lunchScannedDisclaimer) lunchScannedDisclaimer.style.display = 'none';
                     try { if (lockOverlay) { lockOverlay.style.display = 'none'; lockOverlay.style.pointerEvents = 'none'; } } catch(_) {}
             }
+            // If all relevant lunch values are already present (prefilled from Firestore/local),
+            // notify host pages so they can react (e.g. show the jaarhanger/result section).
+            try {
+              const memberStr = String(memberId);
+              // deel is 'ja'|'nee'|''; keuze is string or ''
+              const finalDeel = (deel === 'ja' || deel === 'nee') ? deel : null;
+              // keuzeItems was created above by renderKeuzeButtonsIfNeeded
+              const hasKeuzeOptions = Array.isArray(keuzeItems) && keuzeItems.length > 0;
+              const hasSavedKeuze = Boolean(keuze && String(keuze).trim().length > 0);
+              let shouldDispatch = false;
+              let dispatchKeuze = null;
+              if (finalDeel === 'nee') {
+                shouldDispatch = true;
+                dispatchKeuze = null;
+              } else if (finalDeel === 'ja') {
+                if (!hasKeuzeOptions) {
+                  // no choices to pick from → completed by virtue of Deel='ja'
+                  shouldDispatch = true;
+                  dispatchKeuze = null;
+                } else if (hasSavedKeuze) {
+                  // choices exist but a specific saved meal is present
+                  shouldDispatch = true;
+                  dispatchKeuze = String(keuze);
+                }
+              }
+              if (shouldDispatch) {
+                try { document.dispatchEvent(new CustomEvent('lunch:completed', { detail: { memberId: memberStr, deel: finalDeel, keuze: dispatchKeuze }, bubbles: true })); } catch(_) {}
+              }
+            } catch (_) {}
           } catch (e) {
             console.error('setMember failed to load member data', e);
           }
