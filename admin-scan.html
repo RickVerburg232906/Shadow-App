@@ -200,7 +200,10 @@
                           // member-info will be shown only when `lunch:completed` fires.
                           try { if (rc && typeof rc.setMember === 'function') await rc.setMember(memberId); } catch(_) {}
                         } catch(_) {}
-                        if (typeof window.renderManualPastRides === 'function') await window.renderManualPastRides(memberId, { listId: 'manualPastRidesList', statusId: 'manualPastRidesStatus' });
+                        // Do not auto-show earlier rides when selecting from the
+                        // "Handmatig inschrijven" widget. The Past Rides section
+                        // has its own search mount and should be used to show
+                        // previous rides to avoid coupling the two flows.
                         if (typeof updateTodayButton === 'function') await updateTodayButton(memberId);
                       } catch (e) { console.error('admin manual select handling failed', e); }
                     }
@@ -290,7 +293,7 @@
         <div class="card" id="cardPastRidesRegister">
           <div>
             <h1>Eerdere ritten registreren</h1>
-            <p class="hint">Selecteer een deelnemer en boek eerdere ritten .</p>
+            <p class="hint">Selecteer een deelnemer en boek eerdere ritten.</p>
           </div>
           <script type="module">
             import renderMemberSearchInput, { wireAutocomplete } from '/src/member-search-input.js';

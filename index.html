@@ -118,6 +118,7 @@
               document.addEventListener('member-search:selected', (ev) => {
                 try {
                   const id = ev && ev.detail && ev.detail.id ? ev.detail.id : null;
+                  try { console.debug('index: member-search:selected (landelijk)', id); } catch(_) {}
                   if (!id) return;
                   // Ensure mount is visible and widget exists (may have been cleared)
                   try { if (lunchMount) { lunchMount.style.display = ''; } } catch(_) {}
@@ -294,6 +295,7 @@
                     const evMember = ev && ev.detail && ev.detail.memberId ? String(ev.detail.memberId) : null;
                     const current = window.__current_selected_member ? String(window.__current_selected_member) : null;
                     const memberToCheck = evMember || current;
+                    try { const hasCompleted = !!(memberToCheck && window.__lunch_completed_members && window.__lunch_completed_members.has(memberToCheck)); console.debug('index: yearhanger:changed', { val, evMember, current, memberToCheck, hasCompleted }); } catch(_) {}
                     if (memberToCheck && window.__lunch_completed_members && window.__lunch_completed_members.has(memberToCheck)) {
                       placeResultUnderYearhanger();
                       showResult(!!val);
@@ -329,6 +331,7 @@
               document.addEventListener('member-search:selected', (ev) => {
                 try {
                   const id = ev && ev.detail && ev.detail.id ? ev.detail.id : null;
+                  try { console.debug('index: member-search:selected (member-info)', id); } catch(_) {}
                   window.__current_selected_member = id ? String(id) : null;
                   // selection handled by lunch widget; member-info will be shown when jaarhanger emits a value
                 } catch (e) { console.error('member-info: selection handler suppressed (index)', e); }
