@@ -199,6 +199,7 @@
                           // jaarhanger listener is registered. The jaarhanger and
                           // member-info will be shown only when `lunch:completed` fires.
                           try { if (rc && typeof rc.setMember === 'function') await rc.setMember(memberId); } catch(_) {}
+                          try { window.__current_selected_member = memberId ? String(memberId) : null; } catch(_) {}
                         } catch(_) {}
                         // Do not auto-show earlier rides when selecting from the
                         // "Handmatig inschrijven" widget. The Past Rides section
@@ -245,39 +246,40 @@
                       // show yearhanger under lunch
                       try { const yrEl = document.getElementById('yearhangerRow_local'); if (yrEl) { yrEl.style.display = 'block'; } } catch(_) {}
 
-                      // Register a one-time listener that will reveal the member-info only
-                      // when the jaarhanger actually has a value. Register it BEFORE calling
-                      // setMember so prefill dispatches are caught.
+                      // Reveal member-info immediately when `lunch:completed` fires.
+                      try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
+                      // Register a persistent jaarhanger listener and prefilling flow
+                      // similar to `index.html` to control result visibility.
                       try {
-                        let called = false;
-                        const onYearChanged = (yEv) => {
+                        try { window.__current_selected_member = window.__current_selected_member || null; } catch(_) {}
+                        try { window.__lunch_completed_members = window.__lunch_completed_members || new Set(); } catch(_) {}
+                        // mark this member as having completed lunch
+                        try { window.__lunch_completed_members.add(memberId); } catch(_) {}
+
+                        const onYearChangedPersistent = (yEv) => {
                           try {
                             const val = yEv && yEv.detail && yEv.detail.value ? yEv.detail.value : null;
-                            const mid = yEv && yEv.detail && yEv.detail.memberId ? String(yEv.detail.memberId) : null;
-                            if (!val) return; // only react to non-empty values
-                            if (mid && mid !== memberId) return; // ignore other members
-                            if (called) return;
-                            called = true;
-                            try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
-                            try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
-                          } catch (e) { console.error('yearhanger:changed handler failed', e); }
-                          finally { try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {} }
+                            const evMember = yEv && yEv.detail && yEv.detail.memberId ? String(yEv.detail.memberId) : null;
+                            const current = window.__current_selected_member ? String(window.__current_selected_member) : null;
+                            const memberToCheck = evMember || current;
+                            if (memberToCheck && window.__lunch_completed_members && window.__lunch_completed_members.has(memberToCheck)) {
+                              try { const yrEl = document.getElementById('yearhangerRow_local') || document.getElementById('yearhangerRow'); const result = document.getElementById('result'); if (yrEl && result && yrEl.parentNode) yrEl.parentNode.insertBefore(result, yrEl.nextSibling); } catch(_) {}
+                              try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberToCheck); } catch(_) {}
+                              try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                            }
+                          } catch (e) { console.error('admin-scan yearhanger:changed persistent handler failed', e); }
                         };
-                        document.addEventListener('yearhanger:changed', onYearChanged);
-                        // safety: don't wait forever — remove listener after 3s
-                        const yrTimeout = setTimeout(() => { try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {} }, 3000);
+                        document.addEventListener('yearhanger:changed', onYearChangedPersistent);
 
-                        // Now call setMember (may synchronously dispatch a prefill event)
+                        // Prefill jaarhanger from Firestore (may dispatch prefill events)
                         try { renderYearhanger.setMember(memberId); } catch(_) {}
-                        // If renderYearhanger already had a value synchronously and didn't
-                        // dispatch, call member-info as a fallback
+
+                        // Fallback: if jaarhanger already had a value, ensure member-info is shown
                         try {
                           const current = (renderYearhanger && typeof renderYearhanger.getValue === 'function') ? renderYearhanger.getValue() : null;
                           if (current) {
                             try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
                             try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
-                            try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {}
-                            try { clearTimeout(yrTimeout); } catch(_) {}
                           }
                         } catch(_) {}
                       } catch (e) { console.error('yearhanger prefill wiring failed', e); }
@@ -331,7 +333,7 @@
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module">
-      import { applyAdminLevel } from './src/auth.js';
+      import { applyAdminLevel } from './src/main.js';
   import { getPlannedDates, plannedStarsWithHighlights } from './src/member.js';
   import { db, collection, orderBy, startAfter, limit, getDocs, query, onSnapshot, where } from './src/firebase.js';
       

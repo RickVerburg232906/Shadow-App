@@ -93,7 +93,7 @@ export function renderMemberInfo(container = null, opts = {}) {
         const fullName = `${d['Voor naam'] || ''} ${(d['Tussen voegsel'] || '').trim()} ${d['Naam'] || ''}`.replace(/\s+/g,' ').trim() || '—';
         if (nameEl) nameEl.textContent = fullName;
         if (memberNoEl) memberNoEl.textContent = String(d.id || d.LidNr || d.lidNr || d.memberNo || d.MemberNo || '—');
-        if (regionEl) regionEl.textContent = d.Regio || d.regio || d.region || '—';
+        if (regionEl) regionEl.textContent = d['Regio Omschrijving'] || d.Regio || d.regio || d.region || '—';
         const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : (Array.isArray(d.scandatums) ? d.scandatums : []);
         // planned dates may be cached; fetch once
         const planned = await getPlannedDatesLocal();

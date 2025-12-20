@@ -53,7 +53,7 @@ const tabAdmin  = $("tabAdmin");
 const viewMember = $("viewMember");
 const viewAdmin  = $("viewAdmin");
 
-function applyAdminLevel() {
+export function applyAdminLevel() {
   try {
     const lvl = sessionStorage.getItem("admin_level") || "admin";
     const adminView = document.getElementById("viewAdmin");

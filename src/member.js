@@ -2,7 +2,6 @@
 import QRCode from "qrcode";
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
-// import { renderYearhanger } from './yearhanger-ui.js';
 
 // ====== Star / planned dates helpers (exported) ======
 let STAR_MAX = 5;
@@ -111,25 +110,8 @@ export async function initMemberView() {
   const rRegion    = $("rRegion");
   const loadingIndicator = $("loadingIndicator");
 
-  // Lunch UI is delegated to `src/lunch-ui.js`.
-  // Keep minimal stubs here for backward compatibility (no DOM access).
-  let lunchChoiceSection = null;
-  let lunchToggle = null;
-  let lunchYes = null;
-  let lunchNo = null;
-  let lunchDetailsSection = null;
-  let vastEtenDisplay = null;
-  let keuzeEtenButtons = null;
-  let keuzeEtenSection = null;
-  let lunchSelectionBadge = null;
-  let lunchSummaryText = null;
-  let lunchScannedDisclaimer = null;
-  let lunchDeadlineInfo = null;
-  // Jaarhanger UI is handled by `src/yearhanger-ui.js` (rendered where needed)
-  let lunchDetailsElement = null; // Reference to the details element
-  let _lunchChoice = null; // "ja" of "nee"
-  let _selectedKeuzeEten = []; // array van geselecteerde keuze eten items
-  let _isScannedForRide = false; // flag om bij te houden of lid al gescand is
+  // Lunch / jaarhanger UI moved to dedicated modules (`src/lunch-ui.js`, `src/yearhanger-ui.js`).
+  // No local DOM stubs or rendering logic remain in this file.
 
 // Helper functie voor foutmeldingen
 function getErrorMessage(error) {
@@ -237,99 +219,11 @@ async function checkIfCurrentMemberIsScanned() {
   }
 }
 
-function showLunchChoice() {
-  if (lunchChoiceSection) {
-    lunchChoiceSection.style.display = 'block';
-    // Voeg een smooth fade-in animatie toe
-    lunchChoiceSection.style.opacity = '0';
-    lunchChoiceSection.style.transform = 'translateY(-10px)';
-    setTimeout(() => {
-      lunchChoiceSection.style.transition = 'all 0.4s ease';
-      lunchChoiceSection.style.opacity = '1';
-      lunchChoiceSection.style.transform = 'translateY(0)';
-    }, 10);
-    
-    // Laad en toon het vaste eten menu (altijd zichtbaar)
-    loadLunchOptions().then(({ vastEten }) => {
-      if (vastEtenDisplay) {
-        vastEtenDisplay.textContent = vastEten.length > 0 
-          ? vastEten.join(', ') 
-          : 'Geen vast eten beschikbaar';
-      }
-    }).catch(err => {
-      console.error('Fout bij laden vast eten:', err);
-      if (vastEtenDisplay) {
-        vastEtenDisplay.textContent = 'Fout bij laden menu';
-      }
-    });
-    
-    // Vind het details element
-    if (!lunchDetailsElement && lunchChoiceSection) {
-      lunchDetailsElement = lunchChoiceSection.querySelector('details');
-    }
-    
-    // Toon/verberg disclaimer op basis van scan status
-    if (lunchScannedDisclaimer) {
-      lunchScannedDisclaimer.style.display = _isScannedForRide ? 'block' : 'none';
-    }
-    // lunchDeadlineInfo blijft altijd zichtbaar
-    
-    // Disable ja/nee buttons als lid al gescand is
-    if (lunchYes && lunchNo) {
-      lunchYes.disabled = _isScannedForRide;
-      lunchNo.disabled = _isScannedForRide;
-      if (_isScannedForRide) {
-        lunchYes.style.opacity = '0.6';
-        lunchYes.style.cursor = 'not-allowed';
-        lunchNo.style.opacity = '0.6';
-        lunchNo.style.cursor = 'not-allowed';
-      } else {
-        lunchYes.style.opacity = '';
-        lunchYes.style.cursor = '';
-        lunchNo.style.opacity = '';
-        lunchNo.style.cursor = '';
-      }
-    }
-    
-    // Bepaal open/dicht op basis van huidige keuze-status
-    // Open alleen als er nog géén keuze is gemaakt, of bij 'ja' zonder gekozen snack
-    if (lunchDetailsElement) {
-      const suppressed = lunchDetailsElement.dataset && lunchDetailsElement.dataset.suppressAutoOpen === 'true';
-      const shouldOpen = !suppressed && ((_lunchChoice === null) || (_lunchChoice === 'ja' && Array.isArray(_selectedKeuzeEten) && _selectedKeuzeEten.length === 0));
-      lunchDetailsElement.open = shouldOpen;
-    }
-  }
-}
+// All lunch-related UI rendering and wiring lives in `src/lunch-ui.js`.
+// This file retains only data/helpers; UI responsibilities moved to the module.
 
-function collapseLunchSection() {
-  // no-op: controlled by lunch-ui.js
-}
-
-function hideLunchChoice() {
-  // no-op: lunch UI is delegated to `src/lunch-ui.js`.
-  _lunchChoice = null;
-  _selectedKeuzeEten = [];
-}
-
-function updateLunchBadge() {
-  // no-op: badge is rendered by lunch-ui.js
-}
-
-async function renderLunchUI(choice) {
-  // Deprecated: lunch UI is now handled by `src/lunch-ui.js`.
-  // Keep this stub so callers do not throw; actual rendering and logic
-  // are performed in the dedicated module.
-  try { _lunchChoice = choice; } catch(_) {}
-  try { console.warn('renderLunchUI() is deprecated — use src/lunch-ui.js'); } catch(_) {}
-}
-
-// Lunch keuze UI is handled by `src/lunch-ui.js` and does its own event wiring.
-
-// Jaarhanger UI responsibilities moved to `src/yearhanger-ui.js`.
-// All legacy jaarhanger DOM and logic removed from this file. Use the
-// `yearhanger:changed` event emitted by `src/yearhanger-ui.js` and
-// centralized save helpers (for example `saveYearhanger(memberId, value)` in
-// `src/landelijke-signup.js`) to persist choices when needed.
+// Lunch keuze UI is handled by `src/lunch-ui.js` and jaarhanger by `src/yearhanger-ui.js`.
+// Use their public APIs/events (e.g. `lunch:completed`, `yearhanger:changed`).
 
   // Events
 
