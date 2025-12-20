@@ -219,6 +219,10 @@
             </div>
             <div id="result" class="result" style="display:none">
               <div id="memberInfoMount"></div>
+              <div id="manualTodayWrap" style="display:flex; gap:8px; align-items:center;">
+                <button id="manualTodayBtn" class="btn" type="button">Vandaag</button>
+                <span id="manualTodayStatus" class="muted small" aria-live="polite"></span>
+              </div>
             </div>
             <script type="module">
               import renderMemberInfo from '/src/member-info.js';
