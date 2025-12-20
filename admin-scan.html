@@ -250,8 +250,11 @@
                       // show yearhanger under lunch
                       try { const yrEl = document.getElementById('yearhangerRow_local'); if (yrEl) { yrEl.style.display = 'block'; } } catch(_) {}
 
-                      // Reveal member-info immediately when `lunch:completed` fires.
-                      try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
+                      // Defer revealing `member-info` until the jaarhanger value
+                      // is available (via prefill or a `yearhanger:changed` event).
+                      // Mark the member as pending so the persistent handler can
+                      // show it once jaarhanger is set.
+                      try { window.__pending_show_after_yearhanger = memberId; } catch(_) {}
                       // Register a persistent jaarhanger listener and prefilling flow
                       // similar to `index.html` to control result visibility.
                       try {
