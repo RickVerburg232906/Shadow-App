@@ -1,7 +1,7 @@
 
 import { initMemberView, getPlannedDates } from "./member.js";
 import { initAdminView } from "./admin.js";
-import { db, doc, getDoc, setDoc } from "./firebase.js";
+import { db, doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch, limit, orderBy, startAfter } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +28,9 @@ async function ensurePasswordsLoaded() {
   }
   return PASSWORDS;
 }
+
+// Expose clearPastLunchData to the window for dev pages to call directly
+try { if (typeof window !== 'undefined') window.clearPastLunchData = clearPastLunchData; } catch(_) {}
 async function setInschrijftafelPwd(newPwd) {
   const ref = doc(db, "globals", "passwords");
   await withRetry(() => updateOrCreateDoc(ref, { inschrijftafel: String(newPwd || ""), updatedAt: Date.now() }), { retries: 2 });
@@ -45,6 +48,47 @@ async function setHoofdAdminPwd(newPwd) {
 async function getHoofdAdminPwd() {
   const p = await ensurePasswordsLoaded();
   return p.hoofdadmin;
+}
+
+// Clear lunch fields for all members whose lunchRideDateYMD is before today
+async function clearPastLunchData() {
+  try {
+    const today = new Date();
+    const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const coll = collection(db, 'members');
+    const pageSize = 400;
+    let last = null;
+    let totalUpdated = 0;
+    while (true) {
+      let qRef = null;
+      if (last) {
+        qRef = query(coll, where('lunchRideDateYMD', '<', todayYMD), orderBy('lunchRideDateYMD'), orderBy('__name__'), startAfter(last), limit(pageSize));
+      } else {
+        qRef = query(coll, where('lunchRideDateYMD', '<', todayYMD), orderBy('lunchRideDateYMD'), orderBy('__name__'), limit(pageSize));
+      }
+      const snap = await getDocs(qRef);
+      if (snap.empty) break;
+      const batch = writeBatch(db);
+      let batchCount = 0;
+      snap.forEach(docSnap => {
+        try {
+          const ref = doc(db, 'members', docSnap.id);
+          // clear lunch-related fields by setting them to null
+          batch.update(ref, { lunchDeelname: null, lunchKeuze: null, lunchRideDateYMD: null });
+          batchCount += 1;
+        } catch (_) {}
+      });
+      await batch.commit();
+      totalUpdated += batchCount;
+      last = snap.docs[snap.docs.length - 1];
+      if (snap.size < pageSize) break;
+    }
+    console.info('Cleared past lunch data before', todayYMD, '- documents updated:', totalUpdated);
+    return totalUpdated;
+  } catch (e) {
+    console.warn('clearPastLunchData failed', e);
+    throw e;
+  }
 }
 
 // Tabs & views
@@ -216,9 +260,23 @@ async function adminLoginFlow(redirectTo) {
     if (pwd === rootPwd) {
       sessionStorage.setItem("admin_ok", "1");
       sessionStorage.setItem("admin_level", "root");
+      try {
+        // After successful admin authentication, clear past lunch data (dates before today)
+        const cleared = await clearPastLunchData();
+        console.info('clearPastLunchData completed for admin (root). documents updated:', cleared);
+      } catch (e) {
+        console.warn('Clearing past lunch data failed', e);
+      }
     } else if (pwd === adminPwd) {
       sessionStorage.setItem("admin_ok", "1");
       sessionStorage.setItem("admin_level", "admin");
+      try {
+        // Also clear past lunch data for regular inschrijftafel admin
+        const cleared = await clearPastLunchData();
+        console.info('clearPastLunchData completed for admin. documents updated:', cleared);
+      } catch (e) {
+        console.warn('Clearing past lunch data failed', e);
+      }
     } else {
       window.alert("Wachtwoord onjuist");
       return;

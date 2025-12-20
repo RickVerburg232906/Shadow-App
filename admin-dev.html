@@ -48,6 +48,10 @@
           <button id="clearScanDatumsBtn" class="btn" style="border-color:#ef4444;">⚠️ Reset alle ScanDatums</button>
           <span id="clearScanDatumsStatus" class="status"></span>
         </div>
+        <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+          <button id="clearPastLunchBtn" class="btn" style="border-color:#ef4444;">⚠️ Clear past lunch data (dev)</button>
+          <span id="clearPastLunchStatus" class="status"></span>
+        </div>
       </section>
     </main>
 
@@ -122,6 +126,35 @@
             }
           });
         }
+          // New dev button to clear past lunch data
+          const clearPastBtn = document.getElementById('clearPastLunchBtn');
+          const clearPastStatus = document.getElementById('clearPastLunchStatus');
+          if (clearPastBtn) {
+            clearPastBtn.addEventListener('click', async () => {
+              if (!confirm('Weet je het zeker? Dit wist lunchgegevens voor alle leden voor datums vóór vandaag.')) return;
+              clearPastBtn.disabled = true;
+              clearPastStatus.textContent = 'Bezig…';
+              try {
+                // Ensure the function is available; dynamically import if not
+                if (typeof window.clearPastLunchData !== 'function') {
+                  try { await import('/src/main.js'); } catch (e) { console.warn('Dynamic import failed', e); }
+                }
+                if (typeof window.clearPastLunchData === 'function') {
+                  const count = await window.clearPastLunchData();
+                  clearPastStatus.textContent = `✅ Klaar — bijgewerkt: ${count}`;
+                  console.info('clearPastLunchData via admin-dev:', count);
+                } else {
+                  clearPastStatus.textContent = '❌ Functie niet beschikbaar';
+                  console.warn('clearPastLunchData not available on window');
+                }
+              } catch (e) {
+                console.error('Clear past lunch data failed', e);
+                clearPastStatus.textContent = '❌ Mislukt: ' + (e?.message || e);
+              } finally {
+                clearPastBtn.disabled = false;
+              }
+            });
+          }
       }
     </script>
 
