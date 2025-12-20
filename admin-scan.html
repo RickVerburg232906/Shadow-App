@@ -529,20 +529,10 @@
         try { if (window.__unsubLunchOverview) { window.__unsubLunchOverview(); delete window.__unsubLunchOverview; } } catch (_) {}
         if (!ymd) return; // nothing to listen for
 
-        // Build a targeted query: always filter by date. If menu choices exist, only listen
-        // for documents that have a lunchKeuze (so a chosen meal triggers updates).
-        let q = null;
-        try {
-          if (hasChoices) {
-            q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd), where('lunchKeuze', '!=', ''));
-          } else {
-            // No specific choices -> listen for anyone assigned to this date (yes/no changes)
-            q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd));
-          }
-        } catch (e) {
-          // Fallback to broad date-only query if compound queries aren't allowed in this env
-          q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd));
-        }
+        // Build a targeted query: listen for any member assigned to this lunch date.
+        // Use a date-only query so additions/changes to lunchDeelname or lunchKeuze
+        // are always observed and the overview updates dynamically.
+        const q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd));
 
         let debounce = null;
         // Helper to render perChoiceMap into the DOM
