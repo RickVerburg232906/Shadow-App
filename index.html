@@ -26,6 +26,23 @@
       details summary::marker {
         display: none;
       }
+      /* QR expand styles */
+      #memberInfoQRWrap { display:flex; }
+      #memberInfoQRImg { cursor: zoom-in; }
+      #memberInfoQRImg.qr-expanded {
+        position: fixed;
+        z-index: 99999;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%,-50%);
+        width: calc(100vw - 32px);
+        height: calc(100vw - 32px);
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 6px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        background: #fff;
+      }
     </style>
   <link rel="stylesheet" href="/style.css">
   <!-- Preload main module and important image hints to reduce time-to-interactive / LCP jitter -->
@@ -250,10 +267,17 @@
             </div>
             <div id="result" class="result" style="display:none">
               <div id="memberInfoMount"></div>
+              <div id="memberInfoQRWrap" style="margin-top:12px; display:none; align-items:center; justify-content:center; gap:8px; flex-direction:column; text-align:center; width:100%;">
+                <div id="memberInfoQRNotice" class="muted small" style="margin-bottom:8px; font-weight:600; color:#f59e0b;">
+                  Er wordt niets opgeslagen totdat de qr code is gescand.
+                </div>
+                <img id="memberInfoQRImg" alt="Member data QR" style="width:100%; height:auto; max-width:420px; aspect-ratio:1/1; border-radius:6px; background:#fff; display:block; object-fit:contain;" />
+              </div>
             </div>
             <script type="module">
               import renderMemberInfo from '/src/member-info.js';
               import { renderYearhanger } from '/src/yearhanger-ui.js';
+              import { db, doc, onSnapshot, getDoc } from '/src/firebase.js';
               try {
                 const mount = document.getElementById('memberInfoMount');
                 window.__memberInfo = renderMemberInfo(mount);
@@ -336,6 +360,205 @@
                   // selection handled by lunch widget; member-info will be shown when jaarhanger emits a value
                 } catch (e) { console.error('member-info: selection handler suppressed (index)', e); }
               });
+
+              // --- QR wiring: listen for member selection or lunch completion and render QR ---
+              let __qrUnsub = null;
+              function hideQR() {
+                try { const wrap = document.getElementById('memberInfoQRWrap'); if (wrap) wrap.style.display = 'none'; } catch(_) {}
+              }
+
+              function ensureQRLib() {
+                return new Promise((resolve, reject) => {
+                  if (window.QRCode && typeof window.QRCode.toDataURL === 'function') return resolve(window.QRCode);
+                  // load qrcode library from jsdelivr
+                  const src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js';
+                  // don't inject twice
+                  if (document.querySelector('script[data-qr-lib]')) {
+                    // wait for onload
+                    const s = document.querySelector('script[data-qr-lib]');
+                    s.addEventListener('load', () => resolve(window.QRCode));
+                    s.addEventListener('error', () => reject(new Error('QR lib failed')));
+                    return;
+                  }
+                  const s = document.createElement('script');
+                  s.setAttribute('data-qr-lib', '1');
+                  s.src = src;
+                  s.onload = () => resolve(window.QRCode);
+                  s.onerror = () => reject(new Error('Failed to load QR lib'));
+                  document.head.appendChild(s);
+                });
+              }
+
+              async function renderQRForData(d) {
+                try {
+                  const qrWrap = document.getElementById('memberInfoQRWrap');
+                  const qrImg = document.getElementById('memberInfoQRImg');
+                  if (!qrWrap || !qrImg) return;
+                  const lid = d.id || d.lid || d.LidNr || d.member || d.uid || '';
+                  const jaarhanger = d.Jaarhanger || d.jaarhanger || d.Jaarhangers || d.JaarhangerY || '';
+                  const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : (Array.isArray(d.scandatums) ? d.scandatums : []);
+                  const scanNormalized = (Array.isArray(scansRaw) ? scansRaw.map(v => {
+                    try { if (typeof v === 'string') { const m = v.match(/\d{4}-\d{2}-\d{2}/); if (m) return m[0]; }
+                          const dt = new Date(v); if (!isNaN(dt)) return dt.toISOString().slice(0,10); } catch(_) {}
+                    return String(v);
+                  }).filter(Boolean) : []);
+                  const lunchDeelname = d.lunchDeelname || d.LunchDeelname || d.lunch || d.Lunch || '';
+                  const lunchKeuze = d.LunchKeuze || d.lunchKeuze || d.lunchKeuzeKeuze || '';
+                  const lunchRide = d.LunchRideDateYMD || d.lunchRideDateYMD || d.LunchRideDate || '';
+
+                  const payloadObj = {
+                    lid: String(lid || ''),
+                    Jaarhanger: jaarhanger || '',
+                    ScanDatums: scanNormalized,
+                    lunchDeelname: lunchDeelname || '',
+                    lunchKeuze: lunchKeuze || '',
+                    LunchRideDateYMD: lunchRide || ''
+                  };
+
+                  const payloadStr = JSON.stringify(payloadObj);
+                  const hasAny = (payloadObj.lid && payloadObj.lid.trim()) || payloadObj.ScanDatums.length || payloadObj.Jaarhanger || payloadObj.lunchDeelname || payloadObj.lunchKeuze || payloadObj.LunchRideDateYMD;
+                  if (!hasAny) { qrWrap.style.display = 'none'; return; }
+
+                  // Try to generate a data URL locally using qrcode lib (sized to container width)
+                  try {
+                    await ensureQRLib();
+                    // Size QR to the parent container width so it fills available space
+                    const container = qrImg.parentElement;
+                    const measured = (container && container.clientWidth) || qrImg.getBoundingClientRect().width || 300;
+                    const drawSize = Math.min(Math.max(160, Math.floor(measured)), 1024);
+                    const internalSize = Math.floor(drawSize * (window.devicePixelRatio || 1));
+                    const dataUrl = await new Promise((resolve, reject) => {
+                      try {
+                        // QRCode.toDataURL(payload, opts, callback)
+                        window.QRCode.toDataURL(payloadStr, { width: internalSize }, (err, url) => err ? reject(err) : resolve(url));
+                      } catch (e) { reject(e); }
+                    });
+                    qrImg.src = dataUrl;
+                    try { qrWrap.style.display = 'flex'; qrWrap.style.alignItems = 'center'; } catch(_) {}
+                    return;
+                  } catch (e) {
+                    console.debug('QR lib failed, falling back to Google Chart image:', e);
+                  }
+
+                  // Fallback: Google Chart endpoint sized to container
+                  try {
+                    const container = qrImg.parentElement;
+                    const measured = (container && container.clientWidth) || qrImg.getBoundingClientRect().width || 300;
+                    const drawSize = Math.min(Math.max(160, Math.floor(measured)), 1024);
+                    const encoded = encodeURIComponent(payloadStr);
+                    qrImg.src = `https://chart.googleapis.com/chart?cht=qr&chs=${drawSize}x${drawSize}&chl=${encoded}&choe=UTF-8`;
+                    try { qrWrap.style.display = 'flex'; qrWrap.style.alignItems = 'center'; } catch(_) {}
+                    return;
+                  } catch (e) {
+                    console.warn('Both QR generation methods failed', e);
+                    try { qrWrap.style.display = 'none'; } catch(_) {}
+                  }
+                } catch (e) { console.warn('index: renderQRForData failed', e); }
+              }
+
+              async function setupMemberQR(memberId) {
+                try { if (__qrUnsub) { __qrUnsub(); __qrUnsub = null; } } catch(_) {}
+                if (!memberId) { hideQR(); return; }
+                try {
+                  const ref = doc(db, 'members', String(memberId));
+                  __qrUnsub = onSnapshot(ref, (snap) => {
+                    try {
+                      if (!snap.exists()) { hideQR(); return; }
+                      const data = snap.data() || {};
+                      data.id = snap.id;
+                      renderQRForData(data);
+                    } catch (e) { console.warn('index: qr snapshot handler failed', e); }
+                  }, (err) => { console.warn('index: qr onSnapshot error', err); });
+                } catch (e) {
+                  try { const snap = await getDoc(doc(db,'members',String(memberId))); if (snap && snap.exists()) renderQRForData(Object.assign({ id: snap.id }, snap.data())); else hideQR(); } catch(e2){ console.warn('index: qr fallback failed', e2); hideQR(); }
+                }
+              }
+
+              document.addEventListener('member-search:selected', (ev) => { try { const id = ev && ev.detail && ev.detail.id ? ev.detail.id : null; setupMemberQR(id); } catch(e) { console.warn('member-search:selected qr handler failed', e); } });
+              document.addEventListener('lunch:completed', (ev) => { try { const id = ev && ev.detail && ev.detail.memberId ? ev.detail.memberId : null; setupMemberQR(id); } catch(e) { console.warn('lunch:completed qr handler failed', e); } });
+
+              // If there's already a selected member, wire QR for it
+              try { if (window.__current_selected_member) setupMemberQR(window.__current_selected_member); } catch(_) {}
+
+              // Inline shared QR fullscreen helper (copied from `src/landelijke-signup.js`)
+              function openQrFullscreenFromCanvas(qrCanvas) {
+                try {
+                  const dataUrl = qrCanvas.toDataURL("image/png");
+                  const overlay = document.createElement("div");
+                  overlay.id = "qrFullscreenOverlay";
+                  overlay.style.position = "fixed";
+                  overlay.style.inset = "0";
+                  overlay.style.background = "rgba(0,0,0,0.95)";
+                  overlay.style.display = "flex";
+                  overlay.style.alignItems = "center";
+                  overlay.style.justifyContent = "center";
+                  overlay.style.zIndex = "9999";
+                  overlay.style.cursor = "zoom-out";
+                  overlay.setAttribute("role", "dialog");
+                  overlay.setAttribute("aria-label", "QR-code fullscreen");
+
+                  const img = document.createElement("img");
+                  img.src = dataUrl;
+                  img.alt = "QR-code";
+                  img.style.width = "100vmin";
+                  img.style.height = "100vmin";
+                  img.style.imageRendering = "pixelated";
+
+                  const hint = document.createElement("div");
+                  hint.textContent = "Klik om te sluiten";
+                  hint.style.position = "fixed";
+                  hint.style.bottom = "24px";
+                  hint.style.left = "50%";
+                  hint.style.transform = "translateX(-50%)";
+                  hint.style.color = "#e5e7eb";
+                  hint.style.fontSize = "14px";
+                  hint.style.opacity = "0.8";
+
+                  function close() {
+                    try { document.removeEventListener("keydown", onKey); } catch(_) {}
+                    overlay.remove();
+                  }
+                  function onKey(e) { if (e.key === "Escape") close(); }
+                  overlay.addEventListener("click", close, { passive: true });
+                  document.addEventListener("keydown", onKey);
+
+                  overlay.appendChild(img);
+                  overlay.appendChild(hint);
+                  document.body.appendChild(overlay);
+                } catch (e) {
+                  console.error("QR fullscreen overlay faalde:", e);
+                }
+              }
+
+              // --- QR fullscreen handler using openQrFullscreenFromCanvas ---
+              try {
+                const qrImgEl = document.getElementById('memberInfoQRImg');
+                const qrNotice = document.getElementById('memberInfoQRNotice');
+                if (qrImgEl) {
+                  qrImgEl.addEventListener('click', async (ev) => {
+                    try {
+                      if (qrNotice) qrNotice.style.display = 'none';
+                      // Create a temporary canvas and draw the image onto it, then
+                      // call the shared fullscreen helper so behaviour matches.
+                      const img = qrImgEl;
+                      const canvas = document.createElement('canvas');
+                      const w = img.naturalWidth || img.width || 600;
+                      const h = img.naturalHeight || img.height || w;
+                      canvas.width = w;
+                      canvas.height = h;
+                      const ctx = canvas.getContext('2d');
+                      ctx.fillStyle = '#ffffff';
+                      ctx.fillRect(0,0,w,h);
+                      // draw image centered and scaled to canvas
+                      ctx.drawImage(img, 0, 0, w, h);
+                      // Use the exported helper to open the overlay (it handles Esc/click)
+                      try { openQrFullscreenFromCanvas(canvas); } catch (e) { console.warn('openQrFullscreenFromCanvas failed', e); }
+                    } catch (e) {
+                      console.warn('QR fullscreen open failed', e);
+                    }
+                  });
+                }
+              } catch (_) {}
             </script>
           </div>
         </section>

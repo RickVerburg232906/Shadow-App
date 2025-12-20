@@ -104,6 +104,7 @@ export function renderMemberInfo(container = null, opts = {}) {
           ridesEl.setAttribute('aria-label', starsHtml ? `Sterren: ${plannedNorm.length}` : 'Geen geplande ritten');
           // ensure star styles present
         }
+        
       } catch (e) { console.error('member-info.updateFromSnapshot failed', e); }
     }
 

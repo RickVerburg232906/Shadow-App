@@ -1,5 +1,4 @@
 // landelijke-signup.js — Universele functies voor landelijke rit signup
-import QRCode from "qrcode";
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 import { getPlannedDates, plannedStarsWithHighlights, loadLunchOptions } from "./member.js";
@@ -200,132 +199,9 @@ export function hideLoading(loadingIndicatorId = "loadingIndicator") {
 
 // ========== QR Code generatie ==========
 
-export async function generateQrForEntry(entry, canvasId = "qrCanvas", resultBoxId = "result") {
-  try {
-    if (!entry) return;
-    const payload = JSON.stringify({ t: "member", uid: entry.id });
-    const qrCanvas = $(canvasId);
-    const resultBox = $(resultBoxId);
-    const errBox = $("error");
-    
-    return new Promise((resolve, reject) => {
-      if (!qrCanvas) return resolve();
-      
-      try {
-        let prevDisplay = "";
-        let prevVisibility = "";
-        if (resultBox) {
-          prevDisplay = resultBox.style.display;
-          prevVisibility = resultBox.style.visibility;
-          resultBox.style.display = 'grid';
-          resultBox.style.visibility = 'hidden';
-        }
+// Legacy generateQrForEntry removed — QR generation is centralized in index.html.
 
-        const parent = qrCanvas.parentElement;
-        const measured = parent?.clientWidth || qrCanvas.getBoundingClientRect().width || 220;
-        const containerWidth = Math.max(220, Math.floor(measured));
-        
-        qrCanvas.style.width = '100%';
-        qrCanvas.style.height = 'auto';
-        qrCanvas.style.aspectRatio = '1 / 1';
-        
-        const drawSize = Math.min(containerWidth, 1024);
-        QRCode.toCanvas(qrCanvas, payload, { width: drawSize, margin: 1 }, (err) => {
-          if (err) {
-            const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
-            if (errBox) { 
-              errBox.textContent = errorMsg;
-              errBox.style.display = "block";
-              errBox.style.color = "#fca5a5";
-            }
-            reject(new Error(errorMsg));
-            return;
-          }
-          if (resultBox) {
-            resultBox.style.display = 'grid';
-            resultBox.style.visibility = prevVisibility || '';
-          }
-          const privacyEl = $("qrPrivacy");
-          if (privacyEl) privacyEl.style.display = "block";
-          resolve();
-        });
-        return;
-      } catch(_) {}
-      
-      // Fallback render
-      QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
-        if (err) {
-          const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
-          if (errBox) { 
-            errBox.textContent = errorMsg;
-            errBox.style.display = "block";
-            errBox.style.color = "#fca5a5";
-          }
-          reject(new Error(errorMsg));
-          return;
-        }
-        if (resultBox) resultBox.style.display = "grid";
-        const privacyEl = $("qrPrivacy");
-        if (privacyEl) privacyEl.style.display = "block";
-        resolve();
-      });
-    });
-  } catch (e) {
-    console.error('generateQrForEntry failed', e);
-    throw e;
-  }
-}
-
-// ========== QR Fullscreen ==========
-
-export function openQrFullscreenFromCanvas(qrCanvas) {
-  try {
-    const dataUrl = qrCanvas.toDataURL("image/png");
-    const overlay = document.createElement("div");
-    overlay.id = "qrFullscreenOverlay";
-    overlay.style.position = "fixed";
-    overlay.style.inset = "0";
-    overlay.style.background = "rgba(0,0,0,0.95)";
-    overlay.style.display = "flex";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
-    overlay.style.zIndex = "9999";
-    overlay.style.cursor = "zoom-out";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-label", "QR-code fullscreen");
-
-    const img = document.createElement("img");
-    img.src = dataUrl;
-    img.alt = "QR-code";
-    img.style.width = "100vmin";
-    img.style.height = "100vmin";
-    img.style.imageRendering = "pixelated";
-
-    const hint = document.createElement("div");
-    hint.textContent = "Klik of druk op Esc om te sluiten";
-    hint.style.position = "fixed";
-    hint.style.bottom = "24px";
-    hint.style.left = "50%";
-    hint.style.transform = "translateX(-50%)";
-    hint.style.color = "#e5e7eb";
-    hint.style.fontSize = "14px";
-    hint.style.opacity = "0.8";
-
-    function close() {
-      try { document.removeEventListener("keydown", onKey); } catch(_) {}
-      overlay.remove();
-    }
-    function onKey(e) { if (e.key === "Escape") close(); }
-    overlay.addEventListener("click", close, { passive: true });
-    document.addEventListener("keydown", onKey);
-
-    overlay.appendChild(img);
-    overlay.appendChild(hint);
-    document.body.appendChild(overlay);
-  } catch (e) {
-    console.error("QR fullscreen overlay faalde:", e);
-  }
-}
+// QR fullscreen overlay is now centralized in `index.html` (openQrFullscreenFromCanvas there).
 
 // ========== Cleanup oude lunch keuzes ==========
 

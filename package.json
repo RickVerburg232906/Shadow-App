@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "firebase": "^10.13.1",
-    "qrcode": "^1.5.3",
+    
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

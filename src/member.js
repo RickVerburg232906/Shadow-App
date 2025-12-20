@@ -1,5 +1,4 @@
 // member.js — geplande-sterren met highlight op basis van ScanDatums
-import QRCode from "qrcode";
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 
@@ -230,11 +229,7 @@ async function checkIfCurrentMemberIsScanned() {
   // Events
   // Input-based member search removed: no input/focus listeners attached.
 
-  if (qrCanvas) {
-    qrCanvas.style.cursor = "zoom-in";
-    qrCanvas.addEventListener("click", () => openQrFullscreenFromCanvas(qrCanvas), { passive: true });
-    qrCanvas.setAttribute("title", "Klik om fullscreen te openen");
-  }
+  // QR generation and fullscreen handled centrally in index.html; remove legacy handlers here.
   // Preload planned dates to speed up first interaction and update splash progress
   try {
     try { if (window?.appSplash) window.appSplash.setProgress(50, 'Ritdatums ophalen...'); } catch(_) {}
@@ -246,151 +241,4 @@ async function checkIfCurrentMemberIsScanned() {
   try { if (window?.appSplash) { window.appSplash.setProgress(100, 'Klaar'); window.appSplash.hide(); } } catch(_) {}
 }
 
-// Generate QR for an entry and show result box
-async function generateQrForEntry(entry) {
-  try {
-    if (!entry) return;
-    // Build payload including lunch / jaarhanger values so other devices can process them.
-    // Prefer current UI selections; fall back to stored member values when missing.
-    let payload = JSON.stringify({ t: "member", uid: entry.id });
-    try {
-      // Read UI state from DOM (may be null). Avoid referencing inner-scope module vars.
-      const lunchYesEl = document.getElementById('lunchYes');
-      const lunchNoEl = document.getElementById('lunchNo');
-      const uiLunchDeelname = (lunchYesEl && lunchYesEl.classList.contains('active')) ? 'ja'
-                            : (lunchNoEl && lunchNoEl.classList.contains('active')) ? 'nee'
-                            : null;
-
-      const keuzeWrap = document.getElementById('keuzeEtenButtons');
-      let uiLunchKeuze = null;
-      if (keuzeWrap) {
-        const activeBtn = keuzeWrap.querySelector('button.active');
-        if (activeBtn) uiLunchKeuze = (activeBtn.textContent || '').trim();
-      }
-
-      const yYesEl = document.getElementById('yearhangerYes');
-      const yNoEl = document.getElementById('yearhangerNo');
-      const uiJaarhanger = (yYesEl && yYesEl.classList.contains('active')) ? 'Ja'
-                        : (yNoEl && yNoEl.classList.contains('active')) ? 'Nee'
-                        : null;
-
-      // Compute next planned ride date locally to avoid cross-scope errors
-      const planned = await getPlannedDates();
-      function localToYMD(v) {
-        try {
-          if (typeof v === 'string' && /\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
-          const d = new Date(v);
-          if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        } catch (_) {}
-        return '';
-      }
-      const list = (Array.isArray(planned) ? planned : []).map(localToYMD).filter(Boolean).sort();
-      function localTodayYMD() {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      }
-      const today = localTodayYMD();
-      const uiRideYMD = list.find(d => d >= today) || '';
-
-      // Read stored values only if UI hasn't provided them
-      const snap = await getDoc(doc(db, 'members', String(entry.id)));
-      const data = snap && snap.exists() ? snap.data() : {};
-
-      const lunchDeelname = uiLunchDeelname !== null ? uiLunchDeelname : (typeof data?.lunchDeelname === 'string' ? data.lunchDeelname : null);
-      const lunchKeuze = uiLunchKeuze !== null ? uiLunchKeuze : (typeof data?.lunchKeuze === 'string' ? data.lunchKeuze : null);
-      const Jaarhanger = uiJaarhanger !== null ? uiJaarhanger : (data?.Jaarhanger || null);
-      const lunchRideDateYMD = uiRideYMD || (data?.lunchRideDateYMD ? String(data.lunchRideDateYMD).slice(0,10) : null);
-
-      const payloadObj = {
-        t: "member",
-        uid: entry.id,
-        lunchDeelname: lunchDeelname,
-        lunchKeuze: lunchKeuze,
-        lunchRideDateYMD: lunchRideDateYMD,
-        Jaarhanger: Jaarhanger
-      };
-      payload = JSON.stringify(payloadObj);
-    } catch (e) {
-      // fallback to minimal payload
-      try { console.warn('generateQrForEntry: could not enrich payload, fallback', e); } catch(_){}
-      payload = JSON.stringify({ t: "member", uid: entry.id });
-    }
-    const qrCanvas = document.getElementById('qrCanvas');
-    const resultBox = document.getElementById('result');
-    const errBox = document.getElementById('error');
-    return new Promise((resolve, reject) => {
-      if (!qrCanvas) return resolve();
-      // Bepaal dynamisch de beschikbare breedte van de container en schaal de QR hierop
-      try {
-        // Zorg dat het resultaat-element meetbaar is (display:none → 0px breedte)
-        let prevDisplay = "";
-        let prevVisibility = "";
-        if (resultBox) {
-          prevDisplay = resultBox.style.display;
-          prevVisibility = resultBox.style.visibility;
-          resultBox.style.display = 'grid';
-          // verberg tijdelijk om flikkeren te voorkomen terwijl we tekenen
-          resultBox.style.visibility = 'hidden';
-        }
-
-        const parent = qrCanvas.parentElement;
-        const measured = parent?.clientWidth || qrCanvas.getBoundingClientRect().width || 220;
-        const containerWidth = Math.max(220, Math.floor(measured));
-        // Maak canvas visueel 100% breed en houd het vierkant
-        qrCanvas.style.width = '100%';
-        qrCanvas.style.height = 'auto';
-        qrCanvas.style.aspectRatio = '1 / 1';
-        // Render met voldoende resolutie voor scherp beeld op grotere containers
-        // Limiteer naar een redelijke max om performance te bewaren
-        const drawSize = Math.min(containerWidth, 1024);
-        QRCode.toCanvas(qrCanvas, payload, { width: drawSize, margin: 1 }, (err) => {
-          if (err) {
-            const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
-            if (errBox) { 
-              errBox.textContent = errorMsg;
-              errBox.style.display = "block";
-              errBox.style.color = "#fca5a5";
-            }
-            reject(new Error(errorMsg));
-            return;
-          }
-          if (resultBox) {
-            resultBox.style.display = 'grid';
-            // herstel zichtbaarheid zodat de QR nu zichtbaar wordt
-            resultBox.style.visibility = prevVisibility || '';
-          }
-          const privacyEl = document.getElementById("qrPrivacy");
-          if (privacyEl) privacyEl.style.display = "block";
-          resolve();
-        });
-        return; // voorkom fallback render hieronder
-      } catch(_) {}
-      // Fallback render
-      QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
-        if (err) {
-          const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
-          if (errBox) { 
-            errBox.textContent = errorMsg;
-            errBox.style.display = "block";
-            errBox.style.color = "#fca5a5";
-          }
-          reject(new Error(errorMsg));
-          return;
-        }
-        if (resultBox) resultBox.style.display = "grid";
-        const privacyEl = document.getElementById("qrPrivacy");
-        if (privacyEl) privacyEl.style.display = "block";
-        resolve();
-      });
-    });
-  } catch (e) {
-    console.error('generateQrForEntry failed', e);
-    throw e;
-  }
-}
-
-
-// Removed unused `ensureMemberConsent` helper during cleanup.
+// Removed legacy QR generation; QR handling centralized in `index.html`.

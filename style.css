@@ -462,13 +462,7 @@ optgroup { font-weight:700; color: var(--muted); }
 
 .qr-reader { width:100%; min-height: 240px; border:1px dashed #334155; border-radius:12px; padding:8px; }
 
-.qr-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
-canvas#qrCanvas {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
-}
-canvas#qrCanvas { background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+/* QR canvas styles removed — QR UI is handled in index.html */
 
 /* Toasts: root fixed above safe area, single styling for .toast */
 #toast-root {

@@ -2,7 +2,7 @@
 // Renders the lunch-choice HTML fragment into a container element.
 // Also shows a small preview of available "keuze eten" (if any)
 // so members/operators can see the options before clicking "Ja".
-import { checkIfCurrentMemberIsScanned, generateQrForEntry } from './landelijke-signup.js';
+import { checkIfCurrentMemberIsScanned } from './landelijke-signup.js';
 import { db, getDoc, doc } from './firebase.js';
 
 export function renderLunchChoice(container = null, opts = {}) {
@@ -393,7 +393,7 @@ export function renderLunchChoice(container = null, opts = {}) {
                 if (prev) prev.classList.remove('active');
                 btn.classList.add('active','yes');
                 try { updateBadge('ja', item); } catch(_) {}
-                try { await generateQrForEntry({ id: memberId }); } catch(_) {}
+                // QR generation is handled centrally in index.html; no-op here.
                 // collapse the details after a brief delay so the operator sees the active state
                 try {
                   setTimeout(() => {
@@ -460,7 +460,7 @@ export function renderLunchChoice(container = null, opts = {}) {
             } else {
               // No keuze options: collapse and proceed (no save behaviour)
               try { console.log('lunch-ui: would mark ja (no save):', memberId, ['vast-menu']); } catch(e){ console.error('lunch-ui: action log failed', e); }
-              try { await generateQrForEntry({ id: memberId }); } catch(_) {}
+              // QR generation is handled centrally in index.html; no-op here.
               try { if (detailsEl) setTimeout(()=>{ try{ detailsEl.open = false; } catch(_){} }, 120); } catch(_) {}
             }
           } catch (e) { console.error('lunchYes handler failed', e); }
