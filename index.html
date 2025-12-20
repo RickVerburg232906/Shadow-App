@@ -128,9 +128,14 @@
                     }
                   } catch(_) {}
                   if (lunchWidget && typeof lunchWidget.setMember === 'function') {
-                    try { lunchWidget.setMember(String(id)); } catch(e) { console.error('lunchWidget.setMember failed', e); }
+                    try {
+                      const memberIdStr = String(id);
+                      // Bind the lunch widget; when it finishes it will dispatch
+                      // `lunch:completed` which the global handler will process and
+                      // call `renderYearhanger.setMember(memberId)` and reveal the UI.
+                      try { lunchWidget.setMember(memberIdStr); } catch(e) { console.error('lunchWidget.setMember failed', e); }
+                    } catch (e) { console.error('prefill jaarhanger on selection failed', e); }
                   }
-                  // Do not prefill/show jaarhanger here; wait for lunch:completed event
                 } catch (e) { console.error('wiring lunch widget failed', e); }
               });
 
@@ -178,16 +183,58 @@
                   lunchMount.parentNode.insertBefore(yr, lunchMount.nextSibling);
                 }
                 try { renderYearhanger(yr); } catch(_) {}
-                // Attach a single listener to show the local jaarhanger when lunch completes
+                // Attach a single listener to act when lunch completes for any member.
+                // This global handler marks the member as lunch-completed and then
+                // asks the jaarhanger module to prefill from Firestore, which will
+                // subsequently emit `yearhanger:changed` and let the result be shown.
                 if (!window.__yearhanger_lunch_listener_index) {
                   document.addEventListener('lunch:completed', (ev) => {
                     try {
-                      console.debug('lunch:completed received (index):', ev && ev.detail);
-                      const yrEl = document.getElementById('yearhangerRow_local');
-                      if (!yrEl) return;
-                      try { yrEl.style.display = 'block'; } catch(_) {}
-                      try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
-                    } catch (e) { console.error('yearhanger show failed on lunch completed', e); }
+                      const memberId = ev && ev.detail && ev.detail.memberId ? String(ev.detail.memberId) : null;
+                      if (!memberId) return;
+                      try { window.__lunch_completed_members = window.__lunch_completed_members || new Set(); window.__lunch_completed_members.add(memberId); } catch(_) {}
+                      try { console.debug('lunch:completed received (index):', ev && ev.detail); } catch(_) {}
+
+                      // show yearhanger under lunch
+                      try { const yrEl = document.getElementById('yearhangerRow_local'); if (yrEl) { yrEl.style.display = 'block'; } } catch(_) {}
+
+                      // Register a one-time listener that will reveal the member-info only
+                      // when the jaarhanger actually has a value. Register it BEFORE calling
+                      // setMember so prefill dispatches are caught.
+                      try {
+                        let called = false;
+                        const onYearChanged = (yEv) => {
+                          try {
+                            const val = yEv && yEv.detail && yEv.detail.value ? yEv.detail.value : null;
+                            const mid = yEv && yEv.detail && yEv.detail.memberId ? String(yEv.detail.memberId) : null;
+                            if (!val) return; // only react to non-empty values
+                            if (mid && mid !== memberId) return; // ignore other members
+                            if (called) return;
+                            called = true;
+                            try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
+                            try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                          } catch (e) { console.error('yearhanger:changed handler failed', e); }
+                          finally { try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {} }
+                        };
+                        document.addEventListener('yearhanger:changed', onYearChanged);
+                        // safety: don't wait forever — remove listener after 3s
+                        const yrTimeout = setTimeout(() => { try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {} }, 3000);
+
+                        // Now call setMember (may synchronously dispatch a prefill event)
+                        try { renderYearhanger.setMember(memberId); } catch(_) {}
+                        // If renderYearhanger already had a value synchronously and didn't
+                        // dispatch, call member-info as a fallback
+                        try {
+                          const current = (renderYearhanger && typeof renderYearhanger.getValue === 'function') ? renderYearhanger.getValue() : null;
+                          if (current) {
+                            try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
+                            try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                            try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {}
+                            try { clearTimeout(yrTimeout); } catch(_) {}
+                          }
+                        } catch(_) {}
+                      } catch (e) { console.error('yearhanger prefill wiring failed', e); }
+                    } catch (e) { console.error('lunch:completed handler failed', e); }
                   });
                   window.__yearhanger_lunch_listener_index = true;
                 }
@@ -205,13 +252,85 @@
             </div>
             <script type="module">
               import renderMemberInfo from '/src/member-info.js';
+              import { renderYearhanger } from '/src/yearhanger-ui.js';
               try {
                 const mount = document.getElementById('memberInfoMount');
                 window.__memberInfo = renderMemberInfo(mount);
+
+                // Track current selection and which members had lunch:completed
+                window.__current_selected_member = window.__current_selected_member || null;
+                window.__lunch_completed_members = window.__lunch_completed_members || new Set();
+
+                // Helper to place the result block directly after the local jaarhanger row
+                function placeResultUnderYearhanger() {
+                  try {
+                    const yr = document.getElementById('yearhangerRow_local') || document.getElementById('yearhangerRow');
+                    const result = document.getElementById('result');
+                    if (!yr || !result) return;
+                    // Move the result node to directly follow the jaarhanger row
+                    if (yr.parentNode && result.parentNode !== yr.parentNode) {
+                      yr.parentNode.insertBefore(result, yr.nextSibling);
+                    } else if (yr.parentNode && result.parentNode === yr.parentNode) {
+                      // ensure order
+                      yr.parentNode.insertBefore(result, yr.nextSibling);
+                    }
+                  } catch (e) { console.warn('placeResultUnderYearhanger failed', e); }
+                }
+
+                function showResult(show) {
+                  try {
+                    const result = document.getElementById('result');
+                    if (!result) return;
+                    result.style.display = show ? 'block' : 'none';
+                  } catch (e) { console.warn('showResult failed', e); }
+                }
+
+                // Listen for jaarhanger changes — only reveal the result when lunch
+                // completion has been recorded for that member. This prevents the
+                // jaarhanger UI from appearing before lunch choices are handled.
+                document.addEventListener('yearhanger:changed', (ev) => {
+                  try {
+                    const val = ev && ev.detail && ev.detail.value ? ev.detail.value : null;
+                    const evMember = ev && ev.detail && ev.detail.memberId ? String(ev.detail.memberId) : null;
+                    const current = window.__current_selected_member ? String(window.__current_selected_member) : null;
+                    const memberToCheck = evMember || current;
+                    if (memberToCheck && window.__lunch_completed_members && window.__lunch_completed_members.has(memberToCheck)) {
+                      placeResultUnderYearhanger();
+                      showResult(!!val);
+                    } else {
+                      showResult(false);
+                    }
+                  } catch (e) { console.error('yearhanger:changed handler failed', e); }
+                });
+
+                // Initial check: if the jaarhanger module already has a value from Firestore,
+                // show result only if that prefill is present (renderYearhanger may have
+                // dispatched a prefill event already). We prefer listening for the
+                // `yearhanger:changed` prefills; as a safety, if getValue() returns a
+                // truthy value and no lunch is required, reveal it.
+                try {
+                  if (renderYearhanger && typeof renderYearhanger.getValue === 'function') {
+                    const v = renderYearhanger.getValue();
+                    if (v) {
+                      // If lunch completion is required we will wait for it; otherwise show.
+                      // Here we conservatively show only when there is no lunch section present
+                      // or when lunch mount indicates no interaction required.
+                      const lunchMountEl = document.getElementById('lunchChoiceSection');
+                      const requiresLunch = lunchMountEl && String(lunchMountEl.innerHTML || '').trim().length > 0;
+                      if (!requiresLunch) {
+                        placeResultUnderYearhanger();
+                        showResult(true);
+                      }
+                    }
+                  }
+                } catch (e) { /* ignore */ }
+
               } catch (e) { console.error('member-info mount failed (index)', e); }
               document.addEventListener('member-search:selected', (ev) => {
                 try {
-                  // selection handled by lunch widget; member-info will be shown on lunch:completed
+                  const id = ev && ev.detail && ev.detail.id ? ev.detail.id : null;
+                  window.__current_selected_member = id ? String(id) : null;
+                  // selection handled by lunch widget; member-info will be shown when jaarhanger emits a value
                 } catch (e) { console.error('member-info: selection handler suppressed (index)', e); }
               });
             </script>
