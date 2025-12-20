@@ -395,28 +395,49 @@
                   const qrImg = document.getElementById('memberInfoQRImg');
                   if (!qrWrap || !qrImg) return;
                   const lid = d.id || d.lid || d.LidNr || d.member || d.uid || '';
-                  const jaarhanger = d.Jaarhanger || d.jaarhanger || d.Jaarhangers || d.JaarhangerY || '';
+                  // Prefer Firestore value but allow UI to override below
+                  const fsJaarhanger = d.Jaarhanger || d.jaarhanger || d.Jaarhangers || d.JaarhangerY || '';
                   const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : (Array.isArray(d.scandatums) ? d.scandatums : []);
                   const scanNormalized = (Array.isArray(scansRaw) ? scansRaw.map(v => {
                     try { if (typeof v === 'string') { const m = v.match(/\d{4}-\d{2}-\d{2}/); if (m) return m[0]; }
                           const dt = new Date(v); if (!isNaN(dt)) return dt.toISOString().slice(0,10); } catch(_) {}
                     return String(v);
                   }).filter(Boolean) : []);
-                  const lunchDeelname = d.lunchDeelname || d.LunchDeelname || d.lunch || d.Lunch || '';
-                  const lunchKeuze = d.LunchKeuze || d.lunchKeuze || d.lunchKeuzeKeuze || '';
+                  // Read current UI selections (if operator selected but not saved to Firestore)
+                  const uiLunchYes = document.getElementById('lunchYes');
+                  const uiLunchNo = document.getElementById('lunchNo');
+                  const uiLunchDeelname = uiLunchYes && uiLunchYes.classList.contains('active') ? 'ja'
+                                        : uiLunchNo && uiLunchNo.classList.contains('active') ? 'nee'
+                                        : null;
+                  let uiLunchKeuze = null;
+                  const keuzeWrap = document.getElementById('keuzeEtenButtons');
+                  if (keuzeWrap) {
+                    const activeBtn = keuzeWrap.querySelector('button.active');
+                    if (activeBtn) uiLunchKeuze = (activeBtn.textContent || '').trim();
+                  }
+                  const uiYYes = document.getElementById('yearhangerYes');
+                  const uiYNo  = document.getElementById('yearhangerNo');
+                  const uiJaarhanger = uiYYes && uiYYes.classList.contains('active') ? 'Ja'
+                                     : uiYNo && uiYNo.classList.contains('active') ? 'Nee'
+                                     : null;
+
+                  // Final values: UI overrides Firestore when present
+                  const finalJaarhanger = (uiJaarhanger !== null) ? uiJaarhanger : (fsJaarhanger || null);
+                  const finalLunchDeelname = (uiLunchDeelname !== null) ? uiLunchDeelname : (d.lunchDeelname || d.LunchDeelname || d.lunch || d.Lunch || null);
+                  const finalLunchKeuze = (uiLunchKeuze !== null) ? uiLunchKeuze : (d.LunchKeuze || d.lunchKeuze || d.lunchKeuzeKeuze || null);
                   const lunchRide = d.LunchRideDateYMD || d.lunchRideDateYMD || d.LunchRideDate || '';
 
-                  const payloadObj = {
-                    lid: String(lid || ''),
-                    Jaarhanger: jaarhanger || '',
-                    ScanDatums: scanNormalized,
-                    lunchDeelname: lunchDeelname || '',
-                    lunchKeuze: lunchKeuze || '',
-                    LunchRideDateYMD: lunchRide || ''
-                  };
+                  // Build payload only with non-empty values so admin scanner doesn't overwrite with empty strings
+                  const payloadObj = {};
+                  if (lid) payloadObj.uid = String(lid || '');
+                  if (finalJaarhanger) payloadObj.Jaarhanger = finalJaarhanger;
+                  if (Array.isArray(scanNormalized) && scanNormalized.length) payloadObj.ScanDatums = scanNormalized;
+                  if (finalLunchDeelname) payloadObj.lunchDeelname = finalLunchDeelname;
+                  if (finalLunchKeuze) payloadObj.lunchKeuze = finalLunchKeuze;
+                  if (lunchRide) payloadObj.LunchRideDateYMD = lunchRide;
 
                   const payloadStr = JSON.stringify(payloadObj);
-                  const hasAny = (payloadObj.lid && payloadObj.lid.trim()) || payloadObj.ScanDatums.length || payloadObj.Jaarhanger || payloadObj.lunchDeelname || payloadObj.lunchKeuze || payloadObj.LunchRideDateYMD;
+                  const hasAny = (payloadObj.uid && String(payloadObj.uid).trim()) || (Array.isArray(payloadObj.ScanDatums) && payloadObj.ScanDatums.length) || payloadObj.Jaarhanger || payloadObj.lunchDeelname || payloadObj.lunchKeuze || payloadObj.LunchRideDateYMD;
                   if (!hasAny) { qrWrap.style.display = 'none'; return; }
 
                   // Try to generate a data URL locally using qrcode lib (sized to container width)
