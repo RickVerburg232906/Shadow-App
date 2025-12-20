@@ -153,7 +153,7 @@
                     try { if (lunchMount) { lunchMount.style.display = 'none'; lunchMount.innerHTML = ''; } } catch(_) {}
 
                     // Hide local jaarhanger and clear its contents
-                    try { const yr = document.getElementById('yearhangerRow_local'); if (yr) { yr.style.display = 'none'; yr.innerHTML = ''; } } catch(_) {}
+                    try { const yr = document.getElementById('yearhangerRow_local'); if (yr) { yr.style.display = 'none'; } } catch(_) {}
 
                     // Hide result card and reset displayed member fields
                     try { const resultEl = document.getElementById('result'); if (resultEl) resultEl.style.display = 'none'; } catch(_) {}

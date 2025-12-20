@@ -116,6 +116,23 @@ export function renderYearhanger(container = null) {
         } catch (e) { console.error('yearhanger-ui.renderUI failed', e); }
       }
 
+      // Force-clear the UI regardless of previous value (used when binding a new member)
+      function clearUI() {
+        try {
+          S._val = null;
+          if (S.row) S.row.style.display = S.row.dataset.visibleOnInit === 'true' ? '' : 'block';
+          if (S.info) S.info.style.display = 'block';
+          if (S.yes && S.no) {
+            S.yes.classList.remove('active','yes');
+            S.no.classList.remove('active','no');
+            S.yes.setAttribute('aria-checked', 'false');
+            S.no.setAttribute('aria-checked', 'false');
+          }
+          try { if (S.details) S.details.open = true; } catch(_) {}
+          updateBadge();
+        } catch (e) { console.error('yearhanger-ui.clearUI failed', e); }
+      }
+
       // Wire click handlers to emit events so hosting code can act (save/generate QR)
       try {
         if (S.yes) {
@@ -200,6 +217,8 @@ export function renderYearhanger(container = null) {
             if (S._boundMember !== memberStr) {
               // new member selected -> clear manual override
               S._manualOverride = false;
+              // Force-clear the UI so previous selection isn't carried over
+              try { clearUI(); } catch(_) {}
             }
 
             if (val) {
