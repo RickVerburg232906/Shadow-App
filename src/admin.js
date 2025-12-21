@@ -1,118 +1,10 @@
-// ===== JPG export naast 'Herladen' (admin-only) =====
-(function() {
-  function waitForElement(getter, { tries = 50, delay = 200 } = {}) {
-    return new Promise((resolve) => {
-      let attempts = 0;
-      const iv = setInterval(() => {
-        try {
-          const el = getter();
-          if (el) { clearInterval(iv); resolve(el); return; }
-          attempts += 1;
-          if (attempts >= tries) { clearInterval(iv); resolve(null); }
-        } catch (e) {
-          // swallow and retry
-        }
-      }, delay);
-    });
-  }
-
-  // Attach a simple JPG download button below a canvas (kept minimal and resilient)
-  function attachChartExportJPGNextToReload(canvasId, _chartBoxId, filename = null) {
-    async function doAttach() {
-      try {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-
-        let btn = document.getElementById('downloadJpgBtn');
-        if (!btn) {
-          btn = document.createElement('button');
-          btn.id = 'downloadJpgBtn';
-          btn.type = 'button';
-          btn.textContent = 'Download JPG';
-          btn.className = 'chart-download-btn';
-          btn.style.display = 'block';
-          btn.style.width = '100%';
-          btn.style.boxSizing = 'border-box';
-          btn.style.marginTop = '10px';
-          btn.style.padding = '10px 14px';
-          btn.style.borderRadius = '10px';
-          btn.style.border = 'none';
-          btn.style.cursor = 'pointer';
-          btn.style.fontWeight = '700';
-        }
-
-        const placeBelowChart = () => {
-          try {
-            const chartBox = canvas.parentElement;
-            if (chartBox && chartBox.parentElement) {
-              if (btn.parentElement !== chartBox.parentElement) chartBox.insertAdjacentElement('afterend', btn);
-            } else {
-              if (btn.parentElement !== canvas.parentElement) canvas.insertAdjacentElement('afterend', btn);
-            }
-          } catch (_) {}
-        };
-
-        placeBelowChart();
-
-        const triggerDownload = (blob) => {
-          if (!blob) return;
-          const a = document.createElement('a');
-          const url = URL.createObjectURL(blob);
-          a.href = url;
-          a.download = filename || (canvasId + '.jpg');
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
-        };
-
-        btn.onclick = () => {
-          try {
-            if (canvas.toBlob) {
-              canvas.toBlob((blob) => {
-                if (blob) triggerDownload(blob);
-                else {
-                  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-                  fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
-                }
-              }, 'image/jpeg', 0.92);
-            } else {
-              const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-              fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
-            }
-          } catch (e) {
-            console.error('JPG export failed:', e);
-            try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
-            alert('JPG export mislukt.');
-          }
-        };
-
-        const ensurePlaced = () => placeBelowChart();
-        window.addEventListener('resize', ensurePlaced);
-        document.getElementById('adminSubtabs')?.addEventListener('click', () => setTimeout(ensurePlaced, 0));
-        const adminView = document.getElementById('viewAdmin');
-        if (adminView && window.MutationObserver) {
-          const mo = new MutationObserver(() => ensurePlaced());
-          mo.observe(adminView, { childList: true, subtree: true });
-        }
-        ensurePlaced();
-      } catch (e) {
-        // silently ignore attach errors
-      }
-    }
-
-    doAttach();
-    if (document.readyState !== 'complete' && document.readyState !== 'interactive') {
-      document.addEventListener('DOMContentLoaded', doAttach, { once: true });
-    }
-  }
-
-  window.attachChartExportJPGNextToReload = attachChartExportJPGNextToReload;
-})();
-
+// (Removed unused attachChartExportJPGNextToReload helper)
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc, arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
-import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
+import { getPlannedDates } from "./member.js";
+import { plannedStarsWithHighlights } from "./planned-stars.js";
+import { fullNameFrom, $ } from './ui-helpers.js';
 
 // Helper: attach a full-width, nicely-styled download button under a chart canvas
 function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
@@ -215,21 +107,16 @@ function getSelectedYearsFromPanel() {
   } catch (e) { return []; }
 }
 
-function getActiveYear() {
-  const sel = getSelectedYearsFromPanel();
-  if (!sel || sel.length === 0) return String(new Date().getFullYear());
-  return sel.length === 1 ? sel[0] : sel[0];
-}
+// Removed unused `getActiveYear` helper during cleanup.
 
 
-// Reset zowel ridesCount als ScanDatums
 
 async function ensureRideDatesLoaded(){
   try{
     if (Array.isArray(PLANNED_DATES) && PLANNED_DATES.length) return PLANNED_DATES;
-    const planRef = doc(db, "globals", "ridePlan");
-    const snap = await getDoc(planRef);
-    const dates = snap.exists() && Array.isArray(snap.data().plannedDates) ? snap.data().plannedDates.filter(Boolean) : [];
+    const planRef = doc(db, "globals", "rideConfig");
+    const cfgSnap = await getDoc(planRef);
+    const dates = cfgSnap.exists() && Array.isArray(cfgSnap.data().plannedDates) ? cfgSnap.data().plannedDates.filter(Boolean) : [];
     // Normaliseer naar YYYY-MM-DD
     PLANNED_DATES = dates.map(d => {
       if (typeof d === 'string') { const m = d.match(/\d{4}-\d{2}-\d{2}/); if (m) return m[0]; }
@@ -564,8 +451,8 @@ async function initRideStatsChart() {
           // Load regions mapping (date -> region)
           let regionsMap = {};
           try {
-            const regionsRef = doc(db, "globals", "rideRegions");
-            const rSnap = await getDoc(regionsRef);
+            const cfgRef = doc(db, "globals", "rideConfig");
+            const rSnap = await getDoc(cfgRef);
             regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
           } catch (e) {
             console.error('Kon rideRegions niet laden voor regio-aggregatie', e);
@@ -609,8 +496,8 @@ async function initRideStatsChart() {
         // Load regions mapping (date -> region) so we can append the region name to each Rit label
         let regionsMap = {};
         try {
-          const regionsRef = doc(db, "globals", "rideRegions");
-          const rSnap = await getDoc(regionsRef);
+          const cfgRef = doc(db, "globals", "rideConfig");
+          const rSnap = await getDoc(cfgRef);
           regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
         } catch (e) {
           console.error('Kon rideRegions niet laden voor chart labels', e);
@@ -783,44 +670,7 @@ async function getAllRegions() {
 // =====================================================
 // ======= Sterrenverdeling (alleen Jaarhanger = Ja) ====
 // =====================================================
-async function buildStarBucketsForYearhangerYes(plannedYMDs) {
-  // Buckets 0..N (N = aantal geplande datums)
-  const N = plannedYMDs.length;
-  const buckets = new Array(N + 1).fill(0);
-  const plannedSet = new Set(plannedYMDs);
-
-  try {
-    let last = null;
-    const pageSize = 400;
-    while (true) {
-      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
-      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
-      const snapshot = await getDocs(qRef);
-      if (snapshot.empty) break;
-
-      snapshot.forEach((docSnap) => {
-        const d = docSnap.data() || {};
-        if ((d.Jaarhanger || "").toString() !== "Ja") return; // filter
-        const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-        // normaliseer naar YMD en tel intersectie
-        let cnt = 0;
-        for (const raw of scansRaw) {
-          const ymd = typeof raw === "string" ? raw.slice(0,10) : "";
-          if (ymd && plannedSet.has(ymd)) cnt++;
-        }
-        if (cnt < 0) cnt = 0;
-        if (cnt > N) cnt = N;
-        buckets[cnt] += 1;
-      });
-
-      last = snapshot.docs[snapshot.docs.length - 1];
-      if (snapshot.size < pageSize) break;
-    }
-  } catch (e) {
-    console.error("[starDist] bouwen mislukt", e);
-  }
-  return buckets;
-}
+// Removed unused `buildStarBucketsForYearhangerYes` during cleanup.
 
 // Multi-year aware buckets: accepts an array of year strings (e.g. ['2025','2024'])
 // Returns an array where each element is the buckets array for that year (index-aligned with input years).
@@ -844,8 +694,8 @@ async function buildStarBucketsForYears(years) {
         const d = docSnap.data() || {};
         if ((d.Jaarhanger || "").toString() !== "Ja") return; // filter only Jaarhanger=Ja
         const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-        // Normalize scans to YMD array
-        const scanYMDs = scansRaw.map(s => (typeof s === 'string' ? s.slice(0,10) : '')).filter(Boolean);
+        // Normalize scans to YMD array and deduplicate (count unique scan dates only)
+        const scanYMDs = Array.from(new Set(scansRaw.map(s => (typeof s === 'string' ? s.slice(0,10) : '')).filter(Boolean)));
         for (let yi = 0; yi < yearCount; yi++) {
           const yr = years[yi];
           // Count scans in this calendar year
@@ -1031,13 +881,11 @@ export function initAdminView() {
       return rows;
     }
 
-    // ⚠️ Belangrijk: we negeren elke 'ridesCount' uit het bestand
     // zodat bestaande waarden niet overschreven worden.
     function normalizeRows(rows) {
       return rows.map((r) => {
         const out = {};
         for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
-        // GEEN ridesCount hier!
         return out;
       });
     }
@@ -1052,12 +900,8 @@ export function initAdminView() {
         const id = String(r["LidNr"] || "").trim();
         if (!/^\d+$/.test(id)) { skipped++; continue; }
 
-        // Alleen profielvelden schrijven; ridesCount NIET overschrijven.
-        // Gebruik increment(0): behoudt bestaande waarde; als veld ontbreekt → wordt 0.
         const clean = {};
         for (const k of REQUIRED_COLS) clean[k] = r[k];
-        clean["ridesCount"] = increment(0);
-
         batch.set(doc(db, "members", id), clean, { merge: true });
         updated++;
 
@@ -1085,7 +929,7 @@ export function initAdminView() {
         if (statusEl) statusEl.textContent = "Importeren naar Firestore…";
         const res = await importRowsToFirestore(rows);
         log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
-        if (statusEl) statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
+        if (statusEl) statusEl.textContent = "✅ Import voltooid";
       } catch (e) {
         console.error(e);
         if (statusEl) statusEl.textContent = "❌ Fout tijdens import";
@@ -1191,7 +1035,7 @@ function initRidePlannerSection() {
   const reloadBtn = $("reloadRidePlanBtn");
   const statusEl = $("ridePlanStatus");
 
-  const planRef = doc(db, "globals", "ridePlan");
+  const planRef = doc(db, "globals", "rideConfig");
 
   function setStatus(msg, ok = true) {
     if (!statusEl) return;
@@ -1225,9 +1069,7 @@ function initRidePlannerSection() {
 
       // Load regions mapping (date -> region) and populate selects
       try {
-        const regionsRef = doc(db, "globals", "rideRegions");
-        const rSnap = await getDoc(regionsRef);
-        const regionsMap = rSnap.exists() && rSnap.data() ? (rSnap.data().regions || {}) : {};
+        const regionsMap = snap.exists() && snap.data() ? (snap.data().regions || {}) : {};
         // populate region selects with current regions (values will be set after options loaded)
         await populateRegionOptions();
         // assign mapped values
@@ -1294,8 +1136,7 @@ function initRidePlannerSection() {
       const regionsMap = collectRegionsByDate();
       await withRetry(() => updateOrCreateDoc(planRef, { plannedDates: dates, updatedAt: serverTimestamp() }), { retries: 3 });
       // save regions mapping in a separate globals doc (date -> region)
-      const regionsRef = doc(db, "globals", "rideRegions");
-      await withRetry(() => updateOrCreateDoc(regionsRef, { regions: regionsMap, updatedAt: serverTimestamp() }), { retries: 3 });
+      await withRetry(() => updateOrCreateDoc(planRef, { plannedDates: dates, regions: regionsMap, updatedAt: serverTimestamp() }), { retries: 3 });
       setStatus("✅ Planning opgeslagen");
     } catch (e) {
       console.error("[ridePlan] savePlan error", e);
@@ -1323,15 +1164,6 @@ function initRidePlannerSection() {
   reloadBtn?.addEventListener("click", loadPlan);
 
   // ===== Reset-alle-ritten (popup bevestiging) =====
-  try {
-    const resetBtn = document.getElementById("resetRidesBtn");
-    const resetStatus = document.getElementById("resetStatus");
-    resetBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllRidesCount(resetStatus);
-    });
-  } catch (_) {}
 
   // Auto-load bij openen Admin tab
   loadPlan();
@@ -1341,7 +1173,6 @@ function initRidePlannerSection() {
 // ===============  Helpers (Admin)  ===================
 // =====================================================
 
-// Boek rit: ridesCount +1 voor members/{LidNr}
 // Boek rit: alleen +1 als gekozen scandatum nog NIET bestaat voor dit lid
 async function bookRide(lid, naam, rideDateYMD) {
   const id = String(lid || "").trim();
@@ -1359,26 +1190,48 @@ async function bookRide(lid, naam, rideDateYMD) {
   const res = await runTransaction(db, async (tx) => {
     const snap = await tx.get(memberRef);
     const data = snap.exists() ? snap.data() : null;
-    const currentCount = data && Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
     const scans = data && Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
     const hasDate = scans.includes(ymd);
 
     if (hasDate) {
       // Nothing to change
-      return { changed: false, newTotal: currentCount, ymd };
+      return { changed: false, newTotal: scans.length, ymd };
     }
 
     if (snap.exists()) {
-      // Apply increment and arrayUnion via update so sentinel values are processed correctly
-      tx.update(memberRef, { ridesCount: increment(1), ScanDatums: arrayUnion(ymd) });
-      return { changed: true, newTotal: currentCount + 1, ymd };
+      tx.update(memberRef, { ScanDatums: arrayUnion(ymd) });
+      return { changed: true, newTotal: scans.length + 1, ymd };
     } else {
-      // New document: set initial ridesCount and ScanDatums
-      tx.set(memberRef, { ridesCount: 1, ScanDatums: [ymd] });
+      // New document: set initial ScanDatums
+      tx.set(memberRef, { ScanDatums: [ymd] });
       return { changed: true, newTotal: 1, ymd };
     }
   });
 
+  return { id, ...res };
+}
+
+// Book only the scan date (used by QR scanning). This will add the YMD
+async function bookScanDateOnly(lid, naam, rideDateYMD) {
+  const id = String(lid || "").trim();
+  if (!id) throw new Error("Geen LidNr meegegeven");
+  const ymd = (rideDateYMD || "").toString().slice(0,10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) throw new Error("Geen geldige ritdatum gekozen");
+  const memberRef = doc(db, "members", id);
+  const res = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(memberRef);
+    const data = snap.exists() ? snap.data() : null;
+    const scans = data && Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
+    const hasDate = scans.includes(ymd);
+    if (hasDate) return { changed: false, newTotal: scans.length, ymd };
+    if (snap.exists()) {
+      tx.update(memberRef, { ScanDatums: arrayUnion(ymd) });
+      return { changed: true, newTotal: scans.length + 1, ymd };
+    } else {
+      tx.set(memberRef, { ScanDatums: [ymd] });
+      return { changed: true, newTotal: 1, ymd };
+    }
+  });
   return { id, ...res };
 }
 
@@ -1438,7 +1291,6 @@ function initManualRideSection() {
   const err     = $("adminManualError");
   const sName   = $("adminMName");
   const sId     = $("adminMMemberNo");
-  const sCount  = $("adminMRidesCount");
   const status  = $("adminManualStatus");
   const rideButtons = $("adminRideButtons");
   const rideHint = $("adminRideHint");
@@ -1467,16 +1319,7 @@ function initManualRideSection() {
   let selected = null;
   let unsub = null;
 
-  function fullNameFrom(d) {
-    const tussen = (d?.["Tussen voegsel"] || "").toString().trim();
-    const parts = [
-      (d?.["Voor naam"] || "").toString().trim(),
-      d?.["Voor letters"] ? `(${(d["Voor letters"]+"").trim()})` : "",
-      tussen,
-      (d?.["Naam"] || d?.["name"] || d?.["naam"] || "").toString().trim()
-    ].filter(Boolean);
-    return parts.join(" ").replace(/\s+/g, " ").trim();
-  }
+  // `fullNameFrom` provided by `src/ui-helpers.js`
 
   function hideSuggest() { list.innerHTML = ""; list.style.display = "none"; }
   function showSuggest(items) {
@@ -1604,12 +1447,12 @@ function initManualRideSection() {
       try {
         const planned = await getPlannedDates();
         const scanDatums = Array.isArray(entry.data?.ScanDatums) ? entry.data.ScanDatums : [];
-  const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
-  sCount.innerHTML = starsHtml || "—";
-  sCount.setAttribute('title', stars ? tooltip : 'Geen ingeplande datums');
+        const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+        sCount.innerHTML = starsHtml || "—";
+        sCount.setAttribute('title', stars ? tooltip : 'Geen ingeplande datums');
       } catch (e) {
-        const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
-        sCount.textContent = String(v);
+        const sc = Array.isArray(entry.data?.ScanDatums) ? entry.data.ScanDatums.length : 0;
+        sCount.textContent = String(sc);
       }
     })();
     box.style.display = "grid";
@@ -1629,7 +1472,7 @@ function initManualRideSection() {
           if (stars) sCount.setAttribute('title', tooltip);
           else sCount.removeAttribute('title');
         } catch (e) {
-          const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
+          const c = d && Array.isArray(d.ScanDatums) ? d.ScanDatums.length : 0;
           sCount.textContent = String(c);
         }
       })();
@@ -1707,8 +1550,8 @@ function initAdminQRScanner() {
     left.textContent = `${hhmmss()} — ${naam ? naam + " " : ""}${lid ? "(LidNr: " + lid + ")" : "(onbekend)"}`;
     const right = document.createElement("div");
     right.textContent = ok
-      ? `✓ bijgewerkt${(ridesTotal ?? ridesTotal === 0) ? " — totaal: " + ridesTotal : ""}`
-      : `✗ ${reason || "geweigerd"}`;
+      ? `bijgewerkt${(ridesTotal ?? ridesTotal === 0) ? " — totaal: " + ridesTotal : ""}`
+      : `${reason || "geweigerd"}`;
     row.appendChild(left);
     row.appendChild(right);
 
@@ -1740,8 +1583,8 @@ function initAdminQRScanner() {
           const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
             .replace(/\s+/g, " ").trim();
           naam = composed || (d["Naam"] || d["name"] || d["naam"] || "");
-          const rc = Number(d?.ridesCount);
-          beforeCount = Number.isFinite(rc) ? rc : 0;
+          const scans = Array.isArray(d.ScanDatums) ? d.ScanDatums.length : 0;
+          beforeCount = Number.isFinite(Number(scans)) ? scans : 0;
         } else {
           beforeCount = 0;
         }
@@ -1761,8 +1604,60 @@ function initAdminQRScanner() {
         appendLog({ naam: naam || "", lid, ok: false, reason: 'niet geplande datum' });
         return;
       }
-      const out = await bookRide(lid, naam || "", todayYMD);
+      const out = await bookScanDateOnly(lid, naam || "", todayYMD);
       const newTotal = out.newTotal;
+
+      // --- Sla eventuele lunch/jaarhanger keuzes (uit QR-payload óf UI) op bij het lid ---
+      try {
+        // Probeer eerst de QR payload te parsen (als het een JSON payload was)
+        let parsed = null;
+        try { parsed = JSON.parse(decodedText || ""); } catch (_) { parsed = null; }
+
+        // UI-waarden (fallback wanneer QR geen waarden bevat)
+        const uiLunchYes = document.getElementById('lunchYes');
+        const uiLunchNo = document.getElementById('lunchNo');
+        const uiLunchDeelname = uiLunchYes && uiLunchYes.classList.contains('active') ? 'ja'
+                              : uiLunchNo && uiLunchNo.classList.contains('active') ? 'nee'
+                              : null;
+        let uiLunchKeuze = null;
+        const keuzeWrap = document.getElementById('keuzeEtenButtons');
+        if (keuzeWrap) {
+          const activeBtn = keuzeWrap.querySelector('button.active');
+          if (activeBtn) uiLunchKeuze = (activeBtn.textContent || '').trim();
+        }
+        const uiYYes = document.getElementById('yearhangerYes');
+        const uiYNo  = document.getElementById('yearhangerNo');
+        const uiJaarhanger = uiYYes && uiYYes.classList.contains('active') ? 'Ja'
+                           : uiYNo && uiYNo.classList.contains('active') ? 'Nee'
+                           : null;
+
+        // Values from QR payload (take precedence over UI)
+        const qrLunchDeelname = parsed && typeof parsed.lunchDeelname === 'string' ? parsed.lunchDeelname : null;
+        const qrLunchKeuze = parsed && typeof parsed.lunchKeuze === 'string' ? parsed.lunchKeuze : null;
+        const qrJaarhanger = parsed && (parsed.Jaarhanger || parsed.jaarhanger) ? (parsed.Jaarhanger || parsed.jaarhanger) : null;
+
+        // Merge: prefer QR values, fallback to UI
+        const lunchDeelname = qrLunchDeelname !== null ? qrLunchDeelname : uiLunchDeelname;
+        const lunchKeuze = qrLunchKeuze !== null ? qrLunchKeuze : uiLunchKeuze;
+        const jaarhangerVal = qrJaarhanger !== null ? qrJaarhanger : uiJaarhanger;
+
+        const ymdForLunch = todayYMD; // bind lunch choice to today's ride
+
+        const toWrite = {};
+        if (lunchDeelname !== null) {
+          toWrite.lunchDeelname = lunchDeelname;
+          toWrite.lunchRideDateYMD = ymdForLunch;
+        }
+        if (lunchKeuze !== null) toWrite.lunchKeuze = lunchKeuze;
+        if (jaarhangerVal !== null) toWrite.Jaarhanger = jaarhangerVal;
+
+        // Only write when there's something to save
+        if (Object.keys(toWrite).length > 0) {
+          await withRetry(() => updateOrCreateDoc(doc(db, "members", String(lid)), toWrite), { retries: 3 });
+        }
+      } catch (e) {
+        console.error('Opslaan lunch/jaarhanger na scan mislukt', e);
+      }
 
       if (statusEl) statusEl.textContent = out.changed
         ? `✅ Rit +1 voor ${naam || "(onbekend)"} (${lid}) op ${out.ymd}`
@@ -1808,62 +1703,7 @@ function initAdminQRScanner() {
   stopBtn?.addEventListener("click", stop);
 }
 
-// ===== Firestore helper: reset alle ridesCount in batches ======
-async function resetAllRidesCount(statusEl) {
-  if (!statusEl) return;
-  statusEl.textContent = "Voorbereiden…";
-  let total = 0;
-  let updated = 0;
-  let skipped = 0;
 
-  try {
-  let last = null;
-  const pageSize = 400; // veilig onder batch-limiet
-
-    while (true) {
-      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
-      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
-
-      const snapshot = await getDocs(qRef);
-      if (snapshot.empty) break;
-
-      let batch = writeBatch(db);
-      let batchCount = 0;
-      snapshot.forEach((docSnap) => {
-        try {
-          const data = docSnap.data() || {};
-          const current = Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
-          // Only reset ridesCount when it's not already 0. Preserve ScanDatums.
-          if (current !== 0) {
-            batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
-            batchCount += 1;
-            updated += 1;
-          } else {
-            skipped += 1;
-          }
-        } catch (e) {
-          console.error('resetAllRidesCount: skipping doc due to error', docSnap.id, e);
-          skipped += 1;
-        }
-      });
-      if (batchCount > 0) await batch.commit();
-      total += snapshot.size;
-      statusEl.textContent = `Verwerkt: ${total} leden…`;
-
-      last = snapshot.docs[snapshot.docs.length - 1];
-      if (snapshot.size < pageSize) break;
-    }
-
-  // Show a brief success message with counts, then clear after a delay so it doesn't permanently overlay UI
-  if (statusEl) {
-    statusEl.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
-    setTimeout(() => { try { statusEl.textContent = ''; } catch(_) {} }, 6000);
-  }
-  } catch (e) {
-    console.error(e);
-    statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
-  }
-}
 
 // ===== Firestore helper: reset alle Jaarhanger waarden in batches ======
 async function resetAllJaarhanger(statusEl) {
@@ -1944,12 +1784,11 @@ async function resetAllLunch(statusEl) {
       snapshot.forEach((docSnap) => {
         try {
           const data = docSnap.data() || {};
-          const hasAny = (data.lunchDeelname != null) || (data.lunchKeuze != null) || (data.lunchTimestamp != null) || (data.lunchRideDateYMD != null);
-          if (hasAny) {
+          const hasAny = (data.lunchDeelname != null) || (data.lunchKeuze != null) || (data.lunchRideDateYMD != null);
+            if (hasAny) {
             batch.set(doc(db, "members", docSnap.id), {
               lunchDeelname: null,
               lunchKeuze: null,
-              lunchTimestamp: null,
               lunchRideDateYMD: null
             }, { merge: true });
             batchCount += 1;
@@ -1989,30 +1828,37 @@ async function exportMembersExcel() {
     // Haal alle leden op
     const snap = await getDocs(collection(db, "members"));
     const rows = [];
+    // Bepaal exportjaar: optioneel via een input `#exportYear`, anders huidig jaar
+    const yearInput = document.getElementById('exportYear');
+    const exportYear = yearInput && /^\d{4}$/.test((yearInput.value || '').toString().trim())
+      ? (yearInput.value || '').toString().trim()
+      : String(new Date().getFullYear());
     snap.forEach((docSnap) => {
       const d = docSnap.data() || {};
       const naam = d.Naam ?? d.naam ?? d.lastName ?? d.achternaam ?? "";
       const tussen = d["Tussen voegsel"] ?? d.tussenvoegsel ?? d.tussenVoegsel ?? d.tussen ?? d.infix ?? "";
       const voorletters = d["Voor letters"] ?? d.voorletters ?? d.initialen ?? d.initials ?? "";
       const voornaam = d["Voor naam"] ?? d.voornaam ?? d.firstName ?? d.naamVoor ?? "";
-      const rides = (typeof d.ridesCount === "number") ? d.ridesCount
-                   : (typeof d.rittenCount === "number") ? d.rittenCount
-                   : (typeof d.ritten === "number") ? d.ritten : 0;
       let regioOms = d["Regio Omschrijving"] ?? d.regioOmschrijving ?? "";
       if (!regioOms && d.regio && typeof d.regio === "object") {
         regioOms = d.regio.omschrijving ?? d.regio.name ?? d.regio.title ?? "";
       }
+      // Bereken unieke ScanDatums voor dit lid en tel die binnen het gekozen jaar
+      const scans = Array.isArray(d.ScanDatums) ? d.ScanDatums.map(String).map(s => (s||'').slice(0,10)) : [];
+      const uniqScans = Array.from(new Set(scans.filter(Boolean)));
+      const scansThisYear = uniqScans.filter(s => s.slice(0,4) === exportYear).length;
+
       rows.push({
         "Naam": String(naam || ""),
         "Tussen voegsel": String(tussen || ""),
         "Voor letters": String(voorletters || ""),
         "Voor naam": String(voornaam || ""),
-        "ridesCount": rides,
         "Regio Omschrijving": String(regioOms || ""),
+        "Aantal ritten": scansThisYear,
       });
     });
 
-    const headers = ["Naam","Tussen voegsel","Voor letters","Voor naam","ridesCount","Regio Omschrijving"];
+    const headers = ["Naam","Tussen voegsel","Voor letters","Voor naam","Regio Omschrijving","Aantal ritten"];
     // XLSX (SheetJS) als beschikbaar
     try {
       if (typeof XLSX !== "undefined" && XLSX.utils && XLSX.write) {

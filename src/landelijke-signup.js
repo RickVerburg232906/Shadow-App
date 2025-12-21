@@ -1,25 +1,9 @@
 // landelijke-signup.js — Universele functies voor landelijke rit signup
-import QRCode from "qrcode";
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
-import { getPlannedDates, plannedStarsWithHighlights, loadLunchOptions } from "./member.js";
-
-// ========== Helper functies ==========
-
-function $(id) {
-  return document.getElementById(id);
-}
-
-export function fullNameFrom(docData) {
-  const tussen = (docData["Tussen voegsel"] || "").trim();
-  const parts = [
-    docData["Voor naam"] || "",
-    docData["Voor letters"] ? `(${docData["Voor letters"]})` : "",
-    tussen ? tussen : "",
-    docData["Naam"] || ""
-  ].filter(Boolean);
-  return parts.join(" ").replace(/\s+/g, " ").trim();
-}
+import { getPlannedDates, loadLunchOptions } from "./member.js";
+import { plannedStarsWithHighlights } from './planned-stars.js';
+import { $, fullNameFrom, showError, hideError, showLoading, hideLoading } from './ui-helpers.js';
 
 function toYMDString(value) {
   try {
@@ -106,10 +90,6 @@ function getErrorMessage(error) {
   return "Er ging iets mis. Probeer het opnieuw of ga naar de inschrijfbalie.";
 }
 
-// ========== Lunch functies ==========
-
-// loadLunchOptions is provided by src/member.js (cached)
-
 // ========== Query functies ==========
 
 export async function queryByLastNamePrefix(prefix) {
@@ -179,157 +159,13 @@ export function showSuggestions(items, suggestListId = "suggestions", onSelectCa
 
 // ========== Error/Loading helpers ==========
 
-export function showError(message, isWarning = false, errorBoxId = "error") {
-  const errBox = $(errorBoxId);
-  if (!errBox) return;
-  errBox.textContent = message;
-  errBox.style.display = "block";
-  errBox.style.color = isWarning ? "#fbbf24" : "#fca5a5";
-}
-
-export function hideError(errorBoxId = "error") {
-  const errBox = $(errorBoxId);
-  if (errBox) errBox.style.display = "none";
-}
-
-export function showLoading(loadingIndicatorId = "loadingIndicator") {
-  const loadingIndicator = $(loadingIndicatorId);
-  if (loadingIndicator) loadingIndicator.style.display = "flex";
-}
-
-export function hideLoading(loadingIndicatorId = "loadingIndicator") {
-  const loadingIndicator = $(loadingIndicatorId);
-  if (loadingIndicator) loadingIndicator.style.display = "none";
-}
+// Error/loading helpers are provided by `src/ui-helpers.js`
 
 // ========== QR Code generatie ==========
 
-export async function generateQrForEntry(entry, canvasId = "qrCanvas", resultBoxId = "result") {
-  try {
-    if (!entry) return;
-    const payload = JSON.stringify({ t: "member", uid: entry.id });
-    const qrCanvas = $(canvasId);
-    const resultBox = $(resultBoxId);
-    const errBox = $("error");
-    
-    return new Promise((resolve, reject) => {
-      if (!qrCanvas) return resolve();
-      
-      try {
-        let prevDisplay = "";
-        let prevVisibility = "";
-        if (resultBox) {
-          prevDisplay = resultBox.style.display;
-          prevVisibility = resultBox.style.visibility;
-          resultBox.style.display = 'grid';
-          resultBox.style.visibility = 'hidden';
-        }
+// Legacy generateQrForEntry removed — QR generation is centralized in index.html.
 
-        const parent = qrCanvas.parentElement;
-        const measured = parent?.clientWidth || qrCanvas.getBoundingClientRect().width || 220;
-        const containerWidth = Math.max(220, Math.floor(measured));
-        
-        qrCanvas.style.width = '100%';
-        qrCanvas.style.height = 'auto';
-        qrCanvas.style.aspectRatio = '1 / 1';
-        
-        const drawSize = Math.min(containerWidth, 1024);
-        QRCode.toCanvas(qrCanvas, payload, { width: drawSize, margin: 1 }, (err) => {
-          if (err) {
-            const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
-            if (errBox) { 
-              errBox.textContent = errorMsg;
-              errBox.style.display = "block";
-              errBox.style.color = "#fca5a5";
-            }
-            reject(new Error(errorMsg));
-            return;
-          }
-          if (resultBox) {
-            resultBox.style.display = 'grid';
-            resultBox.style.visibility = prevVisibility || '';
-          }
-          const privacyEl = $("qrPrivacy");
-          if (privacyEl) privacyEl.style.display = "block";
-          resolve();
-        });
-        return;
-      } catch(_) {}
-      
-      // Fallback render
-      QRCode.toCanvas(qrCanvas, payload, { width: 220, margin: 1 }, (err) => {
-        if (err) {
-          const errorMsg = "QR-code genereren mislukt. Probeer het opnieuw.";
-          if (errBox) { 
-            errBox.textContent = errorMsg;
-            errBox.style.display = "block";
-            errBox.style.color = "#fca5a5";
-          }
-          reject(new Error(errorMsg));
-          return;
-        }
-        if (resultBox) resultBox.style.display = "grid";
-        const privacyEl = $("qrPrivacy");
-        if (privacyEl) privacyEl.style.display = "block";
-        resolve();
-      });
-    });
-  } catch (e) {
-    console.error('generateQrForEntry failed', e);
-    throw e;
-  }
-}
-
-// ========== QR Fullscreen ==========
-
-export function openQrFullscreenFromCanvas(qrCanvas) {
-  try {
-    const dataUrl = qrCanvas.toDataURL("image/png");
-    const overlay = document.createElement("div");
-    overlay.id = "qrFullscreenOverlay";
-    overlay.style.position = "fixed";
-    overlay.style.inset = "0";
-    overlay.style.background = "rgba(0,0,0,0.95)";
-    overlay.style.display = "flex";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
-    overlay.style.zIndex = "9999";
-    overlay.style.cursor = "zoom-out";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-label", "QR-code fullscreen");
-
-    const img = document.createElement("img");
-    img.src = dataUrl;
-    img.alt = "QR-code";
-    img.style.width = "100vmin";
-    img.style.height = "100vmin";
-    img.style.imageRendering = "pixelated";
-
-    const hint = document.createElement("div");
-    hint.textContent = "Klik of druk op Esc om te sluiten";
-    hint.style.position = "fixed";
-    hint.style.bottom = "24px";
-    hint.style.left = "50%";
-    hint.style.transform = "translateX(-50%)";
-    hint.style.color = "#e5e7eb";
-    hint.style.fontSize = "14px";
-    hint.style.opacity = "0.8";
-
-    function close() {
-      try { document.removeEventListener("keydown", onKey); } catch(_) {}
-      overlay.remove();
-    }
-    function onKey(e) { if (e.key === "Escape") close(); }
-    overlay.addEventListener("click", close, { passive: true });
-    document.addEventListener("keydown", onKey);
-
-    overlay.appendChild(img);
-    overlay.appendChild(hint);
-    document.body.appendChild(overlay);
-  } catch (e) {
-    console.error("QR fullscreen overlay faalde:", e);
-  }
-}
+// QR fullscreen overlay is now centralized in `index.html` (openQrFullscreenFromCanvas there).
 
 // ========== Cleanup oude lunch keuzes ==========
 
@@ -345,7 +181,6 @@ export async function checkAndCleanupOldLunchChoice(memberId, memberData) {
       await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), {
         lunchDeelname: null,
         lunchKeuze: null,
-        lunchTimestamp: null,
         lunchRideDateYMD: null
       }), { retries: 2 });
       console.log(`Lunch keuze gewist voor lid ${memberId} — rit ${rideYMD} voorbij (${today}).`);
@@ -357,27 +192,7 @@ export async function checkAndCleanupOldLunchChoice(memberId, memberData) {
 
 // ========== Save functies ==========
 
-export async function saveLunchChoice(memberId, lunchChoice, selectedKeuzeEten) {
-  try {
-    if (!memberId) return;
-    
-    const isVastMenuOnly = selectedKeuzeEten.length > 0 && selectedKeuzeEten[0] === 'vast-menu';
-    const keuzeEtenValue = (isVastMenuOnly || selectedKeuzeEten.length === 0) ? null : selectedKeuzeEten[0];
-    const rideYMD = await getNextPlannedRideYMD();
-    
-    await withRetry(() => updateOrCreateDoc(doc(db, "members", String(memberId)), { 
-      lunchDeelname: lunchChoice,
-      lunchKeuze: keuzeEtenValue,
-      lunchTimestamp: serverTimestamp(),
-      lunchRideDateYMD: rideYMD || null
-    }), { retries: 3 });
-    
-    return true;
-  } catch (e) {
-    console.error("Lunch keuze opslaan mislukt", e);
-    throw e;
-  }
-}
+// `saveLunchChoice` removed — lunch choices are no longer persisted from the UI.
 
 export async function saveYearhanger(memberId, yearhangerValue) {
   try {

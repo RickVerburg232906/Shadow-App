@@ -1,7 +1,7 @@
 
 import { initMemberView, getPlannedDates } from "./member.js";
 import { initAdminView } from "./admin.js";
-import { db, doc, getDoc, setDoc } from "./firebase.js";
+import { db, doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch, limit, orderBy, startAfter } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +28,9 @@ async function ensurePasswordsLoaded() {
   }
   return PASSWORDS;
 }
+
+// Expose clearPastLunchData to the window for dev pages to call directly
+try { if (typeof window !== 'undefined') window.clearPastLunchData = clearPastLunchData; } catch(_) {}
 async function setInschrijftafelPwd(newPwd) {
   const ref = doc(db, "globals", "passwords");
   await withRetry(() => updateOrCreateDoc(ref, { inschrijftafel: String(newPwd || ""), updatedAt: Date.now() }), { retries: 2 });
@@ -47,16 +50,70 @@ async function getHoofdAdminPwd() {
   return p.hoofdadmin;
 }
 
+// Clear lunch fields for all members whose lunchRideDateYMD is before today
+async function clearPastLunchData() {
+  try {
+    const today = new Date();
+    const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const coll = collection(db, 'members');
+    const pageSize = 400;
+    let last = null;
+    let totalUpdated = 0;
+    while (true) {
+      let qRef = null;
+      if (last) {
+        qRef = query(coll, where('lunchRideDateYMD', '<', todayYMD), orderBy('lunchRideDateYMD'), orderBy('__name__'), startAfter(last), limit(pageSize));
+      } else {
+        qRef = query(coll, where('lunchRideDateYMD', '<', todayYMD), orderBy('lunchRideDateYMD'), orderBy('__name__'), limit(pageSize));
+      }
+      const snap = await getDocs(qRef);
+      if (snap.empty) break;
+      const batch = writeBatch(db);
+      let batchCount = 0;
+      snap.forEach(docSnap => {
+        try {
+          const ref = doc(db, 'members', docSnap.id);
+          // clear lunch-related fields by setting them to null
+          batch.update(ref, { lunchDeelname: null, lunchKeuze: null, lunchRideDateYMD: null });
+          batchCount += 1;
+        } catch (_) {}
+      });
+      await batch.commit();
+      totalUpdated += batchCount;
+      last = snap.docs[snap.docs.length - 1];
+      if (snap.size < pageSize) break;
+    }
+    console.info('Cleared past lunch data before', todayYMD, '- documents updated:', totalUpdated);
+    return totalUpdated;
+  } catch (e) {
+    console.warn('clearPastLunchData failed', e);
+    throw e;
+  }
+}
+
 // Tabs & views
 const tabMember = $("tabMember");
 const tabAdmin  = $("tabAdmin");
 const viewMember = $("viewMember");
 const viewAdmin  = $("viewAdmin");
 
-function applyAdminLevel() {
+export function applyAdminLevel() {
   try {
     const lvl = sessionStorage.getItem("admin_level") || "admin";
     const adminView = document.getElementById("viewAdmin");
+    // Toggle admin pages dropdown even on standalone admin pages (no `viewAdmin` present)
+    try {
+      const nav = document.querySelector('.admin-nav-dropdown');
+      if (nav) {
+        if (lvl === 'root') {
+          nav.removeAttribute('hidden');
+          nav.style.display = '';
+        } else {
+          nav.setAttribute('hidden', '');
+          nav.style.display = 'none';
+        }
+      }
+    } catch (_) {}
     if (!adminView) return;
     const cards = Array.from(adminView.querySelectorAll(".card"));
     if (lvl === "root") {
@@ -73,6 +130,7 @@ function applyAdminLevel() {
         if (!keep) card.setAttribute("hidden", "hidden");
       });
     }
+    
   } catch (_) {}
 }
 
@@ -112,6 +170,9 @@ async function promptPasswordMasked(title = "Wachtwoord", placeholder = "Wachtwo
     overlay.style.position = "fixed";
     overlay.style.inset = "0";
     overlay.style.background = "rgba(0,0,0,0.4)";
+    // Blur the page content behind the modal where supported
+    overlay.style.backdropFilter = "blur(6px)";
+    overlay.style.webkitBackdropFilter = "blur(6px)";
     overlay.style.display = "flex";
     overlay.style.alignItems = "center";
     overlay.style.justifyContent = "center";
@@ -209,21 +270,48 @@ async function adminLoginFlow(redirectTo) {
   try {
     await ensurePasswordsLoaded();
     const pwd = await promptPasswordMasked("Vul uw wachtwoord in", "Wachtwoord");
-    if (pwd == null) return;
+    if (pwd == null) {
+      // Cancelled: return to home
+      window.location.href = 'index.html';
+      return;
+    }
     const rootPwd = await getHoofdAdminPwd();
     const adminPwd = await getInschrijftafelPwd();
 
     if (pwd === rootPwd) {
       sessionStorage.setItem("admin_ok", "1");
       sessionStorage.setItem("admin_level", "root");
+      try {
+        // After successful admin authentication, clear past lunch data (dates before today)
+        const cleared = await clearPastLunchData();
+        console.info('clearPastLunchData completed for admin (root). documents updated:', cleared);
+      } catch (e) {
+        console.warn('Clearing past lunch data failed', e);
+      }
     } else if (pwd === adminPwd) {
       sessionStorage.setItem("admin_ok", "1");
       sessionStorage.setItem("admin_level", "admin");
+      try {
+        // Also clear past lunch data for regular inschrijftafel admin
+        const cleared = await clearPastLunchData();
+        console.info('clearPastLunchData completed for admin. documents updated:', cleared);
+      } catch (e) {
+        console.warn('Clearing past lunch data failed', e);
+      }
     } else {
       window.alert("Wachtwoord onjuist");
+      // Incorrect password: send back to the public index
+      window.location.href = 'index.html';
       return;
     }
-    const target = redirectTo || "admin-scan.html";
+    // Ensure limited admin users (`inschrijftafel`) are only redirected to admin-scan.html
+    let target = redirectTo || "admin-scan.html";
+    try {
+      const lvlNow = sessionStorage.getItem("admin_level") || "admin";
+      if (lvlNow === 'admin' && typeof target === 'string' && !/admin-scan\.html$/i.test(String(target))) {
+        target = 'admin-scan.html';
+      }
+    } catch (_) {}
     if (typeof target === "string") window.location.href = target;
   } catch (e) {
     console.error(e);
@@ -279,7 +367,13 @@ function setupAdminPwdSection() {
       }
       try {
         await setInschrijftafelPwd(v);
-        if (status) { status.textContent = "✅ Nieuw admin-wachtwoord opgeslagen in Firestore."; status.classList.remove("error"); }
+        try {
+          const cleared = await clearPastLunchData();
+          console.info('clearPastLunchData completed after inschrijftafel pwd change. documents updated:', cleared);
+        } catch (e) {
+          console.warn('Clearing past lunch data failed', e);
+        }
+        if (status) { status.textContent = "✅ Nieuw inschrijftafel-wachtwoord opgeslagen in Firestore."; status.classList.remove("error"); }
         input.value = "";
       } catch (e) {
         console.error(e);
@@ -317,6 +411,25 @@ function setupRootAdminPwdSection() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Enforce page-level admin access: if visiting an admin page, require login and restrict `admin` level.
+  try {
+    const path = (window.location.pathname || '').split('/').pop() || '';
+    const isAdminPage = /(^|\/)admin-.*\.html$/i.test(path) || /(^|\/)beheer(\/|$)/i.test(window.location.pathname);
+    if (isAdminPage) {
+      const ok = sessionStorage.getItem('admin_ok') === '1';
+      if (!ok) {
+        // Prompt for login and stay/redirect to this page on success
+        adminLoginFlow(window.location.pathname);
+        return;
+      }
+      const lvl = sessionStorage.getItem('admin_level') || 'admin';
+      if (lvl === 'admin' && !/admin-scan\.html$/i.test(path)) {
+        // Limited admin cannot access other admin pages — redirect to admin-scan
+        window.location.href = 'admin-scan.html';
+        return;
+      }
+    }
+  } catch (_) {}
   try { if (sessionStorage.getItem("admin_ok")==="1") applyAdminLevel();
     try { setupAdminSubtabs(); } catch (_) {} } catch(_) {}
   setupAdminPwdSection();
@@ -497,7 +610,7 @@ function classifyDays(days) {
   // returns a class name for styling
   if (days === null) return '';
   if (days < 0) return 'passed';
-  if (days <= 3) return 'soon';
+  if (days <= 7) return 'soon';
   return 'upcoming';
 }
 
@@ -510,14 +623,6 @@ function showPlannedRides() {
   const section = document.getElementById('plannedRidesSection');
   if (section) section.style.display = '';
 }
-
-// Example: source of planned rides. In a real app this may come from Firestore.
-const DEFAULT_PLANNED_RIDES = [
-  // ISO dates for consistency
-  '2025-10-25',
-  '2025-11-08',
-  '2025-12-06'
-];
 
 document.addEventListener('DOMContentLoaded', () => {
   try {

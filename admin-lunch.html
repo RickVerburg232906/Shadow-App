@@ -8,12 +8,22 @@
     <link rel="stylesheet" href="/style.css">
   </head>
   <body data-role="guest">
-    <!-- Topbar -->
+    <!-- App splash / loader -->
+    <div id="appSplash" class="app-splash" aria-hidden="false">
+      <div class="splash-inner">
+        <img src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow" class="splash-logo" decoding="async" />
+        <div class="splash-title">Shadow Motorclub</div>
+        <div class="splash-progress">
+          <div class="splash-progress-bar" id="splashProgressBar" style="width:0%"></div>
+        </div>
+        <div class="splash-caption" id="splashCaption">Laden…</div>
+      </div>
+    </div>
     <header class="topbar">
-      <div class="brand">Shadow App</div>
-      <nav class="nav" aria-label="Hoofdnavigatie">
-        <a href="/" class="tab" id="btnMember">Lid</a>
-        <a href="/admin-scan.html" class="tab" id="btnAdmin">Inschrijftafel</a>
+  <img id="clubLogo" src="assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="100" height="30" decoding="async" fetchpriority="high"/>
+      <nav class="nav">
+        <button id="tabMember" class="tab active">Lid</button>
+        <button id="tabAdmin" class="tab">Inschrijftafel</button>
       </nav>
     </header>
 
@@ -75,15 +85,25 @@
     </main>
 
     <script type="module">
-      import { checkAdminAuth, applyAdminLevel } from '/src/auth.js';
+      import { applyAdminLevel } from '/src/main.js';
       import { initAdminView } from '/src/admin.js';
       import { getPlannedDates } from '/src/member.js';
       import { db, doc, getDoc, serverTimestamp, collection, orderBy, startAfter, limit, getDocs, query } from '/src/firebase.js';
       import { withRetry, updateOrCreateDoc } from '/src/firebase-helpers.js';
 
-      // Guard: alle admins hebben toegang tot lunch planning
-      checkAdminAuth({ redirectTo: '/' });
-      applyAdminLevel();
+      // Guard: alle admins hebben toegang to lunch planning (sessionStorage-based)
+      (function() {
+        const adminLevel = sessionStorage.getItem("admin_level");
+        if (!adminLevel) {
+          window.location.href = '/admin-scan.html';
+          return;
+        }
+        if (adminLevel !== "root" && adminLevel !== "admin") {
+          window.location.href = '/admin-scan.html';
+          return;
+        }
+        applyAdminLevel();
+      })();
 
       // Minimal page bootstrap using existing admin.js infra
       initAdminView();

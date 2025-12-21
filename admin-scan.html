@@ -114,144 +114,222 @@
         </div>
 
         <!-- Vervangen door exacte inschrijven-rit sectie van index.html -->
-        <section id="landelijkeSignup" data-ride-signup="true" hidden>
+        <section id="landelijkeSignup" data-ride-signup="true">
           <div class="card" id="manualRideCard">
             <h1>Handmatig inschrijven</h1>
-            <p class="hint">Zoek op achternaam of voornaam (Hoofdlettergevoelig).</p>
+            <p class="hint">Zoek op achternaam of voornaam.</p>
             
-            <div class="row">
-              <input id="nameInput" placeholder="achternaam of voornaam" />
-            </div>
-            
-            <!-- Lunch keuze sectie -->
-            <div id="lunchChoiceSection" style="display:none; margin-top:24px;">
-              <details open style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border-radius: 12px; padding: 20px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                <summary style="cursor: pointer; list-style: none; user-select: none; display: flex; align-items: center; gap: 12px;">
-                  <div style="flex: 1;">
-                    <h3 style="margin: 0; font-size: 20px;">Lunch deelname</h3>
-                    <p style="margin: 4px 0 0 0; color: var(--muted); font-size: 14px;">
-                      <span id="lunchSummaryText">Vraag of de deelnemer mee-eet tijdens de lunch</span>
-                    </p>
-                    <span id="lunchSelectionBadge" style="display: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap;"></span>
-                  </div>
-                  <span class="toggle-icon" style="font-size: 24px; transition: transform 0.3s ease;">▼</span>
-                </summary>
-                
-                <div class="lunch-content" style="margin-top: 16px;">
-                  <!-- Disclaimer wanneer gescand -->
-                  <div id="lunchScannedDisclaimer" style="display: none; padding: 12px; margin-bottom: 16px; background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 18px;">ℹ️</span>
-                      <div>
-                        <strong style="color: #fbbf24; font-size: 14px;">Let op:</strong>
-                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
-                          De deelnemer is al ingecheckt voor deze rit. De lunchkeuze kan niet meer worden gewijzigd.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Lunch details (alleen zichtbaar bij "Ja") - BOVEN vast menu -->
-                  <div id="lunchDetailsSection" style="display:none; margin-bottom:20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
-                    <div id="keuzeEtenSection" style="margin-bottom:0;">
-                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                        <span style="font-size: 20px;">🍴</span>
-                        <strong style="font-size: 15px;">Vraag wat de deelnemer wil eten:</strong>
-                      </div>
-                      <div id="keuzeEtenButtons" style="display:flex; flex-wrap:wrap; gap:10px;">
-                        <!-- Dynamische keuze buttons komen hier -->
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Vast menu voor iedereen (altijd zichtbaar) -->
-                  <div style="margin-bottom:20px; background: rgba(255, 255, 255, 0.03); padding: 14px; border-radius: 8px; border-left: 4px solid #10b981;">
-                    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:8px;">
-                      <div style="font-size:28px; line-height:1;">🥖</div>
-                      <div style="flex:1;">
-                        <div style="font-size:15px; font-weight:700; color:var(--text);">Vast menu voor iedereen</div>
-                        <div id="vastEtenDisplay" class="muted" style="margin-top:6px; font-size:14px; line-height:1.4;">Brood</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div class="seg-wrap">
-                    <div class="seg-toggle" id="lunchToggle" role="radiogroup" aria-label="Lunch keuze" style="width: 100%;">
-                      <button type="button" id="lunchYes" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                        ✓ Ja, ik eet mee
-                      </button>
-                      <button type="button" id="lunchNo" class="seg-btn" role="radio" aria-checked="false" style="flex: 1; padding: 14px; font-size: 16px; font-weight: 600;">
-                        ✕ Nee, ik eet niet mee
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <!-- Informatieve melding over deadline (altijd zichtbaar) -->
-                  <div id="lunchDeadlineInfo" style="padding: 12px; margin-top: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 18px;">💡</span>
-                      <div>
-                        <strong style="color: #3b82f6; font-size: 14px;">Belangrijk:</strong>
-                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">
-                          Zeg dat de deelnemer zijn lunchkeuze <strong>vóór het inchecken</strong> moet maken. Na het inchecken kan de keuze niet meer worden gewijzigd.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-              </details>
-            </div>
-            <!-- Lunch keuze sectie (mount point) -->
-            <div id="lunchChoiceSection" style="display:none; margin-top:24px;"></div>
+            <div id="adminManualSearchMount"></div>
             <script type="module">
-              import { renderLunchChoice } from '/src/lunch-ui.js';
-              renderLunchChoice(document.getElementById('lunchChoiceSection'));
-            </script>
-            
-            <!-- Jaarhanger (mount point) -->
-            <div id="yearhangerRow" style="margin-top:8px; display:none;"></div>
-            <script type="module">
-              import { renderYearhanger } from '/src/yearhanger-ui.js';
-              renderYearhanger(document.getElementById('yearhangerRow'));
-            </script>
+              import renderMemberSearchInput, { wireAutocomplete } from '/src/member-search-input.js';
+                import { renderLunchChoice } from '/src/lunch-ui.js';
+                import { renderYearhanger } from '/src/yearhanger-ui.js';
+              // setSelectedDocFromEntry removed — page will handle loading member data itself
 
-            <ul id="suggestions" class="suggest"></ul>
+              const mount = document.getElementById('adminManualSearchMount');
+              const widget = renderMemberSearchInput(mount, { showButton: false, placeholder: 'Naam' });
+              // When the input becomes empty, hide any mounted lunch widget for clarity
+              document.addEventListener('member-search:input', (ev) => {
+                try {
+                  const val = ev && ev.detail && typeof ev.detail.value === 'string' ? ev.detail.value.trim() : '';
+                  if (!val) {
+                    try {
+                      const lc = document.getElementById('lunchChoiceSection');
+                      if (lc) {
+                        try { if (typeof lc.setMember === 'function') lc.setMember(null); } catch(_) {}
+                        try { lc.style.display = 'none'; } catch(_) {}
+                      }
+                      try { const yr = document.getElementById('yearhangerRow_local'); if (yr) yr.style.display = 'none'; } catch(_) {}
+                    } catch(_) {}
+                  }
+                } catch (e) { console.error('member-search input handler (admin) failed', e); }
+              });
+              try { wireAutocomplete(widget, {
+                  onSelected: async (memberId) => {
+                      // When selecting in the Handmatig inschrijven mount, hide the
+                      // past-rides list and render only the manual (inschrijven) UI.
+                      try {
+                        try { const pr = document.getElementById('pastRidesList'); if (pr) pr.innerHTML = ''; } catch(_) {}
+                        try { const ps = document.getElementById('pastRidesStatus'); if (ps) ps.textContent = ''; } catch(_) {}
+                        // Load lunch UI into the lunchChoiceSection and make it visible
+                        try {
+                          const lc = document.getElementById('lunchChoiceSection') || (function(){ const d = document.createElement('div'); d.id='lunchChoiceSection'; d.style.display='none'; d.style.marginTop='24px'; const parent = document.getElementById('manualRideCard') || document.body; parent.appendChild(d); return d; })();
+                          let rc = null;
+                          try {
+                            rc = renderLunchChoice(lc, { persist: false });
+                          } catch(_) {}
+                          try { lc.style.display = 'block'; } catch(_) {}
+
+                          // Ensure the jaarhanger is mounted directly under the lunch section
+                          try {
+                            let yr = document.getElementById('yearhangerRow_local');
+                            if (!yr) {
+                              yr = document.createElement('div');
+                              yr.id = 'yearhangerRow_local';
+                              yr.style.marginTop = '8px';
+                              yr.style.display = 'none';
+                              lc.parentNode.insertBefore(yr, lc.nextSibling);
+                            }
+                            try { renderYearhanger(yr); } catch(_) {}
+                            // Ensure the main `#result` card is positioned immediately after the jaarhanger
+                            try {
+                              const resultEl = document.getElementById('result');
+                              if (resultEl && yr && yr.parentNode) {
+                                try { yr.parentNode.insertBefore(resultEl, yr.nextSibling); } catch(_) {}
+                              }
+                            } catch(_) {}
+                            // Attach a listener (once) that shows the local jaarhanger when lunch completes
+                            try {
+                              if (!window.__yearhanger_lunch_listener) {
+                                document.addEventListener('lunch:completed', (ev) => {
+                                  try {
+                                    const yrEl = document.getElementById('yearhangerRow_local');
+                                    if (!yrEl) return;
+                                    try { yrEl.style.display = 'block'; } catch(_) {}
+                                    try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                                  } catch (e) { console.error('yearhanger show failed on lunch completed', e); }
+                                });
+                                window.__yearhanger_lunch_listener = true;
+                              }
+                            } catch(_) {}
+                          } catch(_) {}
+
+                          // Finally bind the member to the lunch widget so its internal
+                          // setMember can dispatch the completion event after the
+                          // jaarhanger listener is registered. The jaarhanger and
+                          // member-info will be shown only when `lunch:completed` fires.
+                          try { if (rc && typeof rc.setMember === 'function') await rc.setMember(memberId); } catch(_) {}
+                          try { window.__current_selected_member = memberId ? String(memberId) : null; } catch(_) {}
+                        } catch(_) {}
+                        // Do not auto-show earlier rides when selecting from the
+                        // "Handmatig inschrijven" widget. The Past Rides section
+                        // has its own search mount and should be used to show
+                        // previous rides to avoid coupling the two flows.
+                        if (typeof updateTodayButton === 'function') await updateTodayButton(memberId);
+                      } catch (e) { console.error('admin manual select handling failed', e); }
+                    }
+                }); } catch(e) { console.error('failed to wire autocomplete', e); }
+            </script>
+            
+            <!-- Suggestions removed (centralized search will be provided later) -->
             <div id="error" class="error" style="display:none"></div>
             <div id="loadingIndicator" class="loading-indicator" style="display:none;">
               <div class="spinner"></div>
               <span class="loading-text">Gegevens laden...</span>
             </div>
             <div id="result" class="result" style="display:none">
-              <div class="column">
-                <div class="kv"><span class="label">Naam</span><span class="value" id="rName">—</span></div>
-                <div class="kv"><span class="label">LidNr</span><span class="value" id="rMemberNo">—</span></div>
-                <div class="kv"><span class="label">Gereden ritten</span><span class="value" id="rRidesCount">—</span></div>
-                <div class="kv"><span class="label">Regio</span><span class="value" id="rRegion">—</span></div>
-                <div style="height:4px;"></div>
-                <h4 style="margin: 8px 0 6px 0;">Handmatig inschrijven</h4>
-                <div style="margin:8px 0; display:flex; align-items:center; gap:8px;">
-                  <button type="button" id="manualTodayBtn" class="btn">Vandaag</button>
-                  <span id="manualTodayStatus" class="small muted" style="min-height:18px;"></span>
-                </div>
+              <div id="memberInfoMount"></div>
+              <div id="manualTodayWrap" style="display:flex; gap:8px; align-items:center;">
+                <button id="manualTodayBtn" class="btn" type="button">Vandaag</button>
+                <span id="manualTodayStatus" class="muted small" aria-live="polite"></span>
               </div>
             </div>
+            <script type="module">
+              import renderMemberInfo from '/src/member-info.js';
+              import { renderYearhanger } from '/src/yearhanger-ui.js';
+              // mount once and expose for other scripts
+              try {
+                const mount = document.getElementById('memberInfoMount');
+                window.__memberInfo = renderMemberInfo(mount);
+              } catch (e) { console.error('member-info mount failed', e); }
+              // Don't reveal member-info or jaarhanger immediately on selection;
+              // only show them when the lunch flow reports completion.
+              document.addEventListener('member-search:selected', (ev) => {
+                try {
+                  // selection is handled by the lunch widget (it will call rc.setMember)
+                } catch (e) { console.error('member-info: selection handler suppressed', e); }
+              });
+
+              // When lunch completes for a member, reveal jaarhanger and member-info
+              try {
+                if (!window.__memberInfo_lunch_listener) {
+                  document.addEventListener('lunch:completed', (ev) => {
+                    try {
+                      const memberId = ev && ev.detail && ev.detail.memberId ? String(ev.detail.memberId) : null;
+                      if (!memberId) return;
+                      // show yearhanger under lunch
+                      try { const yrEl = document.getElementById('yearhangerRow_local'); if (yrEl) { yrEl.style.display = 'block'; } } catch(_) {}
+
+                      // Defer revealing `member-info` until the jaarhanger value
+                      // is available (via prefill or a `yearhanger:changed` event).
+                      // Mark the member as pending so the persistent handler can
+                      // show it once jaarhanger is set.
+                      try { window.__pending_show_after_yearhanger = memberId; } catch(_) {}
+                      // Register a persistent jaarhanger listener and prefilling flow
+                      // similar to `index.html` to control result visibility.
+                      try {
+                        try { window.__current_selected_member = window.__current_selected_member || null; } catch(_) {}
+                        try { window.__lunch_completed_members = window.__lunch_completed_members || new Set(); } catch(_) {}
+                        // mark this member as having completed lunch
+                        try { window.__lunch_completed_members.add(memberId); } catch(_) {}
+
+                        const onYearChangedPersistent = (yEv) => {
+                          try {
+                            const val = yEv && yEv.detail && yEv.detail.value ? yEv.detail.value : null;
+                            const evMember = yEv && yEv.detail && yEv.detail.memberId ? String(yEv.detail.memberId) : null;
+                            const current = window.__current_selected_member ? String(window.__current_selected_member) : null;
+                            const memberToCheck = evMember || current;
+                            if (memberToCheck && window.__lunch_completed_members && window.__lunch_completed_members.has(memberToCheck)) {
+                              try { const yrEl = document.getElementById('yearhangerRow_local') || document.getElementById('yearhangerRow'); const result = document.getElementById('result'); if (yrEl && result && yrEl.parentNode) yrEl.parentNode.insertBefore(result, yrEl.nextSibling); } catch(_) {}
+                              try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberToCheck); } catch(_) {}
+                              try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                            }
+                          } catch (e) { console.error('admin-scan yearhanger:changed persistent handler failed', e); }
+                        };
+                        document.addEventListener('yearhanger:changed', onYearChangedPersistent);
+
+                        // Prefill jaarhanger from Firestore (may dispatch prefill events)
+                        try { renderYearhanger.setMember(memberId); } catch(_) {}
+
+                        // Fallback: if jaarhanger already had a value, ensure member-info is shown
+                        try {
+                          const current = (renderYearhanger && typeof renderYearhanger.getValue === 'function') ? renderYearhanger.getValue() : null;
+                          if (current) {
+                            try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
+                            try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
+                          }
+                        } catch(_) {}
+                      } catch (e) { console.error('yearhanger prefill wiring failed', e); }
+                    } catch (e) { console.error('lunch:completed handler failed', e); }
+                  });
+                  window.__memberInfo_lunch_listener = true;
+                }
+              } catch(_) {}
+            </script>
           </div>
         </section>
 
-        <div class="card" id="cardPastRidesRegister" style="margin-top:12px;">
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-            <div>
-              <h3 style="margin:0;">Eerdere ritten registreren</h3>
-              <p class="muted" style="margin:4px 0 0 0; font-size:14px;">Selecteer een deelnemer en boek eerdere ritten (handmatig).</p>
-            </div>
+        <div class="card" id="cardPastRidesRegister">
+          <div>
+            <h1>Eerdere ritten registreren</h1>
+            <p class="hint">Selecteer een deelnemer en boek eerdere ritten.</p>
           </div>
+          <script type="module">
+            import renderMemberSearchInput, { wireAutocomplete } from '/src/member-search-input.js';
+            // renderManualPastRides and updateTodayButton are defined in this page's script
 
+            const pmMount = document.getElementById('pastRidesSearchMount');
+            const pmWidget = renderMemberSearchInput(pmMount, { showButton: false, placeholder: 'Naam' });
+            try { wireAutocomplete(pmWidget, {
+                onSelected: async (memberId) => {
+                  try {
+                    // When selecting in the Past Rides mount, hide the manual
+                    // inschrijven list and render only the past-rides UI.
+                    try { const ml = document.getElementById('manualPastRidesList'); if (ml) ml.innerHTML = ''; } catch(_) {}
+                    try { const ms = document.getElementById('manualPastRidesStatus'); if (ms) ms.textContent = ''; } catch(_) {}
+                    if (typeof window.renderManualPastRides === 'function') await window.renderManualPastRides(memberId, { listId: 'pastRidesList', statusId: 'pastRidesStatus' });
+                    if (typeof updateTodayButton === 'function') await updateTodayButton(memberId);
+                  } catch (e) {
+                    console.error('past rides select failed', e);
+                  }
+                }
+            }); } catch(e) { console.error('failed to wire autocomplete', e); }
+          </script>
           <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap;">
-            <input id="pastRidesNameInput" placeholder="achternaam of voornaam" />
+            <div id="pastRidesSearchMount" style="flex: 1; min-width: 240px;"></div>
             <span id="pastRidesLoading" class="muted" style="display:none">Laden…</span>
             <span id="pastRidesError" class="muted" style="display:none"></span>
           </div>
-          <ul id="pastRidesSuggestions" class="suggest"></ul>
-
           <div id="pastRidesList" class="muted" style="margin-top:12px; display:grid; gap:8px;"></div>
           <div id="pastRidesStatus" class="small muted" style="min-height:18px;"></div>
         </div>
@@ -262,8 +340,9 @@
     <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module">
-      import { checkAdminAuth, applyAdminLevel } from './src/auth.js';
-  import { getPlannedDates, plannedStarsWithHighlights, setSelectedDocFromEntry } from './src/member.js';
+      import { applyAdminLevel } from './src/main.js';
+  import { getPlannedDates } from './src/member.js';
+  import { plannedStarsWithHighlights } from './src/planned-stars.js';
   import { db, collection, orderBy, startAfter, limit, getDocs, query, onSnapshot, where } from './src/firebase.js';
       
       // Dropdown navigation handler
@@ -274,13 +353,8 @@
         });
       }
 
-      // Check authentication before loading the page
-      if (checkAdminAuth()) {
-        // Apply admin level restrictions after DOM is ready
-        setTimeout(() => {
-          applyAdminLevel();
-        }, 100);
-      }
+      // Apply admin level restrictions after DOM is ready (auth gating removed)
+      setTimeout(() => { applyAdminLevel(); }, 100);
 
       // ===== Lunch overzicht (automatisch voor eerstvolgende rit) =====
       const lunchOverviewDateTitle = document.getElementById('lunchOverviewDateTitle');
@@ -459,20 +533,10 @@
         try { if (window.__unsubLunchOverview) { window.__unsubLunchOverview(); delete window.__unsubLunchOverview; } } catch (_) {}
         if (!ymd) return; // nothing to listen for
 
-        // Build a targeted query: always filter by date. If menu choices exist, only listen
-        // for documents that have a lunchKeuze (so a chosen meal triggers updates).
-        let q = null;
-        try {
-          if (hasChoices) {
-            q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd), where('lunchKeuze', '!=', ''));
-          } else {
-            // No specific choices -> listen for anyone assigned to this date (yes/no changes)
-            q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd));
-          }
-        } catch (e) {
-          // Fallback to broad date-only query if compound queries aren't allowed in this env
-          q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd));
-        }
+        // Build a targeted query: listen for any member assigned to this lunch date.
+        // Use a date-only query so additions/changes to lunchDeelname or lunchKeuze
+        // are always observed and the overview updates dynamically.
+        const q = query(collection(db, 'members'), where('lunchRideDateYMD', '==', ymd));
 
         let debounce = null;
         // Helper to render perChoiceMap into the DOM
@@ -600,7 +664,8 @@
     
     <script type="module">
       // Handmatig boeken voor de leden-inschrijfsectie (vervangt QR in admin-scan)
-  import { getPlannedDates, plannedStarsWithHighlights } from './src/member.js';
+  import { getPlannedDates } from './src/member.js';
+  import { plannedStarsWithHighlights } from './src/planned-stars.js';
   import { db, doc, getDoc, arrayUnion, runTransaction, increment, collection, query, orderBy, startAfter, limit, getDocs } from './src/firebase.js';
   import { withRetry, updateOrCreateDoc } from './src/firebase-helpers.js';
 
@@ -657,21 +722,6 @@
               btn.setAttribute('aria-disabled', 'true');
               btn.title = titleLabel;
             } catch(_) {}
-
-            // Also update the stars UI for consistency
-            try {
-              const planned = await getPlannedDates();
-              const rRidesEl = document.getElementById('rRidesCount');
-              if (rRidesEl) {
-                const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-                const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
-                rRidesEl.innerHTML = starsHtml || '—';
-                rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
-                rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
-                rRidesEl.style.letterSpacing = '3px';
-                rRidesEl.style.fontSize = '20px';
-              }
-            } catch(_) {}
           } else {
             // Not registered: ensure the button is enabled and shows 'Vandaag'
             try { btn.classList.remove('btn-error'); btn.disabled = false; btn.removeAttribute('aria-disabled'); btn.textContent = 'Vandaag'; btn.title = titleLabel; } catch(_) {}
@@ -682,11 +732,23 @@
       }
 
       async function renderManualPastRides(memberId, opts = {}) {
-        const listId = opts.listId || 'manualPastRidesList';
-        const statusId = opts.statusId || 'manualPastRidesStatus';
+        // The template historically used `manualPastRidesList`/`manualPastRidesStatus`.
+        // Some pages use `pastRidesList`/`pastRidesStatus` instead. Prefer explicit
+        // opts, then fall back to whichever element exists in the DOM.
+        const listId = opts.listId || (document.getElementById('manualPastRidesList') ? 'manualPastRidesList' : 'pastRidesList');
+        const statusId = opts.statusId || (document.getElementById('manualPastRidesStatus') ? 'manualPastRidesStatus' : 'pastRidesStatus');
         const listEl = document.getElementById(listId);
         const statusEl = document.getElementById(statusId);
         if (!listEl) return;
+
+        // Prevent duplicate immediate renders: if we've just rendered for the
+        // same member within the last 800ms, skip. This avoids double output
+        // when multiple listeners trigger rendering (selection + mutation observer).
+        const now = Date.now();
+        if (renderManualPastRides._lastMemberId === memberId && (now - (renderManualPastRides._lastAt || 0) < 800)) return;
+        renderManualPastRides._lastMemberId = memberId;
+        renderManualPastRides._lastAt = now;
+
         listEl.innerHTML = '';
         if (statusEl) statusEl.textContent = '';
 
@@ -746,9 +808,9 @@
                       const dcur = snapCur.data() || {};
                       const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
                       if (existing.has(ymd)) { return; }
-                      tx.update(mRef, { ScanDatums: arrayUnion(ymd), ridesCount: increment(1) });
+                      tx.update(mRef, { ScanDatums: arrayUnion(ymd) });
                     } else {
-                      tx.set(mRef, { ScanDatums: [ymd], ridesCount: 1 });
+                      tx.set(mRef, { ScanDatums: [ymd] });
                     }
                   }), { retries: 3 });
 
@@ -778,6 +840,27 @@
 
       // Expose for other module scripts to reuse
       try { window.renderManualPastRides = renderManualPastRides; } catch(_) {}
+
+      // Global member selection handler removed: each search mount handles
+      // its own selection and hides the other section to remain mutually exclusive.
+
+      // Clear past-rides and result UI when the search input is cleared
+      try {
+        document.addEventListener('member-search:input', (ev) => {
+          try {
+            const val = (ev && ev.detail && typeof ev.detail.value === 'string') ? ev.detail.value.trim() : '';
+            if (val) return; // only act when input is empty
+            const listIds = ['manualPastRidesList', 'pastRidesList'];
+            const statusIds = ['manualPastRidesStatus', 'pastRidesStatus'];
+            listIds.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+            statusIds.forEach(id => { const s = document.getElementById(id); if (s) s.textContent = ''; });
+            // Hide result card and reset summary fields
+            try { const resultEl = document.getElementById('result'); if (resultEl) resultEl.style.display = 'none'; } catch(_) {}
+            try { const rn = document.getElementById('rName'); if (rn) rn.textContent = '—'; } catch(_) {}
+            try { const rno = document.getElementById('rMemberNo'); if (rno) rno.textContent = '—'; } catch(_) {}
+          } catch (e) { console.error('member-search:input handler error', e); }
+        });
+      } catch(_) {}
 
       // Observeer wijzigingen aan de leden-inschrijfsectie en render past rides bij selectie
       const resultEl = document.getElementById('result');
@@ -868,7 +951,6 @@
                     try { renderManualPastRides(memberId); } catch(_) {}
                     // Update rides display using the same stars renderer as elsewhere
                     try {
-                      const rRidesEl = document.getElementById('rRidesCount');
                       if (rRidesEl) {
                         const scanDates = Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : [];
                         const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
@@ -890,21 +972,57 @@
               // Use the localized word 'Vandaag' during save so the button clearly represents today
               btn.textContent = `Vandaag • opslaan…`;
 
-              await withRetry(() => runTransaction(db, async (tx) => {
-                const mRef = doc(db, 'members', String(memberId));
-                const snapCur = await tx.get(mRef);
-                if (snapCur.exists()) {
-                  const dcur = snapCur.data() || {};
-                  const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
-                  if (existing.has(todayYMD)) {
-                    // nothing to do
-                    return;
-                  }
-                  tx.update(mRef, { ScanDatums: arrayUnion(todayYMD), ridesCount: increment(1) });
-                } else {
-                  tx.set(mRef, { ScanDatums: [todayYMD], ridesCount: 1 });
+              // Collect lunch + jaarhanger UI values so we can save them atomically with the scan
+              try {
+                const lunchYesEl = document.getElementById('lunchYes');
+                const lunchNoEl = document.getElementById('lunchNo');
+                const lunchDeelname = (lunchYesEl && lunchYesEl.classList.contains('active')) ? 'ja'
+                                    : (lunchNoEl && lunchNoEl.classList.contains('active')) ? 'nee'
+                                    : null;
+                let lunchKeuze = null;
+                const keuzeWrap = document.getElementById('keuzeEtenButtons');
+                if (keuzeWrap) {
+                  const activeBtn = keuzeWrap.querySelector('button.active');
+                  if (activeBtn) lunchKeuze = (activeBtn.textContent || '').trim();
                 }
-              }), { retries: 3 });
+                const yYes = document.getElementById('yearhangerYes');
+                const yNo = document.getElementById('yearhangerNo');
+                const jaarVal = (yYes && yYes.classList.contains('active')) ? 'Ja' : (yNo && yNo.classList.contains('active')) ? 'Nee' : null;
+
+                  await withRetry(() => runTransaction(db, async (tx) => {
+                  const mRef = doc(db, 'members', String(memberId));
+                  const snapCur = await tx.get(mRef);
+                  const toWrite = { ScanDatums: arrayUnion(todayYMD) };
+                  // Attach lunch/yearhanger values when present (null means no selection)
+                  if (lunchDeelname !== null) toWrite.lunchDeelname = lunchDeelname;
+                  if (lunchKeuze !== null) toWrite.lunchKeuze = lunchKeuze;
+                  if (jaarVal !== null) toWrite.Jaarhanger = jaarVal;
+                  // Save the ride date for the lunch selection
+                  toWrite.lunchRideDateYMD = todayYMD;
+
+                  if (snapCur.exists()) {
+                    const dcur = snapCur.data() || {};
+                    const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
+                    if (existing.has(todayYMD)) {
+                      // nothing to do for scan date, but still merge in lunch/yearhanger if provided
+                      // update only the additional fields
+                      const updateFields = Object.assign({}, toWrite);
+                      // Remove ScanDatums since already present
+                      delete updateFields.ScanDatums;
+                      if (Object.keys(updateFields).length) tx.update(mRef, updateFields);
+                      return;
+                    }
+                    tx.update(mRef, toWrite);
+                  } else {
+                    // New doc: include the fields and arrays
+                    const base = { ScanDatums: [todayYMD] };
+                    tx.set(mRef, Object.assign(base, toWrite));
+                  }
+                }), { retries: 3 });
+              } catch (e) {
+                // If collecting UI values or transaction fails, rethrow to outer catch
+                throw e;
+              }
 
               // Success: set registered appearance (show green check + text)
               // Show "Vandaag" for clarity instead of the full date
@@ -920,7 +1038,6 @@
                 if (snap.exists()) {
                   const d = snap.data() || {};
                   try {
-                    const rRidesEl = document.getElementById('rRidesCount');
                     if (rRidesEl) {
                       const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
                       const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
@@ -964,137 +1081,12 @@
       const yhNo = document.getElementById('yearhangerNo');
       yhYes?.addEventListener('click', ensureResultVisibleAndScroll);
       yhNo?.addEventListener('click', ensureResultVisibleAndScroll);
+      // When lunch choices are already complete for the selected member, ensure result and jaarhanger are visible
+      try { document.addEventListener('lunch:completed', () => { try { ensureResultVisibleAndScroll(); } catch(_) {} }); } catch(_) {}
 
       // (Replaced dropdown population with autocomplete initialization below)
     </script>
-    <script type="module">
-      // Alleen initializer voor Admin Landelijke Signup; de lid-inschrijvingssectie gebruikt de logica uit member.js/main.js
-      import { initMemberSearchSection } from './src/member-search-ui.js';
-
-      initMemberSearchSection({
-        nameInputId: 'adminSignupNameInput',
-        suggestionsListId: 'adminSignupSuggestions',
-        errorId: 'adminSignupError',
-        loadingId: 'adminSignupLoading',
-        resultBoxId: 'adminSignupResult',
-        fields: {
-          nameId: 'adminSignupName',
-          memberNoId: 'adminSignupMemberNo',
-          ridesCountId: 'adminSignupRidesCount',
-          regionId: 'adminSignupRegion',
-        },
-        withQr: true,
-        qrCanvasId: 'adminSignupQrCanvas',
-        qrPrivacyTextId: 'adminSignupQrPrivacy',
-        enableQrFullscreen: true,
-      });
-
-      // Autocomplete for 'Eerdere ritten registreren' — hergebruikt member-search-ui
-      initMemberSearchSection({
-        nameInputId: 'pastRidesNameInput',
-        suggestionsListId: 'pastRidesSuggestions',
-        errorId: 'pastRidesError',
-        loadingId: 'pastRidesLoading',
-        resultBoxId: 'result',
-        fields: {
-          nameId: 'rName',
-          memberNoId: 'rMemberNo',
-          ridesCountId: 'rRidesCount',
-          regionId: 'rRegion',
-        },
-        withQr: false,
-        onSelected: async (entry) => {
-          try {
-            // Reset lastMemberId so the MutationObserver/maybeRender path will re-run
-            try { lastMemberId = ''; } catch(_) {}
-
-            // Ensure the result box is visible
-            try {
-              const resultBox = document.getElementById('result');
-              if (resultBox) { resultBox.style.display = 'grid'; resultBox.style.visibility = ''; }
-            } catch(_) {}
-
-            // Fetch the freshest member document from the DB to avoid stale data/caching issues
-            let fresh = null;
-            try {
-              const snap = await getDoc(doc(db, 'members', String(entry?.id || '')));
-              if (snap && snap.exists()) fresh = snap.data() || {};
-            } catch (e) { /* ignore fetch errors and fall back to entry.data */ }
-
-            // Populate the basic result fields using the freshest data available
-            try {
-              const data = fresh || entry?.data || {};
-              const rNameEl = document.getElementById('rName');
-              const rMemberNoEl = document.getElementById('rMemberNo');
-              const rRegionEl = document.getElementById('rRegion');
-              if (rNameEl) {
-                const tussen = (data['Tussen voegsel'] || '').trim();
-                const full = [data['Voor naam'] || '', tussen ? tussen : '', data['Naam'] || ''].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
-                rNameEl.textContent = full || (data['Naam'] ? data['Naam'] : '—');
-              }
-              if (rMemberNoEl) rMemberNoEl.textContent = String(entry?.id || '—');
-              if (rRegionEl) rRegionEl.textContent = (data['Regio Omschrijving'] || '—');
-
-              // Update rides stars from the fresh data
-              try {
-                const planned = await getPlannedDates();
-                const rRidesEl = document.getElementById('rRidesCount');
-                const scanDates = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
-                const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
-                if (rRidesEl) {
-                  rRidesEl.innerHTML = starsHtml || '—';
-                  rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
-                  rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
-                  rRidesEl.style.letterSpacing = '3px';
-                  rRidesEl.style.fontSize = '20px';
-                }
-              } catch(_) {}
-            } catch(_) {}
-
-            // Inform member module about this selection so jaarhanger/lunch UI shows correctly
-            try { await setSelectedDocFromEntry(entry); } catch(e) { console.error('setSelectedDocFromEntry error', e); }
-
-            // Force a fresh render of the past rides list into the new card
-            try { await window.renderManualPastRides(entry.id, { listId: 'pastRidesList', statusId: 'pastRidesStatus' }); } catch(e) { console.error('renderManualPastRides error', e); }
-
-            // Ensure the Today button reflects whether today is already scanned for this member
-            try { await updateTodayButton(entry.id); } catch (e) { console.error('updateTodayButton error', e); }
-
-            // Ensure the result area is scrolled into view for operator convenience
-            try { ensureResultVisibleAndScroll(); } catch(_) {}
-          } catch (e) { console.error('pastRides onSelected failed', e); }
-        }
-      });
-
-      // If operator focuses the past-rides search after a red error state, clear the red visual
-      // (keeps red state persistent until the operator explicitly starts a new search)
-      try {
-        const pastInput = document.getElementById('pastRidesNameInput');
-        const clearRedVisual = () => {
-          try {
-            const btn = document.getElementById('manualTodayBtn');
-            if (!btn) return;
-            // Only clear the red visual, don't re-enable the button if it was disabled (green)
-            if (btn.classList.contains('btn-error') && !btn.disabled) {
-              btn.classList.remove('btn-error');
-              btn.textContent = 'Vandaag';
-            }
-          } catch(_) {}
-        };
-        pastInput?.addEventListener('focus', clearRedVisual);
-        // Also clear on every input event so typing immediately removes the red visual
-        pastInput?.addEventListener('input', clearRedVisual);
-      } catch(_) {}
-
-      // Maak de gekopieerde leden-inschrijfsectie zichtbaar in admin (consent-gate is niet van toepassing hier)
-      setTimeout(() => {
-        const signup = document.getElementById('landelijkeSignup');
-        if (signup) {
-          signup.removeAttribute('hidden');
-          signup.style.display = '';
-        }
-      }, 150);
-    </script>
+    <!-- Member search initialization removed from admin-scan to decouple local input-driven queries -->
     
     <script type="module" src="/src/main.js"></script>
   </body>

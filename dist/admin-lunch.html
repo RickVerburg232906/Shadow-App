@@ -5,18 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hoofdadmin – Lunch inplannen</title>
     <link rel="manifest" href="/assets/manifest-sHx4Fanv.webmanifest">
-    <script type="module" crossorigin src="/assets/adminLunch-BRVbWVGC.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/main-DKNqhpAZ.js">
-    <link rel="modulepreload" crossorigin href="/assets/auth-B5TraknJ.js">
-    <link rel="stylesheet" crossorigin href="/assets/main-CAiu_ll7.css">
+    <script type="module" crossorigin src="/assets/adminLunch-EeNFRc_Z.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/main-CQgyit_F.js">
+    <link rel="stylesheet" crossorigin href="/assets/main-BNNYfejb.css">
   </head>
   <body data-role="guest">
-    <!-- Topbar -->
+    <!-- App splash / loader -->
+    <div id="appSplash" class="app-splash" aria-hidden="false">
+      <div class="splash-inner">
+        <img src="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif" alt="Shadow" class="splash-logo" decoding="async" />
+        <div class="splash-title">Shadow Motorclub</div>
+        <div class="splash-progress">
+          <div class="splash-progress-bar" id="splashProgressBar" style="width:0%"></div>
+        </div>
+        <div class="splash-caption" id="splashCaption">Laden…</div>
+      </div>
+    </div>
     <header class="topbar">
-      <div class="brand">Shadow App</div>
-      <nav class="nav" aria-label="Hoofdnavigatie">
-        <a href="/" class="tab" id="btnMember">Lid</a>
-        <a href="/admin-scan.html" class="tab" id="btnAdmin">Inschrijftafel</a>
+  <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300-BHuzPaKW.gif" alt="Shadow Motorclub logo" width="100" height="30" decoding="async" fetchpriority="high"/>
+      <nav class="nav">
+        <button id="tabMember" class="tab active">Lid</button>
+        <button id="tabAdmin" class="tab">Inschrijftafel</button>
       </nav>
     </header>
 
@@ -39,23 +48,21 @@
       <!-- Page content -->
       <section class="card" id="cardLunchIntro">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-          <div style="font-size: 32px;">🍽️</div>
           <div>
             <h2 style="margin: 0;">Lunch inplannen</h2>
-            <p style="margin: 4px 0 0 0; color: var(--muted);">Beheer de lunch opties voor alle deelnemers</p>
+            <p style="margin: 4px 0 0 0; color: var(--muted);">Beheer de lunch opties voor alle deelnemers.</p>
           </div>
         </div>
         <div style="background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; padding: 12px; border-radius: 6px; margin-top: 16px;">
-          <p style="margin: 0; font-size: 14px;">💡 <strong>Tip:</strong> Alle wijzigingen worden automatisch opgeslagen na 0.5 seconden</p>
+          <p style="margin: 0; font-size: 14px;">💡 <strong>Tip:</strong> Alle wijzigingen worden automatisch opgeslagen na 0.5 seconden.</p>
         </div>
       </section>
 
       <section class="card" id="cardVastEten">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 24px;">🥖</span>
           <h2 style="margin: 0;">Vast eten</h2>
         </div>
-        <p class="muted" style="margin-bottom: 16px;">Dit eten krijgt iedereen, ongeacht hun keuze</p>
+        <p class="muted" style="margin-bottom: 16px;">Dit eten krijgt iedereen, ongeacht hun keuze.</p>
         <div id="vastEtenList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
           <!-- Dynamische textboxes komen hier -->
         </div>
@@ -66,10 +73,9 @@
 
       <section class="card" id="cardKeuzeEten">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 24px;">🍴</span>
           <h2 style="margin: 0;">Keuze eten</h2>
         </div>
-        <p class="muted" style="margin-bottom: 16px;">Deelnemers kunnen één optie kiezen (bijv. vegetarisch, halal, vegan)</p>
+        <p class="muted" style="margin-bottom: 16px;">Deelnemers kunnen één optie kiezen. </p>
         <div id="keuzeEtenList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
           <!-- Dynamische textboxes komen hier -->
         </div>
