@@ -1,24 +1,9 @@
 // landelijke-signup.js — Universele functies voor landelijke rit signup
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
-import { getPlannedDates, plannedStarsWithHighlights, loadLunchOptions } from "./member.js";
-
-// ========== Helper functies ==========
-
-function $(id) {
-  return document.getElementById(id);
-}
-
-export function fullNameFrom(docData) {
-  const tussen = (docData["Tussen voegsel"] || "").trim();
-  const parts = [
-    docData["Voor naam"] || "",
-    docData["Voor letters"] ? `(${docData["Voor letters"]})` : "",
-    tussen ? tussen : "",
-    docData["Naam"] || ""
-  ].filter(Boolean);
-  return parts.join(" ").replace(/\s+/g, " ").trim();
-}
+import { getPlannedDates, loadLunchOptions } from "./member.js";
+import { plannedStarsWithHighlights } from './planned-stars.js';
+import { $, fullNameFrom, showError, hideError, showLoading, hideLoading } from './ui-helpers.js';
 
 function toYMDString(value) {
   try {
@@ -174,28 +159,7 @@ export function showSuggestions(items, suggestListId = "suggestions", onSelectCa
 
 // ========== Error/Loading helpers ==========
 
-export function showError(message, isWarning = false, errorBoxId = "error") {
-  const errBox = $(errorBoxId);
-  if (!errBox) return;
-  errBox.textContent = message;
-  errBox.style.display = "block";
-  errBox.style.color = isWarning ? "#fbbf24" : "#fca5a5";
-}
-
-export function hideError(errorBoxId = "error") {
-  const errBox = $(errorBoxId);
-  if (errBox) errBox.style.display = "none";
-}
-
-export function showLoading(loadingIndicatorId = "loadingIndicator") {
-  const loadingIndicator = $(loadingIndicatorId);
-  if (loadingIndicator) loadingIndicator.style.display = "flex";
-}
-
-export function hideLoading(loadingIndicatorId = "loadingIndicator") {
-  const loadingIndicator = $(loadingIndicatorId);
-  if (loadingIndicator) loadingIndicator.style.display = "none";
-}
+// Error/loading helpers are provided by `src/ui-helpers.js`
 
 // ========== QR Code generatie ==========
 

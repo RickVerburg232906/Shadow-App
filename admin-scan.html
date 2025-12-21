@@ -341,7 +341,8 @@
 
     <script type="module">
       import { applyAdminLevel } from './src/main.js';
-  import { getPlannedDates, plannedStarsWithHighlights } from './src/member.js';
+  import { getPlannedDates } from './src/member.js';
+  import { plannedStarsWithHighlights } from './src/planned-stars.js';
   import { db, collection, orderBy, startAfter, limit, getDocs, query, onSnapshot, where } from './src/firebase.js';
       
       // Dropdown navigation handler
@@ -663,7 +664,8 @@
     
     <script type="module">
       // Handmatig boeken voor de leden-inschrijfsectie (vervangt QR in admin-scan)
-  import { getPlannedDates, plannedStarsWithHighlights } from './src/member.js';
+  import { getPlannedDates } from './src/member.js';
+  import { plannedStarsWithHighlights } from './src/planned-stars.js';
   import { db, doc, getDoc, arrayUnion, runTransaction, increment, collection, query, orderBy, startAfter, limit, getDocs } from './src/firebase.js';
   import { withRetry, updateOrCreateDoc } from './src/firebase-helpers.js';
 

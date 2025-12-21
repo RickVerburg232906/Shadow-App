@@ -1,104 +1,10 @@
-// ===== JPG export naast 'Herladen' (admin-only) =====
-(function() {
-  // Removed unused helper `waitForElement` during cleanup.
-
-  // Attach a simple JPG download button below a canvas (kept minimal and resilient)
-  function attachChartExportJPGNextToReload(canvasId, _chartBoxId, filename = null) {
-    async function doAttach() {
-      try {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-
-        let btn = document.getElementById('downloadJpgBtn');
-        if (!btn) {
-          btn = document.createElement('button');
-          btn.id = 'downloadJpgBtn';
-          btn.type = 'button';
-          btn.textContent = 'Download JPG';
-          btn.className = 'chart-download-btn';
-          btn.style.display = 'block';
-          btn.style.width = '100%';
-          btn.style.boxSizing = 'border-box';
-          btn.style.marginTop = '10px';
-          btn.style.padding = '10px 14px';
-          btn.style.borderRadius = '10px';
-          btn.style.border = 'none';
-          btn.style.cursor = 'pointer';
-          btn.style.fontWeight = '700';
-        }
-
-        const placeBelowChart = () => {
-          try {
-            const chartBox = canvas.parentElement;
-            if (chartBox && chartBox.parentElement) {
-              if (btn.parentElement !== chartBox.parentElement) chartBox.insertAdjacentElement('afterend', btn);
-            } else {
-              if (btn.parentElement !== canvas.parentElement) canvas.insertAdjacentElement('afterend', btn);
-            }
-          } catch (_) {}
-        };
-
-        placeBelowChart();
-
-        const triggerDownload = (blob) => {
-          if (!blob) return;
-          const a = document.createElement('a');
-          const url = URL.createObjectURL(blob);
-          a.href = url;
-          a.download = filename || (canvasId + '.jpg');
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
-        };
-
-        btn.onclick = () => {
-          try {
-            if (canvas.toBlob) {
-              canvas.toBlob((blob) => {
-                if (blob) triggerDownload(blob);
-                else {
-                  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-                  fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
-                }
-              }, 'image/jpeg', 0.92);
-            } else {
-              const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-              fetch(dataUrl).then(r => r.blob()).then(triggerDownload);
-            }
-          } catch (e) {
-            console.error('JPG export failed:', e);
-            try { if (typeof showToast === 'function') showToast('JPG export mislukt', false); } catch(_) {}
-            alert('JPG export mislukt.');
-          }
-        };
-
-        const ensurePlaced = () => placeBelowChart();
-        window.addEventListener('resize', ensurePlaced);
-        document.getElementById('adminSubtabs')?.addEventListener('click', () => setTimeout(ensurePlaced, 0));
-        const adminView = document.getElementById('viewAdmin');
-        if (adminView && window.MutationObserver) {
-          const mo = new MutationObserver(() => ensurePlaced());
-          mo.observe(adminView, { childList: true, subtree: true });
-        }
-        ensurePlaced();
-      } catch (e) {
-        // silently ignore attach errors
-      }
-    }
-
-    doAttach();
-    if (document.readyState !== 'complete' && document.readyState !== 'interactive') {
-      document.addEventListener('DOMContentLoaded', doAttach, { once: true });
-    }
-  }
-
-  window.attachChartExportJPGNextToReload = attachChartExportJPGNextToReload;
-})();
-
+// (Removed unused attachChartExportJPGNextToReload helper)
 import * as XLSX from "xlsx";
 import { db, writeBatch, doc, arrayUnion, collection, endAt, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter, startAt, runTransaction } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
-import { getPlannedDates, plannedStarsWithHighlights } from "./member.js";
+import { getPlannedDates } from "./member.js";
+import { plannedStarsWithHighlights } from "./planned-stars.js";
+import { fullNameFrom, $ } from './ui-helpers.js';
 
 // Helper: attach a full-width, nicely-styled download button under a chart canvas
 function attachChartDownloadButtonFullWidth(canvasId, btnId, filename = null) {
@@ -1324,6 +1230,31 @@ async function bookRide(lid, naam, rideDateYMD) {
   return { id, ...res };
 }
 
+// Book only the scan date (used by QR scanning). This will add the YMD
+// to `ScanDatums` but will NOT increment `ridesCount`.
+async function bookScanDateOnly(lid, naam, rideDateYMD) {
+  const id = String(lid || "").trim();
+  if (!id) throw new Error("Geen LidNr meegegeven");
+  const ymd = (rideDateYMD || "").toString().slice(0,10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) throw new Error("Geen geldige ritdatum gekozen");
+  const memberRef = doc(db, "members", id);
+  const res = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(memberRef);
+    const data = snap.exists() ? snap.data() : null;
+    const scans = data && Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
+    const hasDate = scans.includes(ymd);
+    if (hasDate) return { changed: false, newTotal: scans.length, ymd };
+    if (snap.exists()) {
+      tx.update(memberRef, { ScanDatums: arrayUnion(ymd) });
+      return { changed: true, newTotal: scans.length + 1, ymd };
+    } else {
+      tx.set(memberRef, { ScanDatums: [ymd] });
+      return { changed: true, newTotal: 1, ymd };
+    }
+  });
+  return { id, ...res };
+}
+
 
 
 // Extract LidNr uit QR-tekst of URL
@@ -1409,16 +1340,7 @@ function initManualRideSection() {
   let selected = null;
   let unsub = null;
 
-  function fullNameFrom(d) {
-    const tussen = (d?.["Tussen voegsel"] || "").toString().trim();
-    const parts = [
-      (d?.["Voor naam"] || "").toString().trim(),
-      d?.["Voor letters"] ? `(${(d["Voor letters"]+"").trim()})` : "",
-      tussen,
-      (d?.["Naam"] || d?.["name"] || d?.["naam"] || "").toString().trim()
-    ].filter(Boolean);
-    return parts.join(" ").replace(/\s+/g, " ").trim();
-  }
+  // `fullNameFrom` provided by `src/ui-helpers.js`
 
   function hideSuggest() { list.innerHTML = ""; list.style.display = "none"; }
   function showSuggest(items) {
@@ -1703,7 +1625,8 @@ function initAdminQRScanner() {
         appendLog({ naam: naam || "", lid, ok: false, reason: 'niet geplande datum' });
         return;
       }
-      const out = await bookRide(lid, naam || "", todayYMD);
+      // For QR scans we only add the ScanDatums entry — do NOT increment ridesCount.
+      const out = await bookScanDateOnly(lid, naam || "", todayYMD);
       const newTotal = out.newTotal;
 
       // --- Sla eventuele lunch/jaarhanger keuzes (uit QR-payload óf UI) op bij het lid ---
