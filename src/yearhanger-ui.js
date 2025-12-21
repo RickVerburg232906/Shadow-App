@@ -37,8 +37,8 @@ export function renderYearhanger(container = null) {
                     Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De "moederpin" kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt. De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. Da's pas een collectors item!
                   </div>
                   <div style="flex:1 1 50%; min-width:200px; display:flex; justify-content:center; align-items:flex-start;">
-                    <!-- Plaats de foto van de jaarhanger in assets/jaarhanger-photo.jpg -->
-                    <img src="assets/jaarhanger-photo.jpg" alt="Jaarhanger" style="max-width:100%; height:auto; width:100%; object-fit:contain; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.25);" />
+                    <!-- Plaats de foto van de jaarhanger in /assets/jaarhanger-photo.jpg -->
+                    <img src="/assets/jaarhanger-photo.jpg" alt="Jaarhanger" style="max-width:100%; height:auto; width:100%; object-fit:contain; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.25);" />
                   </div>
                 </div>
               </div>
