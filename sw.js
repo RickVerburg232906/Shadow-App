@@ -1,11 +1,12 @@
 // Improved service worker: cache app-shell and static assets while avoiding caching API calls.
-const CACHE_NAME = 'shadow-app-v1';
+const CACHE_NAME = 'shadow-app-v2';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/style.css',
   '/manifest.webmanifest',
-  '/assets/logo_MC_nieuw_trans_300.gif'
+  '/assets/logo_MC_nieuw_trans_300.gif',
+  '/assets/jaarhanger-photo.jpg'
 ];
 
 self.addEventListener('install', (event) => {
