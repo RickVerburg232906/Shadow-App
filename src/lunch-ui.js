@@ -462,6 +462,10 @@ export function renderLunchChoice(container = null, opts = {}) {
               try { console.log('lunch-ui: would mark ja (no save):', memberId, ['vast-menu']); } catch(e){ console.error('lunch-ui: action log failed', e); }
               // QR generation is handled centrally in index.html; no-op here.
               try { if (detailsEl) setTimeout(()=>{ try{ detailsEl.open = false; } catch(_){} }, 120); } catch(_) {}
+              // Notify host pages that lunch choice flow completed (ja) when there
+              // are no keuze-eten options available. This ensures flows waiting
+              // on `lunch:completed` (e.g., jaarhanger display) proceed.
+              try { document.dispatchEvent(new CustomEvent('lunch:completed', { detail: { memberId: String(memberId), deel: 'ja', keuze: null }, bubbles: true })); } catch(_) {}
             }
           } catch (e) { console.error('lunchYes handler failed', e); }
         });
