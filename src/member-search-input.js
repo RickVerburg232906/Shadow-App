@@ -80,8 +80,18 @@ export function renderMemberSearchInput(target, cfg = {}) {
   const onKey = (e) => { if (e.key === 'Enter') { emitSubmitEvent(); } };
   const onButton = () => { emitSubmitEvent(); };
 
+  // Clear input when user focuses or clicks the input
+  const onClearOnClick = () => {
+    try {
+      if (input.value) input.value = '';
+    } catch (_) {}
+    emitInputEvent();
+  };
+
   input.addEventListener('input', onInput, { passive: true });
   input.addEventListener('keydown', onKey);
+  input.addEventListener('focus', onClearOnClick);
+  input.addEventListener('click', onClearOnClick);
   if (button) button.addEventListener('click', onButton);
 
   // Mount
@@ -96,7 +106,7 @@ export function renderMemberSearchInput(target, cfg = {}) {
     setValue(v) { try { input.value = v; emitInputEvent(); } catch(_) {} },
     getValue() { return input.value; },
     destroy() {
-      try { input.removeEventListener('input', onInput); input.removeEventListener('keydown', onKey); } catch(_) {}
+      try { input.removeEventListener('input', onInput); input.removeEventListener('keydown', onKey); input.removeEventListener('focus', onClearOnClick); input.removeEventListener('click', onClearOnClick); } catch(_) {}
       if (button) try { button.removeEventListener('click', onButton); } catch(_) {}
       try { wrap.remove(); } catch(_) {}
     }
