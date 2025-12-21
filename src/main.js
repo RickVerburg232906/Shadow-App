@@ -101,6 +101,19 @@ export function applyAdminLevel() {
   try {
     const lvl = sessionStorage.getItem("admin_level") || "admin";
     const adminView = document.getElementById("viewAdmin");
+    // Toggle admin pages dropdown even on standalone admin pages (no `viewAdmin` present)
+    try {
+      const nav = document.querySelector('.admin-nav-dropdown');
+      if (nav) {
+        if (lvl === 'root') {
+          nav.removeAttribute('hidden');
+          nav.style.display = '';
+        } else {
+          nav.setAttribute('hidden', '');
+          nav.style.display = 'none';
+        }
+      }
+    } catch (_) {}
     if (!adminView) return;
     const cards = Array.from(adminView.querySelectorAll(".card"));
     if (lvl === "root") {
@@ -117,6 +130,7 @@ export function applyAdminLevel() {
         if (!keep) card.setAttribute("hidden", "hidden");
       });
     }
+    
   } catch (_) {}
 }
 
@@ -156,6 +170,9 @@ async function promptPasswordMasked(title = "Wachtwoord", placeholder = "Wachtwo
     overlay.style.position = "fixed";
     overlay.style.inset = "0";
     overlay.style.background = "rgba(0,0,0,0.4)";
+    // Blur the page content behind the modal where supported
+    overlay.style.backdropFilter = "blur(6px)";
+    overlay.style.webkitBackdropFilter = "blur(6px)";
     overlay.style.display = "flex";
     overlay.style.alignItems = "center";
     overlay.style.justifyContent = "center";
@@ -253,7 +270,11 @@ async function adminLoginFlow(redirectTo) {
   try {
     await ensurePasswordsLoaded();
     const pwd = await promptPasswordMasked("Vul uw wachtwoord in", "Wachtwoord");
-    if (pwd == null) return;
+    if (pwd == null) {
+      // Cancelled: return to home
+      window.location.href = 'index.html';
+      return;
+    }
     const rootPwd = await getHoofdAdminPwd();
     const adminPwd = await getInschrijftafelPwd();
 
@@ -279,9 +300,18 @@ async function adminLoginFlow(redirectTo) {
       }
     } else {
       window.alert("Wachtwoord onjuist");
+      // Incorrect password: send back to the public index
+      window.location.href = 'index.html';
       return;
     }
-    const target = redirectTo || "admin-scan.html";
+    // Ensure limited admin users (`inschrijftafel`) are only redirected to admin-scan.html
+    let target = redirectTo || "admin-scan.html";
+    try {
+      const lvlNow = sessionStorage.getItem("admin_level") || "admin";
+      if (lvlNow === 'admin' && typeof target === 'string' && !/admin-scan\.html$/i.test(String(target))) {
+        target = 'admin-scan.html';
+      }
+    } catch (_) {}
     if (typeof target === "string") window.location.href = target;
   } catch (e) {
     console.error(e);
@@ -381,6 +411,25 @@ function setupRootAdminPwdSection() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Enforce page-level admin access: if visiting an admin page, require login and restrict `admin` level.
+  try {
+    const path = (window.location.pathname || '').split('/').pop() || '';
+    const isAdminPage = /(^|\/)admin-.*\.html$/i.test(path) || /(^|\/)beheer(\/|$)/i.test(window.location.pathname);
+    if (isAdminPage) {
+      const ok = sessionStorage.getItem('admin_ok') === '1';
+      if (!ok) {
+        // Prompt for login and stay/redirect to this page on success
+        adminLoginFlow(window.location.pathname);
+        return;
+      }
+      const lvl = sessionStorage.getItem('admin_level') || 'admin';
+      if (lvl === 'admin' && !/admin-scan\.html$/i.test(path)) {
+        // Limited admin cannot access other admin pages — redirect to admin-scan
+        window.location.href = 'admin-scan.html';
+        return;
+      }
+    }
+  } catch (_) {}
   try { if (sessionStorage.getItem("admin_ok")==="1") applyAdminLevel();
     try { setupAdminSubtabs(); } catch (_) {} } catch(_) {}
   setupAdminPwdSection();

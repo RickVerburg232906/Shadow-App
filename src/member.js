@@ -217,19 +217,6 @@ async function checkIfCurrentMemberIsScanned() {
     return false;
   }
 }
-
-// All lunch-related UI rendering and wiring lives in `src/lunch-ui.js`.
-// This file retains only data/helpers; UI responsibilities moved to the module.
-
-// Lunch keuze UI is handled by `src/lunch-ui.js` and jaarhanger by `src/yearhanger-ui.js`.
-// Use their public APIs/events (e.g. `lunch:completed`, `yearhanger:changed`).
-
-  // Events
-
-  // Events
-  // Input-based member search removed: no input/focus listeners attached.
-
-  // QR generation and fullscreen handled centrally in index.html; remove legacy handlers here.
   // Preload planned dates to speed up first interaction and update splash progress
   try {
     try { if (window?.appSplash) window.appSplash.setProgress(50, 'Ritdatums ophalen...'); } catch(_) {}
@@ -241,4 +228,3 @@ async function checkIfCurrentMemberIsScanned() {
   try { if (window?.appSplash) { window.appSplash.setProgress(100, 'Klaar'); window.appSplash.hide(); } } catch(_) {}
 }
 
-// Removed legacy QR generation; QR handling centralized in `index.html`.
