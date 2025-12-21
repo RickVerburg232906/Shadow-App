@@ -81,7 +81,7 @@
         const clearStatus = document.getElementById('clearScanDatumsStatus');
         if (clearBtn) {
           clearBtn.addEventListener('click', async () => {
-            if (!confirm('Weet je het zeker? Dit verwijdert alle ScanDatums en zet ridesCount naar 0 voor ALLE leden.')) return;
+            if (!confirm('Weet je het zeker? Dit verwijdert alle ScanDatums voor ALLE leden.')) return;
             clearBtn.disabled = true;
             clearStatus.textContent = 'Bezig…';
             try {
@@ -98,10 +98,9 @@
                 snap.forEach(d => {
                   const data = d.data() || {};
                   const hasScan = Array.isArray(data.ScanDatums) && data.ScanDatums.length > 0;
-                  const needsZero = Number(data.ridesCount) !== 0;
-                  if (hasScan || needsZero) {
+                  if (hasScan) {
                     const ref = doc(db, 'members', d.id);
-                    batch.update(ref, { ScanDatums: [], ridesCount: 0 });
+                    batch.update(ref, { ScanDatums: [] });
                     updated += 1;
                   } else {
                     skipped += 1;

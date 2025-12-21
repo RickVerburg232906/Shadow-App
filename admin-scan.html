@@ -722,21 +722,6 @@
               btn.setAttribute('aria-disabled', 'true');
               btn.title = titleLabel;
             } catch(_) {}
-
-            // Also update the stars UI for consistency
-            try {
-              const planned = await getPlannedDates();
-              const rRidesEl = document.getElementById('rRidesCount');
-              if (rRidesEl) {
-                const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-                const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
-                rRidesEl.innerHTML = starsHtml || '—';
-                rRidesEl.setAttribute('title', starsHtml ? tooltip : 'Geen ingeplande datums');
-                rRidesEl.setAttribute('aria-label', starsHtml ? `Sterren per datum (gepland: ${plannedNorm.length})` : 'Geen ingeplande datums');
-                rRidesEl.style.letterSpacing = '3px';
-                rRidesEl.style.fontSize = '20px';
-              }
-            } catch(_) {}
           } else {
             // Not registered: ensure the button is enabled and shows 'Vandaag'
             try { btn.classList.remove('btn-error'); btn.disabled = false; btn.removeAttribute('aria-disabled'); btn.textContent = 'Vandaag'; btn.title = titleLabel; } catch(_) {}
@@ -823,9 +808,9 @@
                       const dcur = snapCur.data() || {};
                       const existing = new Set((Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : []).map(toYMD).filter(Boolean));
                       if (existing.has(ymd)) { return; }
-                      tx.update(mRef, { ScanDatums: arrayUnion(ymd), ridesCount: increment(1) });
+                      tx.update(mRef, { ScanDatums: arrayUnion(ymd) });
                     } else {
-                      tx.set(mRef, { ScanDatums: [ymd], ridesCount: 1 });
+                      tx.set(mRef, { ScanDatums: [ymd] });
                     }
                   }), { retries: 3 });
 
@@ -873,7 +858,6 @@
             try { const resultEl = document.getElementById('result'); if (resultEl) resultEl.style.display = 'none'; } catch(_) {}
             try { const rn = document.getElementById('rName'); if (rn) rn.textContent = '—'; } catch(_) {}
             try { const rno = document.getElementById('rMemberNo'); if (rno) rno.textContent = '—'; } catch(_) {}
-            try { const rr = document.getElementById('rRidesCount'); if (rr) rr.innerHTML = '—'; } catch(_) {}
           } catch (e) { console.error('member-search:input handler error', e); }
         });
       } catch(_) {}
@@ -967,7 +951,6 @@
                     try { renderManualPastRides(memberId); } catch(_) {}
                     // Update rides display using the same stars renderer as elsewhere
                     try {
-                      const rRidesEl = document.getElementById('rRidesCount');
                       if (rRidesEl) {
                         const scanDates = Array.isArray(dcur.ScanDatums) ? dcur.ScanDatums : [];
                         const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);
@@ -1006,10 +989,10 @@
                 const yNo = document.getElementById('yearhangerNo');
                 const jaarVal = (yYes && yYes.classList.contains('active')) ? 'Ja' : (yNo && yNo.classList.contains('active')) ? 'Nee' : null;
 
-                await withRetry(() => runTransaction(db, async (tx) => {
+                  await withRetry(() => runTransaction(db, async (tx) => {
                   const mRef = doc(db, 'members', String(memberId));
                   const snapCur = await tx.get(mRef);
-                  const toWrite = { ScanDatums: arrayUnion(todayYMD), ridesCount: increment(1) };
+                  const toWrite = { ScanDatums: arrayUnion(todayYMD) };
                   // Attach lunch/yearhanger values when present (null means no selection)
                   if (lunchDeelname !== null) toWrite.lunchDeelname = lunchDeelname;
                   if (lunchKeuze !== null) toWrite.lunchKeuze = lunchKeuze;
@@ -1024,16 +1007,15 @@
                       // nothing to do for scan date, but still merge in lunch/yearhanger if provided
                       // update only the additional fields
                       const updateFields = Object.assign({}, toWrite);
-                      // Remove ScanDatums/ridesCount since already present
+                      // Remove ScanDatums since already present
                       delete updateFields.ScanDatums;
-                      delete updateFields.ridesCount;
                       if (Object.keys(updateFields).length) tx.update(mRef, updateFields);
                       return;
                     }
                     tx.update(mRef, toWrite);
                   } else {
                     // New doc: include the fields and arrays
-                    const base = { ScanDatums: [todayYMD], ridesCount: 1 };
+                    const base = { ScanDatums: [todayYMD] };
                     tx.set(mRef, Object.assign(base, toWrite));
                   }
                 }), { retries: 3 });
@@ -1056,7 +1038,6 @@
                 if (snap.exists()) {
                   const d = snap.data() || {};
                   try {
-                    const rRidesEl = document.getElementById('rRidesCount');
                     if (rRidesEl) {
                       const scanDates = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
                       const { starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDates);

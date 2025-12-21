@@ -74,7 +74,7 @@ export function renderMemberInfo(container = null, opts = {}) {
             <div id="rRidesCount" class="member-card__rides">—</div>
           </div>
           <div class="member-card__note" role="note" aria-live="polite" style="margin-top:8px; font-size:14px; padding:8px 12px; border-radius:6px; display:flex; gap:10px; align-items:center;">
-            <div style="flex:1; font-weight:600;">Er wordt niets opgeslagen totdat de QR-code is gescand.</div>
+            <div style="flex:1; font-weight:600;">Er wordt niets opgeslagen totdat je ingecheckt bent.</div>
           </div>
       </div>
     `;

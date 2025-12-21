@@ -487,13 +487,6 @@ optgroup { font-weight:700; color: var(--muted); }
 }
 
 
-/* --- RidesCount as stars --- */
-#rRidesCount {
-  font-size: 1.2rem;
-  letter-spacing: 2px;
-  white-space: nowrap;
-}
-
 .suggest { list-style:none; margin:6px 0 0; padding:0; border:1px solid #374151; border-radius:12px; overflow:hidden; display:none; background:#0b1220; max-height:260px; overflow-y:auto; position:relative; z-index:5 }
 .suggest li { padding:10px 12px; border-bottom:1px solid #1f2937; cursor:pointer; }
 .suggest li:last-child { border-bottom:none }
@@ -513,11 +506,6 @@ optgroup { font-weight:700; color: var(--muted); }
 .stars .star { display:inline-block; font-size:1.2rem; margin-right:2px; line-height:1; }
 .stars .star.filled { color: #f2c33d; filter: none; }
 .stars .star.empty { color: #ffffff; opacity: 0.65; }
-
-/* Also support when stars are inserted directly into value elements */
-#rRidesCount .star, #adminMRidesCount .star, .value .star { display:inline-block; font-size:1.2rem; margin-right:2px; line-height:1; }
-#rRidesCount .star.filled, #adminMRidesCount .star.filled, .value .star.filled { color: #f2c33d; filter: none; }
-#rRidesCount .star.empty, #adminMRidesCount .star.empty, .value .star.empty { color: #ffffff; opacity: 0.65; }
 
 /* Ride region filter select styling to ensure contrast (options inherit) */
 #rideRegionFilter {

@@ -110,7 +110,6 @@ function getSelectedYearsFromPanel() {
 // Removed unused `getActiveYear` helper during cleanup.
 
 
-// Reset zowel ridesCount als ScanDatums
 
 async function ensureRideDatesLoaded(){
   try{
@@ -695,8 +694,8 @@ async function buildStarBucketsForYears(years) {
         const d = docSnap.data() || {};
         if ((d.Jaarhanger || "").toString() !== "Ja") return; // filter only Jaarhanger=Ja
         const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : [];
-        // Normalize scans to YMD array
-        const scanYMDs = scansRaw.map(s => (typeof s === 'string' ? s.slice(0,10) : '')).filter(Boolean);
+        // Normalize scans to YMD array and deduplicate (count unique scan dates only)
+        const scanYMDs = Array.from(new Set(scansRaw.map(s => (typeof s === 'string' ? s.slice(0,10) : '')).filter(Boolean)));
         for (let yi = 0; yi < yearCount; yi++) {
           const yr = years[yi];
           // Count scans in this calendar year
@@ -882,13 +881,11 @@ export function initAdminView() {
       return rows;
     }
 
-    // ⚠️ Belangrijk: we negeren elke 'ridesCount' uit het bestand
     // zodat bestaande waarden niet overschreven worden.
     function normalizeRows(rows) {
       return rows.map((r) => {
         const out = {};
         for (const k of REQUIRED_COLS) out[k] = (r[k] ?? "").toString().trim();
-        // GEEN ridesCount hier!
         return out;
       });
     }
@@ -903,12 +900,8 @@ export function initAdminView() {
         const id = String(r["LidNr"] || "").trim();
         if (!/^\d+$/.test(id)) { skipped++; continue; }
 
-        // Alleen profielvelden schrijven; ridesCount NIET overschrijven.
-        // Gebruik increment(0): behoudt bestaande waarde; als veld ontbreekt → wordt 0.
         const clean = {};
         for (const k of REQUIRED_COLS) clean[k] = r[k];
-        clean["ridesCount"] = increment(0);
-
         batch.set(doc(db, "members", id), clean, { merge: true });
         updated++;
 
@@ -936,7 +929,7 @@ export function initAdminView() {
         if (statusEl) statusEl.textContent = "Importeren naar Firestore…";
         const res = await importRowsToFirestore(rows);
         log(`Klaar. Totaal: ${res.total}, verwerkt: ${res.updated}, overgeslagen: ${res.skipped}`, "ok");
-        if (statusEl) statusEl.textContent = "✅ Import voltooid (ridesCount behouden)";
+        if (statusEl) statusEl.textContent = "✅ Import voltooid";
       } catch (e) {
         console.error(e);
         if (statusEl) statusEl.textContent = "❌ Fout tijdens import";
@@ -1171,15 +1164,6 @@ function initRidePlannerSection() {
   reloadBtn?.addEventListener("click", loadPlan);
 
   // ===== Reset-alle-ritten (popup bevestiging) =====
-  try {
-    const resetBtn = document.getElementById("resetRidesBtn");
-    const resetStatus = document.getElementById("resetStatus");
-    resetBtn?.addEventListener("click", async () => {
-      const ok = window.confirm("Weet je zeker dat je ALLE ridesCount waardes naar 0 wilt zetten? Dit kan niet ongedaan worden gemaakt.");
-      if (!ok) return;
-      await resetAllRidesCount(resetStatus);
-    });
-  } catch (_) {}
 
   // Auto-load bij openen Admin tab
   loadPlan();
@@ -1189,7 +1173,6 @@ function initRidePlannerSection() {
 // ===============  Helpers (Admin)  ===================
 // =====================================================
 
-// Boek rit: ridesCount +1 voor members/{LidNr}
 // Boek rit: alleen +1 als gekozen scandatum nog NIET bestaat voor dit lid
 async function bookRide(lid, naam, rideDateYMD) {
   const id = String(lid || "").trim();
@@ -1207,22 +1190,20 @@ async function bookRide(lid, naam, rideDateYMD) {
   const res = await runTransaction(db, async (tx) => {
     const snap = await tx.get(memberRef);
     const data = snap.exists() ? snap.data() : null;
-    const currentCount = data && Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
     const scans = data && Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
     const hasDate = scans.includes(ymd);
 
     if (hasDate) {
       // Nothing to change
-      return { changed: false, newTotal: currentCount, ymd };
+      return { changed: false, newTotal: scans.length, ymd };
     }
 
     if (snap.exists()) {
-      // Apply increment and arrayUnion via update so sentinel values are processed correctly
-      tx.update(memberRef, { ridesCount: increment(1), ScanDatums: arrayUnion(ymd) });
-      return { changed: true, newTotal: currentCount + 1, ymd };
+      tx.update(memberRef, { ScanDatums: arrayUnion(ymd) });
+      return { changed: true, newTotal: scans.length + 1, ymd };
     } else {
-      // New document: set initial ridesCount and ScanDatums
-      tx.set(memberRef, { ridesCount: 1, ScanDatums: [ymd] });
+      // New document: set initial ScanDatums
+      tx.set(memberRef, { ScanDatums: [ymd] });
       return { changed: true, newTotal: 1, ymd };
     }
   });
@@ -1231,7 +1212,6 @@ async function bookRide(lid, naam, rideDateYMD) {
 }
 
 // Book only the scan date (used by QR scanning). This will add the YMD
-// to `ScanDatums` but will NOT increment `ridesCount`.
 async function bookScanDateOnly(lid, naam, rideDateYMD) {
   const id = String(lid || "").trim();
   if (!id) throw new Error("Geen LidNr meegegeven");
@@ -1311,7 +1291,6 @@ function initManualRideSection() {
   const err     = $("adminManualError");
   const sName   = $("adminMName");
   const sId     = $("adminMMemberNo");
-  const sCount  = $("adminMRidesCount");
   const status  = $("adminManualStatus");
   const rideButtons = $("adminRideButtons");
   const rideHint = $("adminRideHint");
@@ -1468,12 +1447,12 @@ function initManualRideSection() {
       try {
         const planned = await getPlannedDates();
         const scanDatums = Array.isArray(entry.data?.ScanDatums) ? entry.data.ScanDatums : [];
-  const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
-  sCount.innerHTML = starsHtml || "—";
-  sCount.setAttribute('title', stars ? tooltip : 'Geen ingeplande datums');
+        const { stars, starsHtml, tooltip, planned: plannedNorm } = plannedStarsWithHighlights(planned, scanDatums);
+        sCount.innerHTML = starsHtml || "—";
+        sCount.setAttribute('title', stars ? tooltip : 'Geen ingeplande datums');
       } catch (e) {
-        const v = typeof entry.data?.ridesCount === "number" ? entry.data.ridesCount : 0;
-        sCount.textContent = String(v);
+        const sc = Array.isArray(entry.data?.ScanDatums) ? entry.data.ScanDatums.length : 0;
+        sCount.textContent = String(sc);
       }
     })();
     box.style.display = "grid";
@@ -1493,7 +1472,7 @@ function initManualRideSection() {
           if (stars) sCount.setAttribute('title', tooltip);
           else sCount.removeAttribute('title');
         } catch (e) {
-          const c = d && typeof d.ridesCount === "number" ? d.ridesCount : 0;
+          const c = d && Array.isArray(d.ScanDatums) ? d.ScanDatums.length : 0;
           sCount.textContent = String(c);
         }
       })();
@@ -1604,8 +1583,8 @@ function initAdminQRScanner() {
           const composed = `${(d["Voor naam"]||"").toString().trim()} ${(d["Tussen voegsel"]||"").toString().trim()} ${(d["Naam"]||d["name"]||d["naam"]||"").toString().trim()}`
             .replace(/\s+/g, " ").trim();
           naam = composed || (d["Naam"] || d["name"] || d["naam"] || "");
-          const rc = Number(d?.ridesCount);
-          beforeCount = Number.isFinite(rc) ? rc : 0;
+          const scans = Array.isArray(d.ScanDatums) ? d.ScanDatums.length : 0;
+          beforeCount = Number.isFinite(Number(scans)) ? scans : 0;
         } else {
           beforeCount = 0;
         }
@@ -1625,7 +1604,6 @@ function initAdminQRScanner() {
         appendLog({ naam: naam || "", lid, ok: false, reason: 'niet geplande datum' });
         return;
       }
-      // For QR scans we only add the ScanDatums entry — do NOT increment ridesCount.
       const out = await bookScanDateOnly(lid, naam || "", todayYMD);
       const newTotal = out.newTotal;
 
@@ -1725,62 +1703,7 @@ function initAdminQRScanner() {
   stopBtn?.addEventListener("click", stop);
 }
 
-// ===== Firestore helper: reset alle ridesCount in batches ======
-async function resetAllRidesCount(statusEl) {
-  if (!statusEl) return;
-  statusEl.textContent = "Voorbereiden…";
-  let total = 0;
-  let updated = 0;
-  let skipped = 0;
 
-  try {
-  let last = null;
-  const pageSize = 400; // veilig onder batch-limiet
-
-    while (true) {
-      let qRef = query(collection(db, "members"), orderBy("__name__"), limit(pageSize));
-      if (last) qRef = query(collection(db, "members"), orderBy("__name__"), startAfter(last), limit(pageSize));
-
-      const snapshot = await getDocs(qRef);
-      if (snapshot.empty) break;
-
-      let batch = writeBatch(db);
-      let batchCount = 0;
-      snapshot.forEach((docSnap) => {
-        try {
-          const data = docSnap.data() || {};
-          const current = Number.isFinite(Number(data?.ridesCount)) ? Number(data.ridesCount) : 0;
-          // Only reset ridesCount when it's not already 0. Preserve ScanDatums.
-          if (current !== 0) {
-            batch.set(doc(db, "members", docSnap.id), { ridesCount: 0 }, { merge: true });
-            batchCount += 1;
-            updated += 1;
-          } else {
-            skipped += 1;
-          }
-        } catch (e) {
-          console.error('resetAllRidesCount: skipping doc due to error', docSnap.id, e);
-          skipped += 1;
-        }
-      });
-      if (batchCount > 0) await batch.commit();
-      total += snapshot.size;
-      statusEl.textContent = `Verwerkt: ${total} leden…`;
-
-      last = snapshot.docs[snapshot.docs.length - 1];
-      if (snapshot.size < pageSize) break;
-    }
-
-  // Show a brief success message with counts, then clear after a delay so it doesn't permanently overlay UI
-  if (statusEl) {
-    statusEl.textContent = `✅ Klaar — bijgewerkt: ${updated}, overgeslagen: ${skipped}`;
-    setTimeout(() => { try { statusEl.textContent = ''; } catch(_) {} }, 6000);
-  }
-  } catch (e) {
-    console.error(e);
-    statusEl.textContent = `❌ Fout bij resetten: ${e?.message || e}`;
-  }
-}
 
 // ===== Firestore helper: reset alle Jaarhanger waarden in batches ======
 async function resetAllJaarhanger(statusEl) {
@@ -1905,30 +1828,37 @@ async function exportMembersExcel() {
     // Haal alle leden op
     const snap = await getDocs(collection(db, "members"));
     const rows = [];
+    // Bepaal exportjaar: optioneel via een input `#exportYear`, anders huidig jaar
+    const yearInput = document.getElementById('exportYear');
+    const exportYear = yearInput && /^\d{4}$/.test((yearInput.value || '').toString().trim())
+      ? (yearInput.value || '').toString().trim()
+      : String(new Date().getFullYear());
     snap.forEach((docSnap) => {
       const d = docSnap.data() || {};
       const naam = d.Naam ?? d.naam ?? d.lastName ?? d.achternaam ?? "";
       const tussen = d["Tussen voegsel"] ?? d.tussenvoegsel ?? d.tussenVoegsel ?? d.tussen ?? d.infix ?? "";
       const voorletters = d["Voor letters"] ?? d.voorletters ?? d.initialen ?? d.initials ?? "";
       const voornaam = d["Voor naam"] ?? d.voornaam ?? d.firstName ?? d.naamVoor ?? "";
-      const rides = (typeof d.ridesCount === "number") ? d.ridesCount
-                   : (typeof d.rittenCount === "number") ? d.rittenCount
-                   : (typeof d.ritten === "number") ? d.ritten : 0;
       let regioOms = d["Regio Omschrijving"] ?? d.regioOmschrijving ?? "";
       if (!regioOms && d.regio && typeof d.regio === "object") {
         regioOms = d.regio.omschrijving ?? d.regio.name ?? d.regio.title ?? "";
       }
+      // Bereken unieke ScanDatums voor dit lid en tel die binnen het gekozen jaar
+      const scans = Array.isArray(d.ScanDatums) ? d.ScanDatums.map(String).map(s => (s||'').slice(0,10)) : [];
+      const uniqScans = Array.from(new Set(scans.filter(Boolean)));
+      const scansThisYear = uniqScans.filter(s => s.slice(0,4) === exportYear).length;
+
       rows.push({
         "Naam": String(naam || ""),
         "Tussen voegsel": String(tussen || ""),
         "Voor letters": String(voorletters || ""),
         "Voor naam": String(voornaam || ""),
-        "ridesCount": rides,
         "Regio Omschrijving": String(regioOms || ""),
+        "Aantal ritten": scansThisYear,
       });
     });
 
-    const headers = ["Naam","Tussen voegsel","Voor letters","Voor naam","ridesCount","Regio Omschrijving"];
+    const headers = ["Naam","Tussen voegsel","Voor letters","Voor naam","Regio Omschrijving","Aantal ritten"];
     // XLSX (SheetJS) als beschikbaar
     try {
       if (typeof XLSX !== "undefined" && XLSX.utils && XLSX.write) {

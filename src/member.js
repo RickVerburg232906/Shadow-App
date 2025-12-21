@@ -79,7 +79,6 @@ export async function initMemberView() {
   const errBox      = $("error");
   const rName       = $("rName");
   const rMemberNo   = $("rMemberNo");
-  const rRides      = $("rRidesCount");
   const qrCanvas    = $("qrCanvas");
   const rRegion    = $("rRegion");
   const loadingIndicator = $("loadingIndicator");

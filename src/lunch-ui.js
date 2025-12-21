@@ -61,7 +61,7 @@ export function renderLunchChoice(container = null, opts = {}) {
             </div>
           </div>
 
-          <div id="lunchDetailsSection" style="display:none; margin-top:12px; margin-bottom:20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+          <div id="lunchDetailsSection" style="display:none; margin-top:12px; padding-bottom: 20px;">
             <div id="keuzeEtenSection" style="margin-bottom:0;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                 <span style="font-size: 20px;">🍴</span>
