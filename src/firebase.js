@@ -41,11 +41,16 @@ const firebaseConfigs = {
 const hasMeta = (typeof import.meta !== 'undefined' && import.meta.env);
 const explicit = hasMeta && import.meta.env.VITE_FIREBASE_ENV;
 const isDevServer = hasMeta && Boolean(import.meta.env.DEV);
+// Vite exposes `import.meta.env.PROD` in production builds; prefer that for build-time detection.
+const isViteProd = hasMeta && Boolean(import.meta.env.PROD);
 // Check Vercel env (server-side process env during build or injected env during runtime if configured)
 const isVercelProd = (typeof process !== 'undefined' && process.env && process.env.VERCEL_ENV === 'production') || (hasMeta && import.meta.env.VERCEL_ENV === 'production');
 let firebaseEnv = 'development';
 if (explicit) {
   firebaseEnv = explicit;
+} else if (isViteProd) {
+  // Built with Vite in production mode -> use production config
+  firebaseEnv = 'production';
 } else if (isVercelProd) {
   firebaseEnv = 'production';
 } else if (isDevServer) {
