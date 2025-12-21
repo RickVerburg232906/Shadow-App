@@ -404,13 +404,22 @@ select,
 .member-card__row { display: flex; gap: 12px; align-items: center; width: 100%; }
 .member-card__main { flex: 1; display: flex; align-items: center; }
 .member-card__meta { display: flex; flex-direction: column; gap: 6px; }
-.member-card__name { font-size: 15px; font-weight: 700; color: var(--accent); }
+.member-card__name { font-size: 15px; font-weight: 700; color: #ffffff; }
 .member-card__details { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
 .member-card__detail { display: flex; gap: 6px; align-items: center; }
 .member-card__right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .member-card__rides { font-size: 20px; letter-spacing: 3px; }
 .member-card .star.filled { color: #f2c33d; margin-left: 2px; }
-.member-card .star.empty { color: rgba(255,255,255,0.12); margin-left: 2px; }
+.member-card .star.empty { color: rgb(255, 255, 255); margin-left: 2px; }
+
+/* Give member-info the same visual treatment as lunch/yearhanger sections */
+.member-card {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 8px;
+}
 
 @media (max-width: 520px) {
   .member-card__row { flex-direction: column; align-items: stretch; }
