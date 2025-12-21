@@ -337,6 +337,12 @@ function setupAdminPwdSection() {
       }
       try {
         await setInschrijftafelPwd(v);
+        try {
+          const cleared = await clearPastLunchData();
+          console.info('clearPastLunchData completed after inschrijftafel pwd change. documents updated:', cleared);
+        } catch (e) {
+          console.warn('Clearing past lunch data failed', e);
+        }
         if (status) { status.textContent = "✅ Nieuw inschrijftafel-wachtwoord opgeslagen in Firestore."; status.classList.remove("error"); }
         input.value = "";
       } catch (e) {
