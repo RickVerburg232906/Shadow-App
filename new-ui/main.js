@@ -431,7 +431,7 @@ function popPage() {
 }
 
 // Event delegation on document so handler is present even if the container is replaced.
-function delegatedClickHandler(ev) {
+async function delegatedClickHandler(ev) {
     try {
         const withinContainer = ev.target.closest(pageContainerSelector);
         if (!withinContainer) return;
@@ -470,6 +470,28 @@ function delegatedClickHandler(ev) {
         if (cont && !cont.disabled) {
             // normal flow: do not skip jaarhanger
             skipJaarhangerOnConfirm = false;
+            // If a member is selected and already scanned today, skip to member-info and load their data live
+            try {
+                if (selectedMember) {
+                    const memberId = (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId) ? (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId) : null;
+                    if (memberId) {
+                        const already = await isMemberScannedToday(memberId);
+                        if (already) {
+                            // fetch latest member data and navigate to member info
+                            try {
+                                const fresh = await getMemberById(memberId);
+                                if (fresh) {
+                                    // merge into selectedMember
+                                    selectedMember = Object.assign({}, selectedMember, fresh, { lidnummer: memberId });
+                                }
+                            } catch (e) { console.warn('failed to fetch member on scanned-continue', e); }
+                            try { pushPage(memberInfoPage); } catch(e){ console.error('pushPage memberInfoPage failed', e); }
+                            return;
+                        }
+                    }
+                }
+            } catch (e) { console.error('scanned-continue check failed', e); }
+
             pushPage(lunchPage);
             // After rendering lunchPage, populate options from Firestore
             try { fillLunchOptions().catch(e=>console.error('fillLunchOptions failed',e)); } catch(_) {}
