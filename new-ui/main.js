@@ -13,6 +13,8 @@ console.log('Setting up virtual navigation — pageContainerSelector=' + pageCon
 let selectedMember = null;
 // When true, confirming lunch will skip the jaarhanger page and go straight to member-info
 let skipJaarhangerOnConfirm = false;
+// When true, a user-initiated click on the jaarhanger summary should force-open the jaarhanger page for editing
+let forceOpenJaarhanger = false;
 
 const originalPage = `<header class="flex items-center justify-between px-4 py-3 bg-surface-light dark:bg-surface-dark border-b border-gray-100 dark:border-gray-800 z-10">
 <div class="w-8"></div>
@@ -239,8 +241,12 @@ const jaarhangerPage = `
 // In-app member info page (same layout approach as other fragments)
 const memberInfoPage = `
 <header class="sticky top-0 z-50 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
-    <div class="flex items-center p-4 justify-center h-16">
-        <h2 class="text-[#0e121a] dark:text-white text-lg font-bold leading-tight text-center">Lid Informatie</h2>
+    <div class="flex items-center p-4 justify-between h-16">
+        <button id="home-button" aria-label="Home" class="flex size-10 items-center justify-center rounded-full text-text-main dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+            <span class="material-symbols-outlined text-[20px]">home</span>
+        </button>
+        <h2 class="text-[#0e121a] dark:text-white text-lg font-bold leading-tight text-center flex-1">Lid Informatie</h2>
+        <div class="w-8"></div>
     </div>
 </header>
 <main class="flex-1 flex flex-col gap-6 p-4 max-w-md mx-auto w-full">
@@ -269,7 +275,7 @@ const memberInfoPage = `
     <section class="flex flex-col gap-3">
         <h3 class="text-[#0e121a] dark:text-white text-lg font-bold px-1">Mijn Keuzes</h3>
         <div class="grid gap-3">
-            <div class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-primary">
+            <div id="member-lunch-summary" role="button" tabindex="0" class="cursor-pointer flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-primary hover:shadow-lg hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-primary/30">
                 <div class="bg-primary/10 dark:bg-primary/20 p-3 rounded-full flex items-center justify-center mr-4">
                     <span class="material-symbols-outlined text-primary dark:text-blue-400">restaurant</span>
                 </div>
@@ -280,8 +286,11 @@ const memberInfoPage = `
                 <div id="member-choice-lunch-status" class="w-9 h-9 flex items-center justify-center rounded-full">
                     <span class="material-symbols-outlined text-[16px] leading-none">check</span>
                 </div>
+                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 px-2 py-0.5 rounded-full bg-primary/5 dark:bg-primary/10">
+                    <span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>
+                </div>
             </div>
-            <div id="member-jaarhanger-summary" class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-accent-yellow">
+            <div id="member-jaarhanger-summary" role="button" tabindex="0" class="cursor-pointer flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-accent-yellow hover:shadow-lg hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-primary/30">
                 <div class="bg-accent-yellow/10 p-3 rounded-full flex items-center justify-center mr-4">
                     <span class="material-symbols-outlined text-accent-yellow dark:text-accent-yellow">local_activity</span>
                 </div>
@@ -291,6 +300,9 @@ const memberInfoPage = `
                 </div>
                 <div id="member-choice-jaarhanger-status" class="w-9 h-9 flex items-center justify-center rounded-full">
                     <span class="text-xs font-medium text-gray-500">Nog ophalen</span>
+                </div>
+                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 px-2 py-0.5 rounded-full bg-primary/5 dark:bg-primary/10">
+                    <span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>
                 </div>
             </div>
         </div>
@@ -584,6 +596,19 @@ function delegatedClickHandler(ev) {
                 selectedMember.participation = part;
                 selectedMember.lunchChoice = choiceText || '';
             } catch (e) { console.error('capturing lunch participation failed', e); }
+            // If Firestore already has a concrete jaarhanger value ('yes' or 'no'), skip the jaarhanger page
+            try {
+                if (selectedMember && (typeof selectedMember.jaarhanger !== 'undefined') && selectedMember.jaarhanger !== null) {
+                    try {
+                        const norm = normalizeYesNo(selectedMember.jaarhanger);
+                        if (norm === 'yes' || norm === 'no') {
+                            selectedMember.jaarhanger = norm;
+                            pushPage(memberInfoPage);
+                            return;
+                        }
+                    } catch (_) { /* ignore normalization errors and continue to jaarhanger page */ }
+                }
+            } catch (e) { console.error('checking prefilled jaarhanger failed', e); }
             // Show next page: normally jaarhanger, but if user came from member-info summary, go straight to member-info
             try {
                 if (skipJaarhangerOnConfirm) {
@@ -603,8 +628,41 @@ function delegatedClickHandler(ev) {
             return;
         }
 
+        // Home button in member-info: clear stored values and return to start
+        const homeBtn = ev.target.closest('#home-button');
+        if (homeBtn) {
+            try {
+                // clear selection state
+                selectedMember = null;
+                skipJaarhangerOnConfirm = false;
+                forceOpenJaarhanger = false;
+                // clear input field if present
+                try {
+                    const nameIn = document.getElementById('participant-name-input');
+                    if (nameIn) {
+                        nameIn.value = '';
+                        try { nameIn.removeAttribute('data-member-id'); } catch(_){}
+                    }
+                    const suggestionsEl = document.getElementById('name-suggestions');
+                    if (suggestionsEl) { suggestionsEl.classList.add('hidden'); suggestionsEl.style.display = 'none'; }
+                } catch (_) {}
+                // reset navigation stack to initial page and render
+                try {
+                    navStack.length = 0;
+                    navStack.push(originalPage);
+                    render(navStack[0]);
+                    const container = document.querySelector(pageContainerSelector);
+                    if (container) {
+                        container.classList.remove('min-h-screen');
+                        container.classList.add('h-screen', 'shadow-xl', 'overflow-hidden');
+                    }
+                } catch (e) { console.error('home navigation failed', e); }
+            } catch (e) { console.error('home button handler failed', e); }
+            return;
+        }
+
         // If user clicks the lunch summary on the member-info page, navigate back to the lunch page
-        const lunchSummaryClick = ev.target.closest('#member-choice-lunch-text') || ev.target.closest('#member-choice-lunch-status');
+        const lunchSummaryClick = ev.target.closest('#member-lunch-summary') || ev.target.closest('#member-choice-lunch-text') || ev.target.closest('#member-choice-lunch-status');
         if (lunchSummaryClick) {
             try {
                 // when coming from member-info summary, skip jaarhanger on confirm
@@ -619,7 +677,11 @@ function delegatedClickHandler(ev) {
         const jaarSummaryClick = ev.target.closest('#member-jaarhanger-summary') || ev.target.closest('#member-jaarhanger-edition') || ev.target.closest('#member-choice-jaarhanger-status');
         if (jaarSummaryClick) {
             try {
+                // User explicitly clicked the jaarhanger summary: always open the jaarhanger page for editing
+                forceOpenJaarhanger = true;
                 pushPage(jaarhangerPage);
+                // reset the flag right away — render/handlers can rely on selectedMember.jaarhanger
+                forceOpenJaarhanger = false;
             } catch (e) { console.error('navigate to jaarhangerPage failed', e); }
             return;
         }
@@ -822,6 +884,12 @@ async function delegatedSuggestionClickHandler(ev) {
                 lidnummer: memberObj?.LidNr ?? memberObj?.lidnr ?? memberObj?.lidnummer ?? '',
                 regio: memberObj?.['Regio Omschrijving'] ?? memberObj?.regio ?? memberObj?.region ?? memberObj?.woonplaats ?? ''
             };
+            // If the full doc contains a jaarhanger field, normalize and persist it
+            try {
+                const rawJaar = memberObj?.Jaarhanger ?? memberObj?.jaarhanger ?? memberObj?.JaarhangerAanvraag ?? memberObj?.['Jaarhanger Aanvraag'] ?? memberObj?.jaarhanger_aanvraag ?? memberObj?.jaarhangerAanvraag ?? null;
+                const norm = normalizeYesNo(rawJaar);
+                if (norm) selectedMember.jaarhanger = norm;
+            } catch (e) { /* ignore */ }
         } catch (e) { selectedMember = { id, name: text }; }
         // Enable continue button now that a member was explicitly selected
         const continueBtn2 = document.getElementById('continue-button');
@@ -958,6 +1026,22 @@ function escapeHtml(s) {
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]);
 }
 
+// Normalize values that might represent yes/no/boolean-like fields from Firestore
+function normalizeYesNo(v) {
+    try {
+        if (v === null || typeof v === 'undefined') return null;
+        if (typeof v === 'boolean') return v ? 'yes' : 'no';
+        const s = String(v).trim().toLowerCase();
+        if (s === '') return null;
+        if (s === 'ja' || s === 'yes' || s === 'true' || s === '1' || s === 'y') return 'yes';
+        if (s === 'nee' || s === 'no' || s === 'false' || s === '0' || s === 'n') return 'no';
+        // if it's a number >0 treat as yes
+        const num = Number(s);
+        if (!isNaN(num)) return num > 0 ? 'yes' : 'no';
+        return null;
+    } catch (e) { return null; }
+}
+
 // Restore lunch page inputs from `selectedMember` if present
 function restoreLunchSelection() {
     try {
@@ -1046,5 +1130,3 @@ function updateConfirmButtonState() {
         else { btn.disabled = true; btn.classList.add('opacity-50'); btn.setAttribute('aria-disabled','true'); }
     } catch (e) { console.error('updateConfirmButtonState failed', e); }
 }
-
-// (removed experimental keuze click/pointer handlers)
