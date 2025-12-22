@@ -60,7 +60,7 @@ export async function getPlannedDates(forceRefresh = false) {
     return await _plannedDatesCachePromise;
   } catch (e) {
     console.error('getPlannedDates error', e);
-    return [];
+    return ['ERROR'];
   }
 }
 
@@ -79,7 +79,7 @@ export async function getAdminPasswords() {
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getAdminPasswords: fetch failed', res.status, res.statusText);
-      return { inschrijftafel: 'Shadow', hoofdadmin: '1100' };
+      return { inschrijftafel: 'ERROR', hoofdadmin: 'ERROR' };
     }
     const data = await res.json();
     const fields = data && data.fields ? data.fields : {};
@@ -88,7 +88,7 @@ export async function getAdminPasswords() {
     return { inschrijftafel: String(ins || 'Shadow'), hoofdadmin: String(hoofd || '1100') };
   } catch (e) {
     console.error('getAdminPasswords error', e);
-    return { inschrijftafel: 'Shadow', hoofdadmin: '1100' };
+    return { inschrijftafel: 'ERROR', hoofdadmin: 'ERROR' };
   }
 }
 
@@ -204,7 +204,7 @@ export async function getLunchOptions() {
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getLunchOptions: fetch failed', res.status, res.statusText);
-      return { vastEten: [], keuzeEten: [] };
+      return { vastEten: ['ERROR'], keuzeEten: ['ERROR'] };
     }
     const data = await res.json();
     const fields = data && data.fields ? data.fields : {};
@@ -220,7 +220,7 @@ export async function getLunchOptions() {
     return { vastEten: vast, keuzeEten: keuze };
   } catch (e) {
     console.error('getLunchOptions error', e);
-    return { vastEten: [], keuzeEten: [] };
+    return { vastEten: ['ERROR'], keuzeEten: ['ERROR'] };
   }
 }
 
@@ -271,7 +271,7 @@ export async function getLunchChoiceCount(choice) {
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) {
       console.warn('getLunchChoiceCount: runQuery failed', res.status, res.statusText);
-      return 0;
+      return 'ERROR';
     }
     const arr = await res.json();
     let count = 0;
@@ -281,7 +281,7 @@ export async function getLunchChoiceCount(choice) {
     return count;
   } catch (e) {
     console.error('getLunchChoiceCount error', e);
-    return 0;
+    return 'ERROR';
   }
 }
 
@@ -331,6 +331,6 @@ export async function getParticipationCount(choice) {
     return total;
   } catch (e) {
     console.error('getParticipationCount error', e);
-    return 0;
+    return 'ERROR';
   }
 }
