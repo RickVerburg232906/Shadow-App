@@ -262,7 +262,7 @@ const memberInfoPage = `
     <section class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
         <div class="flex items-center justify-between mb-3">
             <h3 class="text-[#0e121a] dark:text-white text-lg font-bold">Gereden Ritten</h3>
-            <span class="text-sm font-medium text-gray-400">4 / 5</span>
+            <span id="member-ridden-count" class="text-sm font-medium text-gray-400">0 / 0</span>
         </div>
             <div id="member-stars" class="flex items-center justify-center gap-3 bg-background-light dark:bg-gray-900 rounded-lg p-4">
                 <div class="text-sm text-gray-400">Laden...</div>
@@ -447,6 +447,13 @@ function render(html) {
                                         }
                                     }).join('');
                                     if (html) starsContainer.innerHTML = html; else starsContainer.innerHTML = `<div class="text-sm text-gray-500">Geen geplande ritten</div>`;
+                                    try {
+                                        const countEl = document.getElementById('member-ridden-count');
+                                        if (countEl) {
+                                            const matched = planned.filter(pd => scans.includes(pd)).length;
+                                            countEl.textContent = `${matched} / ${planned.length}`;
+                                        }
+                                    } catch (e) { console.error('updating member ridden count failed', e); }
                                 } catch (e) { console.error('rendering member stars failed', e); }
                             }).catch(e => { console.error('getPlannedDates failed for member stars', e); if (document.getElementById('member-stars')) document.getElementById('member-stars').innerHTML = '<div class="text-sm text-gray-500">Fout bij laden</div>'; });
                         }
