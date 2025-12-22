@@ -80,7 +80,7 @@ const signupPage = `<header class="sticky top-0 z-50 w-full bg-white dark:bg-sur
             </button>
 </div>
 </header>
-<main class="flex-1 flex flex-col w-full max-w-md mx-auto px-4 pt-6 pb-28 gap-6">
+<main class="flex-1 flex flex-col w-full px-4 pt-6 pb-28 gap-6">
 <div class="flex flex-col gap-2">
 <h1 class="text-text-main dark:text-white text-[28px] font-extrabold leading-tight tracking-tight">
                 Inschrijven voor Landelijke Rit
@@ -106,13 +106,100 @@ const signupPage = `<header class="sticky top-0 z-50 w-full bg-white dark:bg-sur
 </div>
 <div class="flex-1"></div>
 <div class="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-6 pb-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-<div class="max-w-md mx-auto w-full">
-<button class="w-full flex items-center justify-center rounded-xl bg-primary hover:bg-blue-800 text-white h-14 px-6 text-lg font-bold tracking-wide shadow-lg shadow-primary/30 transition-all active:scale-[0.98]">
+<div class="w-full">
+<button id="continue-button" disabled class="w-full flex items-center justify-center rounded-xl bg-primary/90 hover:bg-blue-800 text-white h-14 px-6 text-lg font-bold tracking-wide shadow-lg shadow-primary/30 transition-all active:scale-[0.98] opacity-50" aria-disabled="true">
 <span>Verder</span>
 </button>
 </div>
 </div>
 </main>`;
+
+// Lunch page fragment (in-app) — use only the content that fits inside our app container
+const lunchPage = `
+<header class="sticky top-0 z-20 flex items-center justify-between bg-background-light/80 dark:bg-background-dark/80 px-4 py-4 backdrop-blur-md">
+    <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
+        <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
+    </button>
+    <div class="flex flex-col items-center">
+        <h1 class="text-lg font-bold leading-tight tracking-tight text-text-main dark:text-white">Lunchplanning</h1>
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Wo, 24 Okt</span>
+    </div>
+    <div class="w-10"></div>
+</header>
+<main class="flex-1 px-4 pb-28 pt-2">
+    <section class="mb-8">
+        <h2 class="mb-5 text-center text-2xl font-bold leading-tight text-text-main dark:text-white">Eet je mee vandaag?</h2>
+        <div class="flex gap-4">
+            <label class="relative flex-1 cursor-pointer group">
+                <input class="peer sr-only" name="participation" type="radio" value="yes" />
+                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark py-6 shadow-card transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-glow peer-checked:translate-y-[-2px]">
+                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">restaurant</span>
+                    <span class="font-bold">Ja, ik eet mee</span>
+                </div>
+            </label>
+            <label class="relative flex-1 cursor-pointer group">
+                <input class="peer sr-only" name="participation" type="radio" value="no" />
+                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark py-6 shadow-card transition-all peer-checked:bg-accent-red peer-checked:text-white peer-checked:shadow-lg peer-checked:translate-y-[-2px]">
+                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">close</span>
+                    <span class="font-bold">Nee, ik sla over</span>
+                </div>
+            </label>
+        </div>
+    </section>
+
+    <div class="mb-8 flex items-start gap-3 rounded-xl bg-primary/10 p-4 border border-primary/10 dark:bg-primary/20 dark:border-primary/20">
+        <span class="material-symbols-outlined shrink-0 text-[20px] text-primary dark:text-blue-300 mt-0.5">info</span>
+        <p class="text-sm font-semibold leading-snug text-primary dark:text-blue-100">Na het inchecken kan je keuze niet meer worden gewijzigd</p>
+    </div>
+
+    <section class="mb-8">
+        <div class="mb-3 flex items-center justify-between px-1">
+            <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Vast Eten</h3>
+            <span class="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 ring-1 ring-inset ring-gray-500/10">Iedereen ontvangt</span>
+        </div>
+        <div class="overflow-hidden rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card">
+            <div class="relative flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                <div class="flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white">Tuinsalade</p></div>
+            </div>
+            <div class="h-px w-full bg-gray-100 dark:bg-gray-700"></div>
+            <div class="relative flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                <div class="flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white">Tomaten-basilicumsoep</p></div>
+            </div>
+            <div class="h-px w-full bg-gray-100 dark:bg-gray-700"></div>
+            <div class="relative flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                <div class="flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white">Vers Broodje</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-6">
+        <div class="mb-3 flex items-center justify-between px-1">
+            <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Keuze Eten</h3>
+            <span class="inline-flex items-center rounded-md bg-secondary-yellow/10 px-2 py-1 text-xs font-bold text-yellow-700 dark:text-secondary-yellow ring-1 ring-inset ring-secondary-yellow/20">Kies één</span>
+        </div>
+        <div class="flex flex-col gap-3">
+            <label class="cursor-pointer relative group">
+                <input checked class="choice-card-input sr-only" name="main_course" type="radio" value="chicken" />
+                <div class="choice-card relative flex items-center gap-4 rounded-2xl border-2 border-transparent bg-surface-light dark:bg-surface-dark p-4 shadow-card transition-all hover:shadow-card-hover min-h-[88px]">
+                    <div class="flex flex-col justify-center py-0.5 pr-8 flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white leading-tight">Gegrilde Kipfilet</p></div>
+                    <div class="check-circle absolute right-4 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-gray-300 text-transparent transition-all dark:border-gray-600"><span class="material-symbols-outlined text-[16px] font-bold">check</span></div>
+                </div>
+            </label>
+            <label class="cursor-pointer relative group">
+                <input class="choice-card-input sr-only" name="main_course" type="radio" value="vegetarian" />
+                <div class="choice-card relative flex items-center gap-4 rounded-2xl border-2 border-transparent bg-surface-light dark:bg-surface-dark p-4 shadow-card transition-all hover:shadow-card-hover min-h-[88px]">
+                    <div class="flex flex-col justify-center py-0.5 pr-8 flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white leading-tight">Geroosterde Groentelasagne</p></div>
+                    <div class="check-circle absolute right-4 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-gray-300 text-transparent transition-all dark:border-gray-600"><span class="material-symbols-outlined text-[16px] font-bold">check</span></div>
+                </div>
+            </label>
+        </div>
+    </section>
+</main>
+<footer class="fixed bottom-0 left-0 right-0 z-30 bg-surface-light dark:bg-surface-dark border-t border-gray-200 dark:border-gray-800 pt-4 pb-8 px-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+    <button class="relative w-full overflow-hidden rounded-2xl bg-primary h-14 flex items-center justify-center font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 hover:shadow-primary/40 active:scale-[0.98]">
+        <span class="relative z-10 flex items-center justify-center"><span>Keuze Bevestigen</span></span>
+    </button>
+</footer>`;
 
 // Navigation stack holds HTML strings. The top is current page.
 const navStack = [originalPage];
@@ -164,6 +251,12 @@ function delegatedClickHandler(ev) {
             return;
         }
 
+        const cont = ev.target.closest('#continue-button');
+        if (cont && !cont.disabled) {
+            pushPage(lunchPage);
+            return;
+        }
+
         const back = ev.target.closest('#back-button');
         if (back) {
             popPage();
@@ -180,6 +273,7 @@ if (document.readyState === 'loading') {
             document.addEventListener('click', delegatedClickHandler);
             document.addEventListener('input', delegatedInputHandler);
             document.addEventListener('click', delegatedSuggestionClickHandler);
+            document.addEventListener('change', delegatedChangeHandler);
         // initial render
         render(navStack[0]);
         // load dynamic rides data from Firestore
@@ -190,6 +284,7 @@ if (document.readyState === 'loading') {
     document.addEventListener('click', delegatedClickHandler);
     document.addEventListener('input', delegatedInputHandler);
     document.addEventListener('click', delegatedSuggestionClickHandler);
+    document.addEventListener('change', delegatedChangeHandler);
     // initial render
     render(navStack[0]);
     // load dynamic rides data from Firestore
@@ -271,16 +366,27 @@ async function delegatedInputHandler(ev) {
         const val = (newRaw || '').trim();
         const suggestionsEl = document.getElementById('name-suggestions');
         if (!suggestionsEl) return;
+        // clear any previously-selected member id while typing and disable continue
+        const continueBtn = document.getElementById('continue-button');
+        try { if (document.getElementById('participant-name-input')) document.getElementById('participant-name-input').removeAttribute('data-member-id'); } catch(_) {}
+        if (continueBtn) { continueBtn.disabled = true; continueBtn.classList.add('opacity-50'); continueBtn.setAttribute('aria-disabled','true'); }
         if (!val) {
             suggestionsEl.innerHTML = '';
             suggestionsEl.classList.add('hidden');
+            suggestionsEl.style.display = 'none';
             return;
         }
-        // query members
-        const results = await searchMembers(val, 8);
+            const results = await searchMembers(val, 8);
+            // Abort if the input changed while the async search was in flight
+            const currentNow = (target.value || '').trim();
+            if (currentNow !== val) {
+                console.log('delegatedInputHandler: aborting stale results for', val, 'current is', currentNow);
+                return;
+            }
         if (!Array.isArray(results) || results.length === 0) {
             suggestionsEl.innerHTML = '';
             suggestionsEl.classList.add('hidden');
+            suggestionsEl.style.display = 'none';
             return;
         }
         const html = results.map(r => {
@@ -289,6 +395,7 @@ async function delegatedInputHandler(ev) {
         }).join('\n');
         suggestionsEl.innerHTML = `<div class="flex flex-col">${html}</div>`;
         suggestionsEl.classList.remove('hidden');
+        suggestionsEl.style.display = '';
     } catch (e) {
         console.error('delegatedInputHandler error', e);
     }
@@ -307,6 +414,36 @@ function delegatedSuggestionClickHandler(ev) {
             input.setAttribute('data-member-id', id);
         }
         const suggestionsEl = document.getElementById('name-suggestions');
-        if (suggestionsEl) suggestionsEl.classList.add('hidden');
+        if (suggestionsEl) {
+            suggestionsEl.classList.add('hidden');
+            suggestionsEl.style.display = 'none';
+        }
+        // Enable continue button now that a member was explicitly selected
+        const continueBtn2 = document.getElementById('continue-button');
+        if (continueBtn2) { continueBtn2.disabled = false; continueBtn2.classList.remove('opacity-50'); continueBtn2.removeAttribute('aria-disabled'); }
     } catch (e) { console.error('delegatedSuggestionClickHandler error', e); }
+}
+
+// Change handler for radios (participation on lunch page)
+function delegatedChangeHandler(ev) {
+    try {
+        const target = ev.target;
+        if (!target) return;
+        if (target.name !== 'participation') return;
+        const footerBtn = document.querySelector('footer button');
+        if (!footerBtn) return;
+        const footerSpan = footerBtn.querySelector('span span') || footerBtn.querySelector('span');
+        const sections = document.querySelectorAll('main section:not(:first-child)');
+        if (target.value === 'no') {
+            footerBtn.style.background = '#8C2B07';
+            if (footerSpan) footerSpan.innerText = 'Afwezigheid Bevestigen';
+            sections.forEach(sec => { sec.style.opacity = '0.3'; sec.style.pointerEvents = 'none'; });
+        } else {
+            footerBtn.style.background = '';
+            if (footerSpan) footerSpan.innerText = 'Keuze Bevestigen';
+            sections.forEach(sec => { sec.style.opacity = '1'; sec.style.pointerEvents = 'auto'; });
+        }
+    } catch (e) {
+        console.error('delegatedChangeHandler error', e);
+    }
 }

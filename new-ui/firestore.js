@@ -60,10 +60,11 @@ export async function searchMembers(prefix, maxResults = 8) {
     // Use a single GREATER_THAN_OR_EQUAL query per field and filter <= prefix+\uffff on client side.
     function escapeFieldPath(fieldPath) {
       // Split dotted paths and quote tokens that contain characters
-      // outside [A-Za-z0-9_] by wrapping them in backticks and escaping backticks.
+      // outside [A-Za-z0-9_] by wrapping them in backticks.
+      // Firestore expects backticks around property names with spaces.
       return fieldPath.split('.').map(tok => {
         if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tok)) return tok;
-        return '`' + tok.replace(/`/g, '\\`') + '`';
+        return '`' + tok + '`';
       }).join('.');
     }
 
@@ -109,14 +110,43 @@ export async function searchMembers(prefix, maxResults = 8) {
       }
     }
 
-    // Filter client-side to entries where field value <= prefix + '\uffff'
-    const upper = prefix + '\uffff';
+    console.log('searchMembers: raw results count', results.length);
+
+    // Fallback: if runQuery returned nothing, fetch a modest page of members and filter client-side.
+    if (results.length === 0) {
+      try {
+        const listUrl = `${BASE_URL}/members?pageSize=200&key=${apiKey}`;
+        const listRes = await fetch(listUrl, { method: 'GET' });
+        if (listRes.ok) {
+          const listJson = await listRes.json();
+          const docs = listJson.documents || [];
+          for (const doc of docs) {
+            const id = doc.name ? doc.name.split('/').pop() : null;
+            const f = doc.fields || {};
+            const naam = f.Naam ? (f.Naam.stringValue || '') : '';
+            const voor = f['Voor naam'] ? (f['Voor naam'].stringValue || '') : '';
+            if (id) results.push({ id, naam, voor });
+          }
+          console.log('searchMembers: fallback list fetched', results.length);
+        } else {
+          console.warn('searchMembers: fallback list fetch failed', listRes.status, listRes.statusText);
+        }
+      } catch (e) {
+        console.error('searchMembers fallback error', e);
+      }
+    }
+
+    // Filter client-side: check both `Naam` (last name) and `Voor naam` (first name)
+    // so a prefix that matches the first name still returns the member even when last name exists.
+    const pl = prefix.toLowerCase();
     const filtered = results.filter(r => {
-      const combined = (r.naam || r.voor || '').toLowerCase();
-      return combined >= prefix.toLowerCase() && combined <= upper.toLowerCase();
+      const naam = (r.naam || '').toLowerCase();
+      const voor = (r.voor || '').toLowerCase();
+      return (naam && naam.startsWith(pl)) || (voor && voor.startsWith(pl));
     });
+    // Preserve insertion order but dedupe by id
     const map = new Map();
-    for (const d of filtered) map.set(d.id, d);
+    for (const d of filtered) if (!map.has(d.id)) map.set(d.id, d);
     return Array.from(map.values()).slice(0, maxResults);
   } catch (e) {
     console.error('searchMembers error', e);
