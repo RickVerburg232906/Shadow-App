@@ -1,6 +1,83 @@
 // New UI main script
 
 import { getPlannedDates, searchMembers, getLunchOptions, getMemberById } from './firestore.js';
+import { doc, getDoc, onSnapshot, db } from '../src/firebase.js';
+
+// --- Scan-lock utilities (moved from legacy src/member.js) ---
+function todayYMD() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function toYMDString(value) {
+    try {
+        if (typeof value === 'string' && /\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0,10);
+        const d = new Date(value);
+        if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        return '';
+    } catch { return ''; }
+}
+
+export async function isMemberScannedToday(memberId) {
+    try {
+        if (!memberId) return false;
+        const ref = doc(db, 'members', String(memberId));
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return false;
+        const data = snap.data() || {};
+        const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums.map(d => toYMDString(d)).filter(Boolean) : [];
+        return scans.includes(todayYMD());
+    } catch (e) { console.error('isMemberScannedToday error', e); return false; }
+}
+
+export function attachScanLockListener(memberId, options = {}) {
+    try {
+        if (!memberId) return () => {};
+        const summarySelector = options.summarySelector || '#member-lunch-summary';
+        const iconSelector = options.iconSelector || '.summary-touch-icon';
+        const ref = doc(db, 'members', String(memberId));
+        const unsub = onSnapshot(ref, (snap) => {
+            try {
+                const data = (snap && snap.exists()) ? snap.data() : {};
+                const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums.map(d => toYMDString(d)).filter(Boolean) : [];
+                const locked = scans.includes(todayYMD());
+                try {
+                    const summaryEl = document.querySelector(summarySelector);
+                    const iconEl = document.querySelector(iconSelector);
+                    if (locked) {
+                        if (summaryEl) {
+                            summaryEl.dataset.locked = '1';
+                            summaryEl.setAttribute('aria-disabled', 'true');
+                            summaryEl.style.pointerEvents = 'none';
+                            summaryEl.style.opacity = summaryEl.style.opacity || '0.9';
+                        }
+                        if (iconEl) {
+                            try { iconEl.innerHTML = '<span class="material-symbols-outlined">lock</span>'; } catch(_){}
+                        }
+                    } else {
+                        if (summaryEl) {
+                            delete summaryEl.dataset.locked;
+                            summaryEl.removeAttribute('aria-disabled');
+                            summaryEl.style.pointerEvents = '';
+                            summaryEl.style.opacity = '';
+                        }
+                        if (iconEl) {
+                            try {
+                                const def = iconEl.dataset && iconEl.dataset.defaultIcon;
+                                if (def) iconEl.innerHTML = def;
+                                else iconEl.innerHTML = '<span class="material-symbols-outlined">touch_app</span>';
+                            } catch(_){}
+                        }
+                    }
+                } catch (e) { console.warn('attachScanLockListener UI update failed', e); }
+            } catch (e) { console.error('attachScanLockListener snapshot handler error', e); }
+        }, (err) => { console.warn('attachScanLockListener onSnapshot error', err); });
+        return unsub;
+    } catch (e) { console.error('attachScanLockListener error', e); return () => {}; }
+}
 
 console.log('New UI loaded');
 
@@ -113,6 +190,17 @@ function render(html) {
                         lunchTextEl.textContent = '';
                     }
                 }
+                // Attach scan-lock listener for member pages so lunch summary locks when scanned today
+                try {
+                    const iconEl = document.querySelector('#member-lunch-summary .ml-2');
+                    if (iconEl && !iconEl.dataset.defaultIcon) iconEl.dataset.defaultIcon = iconEl.innerHTML || '<span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>';
+                    if (selectedMember) {
+                        // unsubscribe previous listener if any
+                        try { if (selectedMember._scanLockUnsub && typeof selectedMember._scanLockUnsub === 'function') selectedMember._scanLockUnsub(); } catch(_){}
+                        const memberId = (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId) ? (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId) : null;
+                        if (memberId) selectedMember._scanLockUnsub = attachScanLockListener(memberId, { summarySelector: '#member-lunch-summary', iconSelector: '#member-lunch-summary .ml-2' });
+                    }
+                } catch (e) { console.error('attach scan lock listener failed', e); }
                 if (lunchStatusEl) {
                     if (selectedMember) {
                         const part = selectedMember.participation ?? null;
@@ -170,6 +258,8 @@ function render(html) {
                     try {
                         const starsContainer = document.getElementById('member-stars');
                         if (starsContainer) {
+                            // unsubscribe previous stars listener if any
+                            try { if (selectedMember && selectedMember._starsUnsub && typeof selectedMember._starsUnsub === 'function') selectedMember._starsUnsub(); } catch(_){}
                             // async fetch planned dates and then render
                             getPlannedDates().then(dates => {
                                 try {
@@ -218,6 +308,31 @@ function render(html) {
                                     } catch (e) { console.error('generating checkin QR failed', e); }
                                 } catch (e) { console.error('rendering member stars failed', e); }
                             }).catch(e => { console.error('getPlannedDates failed for member stars', e); if (document.getElementById('member-stars')) document.getElementById('member-stars').innerHTML = '<div class="text-sm text-gray-500">Fout bij laden</div>'; });
+                            // Attach live listener to update stars when member ScanDatums change
+                            try {
+                                const memberId = (selectedMember && (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId)) ? (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId) : null;
+                                if (memberId) {
+                                    selectedMember._starsUnsub = onSnapshot(doc(db, 'members', String(memberId)), snap => {
+                                        try {
+                                            const data = (snap && snap.exists()) ? snap.data() : {};
+                                            const scans = getMemberScanYMDs(data || {});
+                                            getPlannedDates().then(dates2 => {
+                                                try {
+                                                    const planned = (Array.isArray(dates2) ? dates2 : []).map(d => (typeof d === 'string' ? d.slice(0,10) : '')).filter(Boolean);
+                                                    const html = planned.map(pd => {
+                                                        const isScanned = scans.includes(pd);
+                                                        const title = `Rit ${pd}`;
+                                                        if (isScanned) return `<span title="${title}" class="material-symbols-outlined text-accent-yellow text-[32px]" style="font-variation-settings: 'FILL' 1, 'wght' 400; -webkit-font-variation-settings: 'FILL' 1, 'wght' 400;">star</span>`;
+                                                        return `<span title="${title}" class="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[32px]" style="font-variation-settings: 'FILL' 0, 'wght' 400; -webkit-font-variation-settings: 'FILL' 0, 'wght' 400;">star</span>`;
+                                                    }).join('');
+                                                    if (starsContainer) starsContainer.innerHTML = (html || `<div class="text-sm text-gray-500">Geen geplande ritten</div>`);
+                                                    try { const countEl = document.getElementById('member-ridden-count'); if (countEl) { const matched = planned.filter(pd => scans.includes(pd)).length; countEl.textContent = `${matched} / ${planned.length}`; } } catch (e) { console.error('updating member ridden count failed', e); }
+                                                } catch (e) { console.error('live stars update failed', e); }
+                                            }).catch(e => { console.error('getPlannedDates failed for live update', e); });
+                                        } catch (e) { console.error('member stars snapshot handler error', e); }
+                                    }, err => { console.warn('member stars onSnapshot error', err); });
+                                }
+                            } catch (e) { console.error('attach live stars listener failed', e); }
                         }
                     } catch (e) { console.error('scheduling member stars render failed', e); }
         } catch (e) { console.error('setting member info failed', e); }
@@ -510,6 +625,11 @@ function delegatedClickHandler(ev) {
         // If user clicks the lunch summary on the member-info page, navigate back to the lunch page
         const lunchSummaryClick = ev.target.closest('#member-lunch-summary') || ev.target.closest('#member-choice-lunch-text') || ev.target.closest('#member-choice-lunch-status');
         if (lunchSummaryClick) {
+            // If the summary card is locked (scanned today), ignore clicks immediately
+            try {
+                if (lunchSummaryClick.dataset && lunchSummaryClick.dataset.locked === '1') return;
+                if (lunchSummaryClick.getAttribute && lunchSummaryClick.getAttribute('aria-disabled') === 'true') return;
+            } catch(_){}
             try {
                 // when coming from member-info summary, skip jaarhanger on confirm
                 skipJaarhangerOnConfirm = true;
@@ -583,13 +703,6 @@ async function initApp() {
 }
 
 // ----- Rides loader -----
-function todayYMD() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-}
 
 async function loadFragments() {
         // Try several candidate base paths so the dev server or production paths resolve correctly.

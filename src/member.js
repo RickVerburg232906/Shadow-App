@@ -1,7 +1,6 @@
 // member.js — geplande-sterren met highlight op basis van ScanDatums
 import { db, getDoc, doc, collection, query, orderBy, startAt, endAt, limit, getDocs, onSnapshot, serverTimestamp } from "./firebase.js";
 import { withRetry, updateOrCreateDoc } from './firebase-helpers.js';
-import { $, showError, hideError } from './ui-helpers.js';
 
 // ====== Star / planned dates helpers (exported) ======
 let STAR_MAX = 5;
@@ -40,6 +39,32 @@ export async function getPlannedDates() {
   } catch(e){ console.error("getPlannedDates()", e); PLANNED_DATES = []; return PLANNED_DATES; }
 }
 
+// Planned stars + tooltip helper
+export function plannedStarsWithHighlights(plannedDates, scanDates) {
+  const planned = plannedDates.map(v => {
+    try {
+      if (!v) return "";
+      if (typeof v === 'object' && v.seconds) {
+        const d = new Date(v.seconds * 1000);
+        return d.toISOString().slice(0,10);
+      }
+      if (typeof v === 'string') {
+        const m = v.match(/\d{4}-\d{2}-\d{2}/);
+        if (m) return m[0];
+      }
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+      return "";
+    } catch { return ""; }
+  }).filter(Boolean);
+  const scans = new Set((Array.isArray(scanDates) ? scanDates : []).map(v => {
+    try { if (typeof v === 'string') { const m = v.match(/\d{4}-\d{2}-\d{2}/); if (m) return m[0]; } const d = new Date(v); if (!isNaN(d)) return d.toISOString().slice(0,10); } catch{} return "";
+  }).filter(Boolean));
+  const starsHtml = planned.map(d => scans.has(d) ? '<span class="star filled">★</span>' : '<span class="star empty">☆</span>').join('');
+  const tooltip = planned.map((d, i) => `${i+1}: ${d} — ${scans.has(d) ? "Geregistreerd" : "Niet geregistreerd"}`).join("\\n");
+  const stars = planned.map(d => scans.has(d) ? "★" : "☆").join("");
+  return { stars, starsHtml, tooltip, planned };
+}
 
 // ====== Lunch options loader (cached, exported) ======
 export async function loadLunchOptions() {
@@ -73,7 +98,7 @@ export async function initMemberView() {
     try { if (window?.appSplash) window.appSplash.setProgress(30, 'Ster-config laden...'); } catch(_) {}
   } catch(e) {}
 
-  // Use `$` from `src/ui-helpers.js`
+  const $ = (id) => document.getElementById(id);
   let _debounceHandle = null;
   const resultBox   = $("result");
   const errBox      = $("error");
@@ -119,7 +144,16 @@ function getErrorMessage(error) {
   return "Er ging iets mis. Probeer het opnieuw of ga naar de inschrijfbalie.";
 }
 
-// `showError` and `hideError` are provided by `src/ui-helpers.js`
+function showError(message, isWarning = false) {
+  if (!errBox) return;
+  errBox.textContent = message;
+  errBox.style.display = "block";
+  errBox.style.color = isWarning ? "#fbbf24" : "#fca5a5";
+}
+
+function hideError() {
+  if (errBox) errBox.style.display = "none";
+}
 
 // --- Lunch keuze functies ---
 
@@ -159,6 +193,29 @@ function isScannedForNextRide(scanDatums, nextRideYMD) {
   return scans.includes(nextRideYMD);
 }
 
+// Check real-time of het huidige lid al is gescand (haalt data op uit Firestore)
+async function checkIfCurrentMemberIsScanned() {
+  try {
+    if (!selectedDoc || !selectedDoc.id) return false;
+    
+    const nextRideYMD = await getNextPlannedRideYMD();
+    if (!nextRideYMD) return false;
+    
+    // Haal de meest recente data op uit Firestore
+    const docRef = doc(db, "members", String(selectedDoc.id));
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) return false;
+    
+    const data = docSnap.data();
+    const memberScans = Array.isArray(data.ScanDatums) ? data.ScanDatums : [];
+    
+    return isScannedForNextRide(memberScans, nextRideYMD);
+  } catch (e) {
+    console.error("Fout bij checken scan status:", e);
+    return false;
+  }
+}
   // Preload planned dates to speed up first interaction and update splash progress
   try {
     try { if (window?.appSplash) window.appSplash.setProgress(50, 'Ritdatums ophalen...'); } catch(_) {}
