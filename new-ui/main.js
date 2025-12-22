@@ -228,7 +228,7 @@ const jaarhangerPage = `
 </main>
 <footer class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] transition-colors">
     <div class="flex flex-col gap-3">
-    <button id="confirm-lunch-button" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center">
+    <button id="confirm-jaarhanger-button" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center">
         <span>Bevestigen</span>
     </button>
     </div>
@@ -273,10 +273,10 @@ const memberInfoPage = `
                 </div>
                 <div class="flex-1">
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">Lunch</p>
-                    <p class="text-[#0e121a] dark:text-white font-semibold">Vegetarisch Broodje</p>
+                    <p id="member-choice-lunch-text" class="text-[#0e121a] dark:text-white font-semibold">Vegetarisch Broodje</p>
                 </div>
-                <div class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-1.5 rounded-full">
-                    <span class="material-symbols-outlined text-[18px]">check</span>
+                <div id="member-choice-lunch-status" class="w-9 h-9 flex items-center justify-center rounded-full">
+                    <span class="material-symbols-outlined text-[16px] leading-none">check</span>
                 </div>
             </div>
             <div class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-accent-yellow">
@@ -342,6 +342,35 @@ function render(html) {
             if (nameEl) nameEl.textContent = (selectedMember && selectedMember.name) ? selectedMember.name : '';
             if (numEl) numEl.textContent = (selectedMember && selectedMember.lidnummer) ? selectedMember.lidnummer : '';
             if (regionEl) regionEl.textContent = (selectedMember && selectedMember.regio) ? selectedMember.regio : '';
+            // Populate lunch choice text and status if present
+            try {
+                const lunchTextEl = document.getElementById('member-choice-lunch-text');
+                const lunchStatusEl = document.getElementById('member-choice-lunch-status');
+                if (lunchTextEl) {
+                    if (selectedMember) {
+                        const part = selectedMember.participation ?? null;
+                        if (part === 'no') lunchTextEl.textContent = 'Niet aanwezig';
+                        else lunchTextEl.textContent = selectedMember.lunchChoice || 'Geen keuze';
+                    } else {
+                        lunchTextEl.textContent = '';
+                    }
+                }
+                if (lunchStatusEl) {
+                    if (selectedMember) {
+                        const part = selectedMember.participation ?? null;
+                        if (part === 'no') {
+                            lunchStatusEl.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-accent-red/10 dark:bg-accent-red/20 text-accent-red';
+                            lunchStatusEl.innerHTML = '<span class="material-symbols-outlined text-[16px] leading-none">close</span>';
+                        } else {
+                            lunchStatusEl.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+                            lunchStatusEl.innerHTML = '<span class="material-symbols-outlined text-[16px] leading-none">check</span>';
+                        }
+                    } else {
+                        lunchStatusEl.innerHTML = '<span class="material-symbols-outlined text-[16px] leading-none">check</span>';
+                        lunchStatusEl.className = 'w-9 h-9 flex items-center justify-center rounded-full';
+                    }
+                }
+            } catch (e) { console.error('setting member lunch choice failed', e); }
         } catch (e) { console.error('setting member info failed', e); }
     } catch (e) { console.error('render post-fill check failed', e); }
     // Ensure new pages start at the top (reset scroll)
@@ -452,16 +481,33 @@ function delegatedClickHandler(ev) {
         }
 
         const confirmLunch = ev.target.closest('#confirm-lunch-button');
-        if (confirmLunch) {
-            // Ignore if disabled
-            if (confirmLunch.disabled) return;
-            // If we're already on the jaarhanger page, navigate to the final member-info page
-            const inJaarhanger = !!document.getElementById('jaarhanger-page');
-            if (inJaarhanger) {
+        const confirmJaar = ev.target.closest('#confirm-jaarhanger-button');
+        if (confirmLunch || confirmJaar) {
+            const clicked = confirmJaar || confirmLunch;
+            if (clicked.disabled) return;
+            // If the jaarhanger confirm was clicked, go to member info
+            if (confirmJaar) {
                 try { pushPage(memberInfoPage); } catch (e) { console.error('pushPage memberInfoPage failed', e); }
                 return;
             }
-            // Otherwise show jaarhanger as an in-app page fragment
+            // Otherwise (confirmLunch) capture current participation and selected lunch choice into selectedMember
+            try {
+                const partEl = withinContainer.querySelector('input[name="participation"]:checked');
+                const part = partEl ? partEl.value : null;
+                let choiceText = '';
+                const keuzeInput = withinContainer.querySelector('input[name="main_course"]:checked');
+                if (keuzeInput) {
+                    const lbl = keuzeInput.closest('label');
+                    if (lbl) {
+                        const p = lbl.querySelector('p');
+                        if (p) choiceText = p.textContent.trim();
+                    }
+                }
+                if (!selectedMember) selectedMember = {};
+                selectedMember.participation = part;
+                selectedMember.lunchChoice = choiceText || '';
+            } catch (e) { console.error('capturing lunch participation failed', e); }
+            // Show jaarhanger as next in-app page
             try { pushPage(jaarhangerPage); } catch (e) { console.error('pushPage jaarhanger failed', e); }
             return;
         }
@@ -481,7 +527,8 @@ function delegatedClickHandler(ev) {
 // Handle participation change specifically for the jaarhanger in-app page
 function handleJaarhangerParticipationChange(target) {
     try {
-        const footerBtn = document.querySelector('footer button');
+        const container = target ? (target.closest(pageContainerSelector) || document.querySelector(pageContainerSelector) || document) : (document.querySelector(pageContainerSelector) || document);
+        const footerBtn = (container && container.querySelector) ? container.querySelector('footer button') : document.querySelector('footer button');
         if (!footerBtn) return;
         const footerSpan = footerBtn.querySelector('span span') || footerBtn.querySelector('span');
         if (target.value === 'no') {
@@ -681,14 +728,15 @@ function delegatedChangeHandler(ev) {
     try {
         const target = ev.target;
         if (!target) return;
+        const container = target.closest(pageContainerSelector) || document;
         // Participation radios (Ja/Nee)
         if (target.name === 'participation') {
-            const footerBtn = document.querySelector('footer button');
+            const footerBtn = (container && container.querySelector) ? container.querySelector('footer button') : document.querySelector('footer button');
             if (!footerBtn) return;
             const footerSpan = footerBtn.querySelector('span span') || footerBtn.querySelector('span');
-            const sections = document.querySelectorAll('main section:not(:first-child)');
+            const sections = (container && container.querySelectorAll) ? container.querySelectorAll('main section:not(:first-child)') : document.querySelectorAll('main section:not(:first-child)');
                 // If the change comes from the jaarhanger page, handle it differently
-                const inJaarhanger = !!document.getElementById('jaarhanger-page');
+                const inJaarhanger = !!(container && container.querySelector && container.querySelector('#jaarhanger-page'));
                 if (inJaarhanger) {
                     handleJaarhangerParticipationChange(target);
                     return;
@@ -818,10 +866,11 @@ function formatShortDateNL(d) {
 // Enable/disable the lunch confirm button based on selection rules
 function updateConfirmButtonState() {
     try {
-        const btn = document.getElementById('confirm-lunch-button');
+        const container = document.querySelector(pageContainerSelector) || document;
+        const btn = container.querySelector('#confirm-lunch-button') || document.getElementById('confirm-lunch-button');
         if (!btn) return;
         // find selected participation
-        const part = document.querySelector('input[name="participation"]:checked');
+        const part = (container && container.querySelector) ? container.querySelector('input[name="participation"]:checked') : document.querySelector('input[name="participation"]:checked');
         if (!part) {
             btn.disabled = true; btn.classList.add('opacity-50'); btn.setAttribute('aria-disabled','true');
             return;
@@ -832,7 +881,7 @@ function updateConfirmButtonState() {
         }
         // part.value === 'yes'
         // If there are keuze options, require one to be selected
-        const keuzeContainer = document.getElementById('keuzeEtenList');
+        const keuzeContainer = (container && container.querySelector) ? container.querySelector('#keuzeEtenList') : document.getElementById('keuzeEtenList');
         if (!keuzeContainer) { btn.disabled = false; btn.classList.remove('opacity-50'); btn.removeAttribute('aria-disabled'); return; }
         const keuzeInputs = Array.from(keuzeContainer.querySelectorAll('input[name="main_course"]'));
         if (!keuzeInputs || keuzeInputs.length === 0) {
