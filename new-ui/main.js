@@ -264,13 +264,9 @@ const memberInfoPage = `
             <h3 class="text-[#0e121a] dark:text-white text-lg font-bold">Gereden Ritten</h3>
             <span class="text-sm font-medium text-gray-400">4 / 5</span>
         </div>
-            <div class="flex items-center justify-center gap-3 bg-background-light dark:bg-gray-900 rounded-lg p-4">
-            <span class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>
-            <span class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>
-            <span class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>
-            <span class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>
-            <span class="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[32px]">star</span>
-        </div>
+            <div id="member-stars" class="flex items-center justify-center gap-3 bg-background-light dark:bg-gray-900 rounded-lg p-4">
+                <div class="text-sm text-gray-400">Laden...</div>
+            </div>
     </section>
     <section class="flex flex-col gap-3">
         <h3 class="text-[#0e121a] dark:text-white text-lg font-bold px-1">Mijn Keuzes</h3>
@@ -427,6 +423,34 @@ function render(html) {
                     }
                 } catch (e) { console.error('restore jaarhanger selection failed', e); }
             } catch (e) { console.error('setting member lunch choice failed', e); }
+                    // Render member stars based on plannedDates and member ScanDatums
+                    try {
+                        const starsContainer = document.getElementById('member-stars');
+                        if (starsContainer) {
+                            // async fetch planned dates and then render
+                            getPlannedDates().then(dates => {
+                                try {
+                                    if (!Array.isArray(dates)) dates = [];
+                                    // normalize dates to YMD strings
+                                    const planned = dates.map(d => (typeof d === 'string' ? d.slice(0,10) : '')).filter(Boolean).slice(0,5);
+                                    // get member scan dates normalized
+                                    const scans = getMemberScanYMDs(selectedMember || {});
+                                    console.debug('member stars: planned=', planned, 'scans=', scans);
+                                    // build stars: one per planned date (up to 5)
+                                    const html = planned.map(pd => {
+                                        const isScanned = scans.includes(pd);
+                                        const title = `Rit ${pd}`;
+                                        if (isScanned) {
+                                            return `<span title="${title}" class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>`;
+                                        } else {
+                                            return `<span title="${title}" class="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[32px]">star</span>`;
+                                        }
+                                    }).join('');
+                                    if (html) starsContainer.innerHTML = html; else starsContainer.innerHTML = `<div class="text-sm text-gray-500">Geen geplande ritten</div>`;
+                                } catch (e) { console.error('rendering member stars failed', e); }
+                            }).catch(e => { console.error('getPlannedDates failed for member stars', e); if (document.getElementById('member-stars')) document.getElementById('member-stars').innerHTML = '<div class="text-sm text-gray-500">Fout bij laden</div>'; });
+                        }
+                    } catch (e) { console.error('scheduling member stars render failed', e); }
         } catch (e) { console.error('setting member info failed', e); }
     } catch (e) { console.error('render post-fill check failed', e); }
     // Ensure new pages start at the top (reset scroll)
@@ -884,6 +908,11 @@ async function delegatedSuggestionClickHandler(ev) {
                 lidnummer: memberObj?.LidNr ?? memberObj?.lidnr ?? memberObj?.lidnummer ?? '',
                 regio: memberObj?.['Regio Omschrijving'] ?? memberObj?.regio ?? memberObj?.region ?? memberObj?.woonplaats ?? ''
             };
+            // copy scan datum raw data if present so getMemberScanYMDs can find it
+            try {
+                selectedMember.ScanDatums = memberObj?.ScanDatums ?? memberObj?.scanDatums ?? memberObj?.ScanDatum ?? memberObj?.scanDatum ?? memberObj?.scanDates ?? memberObj?.ScanDates ?? null;
+            } catch (_) { selectedMember.ScanDatums = null; }
+            try { console.debug('selectedMember raw scans:', selectedMember.ScanDatums); } catch(_){}
             // If the full doc contains a jaarhanger field, normalize and persist it
             try {
                 const rawJaar = memberObj?.Jaarhanger ?? memberObj?.jaarhanger ?? memberObj?.JaarhangerAanvraag ?? memberObj?.['Jaarhanger Aanvraag'] ?? memberObj?.jaarhanger_aanvraag ?? memberObj?.jaarhangerAanvraag ?? null;
@@ -1129,4 +1158,64 @@ function updateConfirmButtonState() {
         if (anyChecked) { btn.disabled = false; btn.classList.remove('opacity-50'); btn.removeAttribute('aria-disabled'); }
         else { btn.disabled = true; btn.classList.add('opacity-50'); btn.setAttribute('aria-disabled','true'); }
     } catch (e) { console.error('updateConfirmButtonState failed', e); }
+}
+
+// Return array of YMD scan dates from member object. Accepts several shapes.
+function getMemberScanYMDs(member) {
+    try {
+        if (!member) return [];
+        // try common field names
+        const candidates = [member.ScanDatums, member.scanDatums, member.ScanDatum, member.scanDatum, member.scanDates, member.ScanDates, member.ScanDatumList, member.scanDatumList];
+        let raw = null;
+        for (const c of candidates) { if (typeof c !== 'undefined' && c !== null) { raw = c; break; } }
+        // fallback: look for any key that contains 'scan' in the member object
+        if (!raw) {
+            for (const k of Object.keys(member || {})) {
+                if (k.toLowerCase().includes('scan')) {
+                    raw = member[k];
+                    break;
+                }
+            }
+        }
+        if (!raw) return [];
+        const result = [];
+        // If array
+        if (Array.isArray(raw)) {
+            for (const it of raw) {
+                if (!it) continue;
+                if (typeof it === 'string') { result.push(String(it).slice(0,10)); continue; }
+                if (typeof it === 'object') {
+                    // Firestore timestamp object? (seconds/nanoseconds)
+                    if (typeof it.seconds === 'number') {
+                        try { result.push(new Date(it.seconds * 1000).toISOString().slice(0,10)); continue; } catch(_){}
+                    }
+                    // nested value property
+                    if (it.value && typeof it.value === 'string') { result.push(String(it.value).slice(0,10)); continue; }
+                    // if it has a date-like prop
+                    for (const pk of ['date','datum','scanDate','ScanDatum']) {
+                        if (it[pk]) { result.push(String(it[pk]).slice(0,10)); break; }
+                    }
+                }
+            }
+            return Array.from(new Set(result)).filter(Boolean);
+        }
+        // If object/map: keys may be date strings or values may be timestamps
+        if (typeof raw === 'object') {
+            for (const [k,v] of Object.entries(raw)) {
+                // if key looks like a date
+                if (typeof k === 'string' && /^\d{4}-\d{2}-\d{2}/.test(k)) result.push(k.slice(0,10));
+                // if value is timestamp-like
+                if (v) {
+                    if (typeof v === 'string') result.push(v.slice(0,10));
+                    else if (typeof v === 'object' && typeof v.seconds === 'number') result.push(new Date(v.seconds * 1000).toISOString().slice(0,10));
+                }
+            }
+            return Array.from(new Set(result)).filter(Boolean);
+        }
+        // If string
+        if (typeof raw === 'string') {
+            return [raw.slice(0,10)];
+        }
+        return [];
+    } catch (e) { return []; }
 }
