@@ -119,11 +119,12 @@
 </div>
 <div class="flex flex-col items-stretch justify-start rounded-2xl shadow-sm bg-surface overflow-hidden border border-slate-100">
 <div class="w-full h-48 bg-slate-200 relative" data-alt="Abstract view of a camera viewfinder ready to scan a QR code" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDjlc2BpJyDUPkV3Laz448jwQoPXugSXOfjIdhYXokzBWvziK7MBfB877MtYoeE9ZmHVadlhZ-PH9nLl9Ri4_pZ9E__JkGiJbN7LerGXLVxmiuvwXBkaUOBz0hvDs_SHNMS3HxBeV9nFqYhaL8V-d_YF53_sXqZqvP_-dUaD0wnzVE9aI-zmqkOhgraiadYzQtHvCQXGYNcdk4HZ604Bw3a1HTN7mO-MbnLIxy1A1LXAHzZReEOdLF-Pqpz8xrjz0rW6Xf2un1VK9Jn"); background-size: cover; background-position: center;'>
-<div class="absolute inset-0 bg-primary/40 flex items-center justify-center backdrop-blur-[2px]">
-<div class="size-20 rounded-xl border-4 border-white/80 flex items-center justify-center">
-<span class="material-symbols-outlined text-white text-5xl">qr_code_scanner</span>
-</div>
-</div>
+  <div id="adminQRReader" class="absolute inset-0 flex items-center justify-center"></div>
+  <div id="adminQRPlaceholder" class="absolute inset-0 bg-primary/40 flex items-center justify-center backdrop-blur-[2px]">
+    <div class="size-20 rounded-xl border-4 border-white/80 flex items-center justify-center">
+      <span class="material-symbols-outlined text-white text-5xl">qr_code_scanner</span>
+    </div>
+  </div>
 </div>
 <div class="flex w-full grow flex-col items-stretch justify-center gap-3 p-5">
 <div>
@@ -208,75 +209,8 @@
 </div>
 </div>
 </div>
-<script>
-  (function(){
-    try {
-      const role = (localStorage.getItem('role') || '').trim();
-      // Only show admin-only UI for role === 'admin'
-      if (role !== 'admin') {
-        try { const h = document.getElementById('hamburger-btn'); if (h) h.style.display = 'none'; } catch(_){}
-        try { const sec = document.getElementById('historie-section'); if (sec) sec.style.display = 'none'; } catch(_){}
-      }
-    } catch (e) {
-      console.error('role-visibility script error', e);
-    }
-  })();
-</script>
 <script type="module">
-  import { getLunchOptions, getLunchChoiceCount, getParticipationCount } from '../firestore.js';
-  (async function(){
-    try {
-      const container = document.getElementById('keuze-maaltijden-list');
-      if (!container) return;
-      container.innerHTML = '<div class="text-text-sub text-sm">Laden...</div>';
-      const opts = await getLunchOptions();
-      const keuze = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
-      if (keuze.length === 0) { container.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>'; return; }
-      // Render each choice with a placeholder count element
-      container.innerHTML = keuze.map((item, idx) => {
-        const id = 'choice-count-' + idx;
-        return `<div class="flex items-center justify-between border-b border-secondary/20 pb-2 last:border-0 last:pb-0">
-                  <span class="text-text-main font-medium text-sm">${String(item)}</span>
-                  <span id="${id}" class="text-danger font-extrabold text-lg">…</span>
-                </div>`;
-      }).join('');
-      // Fetch counts in parallel and update spans
-      keuze.forEach((item, idx) => {
-        (async () => {
-          const el = document.getElementById('choice-count-' + idx);
-          try {
-            const cnt = await getLunchChoiceCount(item);
-            const display = (typeof cnt === 'number' && isFinite(cnt)) ? String(cnt) : '0';
-            if (el) el.textContent = display;
-          } catch (e) {
-            console.error('count fetch error', e);
-            if (el) el.textContent = 'ERROR';
-          }
-        })();
-      });
-      // Update Mee-eten / Niet mee stats
-      (async function(){
-        try {
-          const yesEl = document.getElementById('count-yes');
-          const noEl = document.getElementById('count-no');
-          try {
-            const [yesCnt, noCnt] = await Promise.all([
-              getParticipationCount('yes'),
-              getParticipationCount('no')
-            ]);
-            if (yesEl) yesEl.textContent = String(isFinite(yesCnt) ? yesCnt : 0);
-            if (noEl) noEl.textContent = String(isFinite(noCnt) ? noCnt : 0);
-          } catch (e) {
-            console.error('participation counts error', e);
-            if (yesEl) yesEl.textContent = 'ERROR';
-            if (noEl) noEl.textContent = 'ERROR';
-          }
-        } catch (e) { console.error('update participation UI failed', e); }
-      })();
-    } catch (e) {
-      console.error('failed to load lunch options', e);
-      const c = document.getElementById('keuze-maaltijden-list'); if (c) c.innerHTML = '<div class="text-text-sub text-sm">Fout bij laden</div>';
-    }
-  })();
+  import { initInschrijftafel } from '../admin.js';
+  initInschrijftafel();
 </script>
 </body></html>
