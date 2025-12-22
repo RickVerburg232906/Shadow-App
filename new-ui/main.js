@@ -4,6 +4,36 @@ import { getPlannedDates, searchMembers, getLunchOptions, getMemberById } from '
 
 console.log('New UI loaded');
 
+// Populate the rides list from globals/rideConfig -> plannedDates (show today + future dates)
+async function populatePlannedRides() {
+    try {
+        const arr = await getPlannedDates();
+        if (!Array.isArray(arr) || arr.length === 0) return;
+        // Normalize to YYYY-MM-DD strings and filter today or future
+        const today = new Date();
+        const todayYmd = today.toISOString().slice(0,10);
+        const norm = arr.map(s => (typeof s === 'string' ? s.slice(0,10) : '')).filter(Boolean);
+        const future = norm.filter(d => d >= todayYmd).sort();
+        const container = document.getElementById('rides-list');
+        if (!container) return;
+        container.innerHTML = future.map(d => {
+            const dt = new Date(d);
+            const label = dt.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+            const isToday = (d === todayYmd);
+            const badge = isToday
+                ? `<span class="bg-[#1e2530] text-accent-yellow border border-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm">Vandaag</span>`
+                : `<span class="bg-[#1e2530]/50 text-accent-yellow dark:bg-[#1e2530] border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm">${Math.max(1, Math.round((new Date(d) - today) / (1000*60*60*24)))} dagen</span>`;
+            return `<div class="bg-surface-light dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between shadow-sm cursor-pointer hover:border-primary/30 transition-all"><span class="text-[#0e121a] dark:text-white font-medium text-base">${label}</span>${badge}</div>`;
+        }).join('');
+    } catch (e) {
+        console.error('populatePlannedRides error', e);
+    }
+}
+
+// Try to populate immediately and also on DOMContentLoaded in case script runs early
+try { populatePlannedRides().catch(()=>{}); } catch(_) {}
+window.addEventListener('DOMContentLoaded', () => { try { populatePlannedRides().catch(()=>{}); } catch(_) {} });
+
 // Simple virtual navigation stack. Use a stable container selector that doesn't depend on layout classes.
 const pageContainerSelector = '.relative.flex';
 
