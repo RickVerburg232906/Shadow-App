@@ -1,0 +1,61 @@
+<header class="sticky top-0 z-20 flex items-center justify-between bg-background-light/80 dark:bg-background-dark/80 px-4 py-4 backdrop-blur-md">
+    <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
+        <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
+    </button>
+        <div class="flex flex-col items-center">
+        <h1 class="text-lg font-bold leading-tight tracking-tight text-text-main dark:text-white">Lunchplanning</h1>
+        <span id="lunch-date-label" class="text-xs font-medium text-gray-500 dark:text-gray-400"></span>
+    </div>
+    <div class="w-10"></div>
+</header>
+<main class="flex-1 overflow-y-auto px-4 pb-28 pt-2">
+    <section class="mb-8">
+        <h2 class="mb-5 text-center text-2xl font-bold leading-tight text-text-main dark:text-white">Eet je mee vandaag?</h2>
+        <div class="flex gap-4">
+            <label class="relative flex-1 cursor-pointer group">
+                <input class="peer sr-only" name="participation" type="radio" value="yes" />
+                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark py-6 shadow-card transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-glow peer-checked:translate-y-[-2px]">
+                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">restaurant</span>
+                    <span class="font-bold">Ja, ik eet mee</span>
+                </div>
+            </label>
+            <label class="relative flex-1 cursor-pointer group">
+                <input class="peer sr-only" name="participation" type="radio" value="no" />
+                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark py-6 shadow-card transition-all peer-checked:bg-accent-red peer-checked:text-white peer-checked:shadow-lg peer-checked:translate-y-[-2px]">
+                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">close</span>
+                    <span class="font-bold">Nee, ik sla over</span>
+                </div>
+            </label>
+        </div>
+    </section>
+
+    <div class="mb-8 flex items-start gap-3 rounded-xl bg-primary/10 p-4 border border-primary/10 dark:bg-primary/20 dark:border-primary/20">
+        <span class="material-symbols-outlined shrink-0 text-[20px] text-primary dark:text-blue-300 mt-0.5">info</span>
+        <p class="text-sm font-semibold leading-snug text-primary dark:text-blue-100">Na het inchecken kan je keuze niet meer worden gewijzigd</p>
+    </div>
+
+    <section class="mb-8">
+        <div class="mb-3 flex items-center justify-between px-1">
+            <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Vast Eten</h3>
+            <span class="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 ring-1 ring-inset ring-gray-500/10">Iedereen ontvangt</span>
+        </div>
+        <div class="overflow-hidden rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card">
+            <div id="vastEtenList" class="flex flex-col"></div>
+        </div>
+    </section>
+
+    <section class="mb-6">
+        <div class="mb-3 flex items-center justify-between px-1">
+            <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Keuze Eten</h3>
+            <span class="inline-flex items-center rounded-md bg-secondary-yellow/10 px-2 py-1 text-xs font-bold text-yellow-700 dark:text-secondary-yellow ring-1 ring-inset ring-secondary-yellow/20">Kies één</span>
+        </div>
+        <div id="keuzeEtenList" class="flex flex-col gap-3"></div>
+    </section>
+    </main>
+<footer class="fixed bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] app-footer">
+    <div class="flex flex-col gap-3">
+    <button id="confirm-lunch-button" disabled aria-disabled="true" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center opacity-50">
+        <span>Keuze Bevestigen</span>
+    </button>
+    </div>
+</footer>

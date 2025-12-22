@@ -57,13 +57,21 @@
     </style>
 
     <style>
-      /* Make the document fixed-height so the window doesn't scroll; inner <main> will scroll */
+      /* Use dynamic viewport and allow the page to scroll; inner <main> will handle content scrolling.
+         Avoid `h-screen`/fixed 100vh issues on mobile browsers (address bar collapsing).
+      */
       html, body { height: 100%; margin: 0; }
-      body { overflow: hidden; }
+      /* allow native scrolling so mobile chrome can collapse the address bar correctly */
+      body { overflow: auto; -webkit-overflow-scrolling: touch; }
+      /* make the app root use the dynamic viewport height so it fills screen correctly */
+      .app-root { min-height: 100dvh; display: flex; flex-direction: column; }
+      /* main should be scrollable but allow flexbox to size it correctly */
+      main { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
+      .app-footer { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
     </style>
   </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-[#0D0D0D] dark:text-gray-100 antialiased selection:bg-primary selection:text-white">
-<div class="relative flex h-screen w-full flex-col w-screen max-w-full bg-background-light dark:bg-background-dark shadow-xl">
+<div class="relative flex app-root w-full flex-col w-screen max-w-full bg-background-light dark:bg-background-dark shadow-xl">
 <header class="flex items-center justify-between px-4 py-3 bg-surface-light dark:bg-surface-dark border-b border-gray-100 dark:border-gray-800 z-10">
 <div class="w-8"></div>
 <h1 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden">Ritten</h1>
@@ -114,7 +122,7 @@
 </div>
 </div>
 </main>
-<div class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+<div class="fixed bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] app-footer">
 <div class="flex flex-col gap-3">
 <button id="agree-button" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex items-center justify-center">
 <span>Ja, ik ga akkoord</span>

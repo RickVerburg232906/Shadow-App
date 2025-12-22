@@ -1,0 +1,84 @@
+<header class="sticky top-0 z-50 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
+    <div class="flex items-center p-4 justify-between h-16">
+        <button id="home-button" aria-label="Home" class="flex size-10 items-center justify-center rounded-full text-text-main dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
+            <span class="material-symbols-outlined text-[20px]">home</span>
+        </button>
+        <h2 class="text-[#0e121a] dark:text-white text-lg font-bold leading-tight text-center flex-1">Lid Informatie</h2>
+        <div class="w-8"></div>
+    </div>
+</header>
+<main class="flex-1 flex flex-col gap-6 p-4 w-full">
+    <section class="flex flex-col items-center gap-4 pt-2">
+        <div class="flex flex-col items-center justify-center space-y-1">
+            <h1 id="member-name" class="text-primary dark:text-blue-400 text-2xl font-bold tracking-tight text-center"></h1>
+            <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">badge</span> <span id="member-number" class="ml-1"></span></span>
+                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">location_on</span> <span id="member-region" class="ml-1"></span></span>
+            </div>
+        </div>
+    </section>
+    <section class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-[#0e121a] dark:text-white text-lg font-bold">Gereden Ritten</h3>
+            <span id="member-ridden-count" class="text-sm font-medium text-gray-400">0 / 0</span>
+        </div>
+            <div id="member-stars" class="flex items-center justify-center gap-3 bg-background-light dark:bg-gray-900 rounded-lg p-4">
+                <div class="text-sm text-gray-400">Laden...</div>
+            </div>
+    </section>
+    <section class="flex flex-col gap-3">
+        <h3 class="text-[#0e121a] dark:text-white text-lg font-bold px-1">Mijn Keuzes</h3>
+        <div class="grid gap-3">
+            <div id="member-lunch-summary" role="button" tabindex="0" class="cursor-pointer flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-primary hover:shadow-lg hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-primary/30">
+                <div class="bg-primary/10 dark:bg-primary/20 p-3 rounded-full flex items-center justify-center mr-4">
+                    <span class="material-symbols-outlined text-primary dark:text-blue-400">restaurant</span>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">Lunch</p>
+                    <p id="member-choice-lunch-text" class="text-[#0e121a] dark:text-white font-semibold">Vegetarisch Broodje</p>
+                </div>
+                <div id="member-choice-lunch-status" class="w-9 h-9 flex items-center justify-center rounded-full">
+                    <span class="material-symbols-outlined text-[16px] leading-none">check</span>
+                </div>
+                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 w-8 h-8 rounded-full bg-primary/5 dark:bg-primary/10 shrink-0">
+                    <span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>
+                </div>
+            </div>
+            <div id="member-jaarhanger-summary" role="button" tabindex="0" class="cursor-pointer flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-accent-yellow hover:shadow-lg hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-primary/30">
+                <div class="bg-accent-yellow/10 p-3 rounded-full flex items-center justify-center mr-4">
+                    <span class="material-symbols-outlined text-accent-yellow dark:text-accent-yellow">local_activity</span>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">Jaarhanger</p>
+                    <p id="member-jaarhanger-edition" class="text-[#0e121a] dark:text-white font-semibold"></p>
+                </div>
+                <div id="member-choice-jaarhanger-status" class="w-9 h-9 flex items-center justify-center rounded-full">
+                    <span class="text-xs font-medium text-gray-500">Nog ophalen</span>
+                </div>
+                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 w-8 h-8 rounded-full bg-primary/5 dark:bg-primary/10 shrink-0">
+                    <span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="mt-4 flex flex-col items-center">
+        <div class="w-full bg-white rounded-2xl p-6 shadow-md border border-gray-100 flex flex-col items-center gap-3">
+            <div class="text-center">
+                <h4 class="text-[#0e121a] font-bold text-lg">Check-in</h4>
+                <p class="text-gray-500 text-sm">Scan deze code bij aankomst</p>
+            </div>
+            <div class="w-full flex flex-col items-center">
+                <button id="save-qr-button" aria-label="Sla QR op" title="Sla QR op" class="mb-3 inline-flex items-center gap-3 px-5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold rounded-full shadow-md">
+                    <span class="bg-white/10 dark:bg-white/10 p-2 rounded-full flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[18px]">download</span>
+                    </span>
+                    <span>Sla QR op</span>
+                </button>
+                <div class="p-2 bg-white rounded-xl border-2 border-dashed border-gray-200">
+                    <img id="checkin-qr-img" alt="QR Code for member check-in" class="w-48 h-48 object-contain rounded-md" data-alt="Black and white QR code for check-in scanning" src="" />
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="h-6"></div>
+</main>

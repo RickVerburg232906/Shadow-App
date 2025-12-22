@@ -16,317 +16,16 @@ let skipJaarhangerOnConfirm = false;
 // When true, a user-initiated click on the jaarhanger summary should force-open the jaarhanger page for editing
 let forceOpenJaarhanger = false;
 
-const originalPage = `<header class="flex items-center justify-between px-4 py-3 bg-surface-light dark:bg-surface-dark border-b border-gray-100 dark:border-gray-800 z-10">
-<div class="w-8"></div>
-<h1 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden">Ritten</h1>
-<button class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors ml-auto flex items-center gap-1.5 shadow-sm">
-<span class="material-symbols-outlined text-base">table_restaurant</span>
-        Inschrijftafel
-    </button>
-</header>
-<main class="flex-1 overflow-y-auto pb-[140px]">
-<div class="px-4 pt-6 pb-2">
-<h3 class="text-[#0e121a] dark:text-white text-xl font-bold leading-tight tracking-tight">Geplande Ritten</h3>
-</div>
-<div id="rides-list" class="px-4 flex flex-col gap-3 mt-2">
-<div class="bg-surface-light dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between shadow-sm cursor-pointer hover:border-primary/30 transition-all">
-<span class="text-[#0e121a] dark:text-white font-medium text-base">December 22, 2025</span>
-<span class="bg-[#1e2530] text-accent-yellow border border-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm">
-            Vandaag
-        </span>
-</div>
-<div class="bg-surface-light dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between shadow-sm cursor-pointer hover:border-primary/30 transition-all">
-<span class="text-[#0e121a] dark:text-white font-medium text-base">Januari 16, 2026</span>
-<span class="bg-[#1e2530]/50 text-accent-yellow dark:bg-[#1e2530] border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm">
-            25 dagen
-        </span>
-</div>
-</div>
-<div class="px-4 pt-8 pb-2">
-<h3 class="text-[#0e121a] dark:text-white text-xl font-bold leading-tight tracking-tight">Voorwaarden Deelname</h3>
-</div>
-<div class="px-4 pb-6">
-<div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
-<div class="h-2 w-full bg-accent-red"></div>
-<div class="p-5">
-<div class="flex items-start gap-3 mb-3">
-<span class="material-symbols-outlined text-accent-red text-[28px] shrink-0">gavel</span>
-<h4 class="text-lg font-bold text-gray-900 dark:text-white leading-tight">Veiligheid &amp; Privacy</h4>
-</div>
-<p class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
-                            Door deel te nemen aan dit evenement bevestigt u dat u beschikt over een geldig rijbewijs. U gaat akkoord met het delen van foto's gemaakt tijdens de dag.
-                        </p>
-<div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg flex gap-3 items-center">
-<span class="material-symbols-outlined text-accent-red text-[20px]">warning</span>
-<span class="text-xs font-semibold text-accent-red dark:text-red-300">Deelname is volledig op eigen risico.</span>
-</div>
-<div class="mt-4 flex items-center gap-3">
-</div>
-</div>
-</div>
-</div>
-</main>
-<div class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-<div class="flex flex-col gap-3">
-<button id="agree-button" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex items-center justify-center">
-<span>Ja, ik ga akkoord</span>
-</button>
-</div>
-</div>`;
+// Page fragments are loaded from external HTML files in ./lid-ui/ to keep main.js small.
+let originalPage;
+let signupPage;
+let lunchPage;
+let jaarhangerPage;
+let memberInfoPage;
 
-const signupPage = `<header class="sticky top-0 z-50 w-full bg-white dark:bg-surface-dark shadow-sm">
-<div class="flex items-center justify-between px-4 py-3 min-h-[64px]">
-<button id="back-button" aria-label="Ga terug" class="flex size-10 items-center justify-center rounded-full text-text-main dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-<span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
-</button>
-<h2 class="text-text-main dark:text-white text-lg font-bold leading-tight tracking-tight flex-1 text-center truncate px-2">
-</h2>
-<button class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
-<span class="material-symbols-outlined text-base">table_restaurant</span>
-                Inschrijftafel
-            </button>
-</div>
-</header>
-<main class="flex-1 flex flex-col w-full px-4 pt-6 pb-28 gap-6">
-<div class="flex flex-col gap-2">
-<h1 class="text-text-main dark:text-white text-[28px] font-extrabold leading-tight tracking-tight">
-                Inschrijven voor Landelijke Rit
-            </h1>
-<p class="text-text-main/70 dark:text-gray-400 text-base font-normal leading-relaxed">
-                Vul hieronder je gegevens in om deel te nemen aan de rit.
-            </p>
-</div>
-<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-5 shadow-sm border border-gray-200/50 dark:border-gray-800">
-<label class="flex flex-col gap-2 group">
-<span class="text-text-main dark:text-gray-200 text-sm font-bold uppercase tracking-wider ml-1">
-                    Volledige Naam
-                </span>
-<div class="relative flex items-center">
-<span class="material-symbols-outlined absolute left-4 text-text-muted">person</span>
-<input id="participant-name-input" class="form-input w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-text-main dark:text-white h-14 pl-12 pr-4 text-base font-medium placeholder:text-text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Bijv. Jan Jansen" type="text" value="" autocomplete="off"/>
-    <div id="name-suggestions" class="absolute left-0 right-0 top-full mt-2 z-50 bg-surface-light dark:bg-surface-dark rounded-lg shadow-lg hidden max-h-60 overflow-auto"></div>
-</div>
-<p class="text-xs text-text-muted dark:text-gray-500 ml-1 mt-1">
-                    Deze naam wordt gebruikt voor de deelnemerslijst.
-                </p>
-</label>
-</div>
-<div class="flex-1"></div>
-<div class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-<div class="flex flex-col gap-3">
-<button id="continue-button" disabled class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center opacity-50" aria-disabled="true">
-    <span>Verder</span>
-    </button>
-</div>
-</div>
-</main>`;
-
-// Lunch page fragment (in-app) — use only the content that fits inside our app container
-const lunchPage = `
-<header class="sticky top-0 z-20 flex items-center justify-between bg-background-light/80 dark:bg-background-dark/80 px-4 py-4 backdrop-blur-md">
-    <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
-        <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
-    </button>
-        <div class="flex flex-col items-center">
-        <h1 class="text-lg font-bold leading-tight tracking-tight text-text-main dark:text-white">Lunchplanning</h1>
-        <span id="lunch-date-label" class="text-xs font-medium text-gray-500 dark:text-gray-400"></span>
-    </div>
-    <div class="w-10"></div>
-</header>
-<main class="flex-1 overflow-y-auto px-4 pb-28 pt-2">
-    <section class="mb-8">
-        <h2 class="mb-5 text-center text-2xl font-bold leading-tight text-text-main dark:text-white">Eet je mee vandaag?</h2>
-        <div class="flex gap-4">
-            <label class="relative flex-1 cursor-pointer group">
-                <input class="peer sr-only" name="participation" type="radio" value="yes" />
-                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark py-6 shadow-card transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-glow peer-checked:translate-y-[-2px]">
-                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">restaurant</span>
-                    <span class="font-bold">Ja, ik eet mee</span>
-                </div>
-            </label>
-            <label class="relative flex-1 cursor-pointer group">
-                <input class="peer sr-only" name="participation" type="radio" value="no" />
-                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark py-6 shadow-card transition-all peer-checked:bg-accent-red peer-checked:text-white peer-checked:shadow-lg peer-checked:translate-y-[-2px]">
-                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">close</span>
-                    <span class="font-bold">Nee, ik sla over</span>
-                </div>
-            </label>
-        </div>
-    </section>
-
-    <div class="mb-8 flex items-start gap-3 rounded-xl bg-primary/10 p-4 border border-primary/10 dark:bg-primary/20 dark:border-primary/20">
-        <span class="material-symbols-outlined shrink-0 text-[20px] text-primary dark:text-blue-300 mt-0.5">info</span>
-        <p class="text-sm font-semibold leading-snug text-primary dark:text-blue-100">Na het inchecken kan je keuze niet meer worden gewijzigd</p>
-    </div>
-
-    <section class="mb-8">
-        <div class="mb-3 flex items-center justify-between px-1">
-            <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Vast Eten</h3>
-            <span class="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 ring-1 ring-inset ring-gray-500/10">Iedereen ontvangt</span>
-        </div>
-        <div class="overflow-hidden rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card">
-            <div id="vastEtenList" class="flex flex-col"></div>
-        </div>
-    </section>
-
-    <section class="mb-6">
-        <div class="mb-3 flex items-center justify-between px-1">
-            <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Keuze Eten</h3>
-            <span class="inline-flex items-center rounded-md bg-secondary-yellow/10 px-2 py-1 text-xs font-bold text-yellow-700 dark:text-secondary-yellow ring-1 ring-inset ring-secondary-yellow/20">Kies één</span>
-        </div>
-        <div id="keuzeEtenList" class="flex flex-col gap-3"></div>
-    </section>
-</main>
-<footer class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-    <div class="flex flex-col gap-3">
-    <button id="confirm-lunch-button" disabled aria-disabled="true" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center opacity-50">
-        <span>Keuze Bevestigen</span>
-    </button>
-    </div>
-</footer>`;
-
-// Jaarhanger page fragment (in-app)
-const jaarhangerPage = `
-<div id="jaarhanger-page">
-<header class="sticky top-0 z-20 flex items-center justify-between bg-background-light/80 dark:bg-background-dark/80 px-4 py-4 backdrop-blur-md">
-    <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
-        <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
-    </button>
-    <div class="flex flex-col items-center">
-        <h1 class="text-lg font-bold leading-tight tracking-tight text-text-main dark:text-white">Jaarhanger Aanvraag</h1>
-        <span id="jaarhanger-date-label" class="text-xs font-medium text-gray-500 dark:text-gray-400"></span>
-    </div>
-    <div class="w-10"></div>
-</header>
-<main class="flex-1 flex flex-col px-4 pt-6 pb-28">
-    <section class="mb-8">
-        <h2 class="mb-5 text-center text-2xl font-bold leading-tight text-text-primary-light dark:text-text-primary-dark">Wil je een jaarhanger?</h2>
-        <div class="flex gap-4">
-            <label class="relative flex-1 cursor-pointer group">
-                <input class="peer sr-only" name="participation" type="radio" value="yes" />
-                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-white dark:bg-card-dark py-6 shadow-card transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-glow peer-checked:translate-y-[-2px]">
-                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">check_circle</span>
-                    <span class="font-bold">Ja</span>
-                </div>
-            </label>
-            <label class="relative flex-1 cursor-pointer group">
-                <input class="peer sr-only" name="participation" type="radio" value="no" />
-                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-white dark:bg-card-dark py-6 shadow-card transition-all peer-checked:bg-accent-red peer-checked:text-white peer-checked:shadow-lg peer-checked:translate-y-[-2px]">
-                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">cancel</span>
-                    <span class="font-bold">Nee</span>
-                </div>
-            </label>
-        </div>
-    </section>
-    <section class="space-y-4 px-2">
-        <div class="flex items-center gap-3 mb-2">
-            <span class="material-symbols-outlined text-primary text-2xl">info</span>
-            <h3 class="text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">Wat is een Jaarhanger?</h3>
-        </div>
-        <div class="bg-white dark:bg-card-dark rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
-            <p class="text-text-secondary-light dark:text-text-secondary-dark text-base leading-relaxed font-body">Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De <span class="font-semibold text-primary">'moederpin'</span> kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt.</p>
-            <div class="my-4 h-px bg-gray-100 dark:bg-gray-800 w-full"></div>
-            <p class="text-text-secondary-light dark:text-text-secondary-dark text-base leading-relaxed font-body">De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. <span class="italic font-medium text-text-primary-light dark:text-text-white">Da's pas een collectors item!</span></p>
-        </div>
-    </section>
-</main>
-<footer class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] transition-colors">
-    <div class="flex flex-col gap-3">
-    <button id="confirm-jaarhanger-button" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center">
-        <span>Bevestigen</span>
-    </button>
-    </div>
-</footer>`;
-
-// In-app member info page (same layout approach as other fragments)
-const memberInfoPage = `
-<header class="sticky top-0 z-50 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
-    <div class="flex items-center p-4 justify-between h-16">
-        <button id="home-button" aria-label="Home" class="flex size-10 items-center justify-center rounded-full text-text-main dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-            <span class="material-symbols-outlined text-[20px]">home</span>
-        </button>
-        <h2 class="text-[#0e121a] dark:text-white text-lg font-bold leading-tight text-center flex-1">Lid Informatie</h2>
-        <div class="w-8"></div>
-    </div>
-</header>
-<main class="flex-1 flex flex-col gap-6 p-4 max-w-md mx-auto w-full">
-    <section class="flex flex-col items-center gap-4 pt-2">
-        <div class="flex flex-col items-center justify-center space-y-1">
-            <h1 id="member-name" class="text-primary dark:text-blue-400 text-2xl font-bold tracking-tight text-center"></h1>
-            <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">badge</span> <span id="member-number" class="ml-1"></span></span>
-                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">location_on</span> <span id="member-region" class="ml-1"></span></span>
-            </div>
-        </div>
-    </section>
-    <section class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
-        <div class="flex items-center justify-between mb-3">
-            <h3 class="text-[#0e121a] dark:text-white text-lg font-bold">Gereden Ritten</h3>
-            <span id="member-ridden-count" class="text-sm font-medium text-gray-400">0 / 0</span>
-        </div>
-            <div id="member-stars" class="flex items-center justify-center gap-3 bg-background-light dark:bg-gray-900 rounded-lg p-4">
-                <div class="text-sm text-gray-400">Laden...</div>
-            </div>
-    </section>
-    <section class="flex flex-col gap-3">
-        <h3 class="text-[#0e121a] dark:text-white text-lg font-bold px-1">Mijn Keuzes</h3>
-        <div class="grid gap-3">
-            <div id="member-lunch-summary" role="button" tabindex="0" class="cursor-pointer flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-primary hover:shadow-lg hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-primary/30">
-                <div class="bg-primary/10 dark:bg-primary/20 p-3 rounded-full flex items-center justify-center mr-4">
-                    <span class="material-symbols-outlined text-primary dark:text-blue-400">restaurant</span>
-                </div>
-                <div class="flex-1">
-                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">Lunch</p>
-                    <p id="member-choice-lunch-text" class="text-[#0e121a] dark:text-white font-semibold">Vegetarisch Broodje</p>
-                </div>
-                <div id="member-choice-lunch-status" class="w-9 h-9 flex items-center justify-center rounded-full">
-                    <span class="material-symbols-outlined text-[16px] leading-none">check</span>
-                </div>
-                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 w-8 h-8 rounded-full bg-primary/5 dark:bg-primary/10 shrink-0">
-                    <span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>
-                </div>
-            </div>
-            <div id="member-jaarhanger-summary" role="button" tabindex="0" class="cursor-pointer flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-accent-yellow hover:shadow-lg hover:-translate-y-0.5 transition-transform focus:outline-none focus:ring-2 focus:ring-primary/30">
-                <div class="bg-accent-yellow/10 p-3 rounded-full flex items-center justify-center mr-4">
-                    <span class="material-symbols-outlined text-accent-yellow dark:text-accent-yellow">local_activity</span>
-                </div>
-                <div class="flex-1">
-                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">Jaarhanger</p>
-                    <p id="member-jaarhanger-edition" class="text-[#0e121a] dark:text-white font-semibold"></p>
-                </div>
-                <div id="member-choice-jaarhanger-status" class="w-9 h-9 flex items-center justify-center rounded-full">
-                    <span class="text-xs font-medium text-gray-500">Nog ophalen</span>
-                </div>
-                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 w-8 h-8 rounded-full bg-primary/5 dark:bg-primary/10 shrink-0">
-                    <span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>
-                </div>
-            </div>
-        </div>
-    </section>
-    <section class="mt-4 flex flex-col items-center">
-        <div class="w-full bg-white rounded-2xl p-6 shadow-md border border-gray-100 flex flex-col items-center gap-3">
-            <div class="text-center">
-                <h4 class="text-[#0e121a] font-bold text-lg">Check-in</h4>
-                <p class="text-gray-500 text-sm">Scan deze code bij aankomst</p>
-            </div>
-            <div class="w-full flex flex-col items-center">
-                <button id="save-qr-button" aria-label="Sla QR op" title="Sla QR op" class="mb-3 inline-flex items-center gap-3 px-5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold rounded-full shadow-md">
-                    <span class="bg-white/10 dark:bg-white/10 p-2 rounded-full flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[18px]">download</span>
-                    </span>
-                    <span>Sla QR op</span>
-                </button>
-                <div class="p-2 bg-white rounded-xl border-2 border-dashed border-gray-200">
-                    <img id="checkin-qr-img" alt="QR Code for member check-in" class="w-48 h-48 object-contain rounded-md" data-alt="Black and white QR code for check-in scanning" src="" />
-                </div>
-            </div>
-        </div>
-    </section>
-    <div class="h-6"></div>
-</main>`;
 
 // Navigation stack holds HTML strings. The top is current page.
-const navStack = [originalPage];
+const navStack = [];
 
 function render(html) {
     const container = document.querySelector(pageContainerSelector);
@@ -811,24 +510,27 @@ function handleJaarhangerParticipationChange(target) {
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
-        console.log('DOMContentLoaded — attaching delegated click handler to document');
-            document.addEventListener('click', delegatedClickHandler);
-            document.addEventListener('input', delegatedInputHandler);
-            document.addEventListener('click', delegatedSuggestionClickHandler);
-            document.addEventListener('change', delegatedChangeHandler);
-        // initial render
-        render(navStack[0]);
-        // load dynamic rides data from Firestore
-        loadAndRenderRides().catch(e => console.error('loadAndRenderRides failed', e));
+        initApp();
     });
 } else {
-    console.log('Document already loaded — attaching delegated click handler to document');
+    initApp();
+}
+
+async function initApp() {
+    console.log('initApp — attaching delegated handlers and loading fragments');
     document.addEventListener('click', delegatedClickHandler);
     document.addEventListener('input', delegatedInputHandler);
     document.addEventListener('click', delegatedSuggestionClickHandler);
     document.addEventListener('change', delegatedChangeHandler);
-    // initial render
-    render(navStack[0]);
+    // Load page fragments, then render the initial page and rides
+    try {
+        await loadFragments();
+    } catch (e) { console.error('initApp: loadFragments failed', e); }
+    // push initial page and render
+    try {
+        navStack.push(originalPage || '');
+        render(navStack[0]);
+    } catch (e) { console.error('initApp: initial render failed', e); }
     // load dynamic rides data from Firestore
     loadAndRenderRides().catch(e => console.error('loadAndRenderRides failed', e));
 }
@@ -842,52 +544,68 @@ function todayYMD() {
     return `${y}-${m}-${day}`;
 }
 
-function niceDateLabel(ymd) {
-    try {
-        const parts = ymd.split('-').map(Number);
-        const d = new Date(parts[0], parts[1]-1, parts[2]);
-        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-    } catch { return ymd; }
-}
+async function loadFragments() {
+        // Try several candidate base paths so the dev server or production paths resolve correctly.
+        const bases = ['./lid-ui/', 'lid-ui/', '/lid-ui/', '/new-ui/lid-ui/'];
+        const files = ['originalPage.html', 'signupPage.html', 'lunchPage.html', 'jaarhangerPage.html', 'memberInfoPage.html'];
+        const results = {};
+        try {
+                for (const fname of files) {
+                        let got = '';
+                        for (const base of bases) {
+                                const path = base + fname;
+                                try {
+                                        const res = await fetch(path, {cache: 'no-store'});
+                                        if (res && res.ok) {
+                                                const txt = await res.text();
+                                                if (txt && txt.trim()) { got = txt; console.debug('loadFragments: loaded', path, 'len=', txt.length); break; }
+                                        }
+                                } catch (e) {
+                                        console.debug('loadFragments: fetch failed for', path, e);
+                                }
+                        }
+                        results[fname] = got || '';
+                }
+                originalPage = results['originalPage.html'] || '';
+                signupPage = results['signupPage.html'] || '';
+                lunchPage = results['lunchPage.html'] || '';
+                jaarhangerPage = results['jaarhangerPage.html'] || '';
+                memberInfoPage = results['memberInfoPage.html'] || '';
+        } catch (e) {
+                console.error('loadFragments failed', e);
+                originalPage = originalPage || '';
+                signupPage = signupPage || '';
+                lunchPage = lunchPage || '';
+                jaarhangerPage = jaarhangerPage || '';
+                memberInfoPage = memberInfoPage || '';
+        }
 
-async function loadAndRenderRides() {
-    try {
-        const container = document.getElementById('rides-list');
-        if (!container) {
-            console.warn('loadAndRenderRides: rides-list container not found');
-            return;
-        }
-        container.innerHTML = `<div class="px-4 py-4 text-sm text-gray-500">Laden...</div>`;
-        const dates = await getPlannedDates();
-        if (!Array.isArray(dates) || dates.length === 0) {
-            container.innerHTML = `<div class="px-4 py-4 text-sm text-gray-500">Geen geplande ritten gevonden.</div>`;
-            return;
-        }
-        const today = todayYMD();
-        // Normalize, filter out past dates (strictly before today), sort ascending
-        const normalized = dates.map(d => (typeof d === 'string' ? d.slice(0,10) : '')).filter(Boolean);
-        const future = normalized.filter(d => d >= today).sort();
-        if (future.length === 0) {
-            container.innerHTML = `<div class="px-4 py-4 text-sm text-gray-500">Geen toekomstige ritten gevonden.</div>`;
-            return;
-        }
-        const items = future.map(ymd => {
-            const label = niceDateLabel(ymd);
-            const isToday = ymd === today;
-            const daysDiff = Math.round((new Date(ymd) - new Date(today)) / (1000*60*60*24));
-            const badge = isToday
-                ? `<span class="bg-[#1e2530] text-accent-yellow border border-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm">Vandaag</span>`
-                : `<span class="bg-[#1e2530]/50 text-accent-yellow dark:bg-[#1e2530] border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm">${daysDiff} dagen</span>`;
-            return `
-<div class="bg-surface-light dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between shadow-sm cursor-pointer hover:border-primary/30 transition-all">
-  <span class="text-[#0e121a] dark:text-white font-medium text-base">${label}</span>
-  ${badge}
+        // If originalPage is still empty, provide a minimal inline fallback that includes #rides-list
+        if (!originalPage || !originalPage.includes('id="rides-list"')) {
+                console.warn('loadFragments: originalPage fragment missing or did not contain #rides-list; using inline fallback');
+                originalPage = `
+<header class="flex items-center justify-between px-4 py-3 bg-surface-light dark:bg-surface-dark border-b border-gray-100 dark:border-gray-800 z-10">
+    <div class="w-8"></div>
+    <h1 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden">Ritten</h1>
+    <button class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors ml-auto flex items-center gap-1.5 shadow-sm">
+        <span class="material-symbols-outlined text-base">table_restaurant</span>
+        Inschrijftafel
+    </button>
+</header>
+<main class="flex-1 overflow-y-auto pb-[140px]">
+    <div class="px-4 pt-6 pb-2">
+        <h3 class="text-[#0e121a] dark:text-white text-xl font-bold leading-tight tracking-tight">Geplande Ritten</h3>
+    </div>
+    <div id="rides-list" class="px-4 flex flex-col gap-3 mt-2"></div>
+</main>
+<div class="fixed bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] app-footer">
+    <div class="flex flex-col gap-3">
+        <button id="agree-button" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex items-center justify-center">
+            <span>Ja, ik ga akkoord</span>
+        </button>
+    </div>
 </div>`;
-        }).join('\n');
-        container.innerHTML = items;
-    } catch (e) {
-        console.error('loadAndRenderRides error', e);
-    }
+        }
 }
 
 // Input handler for name autocomplete (delegated)
@@ -898,7 +616,7 @@ async function delegatedInputHandler(ev) {
         if (target.id !== 'participant-name-input') return;
         const raw = target.value || '';
         // Ensure the first non-space character is uppercase
-        const newRaw = raw.replace(/^(\s*)(\S)/, (m, spaces, ch) => spaces + ch.toUpperCase());
+        const newRaw = raw.replace(/^([\s]*)(\S)/, (m, spaces, ch) => spaces + ch.toUpperCase());
         if (newRaw !== raw) {
             const start = target.selectionStart || 0;
             const end = target.selectionEnd || start;
@@ -920,13 +638,13 @@ async function delegatedInputHandler(ev) {
             suggestionsEl.style.display = 'none';
             return;
         }
-            const results = await searchMembers(val, 8);
-            // Abort if the input changed while the async search was in flight
-            const currentNow = (target.value || '').trim();
-            if (currentNow !== val) {
-                console.log('delegatedInputHandler: aborting stale results for', val, 'current is', currentNow);
-                return;
-            }
+        const results = await searchMembers(val, 8);
+        // Abort if the input changed while the async search was in flight
+        const currentNow = (target.value || '').trim();
+        if (currentNow !== val) {
+            console.log('delegatedInputHandler: aborting stale results for', val, 'current is', currentNow);
+            return;
+        }
         if (!Array.isArray(results) || results.length === 0) {
             suggestionsEl.innerHTML = '';
             suggestionsEl.classList.add('hidden');
