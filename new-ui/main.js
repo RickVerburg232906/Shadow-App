@@ -11,6 +11,8 @@ console.log('Setting up virtual navigation — pageContainerSelector=' + pageCon
 
 // Currently selected member (persist selection across page fragments)
 let selectedMember = null;
+// When true, confirming lunch will skip the jaarhanger page and go straight to member-info
+let skipJaarhangerOnConfirm = false;
 
 const originalPage = `<header class="flex items-center justify-between px-4 py-3 bg-surface-light dark:bg-surface-dark border-b border-gray-100 dark:border-gray-800 z-10">
 <div class="w-8"></div>
@@ -279,7 +281,7 @@ const memberInfoPage = `
                     <span class="material-symbols-outlined text-[16px] leading-none">check</span>
                 </div>
             </div>
-            <div class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-accent-yellow">
+            <div id="member-jaarhanger-summary" class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-accent-yellow">
                 <div class="bg-accent-yellow/10 p-3 rounded-full flex items-center justify-center mr-4">
                     <span class="material-symbols-outlined text-accent-yellow dark:text-accent-yellow">local_activity</span>
                 </div>
@@ -397,6 +399,21 @@ function render(html) {
                         }
                     }
                 } catch (e) { console.error('setting jaarhanger status failed', e); }
+                // Restore jaarhanger participation radio on jaarhanger page (if applicable)
+                try {
+                    const jaarContainer = document.getElementById('jaarhanger-page');
+                    if (jaarContainer && selectedMember) {
+                        // Only restore jaarhanger if the user explicitly set it previously
+                        const partVal = (typeof selectedMember.jaarhanger !== 'undefined') ? selectedMember.jaarhanger : null;
+                        if (partVal) {
+                            const partInput = jaarContainer.querySelector(`input[name="participation"][value="${partVal}"]`);
+                            if (partInput) {
+                                partInput.checked = true;
+                                try { partInput.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+                            }
+                        }
+                    }
+                } catch (e) { console.error('restore jaarhanger selection failed', e); }
             } catch (e) { console.error('setting member lunch choice failed', e); }
         } catch (e) { console.error('setting member info failed', e); }
     } catch (e) { console.error('render post-fill check failed', e); }
@@ -493,6 +510,30 @@ function delegatedClickHandler(ev) {
         const withinContainer = ev.target.closest(pageContainerSelector);
         if (!withinContainer) return;
 
+        // Make whole keuze-eten card clickable: if a click lands inside a label
+        // that contains an input[name="main_course"], select that input.
+        try {
+            const keuzeContainer = withinContainer.querySelector('#keuzeEtenList');
+            if (keuzeContainer) {
+                const lbl = ev.target.closest('label');
+                if (lbl) {
+                    const inp = lbl.querySelector('input[name="main_course"]');
+                    if (inp) {
+                        // mark checked and manage visuals
+                        if (!inp.checked) {
+                            inp.checked = true;
+                            const labels = Array.from(keuzeContainer.querySelectorAll('label'));
+                            labels.forEach(l => l.classList.remove('active'));
+                            try { lbl.classList.add('active'); } catch(_) {}
+                            try { inp.dispatchEvent(new Event('change', { bubbles: true })); } catch(_) {}
+                            try { updateConfirmButtonState(); } catch(_) {}
+                        }
+                        return;
+                    }
+                }
+            }
+        } catch (e) { console.error('choice-card click handling failed', e); }
+
         const agree = ev.target.closest('#agree-button');
         if (agree) {
             pushPage(signupPage);
@@ -501,6 +542,8 @@ function delegatedClickHandler(ev) {
 
         const cont = ev.target.closest('#continue-button');
         if (cont && !cont.disabled) {
+            // normal flow: do not skip jaarhanger
+            skipJaarhangerOnConfirm = false;
             pushPage(lunchPage);
             // After rendering lunchPage, populate options from Firestore
             try { fillLunchOptions().catch(e=>console.error('fillLunchOptions failed',e)); } catch(_) {}
@@ -541,14 +584,43 @@ function delegatedClickHandler(ev) {
                 selectedMember.participation = part;
                 selectedMember.lunchChoice = choiceText || '';
             } catch (e) { console.error('capturing lunch participation failed', e); }
-            // Show jaarhanger as next in-app page
-            try { pushPage(jaarhangerPage); } catch (e) { console.error('pushPage jaarhanger failed', e); }
+            // Show next page: normally jaarhanger, but if user came from member-info summary, go straight to member-info
+            try {
+                if (skipJaarhangerOnConfirm) {
+                    // reset flag and go straight to member-info
+                    skipJaarhangerOnConfirm = false;
+                    pushPage(memberInfoPage);
+                } else {
+                    pushPage(jaarhangerPage);
+                }
+            } catch (e) { console.error('pushPage next after confirmLunch failed', e); }
             return;
         }
 
         const back = ev.target.closest('#back-button');
         if (back) {
             popPage();
+            return;
+        }
+
+        // If user clicks the lunch summary on the member-info page, navigate back to the lunch page
+        const lunchSummaryClick = ev.target.closest('#member-choice-lunch-text') || ev.target.closest('#member-choice-lunch-status');
+        if (lunchSummaryClick) {
+            try {
+                // when coming from member-info summary, skip jaarhanger on confirm
+                skipJaarhangerOnConfirm = true;
+                pushPage(lunchPage);
+                // fillLunchOptions will restore selections from selectedMember
+            } catch (e) { console.error('navigate to lunchPage failed', e); }
+            return;
+        }
+
+        // Click on jaarhanger summary should navigate to jaarhanger page
+        const jaarSummaryClick = ev.target.closest('#member-jaarhanger-summary') || ev.target.closest('#member-jaarhanger-edition') || ev.target.closest('#member-choice-jaarhanger-status');
+        if (jaarSummaryClick) {
+            try {
+                pushPage(jaarhangerPage);
+            } catch (e) { console.error('navigate to jaarhangerPage failed', e); }
             return;
         }
 
@@ -876,11 +948,57 @@ async function fillLunchOptions() {
     } catch (_) {}
     // Adjust main height after async content population
     try { adjustMainHeight(); } catch (e) { console.error('adjustMainHeight after fillLunchOptions failed', e); }
+
+    // After populating the lunch options, restore any previously selected choices
+    try { restoreLunchSelection(); } catch (e) { console.error('restoreLunchSelection failed', e); }
 }
 
 // Minimal HTML escaping for inserted strings
 function escapeHtml(s) {
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]);
+}
+
+// Restore lunch page inputs from `selectedMember` if present
+function restoreLunchSelection() {
+    try {
+        if (!selectedMember) return;
+        const container = document.querySelector(pageContainerSelector) || document;
+        // Restore participation radio
+        try {
+            const partVal = selectedMember.participation ?? null;
+            if (partVal) {
+                const partInput = container.querySelector(`input[name="participation"][value="${partVal}"]`);
+                if (partInput) {
+                    partInput.checked = true;
+                    // Ensure change handlers run
+                    partInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        } catch (e) { console.error('restore participation failed', e); }
+        // Restore main_course selection by matching label text
+        try {
+            const choiceText = selectedMember.lunchChoice || '';
+            if (choiceText) {
+                const keuzeContainer = container.querySelector('#keuzeEtenList');
+                if (keuzeContainer) {
+                    const labels = Array.from(keuzeContainer.querySelectorAll('label'));
+                    for (const lbl of labels) {
+                        const p = lbl.querySelector('p');
+                        const inp = lbl.querySelector('input[name="main_course"]');
+                        if (!p || !inp) continue;
+                        if ((p.textContent || '').trim() === choiceText) {
+                            inp.checked = true;
+                            // toggle visual active class
+                            try { lbl.classList.add('active'); } catch (_) {}
+                        } else {
+                            try { lbl.classList.remove('active'); } catch (_) {}
+                        }
+                    }
+                }
+            }
+        } catch (e) { console.error('restore main_course failed', e); }
+        try { updateConfirmButtonState(); } catch (_) {}
+    } catch (e) { console.error('restoreLunchSelection top-level failed', e); }
 }
 
 // Format a short Dutch date like: "Wo, 24 Okt"
