@@ -120,9 +120,9 @@ const lunchPage = `
     <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
         <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
     </button>
-    <div class="flex flex-col items-center">
+        <div class="flex flex-col items-center">
         <h1 class="text-lg font-bold leading-tight tracking-tight text-text-main dark:text-white">Lunchplanning</h1>
-        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Wo, 24 Okt</span>
+        <span id="lunch-date-label" class="text-xs font-medium text-gray-500 dark:text-gray-400"></span>
     </div>
     <div class="w-10"></div>
 </header>
@@ -507,11 +507,30 @@ async function fillLunchOptions() {
     }
     // Ensure confirm button state reflects current selections after rendering
     try { updateConfirmButtonState(); } catch(_){}
+    // Set lunch date label to today's short Dutch date
+    try {
+        const lab = document.getElementById('lunch-date-label');
+        if (lab) lab.textContent = formatShortDateNL(new Date());
+    } catch (_) {}
 }
 
 // Minimal HTML escaping for inserted strings
 function escapeHtml(s) {
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]);
+}
+
+// Format a short Dutch date like: "Wo, 24 Okt"
+function formatShortDateNL(d) {
+    try {
+        if (!(d instanceof Date)) d = new Date(d);
+        const weekday = new Intl.DateTimeFormat('nl-NL', { weekday: 'short' }).format(d).replace('.', '');
+        const day = d.getDate();
+        let month = new Intl.DateTimeFormat('nl-NL', { month: 'short' }).format(d).replace('.', '');
+        // Capitalize first letter for display
+        const wd = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+        month = month.charAt(0).toUpperCase() + month.slice(1);
+        return `${wd}, ${day} ${month}`;
+    } catch (e) { return ''; }
 }
 
 // Enable/disable the lunch confirm button based on selection rules
