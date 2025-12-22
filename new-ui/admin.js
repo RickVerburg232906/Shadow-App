@@ -10,6 +10,67 @@ const firebaseConfigDev = {
 
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
 
+// Small helper to show a success toast that slides up from bottom and fades away after 1s
+function ensureScanToastStyles() {
+  if (document.getElementById('scan-toast-styles')) return;
+  const css = `
+  @keyframes scanToastIn {
+    0% { transform: translateY(24px); opacity: 0; }
+    60% { transform: translateY(-6px); opacity: 1; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes scanToastOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-12px); }
+  }
+  .scan-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    background: rgba(16,185,129,0.98); /* emerald-500 */
+    color: white;
+    padding: 10px 16px;
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    font-weight: 700;
+    z-index: 16000;
+    min-width: 120px;
+    text-align: center;
+    opacity: 0;
+  }
+  .scan-toast.show-in { animation: scanToastIn 360ms cubic-bezier(.2,.9,.3,1) forwards; }
+  .scan-toast.show-out { animation: scanToastOut 420ms ease forwards; animation-delay: 1s; }
+  `;
+  const s = document.createElement('style');
+  s.id = 'scan-toast-styles';
+  s.textContent = css;
+  document.head.appendChild(s);
+}
+
+function showScanSuccess(msg) {
+  try {
+    ensureScanToastStyles();
+    const el = document.createElement('div');
+    el.className = 'scan-toast show-in';
+    el.textContent = String(msg || 'Gescand');
+    document.body.appendChild(el);
+    // Trigger out animation after a short delay so in animation plays first
+    requestAnimationFrame(() => {
+      // move to out after 1s visible time
+      setTimeout(() => {
+        el.classList.remove('show-in');
+        el.classList.add('show-out');
+      }, 1000);
+    });
+    // Remove after out animation completes (1s delay + 420ms)
+    setTimeout(() => { try { if (el && el.parentNode) el.parentNode.removeChild(el); } catch(_){} }, 1500);
+  } catch (e) { console.warn('showScanSuccess failed', e); }
+}
+
+// Recent scan guard: map of memberId -> timestamp(ms) to prevent spammy duplicate scans
+const _recentScans = new Map();
+
 // Simple Firestore REST update for a member document. Uses PATCH with updateMask to set specific fields.
 export async function checkInMemberById(memberId, { lunchDeelname = null, lunchKeuze = null, Jaarhanger = null } = {}) {
   if (!memberId) return { success: false, error: 'missing-id' };
@@ -190,11 +251,23 @@ export async function initInschrijftafel() {
                   alert('Gescand: geen lidnummer gevonden in QR');
                   return;
                 }
+                // Prevent the same memberId being processed repeatedly within 2 seconds
+                try {
+                  const now = Date.now();
+                  const last = _recentScans.get(memberId);
+                  if (last && (now - last) < 2000) {
+                    // duplicate scan within 2s — ignore silently
+                    return;
+                  }
+                  _recentScans.set(memberId, now);
+                  // cleanup entry after a short TTL
+                  setTimeout(() => { try { _recentScans.delete(memberId); } catch(_){} }, 3000);
+                } catch (e) { console.warn('recent scan guard error', e); }
                 // write lunch fields and expiry to Firestore (if present)
                 try {
                   const r = await checkInMemberById(String(memberId), { lunchDeelname, lunchKeuze, Jaarhanger });
                   if (r && r.success) {
-                    try { alert('Ingeschreven: ' + (memberId || '')); } catch(_) {}
+                    try { showScanSuccess('Ingeschreven: ' + (memberId || '')); } catch(_) {}
                   } else {
                     console.warn('checkInMemberById returned', r);
                     alert('Kon lid niet bijwerken');
