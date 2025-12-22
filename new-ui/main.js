@@ -231,6 +231,83 @@ const jaarhangerPage = `
     </div>
 </footer>`;
 
+// In-app member info page (same layout approach as other fragments)
+const memberInfoPage = `
+<header class="sticky top-0 z-50 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
+    <div class="flex items-center p-4 justify-center h-16">
+        <h2 class="text-[#0e121a] dark:text-white text-lg font-bold leading-tight text-center">Lid Informatie</h2>
+    </div>
+</header>
+<main class="flex-1 flex flex-col gap-6 p-4 max-w-md mx-auto w-full">
+    <section class="flex flex-col items-center gap-4 pt-2">
+        <div class="flex flex-col items-center justify-center space-y-1">
+            <h1 class="text-primary dark:text-blue-400 text-2xl font-bold tracking-tight text-center">Jan de Vries</h1>
+            <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">badge</span> Lidnummer: 123456</span>
+                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">location_on</span> Amsterdam</span>
+            </div>
+        </div>
+    </section>
+    <section class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-[#0e121a] dark:text-white text-lg font-bold">Gereden Ritten</h3>
+            <span class="text-sm font-medium text-gray-400">4 / 5</span>
+        </div>
+            <div class="flex items-center justify-center gap-3 bg-background-light dark:bg-gray-900 rounded-lg p-4">
+            <span class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>
+            <span class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>
+            <span class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>
+            <span class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>
+            <span class="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[32px]">star</span>
+        </div>
+    </section>
+    <section class="flex flex-col gap-3">
+        <h3 class="text-[#0e121a] dark:text-white text-lg font-bold px-1">Mijn Keuzes</h3>
+        <div class="grid gap-3">
+            <div class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-primary">
+                <div class="bg-primary/10 dark:bg-primary/20 p-3 rounded-full flex items-center justify-center mr-4">
+                    <span class="material-symbols-outlined text-primary dark:text-blue-400">restaurant</span>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">Lunch</p>
+                    <p class="text-[#0e121a] dark:text-white font-semibold">Vegetarisch Broodje</p>
+                </div>
+                <div class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-1.5 rounded-full">
+                    <span class="material-symbols-outlined text-[18px]">check</span>
+                </div>
+            </div>
+            <div class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-accent-yellow">
+                <div class="bg-accent-yellow/10 p-3 rounded-full flex items-center justify-center mr-4">
+                    <span class="material-symbols-outlined text-accent-yellow dark:text-accent-yellow">local_activity</span>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">Jaarhanger</p>
+                    <p class="text-[#0e121a] dark:text-white font-semibold">2024 Editie</p>
+                </div>
+                <div class="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded text-xs font-medium">
+                    Nog ophalen
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="mt-4 flex flex-col items-center">
+        <div class="w-full bg-white rounded-2xl p-6 shadow-md border border-gray-100 flex flex-col items-center gap-4">
+            <div class="text-center">
+                <h4 class="text-[#0e121a] font-bold text-lg">Check-in</h4>
+                <p class="text-gray-500 text-sm">Scan deze code bij aankomst</p>
+            </div>
+            <div class="p-2 bg-white rounded-xl border-2 border-dashed border-gray-200">
+                <img alt="QR Code for member check-in" class="w-48 h-48 mix-blend-multiply" data-alt="Black and white QR code for check-in scanning" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBF3MINnSD61Cj-u6sOx3PbqTDtZwzRbuDIOq6aCZRWu8exggxk0w89l3_iuz6Zr-gFFrpukoJzGc3wCDuqoGZnD7uQ53MTErwR32MQGjkt4iaWAPnR5jYLzTLdAqcqn6RQPsaAr1aambtFc0T-nNewJvQBNHEsbT8ZIzKYyY_viKbBjOHkexbrgx-ox5SPVKd9QB0lSkp42rlIMuIq5XyPfqE82gEgUmLJAkxZKMfKxlEmlFeRoh6zbt9Sv7FXOJGq7SkSQ0F-6WKQ" />
+            </div>
+            <div class="flex items-center gap-2 text-primary text-sm font-medium">
+                <span class="material-symbols-outlined text-[18px]">brightness_high</span>
+                <span>Helderheid verhogen voor scannen</span>
+            </div>
+        </div>
+    </section>
+    <div class="h-6"></div>
+</main>`;
+
 // Navigation stack holds HTML strings. The top is current page.
 const navStack = [originalPage];
 
@@ -366,7 +443,13 @@ function delegatedClickHandler(ev) {
         if (confirmLunch) {
             // Ignore if disabled
             if (confirmLunch.disabled) return;
-            // Show jaarhanger as an in-app page fragment
+            // If we're already on the jaarhanger page, navigate to the final member-info page
+            const inJaarhanger = !!document.getElementById('jaarhanger-page');
+            if (inJaarhanger) {
+                try { pushPage(memberInfoPage); } catch (e) { console.error('pushPage memberInfoPage failed', e); }
+                return;
+            }
+            // Otherwise show jaarhanger as an in-app page fragment
             try { pushPage(jaarhangerPage); } catch (e) { console.error('pushPage jaarhanger failed', e); }
             return;
         }
