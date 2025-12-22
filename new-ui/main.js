@@ -105,11 +105,11 @@ const signupPage = `<header class="sticky top-0 z-50 w-full bg-white dark:bg-sur
 </label>
 </div>
 <div class="flex-1"></div>
-<div class="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-6 pb-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-<div class="w-full">
-<button id="continue-button" disabled class="w-full flex items-center justify-center rounded-xl bg-primary/90 hover:bg-blue-800 text-white h-14 px-6 text-lg font-bold tracking-wide shadow-lg shadow-primary/30 transition-all active:scale-[0.98] opacity-50" aria-disabled="true">
-<span>Verder</span>
-</button>
+<div class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+<div class="flex flex-col gap-3">
+<button id="continue-button" disabled class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center opacity-50" aria-disabled="true">
+    <span>Verder</span>
+    </button>
 </div>
 </div>
 </main>`;
@@ -170,23 +170,26 @@ const lunchPage = `
         <div id="keuzeEtenList" class="flex flex-col gap-3"></div>
     </section>
 </main>
-<footer class="fixed bottom-0 left-0 right-0 z-30 bg-surface-light dark:bg-surface-dark border-t border-gray-200 dark:border-gray-800 pt-4 pb-8 px-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
-    <button id="confirm-lunch-button" disabled aria-disabled="true" class="relative w-full overflow-hidden rounded-2xl bg-primary/80 h-14 flex items-center justify-center font-bold text-white shadow-lg shadow-primary/25 transition-all opacity-50">
-        <span class="relative z-10 flex items-center justify-center"><span>Keuze Bevestigen</span></span>
+<footer class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+    <div class="flex flex-col gap-3">
+    <button id="confirm-lunch-button" disabled aria-disabled="true" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center opacity-50">
+        <span>Keuze Bevestigen</span>
     </button>
+    </div>
 </footer>`;
 
 // Jaarhanger page fragment (in-app)
 const jaarhangerPage = `
 <div id="jaarhanger-page">
-<header class="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm transition-colors">
-    <div class="flex items-center px-4 py-3 justify-between h-16">
-        <button id="back-button" class="group flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-card-dark shadow-sm transition-transform active:scale-95">
-            <span class="material-symbols-outlined text-xl group-hover:-translate-x-0.5 transition-transform">arrow_back</span>
-        </button>
-        <h1 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Jaarhanger Aanvraag</h1>
-        <div class="w-10"></div>
+<header class="sticky top-0 z-20 flex items-center justify-between bg-background-light/80 dark:bg-background-dark/80 px-4 py-4 backdrop-blur-md">
+    <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
+        <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
+    </button>
+    <div class="flex flex-col items-center">
+        <h1 class="text-lg font-bold leading-tight tracking-tight text-text-main dark:text-white">Jaarhanger Aanvraag</h1>
+        <span id="jaarhanger-date-label" class="text-xs font-medium text-gray-500 dark:text-gray-400"></span>
     </div>
+    <div class="w-10"></div>
 </header>
 <main class="flex-1 flex flex-col px-4 pt-6 pb-28">
     <section class="mb-8">
@@ -220,10 +223,12 @@ const jaarhangerPage = `
         </div>
     </section>
 </main>
-<footer class="fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-card-dark p-4 pb-safe z-50 border-t border-gray-100 dark:border-gray-800 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-colors">
-    <button id="confirm-lunch-button" class="relative w-full overflow-hidden rounded-2xl bg-primary/80 h-14 flex items-center justify-center font-bold text-white shadow-lg shadow-primary/25 transition-all">
-        <span class="relative z-10 flex items-center justify-center"><span>Bevestigen</span></span>
+<footer class="absolute bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] transition-colors">
+    <div class="flex flex-col gap-3">
+    <button id="confirm-lunch-button" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center">
+        <span>Bevestigen</span>
     </button>
+    </div>
 </footer>`;
 
 // Navigation stack holds HTML strings. The top is current page.
@@ -244,6 +249,11 @@ function render(html) {
             // populate options; do not block render
             try { fillLunchOptions().catch(e => console.error('fillLunchOptions failed after render', e)); } catch (e) { console.error(e); }
         }
+        // set jaarhanger date label if present
+        try {
+            const jlab = document.getElementById('jaarhanger-date-label');
+            if (jlab) jlab.textContent = formatShortDateNL(new Date());
+        } catch (e) { console.error('setting jaarhanger date label failed', e); }
     } catch (e) { console.error('render post-fill check failed', e); }
     // Ensure new pages start at the top (reset scroll)
     try {
