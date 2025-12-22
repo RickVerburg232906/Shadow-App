@@ -1,5 +1,5 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
-import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById } from './firestore.js';
+import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers } from './firestore.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
@@ -45,6 +45,14 @@ function ensureScanToastStyles() {
   s.id = 'scan-toast-styles';
   s.textContent = css;
   document.head.appendChild(s);
+}
+
+// Minimal HTML escape used by the manual modal
+function escapeHtml(s) {
+  try {
+    if (s === null || typeof s === 'undefined') return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]);
+  } catch (e) { return String(s || ''); }
 }
 
 function showScanSuccess(msg) {
@@ -369,3 +377,168 @@ export async function initInschrijftafel() {
     }
   } catch (e) { console.error('initInschrijftafel failed', e); }
 }
+
+// Manual name-search + check-in flow for inschrijftafel page
+function createManualSearchHandlers() {
+  try {
+    const input = document.getElementById('participant-name-input');
+    const suggestionsEl = document.getElementById('name-suggestions');
+    let selected = null;
+    if (!input || !suggestionsEl) return;
+
+    input.addEventListener('input', async (ev) => {
+      try {
+        const raw = (input.value || '').trim();
+        if (!raw) { suggestionsEl.innerHTML = ''; suggestionsEl.classList.add('hidden'); return; }
+        const results = await searchMembers(raw, 8);
+        if (!Array.isArray(results) || results.length === 0) { suggestionsEl.innerHTML = ''; suggestionsEl.classList.add('hidden'); return; }
+        const html = results.map(r => {
+          const label = (r.voor && r.naam) ? `${r.voor} ${r.naam}` : (r.naam || r.voor || '');
+          const json = encodeURIComponent(JSON.stringify(r || {}));
+          return `<button type="button" data-member-id="${r.id}" data-member-json="${json}" class="w-full text-left px-4 py-2 hover:bg-gray-100">${label}</button>`;
+        }).join('\n');
+        suggestionsEl.innerHTML = `<div class="flex flex-col">${html}</div>`;
+        suggestionsEl.classList.remove('hidden');
+      } catch (e) { console.error('manual search input error', e); }
+    });
+
+    suggestionsEl.addEventListener('click', async (ev) => {
+      try {
+        const btn = ev.target.closest('button[data-member-id]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-member-id');
+        const raw = btn.getAttribute('data-member-json');
+        const label = (btn.textContent || '').trim();
+        let memberObj = null;
+        try { memberObj = raw ? JSON.parse(decodeURIComponent(raw)) : null; } catch(_) { memberObj = null; }
+        // fetch full doc if possible
+        try {
+          const full = await getMemberById(id);
+          if (full) memberObj = Object.assign({}, memberObj || {}, full);
+        } catch (e) { console.warn('fetching full member failed', e); }
+
+        // store selected
+        selected = { id, label, raw: memberObj };
+        input.value = label;
+        suggestionsEl.classList.add('hidden');
+
+        // open a small inline confirm flow (participation + lunch + jaarhanger)
+        openManualConfirm(selected);
+      } catch (e) { console.error('manual suggestion click error', e); }
+    });
+
+    // click outside to close suggestions
+    document.addEventListener('click', (ev) => {
+      if (!suggestionsEl.contains(ev.target) && ev.target !== input) suggestionsEl.classList.add('hidden');
+    });
+  } catch (e) { console.error('createManualSearchHandlers failed', e); }
+}
+
+async function openManualConfirm(selected) {
+  try {
+    if (!selected || !selected.id) return;
+    // build simple modal UI under the search area
+    let modal = document.getElementById('manual-checkin-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'manual-checkin-modal';
+      modal.className = 'mt-3 p-4 bg-surface rounded-xl border border-slate-100 shadow-sm';
+      modal.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="text-sm font-bold">Inschrijven: <span id="manual-name" class="font-semibold"></span></div>
+            <div class="text-xs text-text-sub">Lidnummer: <span id="manual-lidnr" class="font-mono"></span></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="text-xs font-bold uppercase text-text-sub mb-1">Mee-eten?</div>
+          <label class="inline-flex items-center mr-4"><input type="radio" name="manual-participation" value="yes"> <span class="ml-2">Ja</span></label>
+          <label class="inline-flex items-center"><input type="radio" name="manual-participation" value="no"> <span class="ml-2">Nee</span></label>
+        </div>
+        <div class="mb-3">
+          <div class="flex items-center justify-between mb-1">
+            <div class="text-xs font-bold uppercase text-text-sub">Keuze Maaltijd</div>
+            <div class="text-xs text-text-sub">Vast menu:</div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div id="manual-keuze-list" class="flex-1 flex flex-col gap-2"></div>
+            <div id="manual-vast-list" class="shrink-0 ml-3 flex flex-col gap-1 max-w-[160px] text-xs text-text-sub"></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="text-xs font-bold uppercase text-text-sub mb-1">Jaarhanger</div>
+          <label class="inline-flex items-center mr-4"><input type="radio" name="manual-jaar" value="yes"> <span class="ml-2">Ja</span></label>
+          <label class="inline-flex items-center"><input type="radio" name="manual-jaar" value="no"> <span class="ml-2">Nee</span></label>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="manual-confirm" class="bg-primary text-white rounded-lg px-4 py-2 font-bold">Bevestig</button>
+        </div>
+      `;
+      const container = document.getElementById('manual-search-hint');
+      if (container && container.parentNode) container.parentNode.appendChild(modal);
+    }
+
+    // populate name and lidnr
+    try {
+      const nameEl = document.getElementById('manual-name');
+      const lidEl = document.getElementById('manual-lidnr');
+      if (nameEl) nameEl.textContent = selected.label || '';
+      if (lidEl) lidEl.textContent = selected.raw && (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr) ? (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr) : '';
+    } catch (_) {}
+
+    // fill maaltijd options
+    try {
+      const list = document.getElementById('manual-keuze-list');
+      const vastEl = document.getElementById('manual-vast-list');
+      if (list) {
+        list.innerHTML = '<div class="text-text-sub text-sm">Laden…</div>';
+        const opts = await getLunchOptions();
+        const keuze = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
+        const vast = Array.isArray(opts.vastEten) ? opts.vastEten : [];
+        if (keuze.length === 0) list.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>';
+        else {
+          list.innerHTML = keuze.map((it, idx) => `<label class="inline-flex items-center gap-3"><input type="radio" name="manual-keuze" value="${escapeHtml(String(it))}"><span>${escapeHtml(String(it))}</span></label>`).join('');
+        }
+        if (vastEl) {
+          if (!vast || vast.length === 0) {
+            vastEl.innerHTML = '<div class="text-xs text-text-sub">Geen vast menu</div>';
+          } else {
+            // render compact badges for fixed menu
+            vastEl.innerHTML = vast.map(v => `<span class="inline-block px-2 py-1 bg-gray-100 rounded-md text-[12px]">${escapeHtml(String(v))}</span>`).join(' ');
+          }
+        }
+      }
+    } catch (e) { console.error('fill manual keuzes failed', e); }
+
+    // wire buttons
+    try {
+      const confirm = document.getElementById('manual-confirm');
+      if (confirm) confirm.addEventListener('click', async () => {
+        try {
+          const participation = (modal.querySelector('input[name="manual-participation"]:checked') || {}).value || null;
+          const keuzeInp = modal.querySelector('input[name="manual-keuze"]:checked');
+          const keuze = keuzeInp ? keuzeInp.value : null;
+          const jaar = (modal.querySelector('input[name="manual-jaar"]:checked') || {}).value || null;
+          // perform check-in (reuse existing checkInMemberById)
+          try {
+            const memberId = String(selected.id || (selected.raw && (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr)) || '');
+            if (!memberId) { alert('Geen lidnummer gevonden'); return; }
+            const r = await checkInMemberById(memberId, { lunchDeelname: participation, lunchKeuze: keuze, Jaarhanger: jaar });
+            if (r && r.success) {
+              try { showScanSuccess('Ingeschreven: ' + (memberId || '')); } catch(_){}
+              // append to recent activity
+              try { const full = await getMemberById(memberId); renderActivityItem(full || { lidnummer: memberId }, new Date().toISOString()); } catch(_) { renderActivityItem({ lidnummer: memberId }, new Date().toISOString()); }
+            } else { alert('Kon lid niet bijwerken'); }
+          } catch (e) { console.error('manual confirm checkin failed', e); alert('Fout bij inschrijven'); }
+          // also register today's ride
+          try { const today = new Date().toISOString().slice(0,10); await manualRegisterRide(String(selected.id || ''), today); } catch(_){}
+          try { modal.remove(); } catch(_){}
+        } catch (e) { console.error('manual confirm error', e); }
+      });
+    } catch (e) { console.error('wire manual buttons failed', e); }
+
+  } catch (e) { console.error('openManualConfirm failed', e); }
+}
+
+// initialize manual search handlers after DOM loaded
+try { if (typeof window !== 'undefined') window.addEventListener('DOMContentLoaded', () => { try { createManualSearchHandlers(); } catch(_){} }); } catch(_) {}
