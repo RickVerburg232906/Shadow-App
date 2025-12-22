@@ -1,6 +1,5 @@
-
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
-import { getLunchOptions, getLunchChoiceCount, getParticipationCount } from './firestore.js';
+import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById } from './firestore.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
@@ -70,6 +69,43 @@ function showScanSuccess(msg) {
 
 // Recent scan guard: map of memberId -> timestamp(ms) to prevent spammy duplicate scans
 const _recentScans = new Map();
+// Recent activity list (in-memory for this device session)
+const _recentActivity = [];
+function renderActivityItem(member, whenIso) {
+  try {
+    const container = document.getElementById('recent-activity-list');
+    if (!container) return;
+    const time = new Date(whenIso || Date.now());
+    const hh = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Prefer separate first/last name fields when available (Dutch + English variants)
+    // Support Firestore field names like 'Voor naam' (with space) and 'Achternaam'
+    const first = member && (member['Voor naam'] || member.Voornaam || member.voornaam || member.firstName || member.first || member.givenName) ? (member['Voor naam'] || member.Voornaam || member.voornaam || member.firstName || member.first || member.givenName) : '';
+    const last = member && (member['Naam'] || member.Achternaam || member.achternaam || member.lastName || member.surname || member.familyName) ? (member['Naam'] || member.Achternaam || member.achternaam || member.lastName || member.surname || member.familyName) : '';
+    let name = '';
+    if (first && last) name = `${first} ${last}`;
+    else if (first) name = first;
+    else if (last) name = last;
+    else if (member && (member.Naam || member.name || member.naam || member.fullName)) name = (member.Naam || member.name || member.naam || member.fullName);
+    else if (member && (member.lidnummer || member.id)) name = String(member.lidnummer || member.id);
+    else name = 'Onbekend';
+    const initials = (first || name).split(' ').map(p => p[0] || '').slice(0,2).join('').toUpperCase();
+    const item = document.createElement('div');
+    item.className = 'flex items-center justify-between p-3 bg-surface rounded-lg shadow-sm border-l-4 border-l-primary';
+    item.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="size-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">${initials}</div>
+        <div class="flex flex-col">
+          <span class="text-sm font-bold text-text-main">${String(name)}</span>
+          <span class="text-xs text-text-sub">${hh}</span>
+        </div>
+      </div>
+      <span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+    `;
+    container.insertBefore(item, container.firstChild);
+    // limit list length to 20
+    while (container.children.length > 20) container.removeChild(container.lastChild);
+  } catch (e) { console.warn('renderActivityItem failed', e); }
+}
 
 // Simple Firestore REST update for a member document. Uses PATCH with updateMask to set specific fields.
 export async function checkInMemberById(memberId, { lunchDeelname = null, lunchKeuze = null, Jaarhanger = null } = {}) {
@@ -159,155 +195,177 @@ export async function initInschrijftafel() {
       }
     } catch (e) { console.error('load lunch options failed', e); }
 
-    (async function(){
+    try {
+      const yesEl = document.getElementById('count-yes');
+      const noEl = document.getElementById('count-no');
       try {
-        const yesEl = document.getElementById('count-yes');
-        const noEl = document.getElementById('count-no');
+        const [yesCnt, noCnt] = await Promise.all([ getParticipationCount('yes'), getParticipationCount('no') ]);
+        if (yesEl) yesEl.textContent = String(isFinite(yesCnt) ? yesCnt : 0);
+        if (noEl) noEl.textContent = String(isFinite(noCnt) ? noCnt : 0);
+      } catch (e) { if (yesEl) yesEl.textContent = 'ERROR'; if (noEl) noEl.textContent = 'ERROR'; }
+    } catch (e) { console.error('update participation UI failed', e); }
+
+    const buttons = Array.from(document.querySelectorAll('button'));
+    let startBtn = null;
+    for (const b of buttons) { if (b.textContent && b.textContent.trim().includes('Start Scanner')) { startBtn = b; break; } }
+    if (startBtn) {
+      let running = null;
+      // save original HTML to restore later
+      if (!startBtn.dataset.origHtml) startBtn.dataset.origHtml = startBtn.innerHTML;
+      startBtn.addEventListener('click', async () => {
         try {
-          const [yesCnt, noCnt] = await Promise.all([ getParticipationCount('yes'), getParticipationCount('no') ]);
-          if (yesEl) yesEl.textContent = String(isFinite(yesCnt) ? yesCnt : 0);
-          if (noEl) noEl.textContent = String(isFinite(noCnt) ? noCnt : 0);
-        } catch (e) { if (yesEl) yesEl.textContent = 'ERROR'; if (noEl) noEl.textContent = 'ERROR'; }
-      } catch (e) { console.error('update participation UI failed', e); }
-    })();
+          if (running) {
+            try { await stopQrScanner(running); } catch(_){ }
+            running = null;
+            try { startBtn.innerHTML = startBtn.dataset.origHtml || 'Start Scanner'; } catch(_){ }
+            return;
+          }
 
-      const buttons = Array.from(document.querySelectorAll('button'));
-      let startBtn = null;
-      for (const b of buttons) { if (b.textContent && b.textContent.trim().includes('Start Scanner')) { startBtn = b; break; } }
-      if (startBtn) {
-        let running = null;
-        // save original HTML to restore later
-        if (!startBtn.dataset.origHtml) startBtn.dataset.origHtml = startBtn.innerHTML;
-        startBtn.addEventListener('click', async () => {
+          // Prepare preview area: hide placeholder overlay and remove background image so scanner becomes visible
           try {
-            if (running) {
-              try { await stopQrScanner(running); } catch(_){ }
-              running = null;
-              try { startBtn.innerHTML = startBtn.dataset.origHtml || 'Start Scanner'; } catch(_){ }
-              return;
-            }
-
-            // Prepare preview area: hide placeholder overlay and remove background image so scanner becomes visible
-            try {
-              const adminQR = document.getElementById('adminQRReader');
-              if (adminQR) {
-                const previewParent = adminQR.parentElement;
-                const placeholder = document.getElementById('adminQRPlaceholder');
-                // save previous preview/placeholder state so we can fully restore on stop
-                try {
-                  if (previewParent) {
-                    // store previous styles on the scanner root so stopQrScanner can read them
-                    adminQR.dataset.prevBackgroundImage = previewParent.style.backgroundImage || '';
-                    adminQR.dataset.prevHeight = previewParent.style.height || '';
-                    adminQR.dataset.prevMaxHeight = previewParent.style.maxHeight || '';
-                  }
-                  if (placeholder) {
-                    placeholder.dataset.prevDisplay = placeholder.style.display || '';
-                    // save innerHTML so we can fully restore the original picture/icon
-                    try { placeholder.dataset.prevInnerHtml = placeholder.innerHTML || ''; } catch(_) { placeholder.dataset.prevInnerHtml = ''; }
-                    placeholder.style.display = 'none';
-                  }
-                } catch (_) {}
-                if (previewParent) {
-                  previewParent.style.backgroundImage = 'none';
-                  previewParent.style.backgroundSize = 'cover';
-                }
-                adminQR.style.width = '100%';
-                adminQR.style.height = '100%';
-                adminQR.style.position = 'relative';
-                adminQR.innerHTML = '';
-              }
-            } catch (e) { console.warn('prepare preview failed', e); }
-
-            const res = await startQrScanner('adminQRReader', async (decoded) => {
+            const adminQR = document.getElementById('adminQRReader');
+            if (adminQR) {
+              const previewParent = adminQR.parentElement;
+              const placeholder = document.getElementById('adminQRPlaceholder');
+              // save previous preview/placeholder state so we can fully restore on stop
               try {
-                console.log('QR decoded:', decoded);
-                // Attempt to parse JSON payload; fall back to raw string
-                let parsed = null;
-                try { parsed = JSON.parse(decoded); } catch(_) { parsed = null; }
-                // Expect payload to include a member id and fields: Jaarhanger, lunchDeelname, lunchKeuze
-                let memberId = null;
-                let Jaarhanger = null;
-                let lunchDeelname = null;
-                let lunchKeuze = null;
-                if (parsed && typeof parsed === 'object') {
-                  memberId = parsed.memberId || parsed.lidnummer || parsed.id || parsed.lid || parsed.lid_nr || parsed.lidnummer || null;
-                  Jaarhanger = parsed.Jaarhanger ?? parsed.jaarhanger ?? null;
-                  lunchDeelname = parsed.lunchDeelname ?? parsed.lunchDeelname ?? parsed.lunchDeelname ?? null;
-                  lunchKeuze = parsed.lunchKeuze ?? parsed.lunchKeuze ?? parsed.lunchKeuze ?? null;
-                } else {
-                  // Try format like 'id:123|Jaarhanger:yes|lunchDeelname:yes|lunchKeuze:Vlees'
-                  const parts = String(decoded || '').split(/[|;,]/).map(s => s.trim());
-                  for (const p of parts) {
-                    const kv = p.split(':'); if (kv.length < 2) continue;
-                    const k = kv[0].trim().toLowerCase(); const v = kv.slice(1).join(':').trim();
-                    if (!memberId && /id|lid|lidnummer/.test(k)) memberId = v;
-                    if (!Jaarhanger && /jaarhanger|jaarn?hanger|jaar/.test(k)) Jaarhanger = v;
-                    if (!lunchDeelname && /lunchdeelname|participatie|deelname/.test(k)) lunchDeelname = v;
-                    if (!lunchKeuze && /lunchkeuze|keuze/.test(k)) lunchKeuze = v;
-                  }
+                if (previewParent) {
+                  // store previous styles on the scanner root so stopQrScanner can read them
+                  adminQR.dataset.prevBackgroundImage = previewParent.style.backgroundImage || '';
+                  adminQR.dataset.prevHeight = previewParent.style.height || '';
+                  adminQR.dataset.prevMaxHeight = previewParent.style.maxHeight || '';
                 }
-                if (!memberId) {
-                  alert('Gescand: geen lidnummer gevonden in QR');
+                if (placeholder) {
+                  placeholder.dataset.prevDisplay = placeholder.style.display || '';
+                  // save innerHTML so we can fully restore the original picture/icon
+                  try { placeholder.dataset.prevInnerHtml = placeholder.innerHTML || ''; } catch(_) { placeholder.dataset.prevInnerHtml = ''; }
+                  placeholder.style.display = 'none';
+                }
+              } catch (_) {}
+              if (previewParent) {
+                previewParent.style.backgroundImage = 'none';
+                previewParent.style.backgroundSize = 'cover';
+              }
+              adminQR.style.width = '100%';
+              adminQR.style.height = '100%';
+              adminQR.style.position = 'relative';
+              adminQR.innerHTML = '';
+            }
+          } catch (e) { console.warn('prepare preview failed', e); }
+
+          const res = await startQrScanner('adminQRReader', async (decoded) => {
+            try {
+              console.log('QR decoded:', decoded);
+              // Attempt to parse JSON payload; fall back to raw string
+              let parsed = null;
+              try { parsed = JSON.parse(decoded); } catch(_) { parsed = null; }
+              // Expect payload to include a member id and fields: Jaarhanger, lunchDeelname, lunchKeuze
+              let memberId = null;
+              let Jaarhanger = null;
+              let lunchDeelname = null;
+              let lunchKeuze = null;
+              if (parsed && typeof parsed === 'object') {
+                memberId = parsed.memberId || parsed.lidnummer || parsed.id || parsed.lid || parsed.lid_nr || parsed.lidnummer || null;
+                Jaarhanger = parsed.Jaarhanger ?? parsed.jaarhanger ?? null;
+                lunchDeelname = parsed.lunchDeelname ?? parsed.lunchDeelname ?? parsed.lunchDeelname ?? null;
+                lunchKeuze = parsed.lunchKeuze ?? parsed.lunchKeuze ?? parsed.lunchKeuze ?? null;
+              } else {
+                // Try format like 'id:123|Jaarhanger:yes|lunchDeelname:yes|lunchKeuze:Vlees'
+                const parts = String(decoded || '').split(/[|;,]/).map(s => s.trim());
+                for (const p of parts) {
+                  const kv = p.split(':'); if (kv.length < 2) continue;
+                  const k = kv[0].trim().toLowerCase(); const v = kv.slice(1).join(':').trim();
+                  if (!memberId && /id|lid|lidnummer/.test(k)) memberId = v;
+                  if (!Jaarhanger && /jaarhanger|jaarn?hanger|jaar/.test(k)) Jaarhanger = v;
+                  if (!lunchDeelname && /lunchdeelname|participatie|deelname/.test(k)) lunchDeelname = v;
+                  if (!lunchKeuze && /lunchkeuze|keuze/.test(k)) lunchKeuze = v;
+                }
+              }
+              if (!memberId) {
+                alert('Gescand: geen lidnummer gevonden in QR');
+                return;
+              }
+              // Prevent the same memberId being processed repeatedly within 2 seconds
+              try {
+                const now = Date.now();
+                const last = _recentScans.get(memberId);
+                if (last && (now - last) < 2000) {
+                  // duplicate scan within 2s — ignore silently
                   return;
                 }
-                // Prevent the same memberId being processed repeatedly within 2 seconds
-                try {
-                  const now = Date.now();
-                  const last = _recentScans.get(memberId);
-                  if (last && (now - last) < 2000) {
-                    // duplicate scan within 2s — ignore silently
-                    return;
-                  }
-                  _recentScans.set(memberId, now);
-                  // cleanup entry after a short TTL
-                  setTimeout(() => { try { _recentScans.delete(memberId); } catch(_){} }, 3000);
-                } catch (e) { console.warn('recent scan guard error', e); }
-                // write lunch fields and expiry to Firestore (if present)
-                try {
-                  const r = await checkInMemberById(String(memberId), { lunchDeelname, lunchKeuze, Jaarhanger });
-                  if (r && r.success) {
-                    try { showScanSuccess('Ingeschreven: ' + (memberId || '')); } catch(_) {}
-                  } else {
-                    console.warn('checkInMemberById returned', r);
-                    alert('Kon lid niet bijwerken');
-                  }
-                } catch (e) { console.error('apply scan to member failed', e); alert('Fout bij schrijven naar Firestore'); }
+                _recentScans.set(memberId, now);
+                // cleanup entry after a short TTL
+                setTimeout(() => { try { _recentScans.delete(memberId); } catch(_){} }, 3000);
+              } catch (e) { console.warn('recent scan guard error', e); }
+              
+              // write lunch fields and expiry to Firestore (if present)
+              try {
+                const r = await checkInMemberById(String(memberId), { lunchDeelname, lunchKeuze, Jaarhanger });
+                if (r && r.success) {
+                  try { showScanSuccess('Ingeschreven: ' + (memberId || '')); } catch(_) {}
+                  
+                  // Immediately lock member check-in UI if visible so it's clear the member is registered
+                  try {
+                    const summary = document.getElementById('member-lunch-summary');
+                    if (summary) {
+                      summary.dataset.locked = '1';
+                      summary.setAttribute('aria-disabled','true');
+                      summary.style.pointerEvents = 'none';
+                      summary.style.opacity = summary.style.opacity || '0.9';
+                      const iconEl = summary.querySelector('.ml-2');
+                      if (iconEl) { try { iconEl.innerHTML = '<span class="material-symbols-outlined">lock</span>'; } catch(_){} }
+                    }
+                    const saveBtn = document.getElementById('save-qr-button');
+                    if (saveBtn) { saveBtn.disabled = true; saveBtn.setAttribute('aria-disabled','true'); saveBtn.classList.add('opacity-50'); }
+                    const qrImg = document.getElementById('checkin-qr-img');
+                    if (qrImg) { qrImg.style.filter = 'grayscale(70%)'; qrImg.title = 'Ingeschreven'; }
+                  } catch (e) { console.warn('lock check-in UI failed', e); }
 
-                // also record today's date in ScanDatums
-                try {
-                  const today = new Date().toISOString().slice(0,10);
-                  const mr = await manualRegisterRide(String(memberId), today);
-                  if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
-                } catch (e) { console.error('manualRegisterRide error', e); }
-              } catch(_){ }
-            }, { fps: 10, qrbox: 250 });
-            running = res && res.scannerInstance ? res.scannerInstance : null;
-            try { startBtn.innerHTML = '<span class="material-symbols-outlined">stop</span> Stop Scanner'; } catch(_){ }
-            // Ensure the scanner preview is visible: scroll the reader (or its parent) into view
-            try {
-              const root = document.getElementById('adminQRReader');
-              const previewParent = root && root.parentElement ? root.parentElement : null;
-              // delay slightly to allow layout changes to take effect
-              setTimeout(() => {
-                try {
-                  const vp = previewParent || root;
-                  if (vp && typeof window !== 'undefined') {
-                    const rect = vp.getBoundingClientRect();
-                    const offset = Math.round(window.innerHeight * 0.1); // place viewer ~10% from top
-                    const target = Math.max(0, window.scrollY + rect.top - offset);
-                    window.scrollTo({ top: target, behavior: 'smooth' });
-                  } else if (vp && typeof vp.scrollIntoView === 'function') {
-                    vp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                } catch (_) {}
-              }, 120);
-            } catch (_) {}
-          } catch (e) { console.error('scanner start failed', e); alert('Kon scanner niet starten'); }
-        });
-      }
-    } catch (e) { console.error('wire scanner button failed', e); }
+                  // Append to recent activity list (show name/time). Try to fetch member document for name
+                  getMemberById(String(memberId)).then(memberDoc => {
+                    renderActivityItem(memberDoc || { lidnummer: memberId }, new Date().toISOString());
+                  }).catch(_ => {
+                    renderActivityItem({ lidnummer: memberId }, new Date().toISOString());
+                  });
+                } else {
+                  console.warn('checkInMemberById returned', r);
+                  alert('Kon lid niet bijwerken');
+                }
+              } catch (e) { console.error('apply scan to member failed', e); alert('Fout bij schrijven naar Firestore'); }
 
+              // also record today's date in ScanDatums
+              try {
+                const today = new Date().toISOString().slice(0,10);
+                const mr = await manualRegisterRide(String(memberId), today);
+                if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+              } catch (e) { console.error('manualRegisterRide error', e); }
+            } catch(_){ }
+          }, { fps: 10, qrbox: 250 });
+          
+          running = res && res.scannerInstance ? res.scannerInstance : null;
+          try { startBtn.innerHTML = '<span class="material-symbols-outlined">stop</span> Stop Scanner'; } catch(_){ }
+          
+          // Ensure the scanner preview is visible: scroll the reader (or its parent) into view
+          try {
+            const root = document.getElementById('adminQRReader');
+            const previewParent = root && root.parentElement ? root.parentElement : null;
+            // delay slightly to allow layout changes to take effect
+            setTimeout(() => {
+              try {
+                const vp = previewParent || root;
+                if (vp && typeof window !== 'undefined') {
+                  const rect = vp.getBoundingClientRect();
+                  const offset = Math.round(window.innerHeight * 0.1); // place viewer ~10% from top
+                  const target = Math.max(0, window.scrollY + rect.top - offset);
+                  window.scrollTo({ top: target, behavior: 'smooth' });
+                } else if (vp && typeof vp.scrollIntoView === 'function') {
+                  vp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              } catch (_) {}
+            }, 100);
+          } catch (e) { console.warn('scroll to scanner failed', e); }
+        } catch (e) { console.error('start btn handler error', e); }
+      });
+    }
+  } catch (e) { console.error('initInschrijftafel failed', e); }
 }
-
-// purge scheduling removed per request

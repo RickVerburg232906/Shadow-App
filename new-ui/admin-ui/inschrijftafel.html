@@ -118,7 +118,7 @@
 </div>
 </div>
 <div class="flex flex-col items-stretch justify-start rounded-2xl shadow-sm bg-surface overflow-hidden border border-slate-100">
-<div class="w-full h-48 bg-slate-200 relative" data-alt="Abstract view of a camera viewfinder ready to scan a QR code" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDjlc2BpJyDUPkV3Laz448jwQoPXugSXOfjIdhYXokzBWvziK7MBfB877MtYoeE9ZmHVadlhZ-PH9nLl9Ri4_pZ9E__JkGiJbN7LerGXLVxmiuvwXBkaUOBz0hvDs_SHNMS3HxBeV9nFqYhaL8V-d_YF53_sXqZqvP_-dUaD0wnzVE9aI-zmqkOhgraiadYzQtHvCQXGYNcdk4HZ604Bw3a1HTN7mO-MbnLIxy1A1LXAHzZReEOdLF-Pqpz8xrjz0rW6Xf2un1VK9Jn"); background-size: cover; background-position: center;'>
+<div class="w-full h-48 bg-slate-200 relative" data-alt="Abstract view of a camera viewfinder ready to scan a QR code">
   <div id="adminQRReader" class="absolute inset-0 flex items-center justify-center"></div>
   <div id="adminQRPlaceholder" class="absolute inset-0 bg-primary/40 flex items-center justify-center backdrop-blur-[2px]">
     <div class="size-20 rounded-xl border-4 border-white/80 flex items-center justify-center">
@@ -156,37 +156,8 @@
 </div>
 <div>
 <h3 class="text-text-main text-lg font-bold mb-3 px-1">Laatste Activiteit</h3>
-<div class="flex flex-col gap-2">
-<div class="flex items-center justify-between p-3 bg-surface rounded-lg shadow-sm border-l-4 border-l-primary">
-<div class="flex items-center gap-3">
-<div class="size-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">JJ</div>
-<div class="flex flex-col">
-<span class="text-sm font-bold text-text-main">Jan Jansen</span>
-<span class="text-xs text-text-sub">10:42 AM • Lunch Ingecheckt</span>
-</div>
-</div>
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-</div>
-<div class="flex items-center justify-between p-3 bg-surface rounded-lg shadow-sm border-l-4 border-l-primary">
-<div class="flex items-center gap-3">
-<div class="size-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">PV</div>
-<div class="flex flex-col">
-<span class="text-sm font-bold text-text-main">Piet de Vries</span>
-<span class="text-xs text-text-sub">10:38 AM • Lunch Ingecheckt</span>
-</div>
-</div>
-<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
-</div>
-<div class="flex items-center justify-between p-3 bg-surface rounded-lg shadow-sm border-l-4 border-l-secondary">
-<div class="flex items-center gap-3">
-<div class="size-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">EM</div>
-<div class="flex flex-col">
-<span class="text-sm font-bold text-text-main">Eva Meijer</span>
-<span class="text-xs text-text-sub">10:35 AM • Handmatig</span>
-</div>
-</div>
-<span class="material-symbols-outlined text-secondary text-xl">info</span>
-</div>
+<div id="recent-activity-list" class="flex flex-col gap-2 max-h-48 overflow-y-auto">
+  <!-- Recent scans by this device will be appended here by admin.js -->
 </div>
 </div>
 <div id="historie-section">
