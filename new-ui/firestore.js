@@ -49,6 +49,26 @@ export async function getPlannedDates() {
 
 export default { getPlannedDates };
 
+// Fetch admin passwords from globals/passwords document. Returns object { inschrijftafel, hoofdadmin }
+export async function getAdminPasswords() {
+  try {
+    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfigDev.apiKey}`;
+    const res = await fetch(url, { method: 'GET', credentials: 'omit' });
+    if (!res.ok) {
+      console.warn('getAdminPasswords: fetch failed', res.status, res.statusText);
+      return { inschrijftafel: 'Shadow', hoofdadmin: '1100' };
+    }
+    const data = await res.json();
+    const fields = data && data.fields ? data.fields : {};
+    const ins = fields.inschrijftafel ? parseFirestoreValue(fields.inschrijftafel) : null;
+    const hoofd = fields.hoofdadmin ? parseFirestoreValue(fields.hoofdadmin) : null;
+    return { inschrijftafel: String(ins || 'Shadow'), hoofdadmin: String(hoofd || '1100') };
+  } catch (e) {
+    console.error('getAdminPasswords error', e);
+    return { inschrijftafel: 'Shadow', hoofdadmin: '1100' };
+  }
+}
+
 // Search members by prefix in either `Naam` or `Voor naam` fields.
 export async function searchMembers(prefix, maxResults = 8) {
   try {
