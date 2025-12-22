@@ -8,7 +8,13 @@ console.log('New UI loaded');
 async function populatePlannedRides() {
     try {
         const arr = await getPlannedDates();
-        if (!Array.isArray(arr) || arr.length === 0) return;
+        console.debug('populatePlannedRides: raw plannedDates=', arr);
+        if (!Array.isArray(arr) || arr.length === 0) {
+            console.debug('populatePlannedRides: no planned dates returned');
+            const container = document.getElementById('rides-list');
+            if (container) container.innerHTML = `<div class="text-sm text-gray-500">Geen geplande ritten</div>`;
+            return;
+        }
         // Normalize to YYYY-MM-DD strings and filter today or future
         const today = new Date();
         const todayYmd = today.toISOString().slice(0,10);
@@ -16,6 +22,12 @@ async function populatePlannedRides() {
         const future = norm.filter(d => d >= todayYmd).sort();
         const container = document.getElementById('rides-list');
         if (!container) return;
+        if (!Array.isArray(future) || future.length === 0) {
+            // show friendly placeholder instead of clearing silently
+            container.innerHTML = `<div class="text-sm text-gray-500">Geen geplande ritten</div>`;
+            return;
+        }
+
         container.innerHTML = future.map(d => {
             const dt = new Date(d);
             const label = dt.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -30,9 +42,7 @@ async function populatePlannedRides() {
     }
 }
 
-// Try to populate immediately and also on DOMContentLoaded in case script runs early
-try { populatePlannedRides().catch(()=>{}); } catch(_) {}
-window.addEventListener('DOMContentLoaded', () => { try { populatePlannedRides().catch(()=>{}); } catch(_) {} });
+// populatePlannedRides() will be called after fragments are loaded and the initial page is rendered
 
 // Simple virtual navigation stack. Use a stable container selector that doesn't depend on layout classes.
 const pageContainerSelector = '.relative.flex';
@@ -216,6 +226,12 @@ function render(html) {
         // adjust inner main to fit viewport (header/footer aware)
         try { adjustMainHeight(); } catch(e) { console.error('adjustMainHeight post-render failed', e); }
     } catch (e) { console.error('render scroll reset failed', e); }
+    // If this rendered page contains the rides list, (re)populate it.
+    try {
+        if (typeof populatePlannedRides === 'function' && document.getElementById('rides-list')) {
+            try { populatePlannedRides().catch(err => console.error('populatePlannedRides render-time failed', err)); } catch (err) { console.error('populatePlannedRides invocation failed', err); }
+        }
+    } catch (e) { console.error('render: checking for rides-list failed', e); }
 }
 
 // Reset scroll on likely scroll containers so new pages always start at the top.
@@ -560,6 +576,7 @@ async function initApp() {
     try {
         navStack.push(originalPage || '');
         render(navStack[0]);
+        try { await populatePlannedRides(); } catch(e) { console.error('populatePlannedRides post-render failed', e); }
     } catch (e) { console.error('initApp: initial render failed', e); }
 }
 
