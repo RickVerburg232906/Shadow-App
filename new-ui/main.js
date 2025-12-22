@@ -285,10 +285,10 @@ const memberInfoPage = `
                 </div>
                 <div class="flex-1">
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-0.5">Jaarhanger</p>
-                    <p class="text-[#0e121a] dark:text-white font-semibold">2024 Editie</p>
+                    <p id="member-jaarhanger-edition" class="text-[#0e121a] dark:text-white font-semibold"></p>
                 </div>
-                <div class="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded text-xs font-medium">
-                    Nog ophalen
+                <div id="member-choice-jaarhanger-status" class="w-9 h-9 flex items-center justify-center rounded-full">
+                    <span class="text-xs font-medium text-gray-500">Nog ophalen</span>
                 </div>
             </div>
         </div>
@@ -342,6 +342,11 @@ function render(html) {
             if (nameEl) nameEl.textContent = (selectedMember && selectedMember.name) ? selectedMember.name : '';
             if (numEl) numEl.textContent = (selectedMember && selectedMember.lidnummer) ? selectedMember.lidnummer : '';
             if (regionEl) regionEl.textContent = (selectedMember && selectedMember.regio) ? selectedMember.regio : '';
+            // Set jaarhanger edition to current year
+            try {
+                const editionEl = document.getElementById('member-jaarhanger-edition');
+                if (editionEl) editionEl.textContent = `${new Date().getFullYear()} Editie`;
+            } catch (e) { console.error('setting jaarhanger edition failed', e); }
             // Populate lunch choice text and status if present
             try {
                 const lunchTextEl = document.getElementById('member-choice-lunch-text');
@@ -370,6 +375,28 @@ function render(html) {
                         lunchStatusEl.className = 'w-9 h-9 flex items-center justify-center rounded-full';
                     }
                 }
+                // Jaarhanger status icon (mirror of lunch status behavior)
+                try {
+                    const jaarStatusEl = document.getElementById('member-choice-jaarhanger-status');
+                    if (jaarStatusEl) {
+                        if (selectedMember) {
+                            const jpart = selectedMember.jaarhanger ?? null;
+                            if (jpart === 'no') {
+                                jaarStatusEl.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-accent-red/10 dark:bg-accent-red/20 text-accent-red';
+                                jaarStatusEl.innerHTML = '<span class="material-symbols-outlined text-[16px] leading-none">close</span>';
+                            } else if (jpart === 'yes') {
+                                jaarStatusEl.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+                                jaarStatusEl.innerHTML = '<span class="material-symbols-outlined text-[16px] leading-none">check</span>';
+                            } else {
+                                jaarStatusEl.className = 'w-9 h-9 flex items-center justify-center rounded-full';
+                                jaarStatusEl.innerHTML = '<span class="text-xs font-medium text-gray-500">Nog ophalen</span>';
+                            }
+                        } else {
+                            jaarStatusEl.className = 'w-9 h-9 flex items-center justify-center rounded-full';
+                            jaarStatusEl.innerHTML = '<span class="text-xs font-medium text-gray-500">Nog ophalen</span>';
+                        }
+                    }
+                } catch (e) { console.error('setting jaarhanger status failed', e); }
             } catch (e) { console.error('setting member lunch choice failed', e); }
         } catch (e) { console.error('setting member info failed', e); }
     } catch (e) { console.error('render post-fill check failed', e); }
@@ -485,8 +512,15 @@ function delegatedClickHandler(ev) {
         if (confirmLunch || confirmJaar) {
             const clicked = confirmJaar || confirmLunch;
             if (clicked.disabled) return;
-            // If the jaarhanger confirm was clicked, go to member info
+            // If the jaarhanger confirm was clicked, capture jaarhanger participation then go to member info
             if (confirmJaar) {
+                try {
+                    const partEl = withinContainer.querySelector('input[name="participation"]:checked');
+                    const part = partEl ? partEl.value : null;
+                    if (!selectedMember) selectedMember = {};
+                    // store as 'yes' or 'no' (or null)
+                    selectedMember.jaarhanger = part;
+                } catch (e) { console.error('capturing jaarhanger participation failed', e); }
                 try { pushPage(memberInfoPage); } catch (e) { console.error('pushPage memberInfoPage failed', e); }
                 return;
             }
