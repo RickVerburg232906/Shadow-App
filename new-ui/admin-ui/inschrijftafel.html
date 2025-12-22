@@ -82,14 +82,14 @@
   </style>
   </head>
 <body class="bg-background-light dark:bg-background-dark text-text-main">
-<div class="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-xl bg-background-light">
+<div class="relative flex h-full min-h-screen w-screen flex-col overflow-x-hidden shadow-xl bg-background-light">
 <div class="flex items-center bg-surface p-4 pb-3 justify-between sticky top-0 z-50 shadow-sm">
 <div class="text-text-main flex size-12 shrink-0 items-center justify-start cursor-pointer" onclick="history.back()" role="button" tabindex="0">
 <span class="material-symbols-outlined text-3xl">arrow_back</span>
 </div>
 <h2 class="text-primary text-xl font-extrabold leading-tight tracking-[-0.015em] flex-1 text-center">Inschrijftafel</h2>
 <div class="flex w-12 items-center justify-end">
-<div class="size-10 bg-primary/10 rounded-full flex items-center justify-center cursor-pointer">
+<div id="hamburger-btn" class="size-10 bg-primary/10 rounded-full flex items-center justify-center cursor-pointer" role="button" title="Menu">
 <span class="material-symbols-outlined text-primary">menu</span>
 </div>
 </div>
@@ -197,7 +197,7 @@
 </div>
 </div>
 </div>
-<div>
+<div id="historie-section">
 <h3 class="text-text-main text-lg font-bold mb-3 px-1">Eerdere Ritten Registreren</h3>
 <div class="flex flex-col items-start justify-between gap-4 rounded-xl border border-slate-200 bg-surface p-5 shadow-sm">
 <div class="flex items-start gap-4">
@@ -211,10 +211,24 @@
 </div>
 <button class="flex w-full cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-transparent border-2 border-secondary text-yellow-700 text-sm font-bold hover:bg-secondary/10 transition-colors gap-2">
 <span class="material-symbols-outlined text-lg">edit_calendar</span>
-                        Rit Registreren
-                    </button>
+            Rit Registreren
+          </button>
 </div>
 </div>
 </div>
 </div>
+<script>
+  (function(){
+    try {
+      const role = (localStorage.getItem('role') || '').trim();
+      // Only show admin-only UI for role === 'admin'
+      if (role !== 'admin') {
+        try { const h = document.getElementById('hamburger-btn'); if (h) h.style.display = 'none'; } catch(_){}
+        try { const sec = document.getElementById('historie-section'); if (sec) sec.style.display = 'none'; } catch(_){}
+      }
+    } catch (e) {
+      console.error('role-visibility script error', e);
+    }
+  })();
+</script>
 </body></html>
