@@ -8,7 +8,8 @@
     "build": "vite build && node scripts/copy-static.js",
     "serve:dist": "npx http-server dist -p 8080 --cors",
     "preview": "vite preview --port 4173",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "new-ui": "npm run dev --prefix new-ui"
   },
   "engines": {
     "node": ">=18 <21"
