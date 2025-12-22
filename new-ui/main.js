@@ -144,10 +144,10 @@ function render(html) {
                                         const isScanned = scans.includes(pd);
                                         const title = `Rit ${pd}`;
                                         if (isScanned) {
-                                            return `<span title="${title}" class="material-symbols-outlined text-accent-yellow text-[32px] font-variation-settings-fill">star</span>`;
-                                        } else {
-                                            return `<span title="${title}" class="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[32px]">star</span>`;
-                                        }
+                                                return `<span title="${title}" class="material-symbols-outlined text-accent-yellow text-[32px]" style="font-variation-settings: 'FILL' 1, 'wght' 400; -webkit-font-variation-settings: 'FILL' 1, 'wght' 400;">star</span>`;
+                                            } else {
+                                                return `<span title="${title}" class="material-symbols-outlined text-gray-300 dark:text-gray-600 text-[32px]" style="font-variation-settings: 'FILL' 0, 'wght' 400; -webkit-font-variation-settings: 'FILL' 0, 'wght' 400;">star</span>`;
+                                            }
                                     }).join('');
                                     if (html) starsContainer.innerHTML = html; else starsContainer.innerHTML = `<div class="text-sm text-gray-500">Geen geplande ritten</div>`;
                                     try {
