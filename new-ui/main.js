@@ -57,6 +57,40 @@ export function attachScanLockListener(memberId, options = {}) {
                         if (iconEl) {
                             try { iconEl.innerHTML = '<span class="material-symbols-outlined">lock</span>'; } catch(_){}
                         }
+                        // Also lock check-in controls if present
+                        try {
+                            const saveBtn = document.getElementById('save-qr-button');
+                            if (saveBtn) { saveBtn.disabled = true; saveBtn.setAttribute('aria-disabled','true'); saveBtn.classList.add('opacity-50'); }
+                            const qrImg = document.getElementById('checkin-qr-img');
+                            if (qrImg) {
+                                qrImg.style.filter = 'grayscale(70%)'; qrImg.title = 'Ingeschreven';
+                                try {
+                                    const container = qrImg.parentElement || qrImg.closest('div');
+                                    if (container) {
+                                        container.style.position = container.style.position || 'relative';
+                                        let overlay = container.querySelector('#checkin-qr-overlay');
+                                        if (!overlay) {
+                                            overlay = document.createElement('div');
+                                            overlay.id = 'checkin-qr-overlay';
+                                            overlay.style.position = 'absolute';
+                                            overlay.style.left = '0';
+                                            overlay.style.top = '0';
+                                            overlay.style.width = '100%';
+                                            overlay.style.height = '100%';
+                                            overlay.style.display = 'flex';
+                                            overlay.style.alignItems = 'center';
+                                            overlay.style.justifyContent = 'center';
+                                            overlay.style.background = 'rgba(0,0,0,0.45)';
+                                            overlay.style.color = 'white';
+                                            overlay.style.borderRadius = '8px';
+                                            overlay.style.zIndex = '9999';
+                                            overlay.innerHTML = `<div style="text-align:center"><div class=\"material-symbols-outlined\" style=\"font-size:36px;line-height:1;\">lock</div><div style=\"margin-top:8px;font-weight:700;\">Ingeschreven</div></div>`;
+                                            container.appendChild(overlay);
+                                        }
+                                    }
+                                } catch (_) {}
+                            }
+                        } catch (_) {}
                     } else {
                         if (summaryEl) {
                             delete summaryEl.dataset.locked;
@@ -71,6 +105,20 @@ export function attachScanLockListener(memberId, options = {}) {
                                 else iconEl.innerHTML = '<span class="material-symbols-outlined">touch_app</span>';
                             } catch(_){}
                         }
+                        // Also unlock check-in controls
+                        try {
+                            const saveBtn = document.getElementById('save-qr-button');
+                            if (saveBtn) { saveBtn.disabled = false; saveBtn.removeAttribute('aria-disabled'); saveBtn.classList.remove('opacity-50'); }
+                            const qrImg = document.getElementById('checkin-qr-img');
+                            if (qrImg) { qrImg.style.removeProperty('filter'); qrImg.title = ''; }
+                            try {
+                                const container = qrImg ? (qrImg.parentElement || qrImg.closest('div')) : null;
+                                if (container) {
+                                    const overlay = container.querySelector('#checkin-qr-overlay');
+                                    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                                }
+                            } catch (_) {}
+                        } catch (_) {}
                     }
                 } catch (e) { console.warn('attachScanLockListener UI update failed', e); }
             } catch (e) { console.error('attachScanLockListener snapshot handler error', e); }
@@ -190,15 +238,21 @@ function render(html) {
                         lunchTextEl.textContent = '';
                     }
                 }
-                // Attach scan-lock listener for member pages so lunch summary locks when scanned today
+                // Attach scan-lock listener for member pages so lunch and jaarhanger summaries lock when scanned today
                 try {
-                    const iconEl = document.querySelector('#member-lunch-summary .ml-2');
-                    if (iconEl && !iconEl.dataset.defaultIcon) iconEl.dataset.defaultIcon = iconEl.innerHTML || '<span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>';
+                    const lunchIconEl = document.querySelector('#member-lunch-summary .ml-2');
+                    const jaarIconEl = document.querySelector('#member-jaarhanger-summary .ml-2');
+                    if (lunchIconEl && !lunchIconEl.dataset.defaultIcon) lunchIconEl.dataset.defaultIcon = lunchIconEl.innerHTML || '<span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>';
+                    if (jaarIconEl && !jaarIconEl.dataset.defaultIcon) jaarIconEl.dataset.defaultIcon = lunchIconEl && lunchIconEl.dataset.defaultIcon ? lunchIconEl.dataset.defaultIcon : (jaarIconEl.innerHTML || '<span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>');
                     if (selectedMember) {
-                        // unsubscribe previous listener if any
-                        try { if (selectedMember._scanLockUnsub && typeof selectedMember._scanLockUnsub === 'function') selectedMember._scanLockUnsub(); } catch(_){}
+                        // unsubscribe previous listeners if any
+                        try { if (selectedMember._scanLockUnsub && typeof selectedMember._scanLockUnsub === 'function') selectedMember._scanLockUnsub(); } catch(_){ }
+                        try { if (selectedMember._scanLockUnsubJaar && typeof selectedMember._scanLockUnsubJaar === 'function') selectedMember._scanLockUnsubJaar(); } catch(_){ }
                         const memberId = (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId) ? (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId) : null;
-                        if (memberId) selectedMember._scanLockUnsub = attachScanLockListener(memberId, { summarySelector: '#member-lunch-summary', iconSelector: '#member-lunch-summary .ml-2' });
+                        if (memberId) {
+                            selectedMember._scanLockUnsub = attachScanLockListener(memberId, { summarySelector: '#member-lunch-summary', iconSelector: '#member-lunch-summary .ml-2' });
+                            selectedMember._scanLockUnsubJaar = attachScanLockListener(memberId, { summarySelector: '#member-jaarhanger-summary', iconSelector: '#member-jaarhanger-summary .ml-2' });
+                        }
                     }
                 } catch (e) { console.error('attach scan lock listener failed', e); }
                 if (lunchStatusEl) {
