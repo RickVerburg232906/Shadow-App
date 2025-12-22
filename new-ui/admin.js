@@ -284,6 +284,25 @@ export async function initInschrijftafel() {
             }, { fps: 10, qrbox: 250 });
             running = res && res.scannerInstance ? res.scannerInstance : null;
             try { startBtn.innerHTML = '<span class="material-symbols-outlined">stop</span> Stop Scanner'; } catch(_){ }
+            // Ensure the scanner preview is visible: scroll the reader (or its parent) into view
+            try {
+              const root = document.getElementById('adminQRReader');
+              const previewParent = root && root.parentElement ? root.parentElement : null;
+              // delay slightly to allow layout changes to take effect
+              setTimeout(() => {
+                try {
+                  const vp = previewParent || root;
+                  if (vp && typeof window !== 'undefined') {
+                    const rect = vp.getBoundingClientRect();
+                    const offset = Math.round(window.innerHeight * 0.1); // place viewer ~10% from top
+                    const target = Math.max(0, window.scrollY + rect.top - offset);
+                    window.scrollTo({ top: target, behavior: 'smooth' });
+                  } else if (vp && typeof vp.scrollIntoView === 'function') {
+                    vp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                } catch (_) {}
+              }, 120);
+            } catch (_) {}
           } catch (e) { console.error('scanner start failed', e); alert('Kon scanner niet starten'); }
         });
       }
