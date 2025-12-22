@@ -254,7 +254,7 @@ const memberInfoPage = `
         <div class="flex flex-col items-center justify-center space-y-1">
             <h1 id="member-name" class="text-primary dark:text-blue-400 text-2xl font-bold tracking-tight text-center"></h1>
             <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">badge</span> Lidnummer: <span id="member-number" class="ml-1"></span></span>
+                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">badge</span> <span id="member-number" class="ml-1"></span></span>
                 <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">location_on</span> <span id="member-region" class="ml-1"></span></span>
             </div>
         </div>
@@ -282,7 +282,7 @@ const memberInfoPage = `
                 <div id="member-choice-lunch-status" class="w-9 h-9 flex items-center justify-center rounded-full">
                     <span class="material-symbols-outlined text-[16px] leading-none">check</span>
                 </div>
-                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 px-2 py-0.5 rounded-full bg-primary/5 dark:bg-primary/10">
+                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 w-8 h-8 rounded-full bg-primary/5 dark:bg-primary/10 shrink-0">
                     <span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>
                 </div>
             </div>
@@ -297,24 +297,28 @@ const memberInfoPage = `
                 <div id="member-choice-jaarhanger-status" class="w-9 h-9 flex items-center justify-center rounded-full">
                     <span class="text-xs font-medium text-gray-500">Nog ophalen</span>
                 </div>
-                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 px-2 py-0.5 rounded-full bg-primary/5 dark:bg-primary/10">
+                <div class="ml-2 md:hidden flex items-center justify-center text-[11px] text-primary/90 w-8 h-8 rounded-full bg-primary/5 dark:bg-primary/10 shrink-0">
                     <span class="material-symbols-outlined text-[14px] leading-none">touch_app</span>
                 </div>
             </div>
         </div>
     </section>
     <section class="mt-4 flex flex-col items-center">
-        <div class="w-full bg-white rounded-2xl p-6 shadow-md border border-gray-100 flex flex-col items-center gap-4">
+        <div class="w-full bg-white rounded-2xl p-6 shadow-md border border-gray-100 flex flex-col items-center gap-3">
             <div class="text-center">
                 <h4 class="text-[#0e121a] font-bold text-lg">Check-in</h4>
                 <p class="text-gray-500 text-sm">Scan deze code bij aankomst</p>
             </div>
-            <div class="p-2 bg-white rounded-xl border-2 border-dashed border-gray-200">
-                <img alt="QR Code for member check-in" class="w-48 h-48 mix-blend-multiply" data-alt="Black and white QR code for check-in scanning" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBF3MINnSD61Cj-u6sOx3PbqTDtZwzRbuDIOq6aCZRWu8exggxk0w89l3_iuz6Zr-gFFrpukoJzGc3wCDuqoGZnD7uQ53MTErwR32MQGjkt4iaWAPnR5jYLzTLdAqcqn6RQPsaAr1aambtFc0T-nNewJvQBNHEsbT8ZIzKYyY_viKbBjOHkexbrgx-ox5SPVKd9QB0lSkp42rlIMuIq5XyPfqE82gEgUmLJAkxZKMfKxlEmlFeRoh6zbt9Sv7FXOJGq7SkSQ0F-6WKQ" />
-            </div>
-            <div class="flex items-center gap-2 text-primary text-sm font-medium">
-                <span class="material-symbols-outlined text-[18px]">brightness_high</span>
-                <span>Helderheid verhogen voor scannen</span>
+            <div class="w-full flex flex-col items-center">
+                <button id="save-qr-button" aria-label="Sla QR op" title="Sla QR op" class="mb-3 inline-flex items-center gap-3 px-5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold rounded-full shadow-md">
+                    <span class="bg-white/10 dark:bg-white/10 p-2 rounded-full flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[18px]">download</span>
+                    </span>
+                    <span>Sla QR op</span>
+                </button>
+                <div class="p-2 bg-white rounded-xl border-2 border-dashed border-gray-200">
+                    <img id="checkin-qr-img" alt="QR Code for member check-in" class="w-48 h-48 object-contain rounded-md" data-alt="Black and white QR code for check-in scanning" src="" />
+                </div>
             </div>
         </div>
     </section>
@@ -454,6 +458,23 @@ function render(html) {
                                             countEl.textContent = `${matched} / ${planned.length}`;
                                         }
                                     } catch (e) { console.error('updating member ridden count failed', e); }
+                                    // Generate check-in QR code for this member's choices
+                                    try {
+                                        const qrImg = document.getElementById('checkin-qr-img');
+                                        if (qrImg) {
+                                            const payload = {
+                                                lunchKeuze: (selectedMember && selectedMember.lunchChoice) ? selectedMember.lunchChoice : '',
+                                                lunchDeelname: (selectedMember && selectedMember.participation) ? selectedMember.participation : '',
+                                                Jaarhanger: (selectedMember && typeof selectedMember.jaarhanger !== 'undefined' && selectedMember.jaarhanger !== null) ? selectedMember.jaarhanger : ''
+                                            };
+                                            const dataStr = JSON.stringify(payload);
+                                            // Use external QR generation service to produce a PNG URL
+                                            const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=' + encodeURIComponent(dataStr);
+                                            qrImg.src = qrUrl;
+                                            qrImg.alt = `QR: ${dataStr}`;
+                                            qrImg.setAttribute('data-qrcode-payload', dataStr);
+                                        }
+                                    } catch (e) { console.error('generating checkin QR failed', e); }
                                 } catch (e) { console.error('rendering member stars failed', e); }
                             }).catch(e => { console.error('getPlannedDates failed for member stars', e); if (document.getElementById('member-stars')) document.getElementById('member-stars').innerHTML = '<div class="text-sm text-gray-500">Fout bij laden</div>'; });
                         }
@@ -691,6 +712,53 @@ function delegatedClickHandler(ev) {
             } catch (e) { console.error('home button handler failed', e); }
             return;
         }
+
+        // Save QR button: download or share the generated QR image
+        const saveQr = ev.target.closest('#save-qr-button');
+        if (saveQr) {
+            try {
+                const qrImg = document.getElementById('checkin-qr-img');
+                if (!qrImg || !qrImg.src) {
+                    console.warn('save-qr: QR image not found or empty');
+                    return;
+                }
+                const src = qrImg.src;
+                fetch(src, { mode: 'cors' }).then(res => res.blob()).then(blob => {
+                    const nameBase = (selectedMember && selectedMember.lidnummer) ? `QR_${selectedMember.lidnummer}` : `qr`;
+                    const filename = `${nameBase}.png`;
+                    const tryShare = async () => {
+                        try {
+                            const file = new File([blob], filename, { type: blob.type });
+                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                await navigator.share({ files: [file], title: 'Check-in QR' });
+                                return true;
+                            }
+                        } catch (e) {
+                            // ignore share errors and fall back to download
+                        }
+                        return false;
+                    };
+                    const fallbackDownload = () => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        setTimeout(() => URL.revokeObjectURL(url), 1500);
+                    };
+                    tryShare().then(didShare => { if (!didShare) fallbackDownload(); });
+                }).catch(err => {
+                    console.error('save-qr: fetch failed', err);
+                    // fallback: open the image in a new tab so user can save manually
+                    try { window.open(src, '_blank'); } catch(_){}
+                });
+            } catch (e) { console.error('save-qr handler failed', e); }
+            return;
+        }
+
+        
 
         // If user clicks the lunch summary on the member-info page, navigate back to the lunch page
         const lunchSummaryClick = ev.target.closest('#member-lunch-summary') || ev.target.closest('#member-choice-lunch-text') || ev.target.closest('#member-choice-lunch-status');
