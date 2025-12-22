@@ -1,6 +1,6 @@
 // New UI main script
 
-import { getPlannedDates, searchMembers } from './firestore.js';
+import { getPlannedDates, searchMembers, getLunchOptions } from './firestore.js';
 
 console.log('New UI loaded');
 
@@ -158,17 +158,7 @@ const lunchPage = `
             <span class="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 ring-1 ring-inset ring-gray-500/10">Iedereen ontvangt</span>
         </div>
         <div class="overflow-hidden rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card">
-            <div class="relative flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
-                <div class="flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white">Tuinsalade</p></div>
-            </div>
-            <div class="h-px w-full bg-gray-100 dark:bg-gray-700"></div>
-            <div class="relative flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
-                <div class="flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white">Tomaten-basilicumsoep</p></div>
-            </div>
-            <div class="h-px w-full bg-gray-100 dark:bg-gray-700"></div>
-            <div class="relative flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
-                <div class="flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white">Vers Broodje</p></div>
-            </div>
+            <div id="vastEtenList" class="flex flex-col"></div>
         </div>
     </section>
 
@@ -177,26 +167,11 @@ const lunchPage = `
             <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Keuze Eten</h3>
             <span class="inline-flex items-center rounded-md bg-secondary-yellow/10 px-2 py-1 text-xs font-bold text-yellow-700 dark:text-secondary-yellow ring-1 ring-inset ring-secondary-yellow/20">Kies één</span>
         </div>
-        <div class="flex flex-col gap-3">
-            <label class="cursor-pointer relative group">
-                <input checked class="choice-card-input sr-only" name="main_course" type="radio" value="chicken" />
-                <div class="choice-card relative flex items-center gap-4 rounded-2xl border-2 border-transparent bg-surface-light dark:bg-surface-dark p-4 shadow-card transition-all hover:shadow-card-hover min-h-[88px]">
-                    <div class="flex flex-col justify-center py-0.5 pr-8 flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white leading-tight">Gegrilde Kipfilet</p></div>
-                    <div class="check-circle absolute right-4 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-gray-300 text-transparent transition-all dark:border-gray-600"><span class="material-symbols-outlined text-[16px] font-bold">check</span></div>
-                </div>
-            </label>
-            <label class="cursor-pointer relative group">
-                <input class="choice-card-input sr-only" name="main_course" type="radio" value="vegetarian" />
-                <div class="choice-card relative flex items-center gap-4 rounded-2xl border-2 border-transparent bg-surface-light dark:bg-surface-dark p-4 shadow-card transition-all hover:shadow-card-hover min-h-[88px]">
-                    <div class="flex flex-col justify-center py-0.5 pr-8 flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white leading-tight">Geroosterde Groentelasagne</p></div>
-                    <div class="check-circle absolute right-4 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-gray-300 text-transparent transition-all dark:border-gray-600"><span class="material-symbols-outlined text-[16px] font-bold">check</span></div>
-                </div>
-            </label>
-        </div>
+        <div id="keuzeEtenList" class="flex flex-col gap-3"></div>
     </section>
 </main>
 <footer class="fixed bottom-0 left-0 right-0 z-30 bg-surface-light dark:bg-surface-dark border-t border-gray-200 dark:border-gray-800 pt-4 pb-8 px-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
-    <button class="relative w-full overflow-hidden rounded-2xl bg-primary h-14 flex items-center justify-center font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 hover:shadow-primary/40 active:scale-[0.98]">
+    <button id="confirm-lunch-button" disabled aria-disabled="true" class="relative w-full overflow-hidden rounded-2xl bg-primary/80 h-14 flex items-center justify-center font-bold text-white shadow-lg shadow-primary/25 transition-all opacity-50">
         <span class="relative z-10 flex items-center justify-center"><span>Keuze Bevestigen</span></span>
     </button>
 </footer>`;
@@ -254,6 +229,8 @@ function delegatedClickHandler(ev) {
         const cont = ev.target.closest('#continue-button');
         if (cont && !cont.disabled) {
             pushPage(lunchPage);
+            // After rendering lunchPage, populate options from Firestore
+            try { fillLunchOptions().catch(e=>console.error('fillLunchOptions failed',e)); } catch(_) {}
             return;
         }
 
@@ -262,6 +239,8 @@ function delegatedClickHandler(ev) {
             popPage();
             return;
         }
+
+        
     } catch (err) {
         console.error('delegatedClickHandler error', err);
     }
@@ -429,21 +408,141 @@ function delegatedChangeHandler(ev) {
     try {
         const target = ev.target;
         if (!target) return;
-        if (target.name !== 'participation') return;
-        const footerBtn = document.querySelector('footer button');
-        if (!footerBtn) return;
-        const footerSpan = footerBtn.querySelector('span span') || footerBtn.querySelector('span');
-        const sections = document.querySelectorAll('main section:not(:first-child)');
-        if (target.value === 'no') {
-            footerBtn.style.background = '#8C2B07';
-            if (footerSpan) footerSpan.innerText = 'Afwezigheid Bevestigen';
-            sections.forEach(sec => { sec.style.opacity = '0.3'; sec.style.pointerEvents = 'none'; });
-        } else {
-            footerBtn.style.background = '';
-            if (footerSpan) footerSpan.innerText = 'Keuze Bevestigen';
-            sections.forEach(sec => { sec.style.opacity = '1'; sec.style.pointerEvents = 'auto'; });
+        // Participation radios (Ja/Nee)
+        if (target.name === 'participation') {
+            const footerBtn = document.querySelector('footer button');
+            if (!footerBtn) return;
+            const footerSpan = footerBtn.querySelector('span span') || footerBtn.querySelector('span');
+            const sections = document.querySelectorAll('main section:not(:first-child)');
+            if (target.value === 'no') {
+                footerBtn.style.background = '#8C2B07';
+                if (footerSpan) footerSpan.innerText = 'Afwezigheid Bevestigen';
+                sections.forEach(sec => { sec.style.opacity = '0.3'; sec.style.pointerEvents = 'none'; });
+                // Clear any keuze-eten selections when user chooses 'nee'
+                try {
+                    const keuzeContainer = document.getElementById('keuzeEtenList');
+                    if (keuzeContainer) {
+                        const inputs = Array.from(keuzeContainer.querySelectorAll('input[name="main_course"]'));
+                        inputs.forEach(i => {
+                            try { i.checked = false; } catch(_) {}
+                            const lbl = i.closest('label');
+                            if (lbl) lbl.classList.remove('active');
+                        });
+                    }
+                } catch (e) { console.error('clearing keuze selections failed', e); }
+            } else {
+                footerBtn.style.background = '';
+                if (footerSpan) footerSpan.innerText = 'Keuze Bevestigen';
+                sections.forEach(sec => { sec.style.opacity = '1'; sec.style.pointerEvents = 'auto'; });
+            }
+            try { updateConfirmButtonState(); } catch(_){}
+            return;
+        }
+
+        // Keuze eten radios (main_course) — toggle active class on label
+        if (target.name === 'main_course') {
+            try {
+                const container = document.getElementById('keuzeEtenList');
+                if (!container) return;
+                const inputs = Array.from(container.querySelectorAll('input[name="main_course"]'));
+                inputs.forEach(i => {
+                    const lbl = i.closest('label');
+                    if (!lbl) return;
+                    if (i === target || i.checked) lbl.classList.add('active'); else lbl.classList.remove('active');
+                });
+            } catch (e) { console.error('main_course change handler failed', e); }
+            try { updateConfirmButtonState(); } catch(_){}
+            return;
         }
     } catch (e) {
         console.error('delegatedChangeHandler error', e);
     }
 }
+
+// Populate lunch page placeholders with data from Firestore
+async function fillLunchOptions() {
+    try {
+        const opts = await getLunchOptions();
+        const vast = Array.isArray(opts?.vastEten) ? opts.vastEten : [];
+        const keuze = Array.isArray(opts?.keuzeEten) ? opts.keuzeEten : [];
+
+        const vastEl = document.getElementById('vastEtenList');
+        const keuzeEl = document.getElementById('keuzeEtenList');
+        if (vastEl) {
+            if (vast.length === 0) {
+                vastEl.innerHTML = `<div class="p-4 text-sm text-gray-500">Geen vast menu beschikbaar</div>`;
+            } else {
+                vastEl.innerHTML = vast.map((item, idx) => `
+                    <div class="relative flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                        <div class="flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white">${escapeHtml(String(item))}</p></div>
+                    </div>
+                    ${idx < vast.length-1 ? '<div class="h-px w-full bg-gray-100 dark:bg-gray-700"></div>' : ''}`
+                ).join('\n');
+            }
+        }
+        if (keuzeEl) {
+            const keuzeSection = keuzeEl.closest('section');
+            if (!keuze || keuze.length === 0) {
+                keuzeEl.innerHTML = `<div class="p-4 text-sm text-gray-500">Geen keuze-eten opties beschikbaar</div>`;
+                try { if (keuzeSection) keuzeSection.style.display = 'none'; } catch(_) {}
+            } else {
+                try { if (keuzeSection) keuzeSection.style.display = ''; } catch(_) {}
+                // Build radio-like choice cards (keep same structure as original)
+                keuzeEl.innerHTML = keuze.map((item, idx) => {
+                    const val = String(item).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    return `
+                    <label class="cursor-pointer relative group">
+                        <input class="choice-card-input sr-only" name="main_course" type="radio" value="${escapeHtml(val)}" />
+                        <div class="choice-card relative flex items-center gap-4 rounded-2xl border-2 border-transparent bg-surface-light dark:bg-surface-dark p-3 shadow-card transition-all hover:shadow-card-hover min-h-[64px]">
+                            <div class="flex flex-col justify-center py-0.5 pr-8 flex-1 pl-2"><p class="text-base font-bold text-text-main dark:text-white leading-tight">${escapeHtml(String(item))}</p></div>
+                            <div class="check-circle absolute right-4 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-gray-300 text-transparent transition-all dark:border-gray-600"><span class="material-symbols-outlined text-[16px] font-bold">check</span></div>
+                        </div>
+                    </label>`;
+                }).join('\n');
+                
+            }
+        }
+    } catch (e) {
+        console.error('fillLunchOptions error', e);
+    }
+    // Ensure confirm button state reflects current selections after rendering
+    try { updateConfirmButtonState(); } catch(_){}
+}
+
+// Minimal HTML escaping for inserted strings
+function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]);
+}
+
+// Enable/disable the lunch confirm button based on selection rules
+function updateConfirmButtonState() {
+    try {
+        const btn = document.getElementById('confirm-lunch-button');
+        if (!btn) return;
+        // find selected participation
+        const part = document.querySelector('input[name="participation"]:checked');
+        if (!part) {
+            btn.disabled = true; btn.classList.add('opacity-50'); btn.setAttribute('aria-disabled','true');
+            return;
+        }
+        if (part.value === 'no') {
+            btn.disabled = false; btn.classList.remove('opacity-50'); btn.removeAttribute('aria-disabled');
+            return;
+        }
+        // part.value === 'yes'
+        // If there are keuze options, require one to be selected
+        const keuzeContainer = document.getElementById('keuzeEtenList');
+        if (!keuzeContainer) { btn.disabled = false; btn.classList.remove('opacity-50'); btn.removeAttribute('aria-disabled'); return; }
+        const keuzeInputs = Array.from(keuzeContainer.querySelectorAll('input[name="main_course"]'));
+        if (!keuzeInputs || keuzeInputs.length === 0) {
+            // no choices available, allow confirm
+            btn.disabled = false; btn.classList.remove('opacity-50'); btn.removeAttribute('aria-disabled');
+            return;
+        }
+        const anyChecked = keuzeInputs.some(i => i.checked);
+        if (anyChecked) { btn.disabled = false; btn.classList.remove('opacity-50'); btn.removeAttribute('aria-disabled'); }
+        else { btn.disabled = true; btn.classList.add('opacity-50'); btn.setAttribute('aria-disabled','true'); }
+    } catch (e) { console.error('updateConfirmButtonState failed', e); }
+}
+
+// (removed experimental keuze click/pointer handlers)

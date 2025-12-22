@@ -33,6 +33,28 @@
             },
         }
     </script>
+    <style>
+      /* Visual indication for selected `keuze-eten` cards */
+      #keuzeEtenList label input[name="main_course"] { position: absolute; left: -9999px; }
+      #keuzeEtenList label input[name="main_course"]:checked + .choice-card {
+        border-color: #163e8d !important;
+        background-color: #163e8d !important;
+        color: #ffffff !important;
+        box-shadow: 0 10px 24px rgba(22,62,141,0.12);
+      }
+      #keuzeEtenList label input[name="main_course"]:checked + .choice-card p {
+        color: #ffffff !important;
+      }
+      #keuzeEtenList label input[name="main_course"]:checked + .choice-card .check-circle {
+        border-color: #ffffff !important;
+        background: #ffffff !important;
+        color: #163e8d !important;
+      }
+      /* Also style when a label has .active */
+      #keuzeEtenList label.active .choice-card { border-color:#163e8d; background:#163e8d; color:#fff; }
+      #keuzeEtenList label.active .choice-card p { color: #fff; }
+      #keuzeEtenList label.active .choice-card .check-circle { border-color:#fff; background:#fff; color:#163e8d; }
+    </style>
 <style>
     body {
       min-height: max(884px, 100dvh);

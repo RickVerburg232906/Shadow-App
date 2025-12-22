@@ -153,3 +153,30 @@ export async function searchMembers(prefix, maxResults = 8) {
     return [];
   }
 }
+
+// Fetch lunch options from `globals/lunch` document. Returns { vastEten: [], keuzeEten: [] }
+export async function getLunchOptions() {
+  try {
+    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfigDev.apiKey}`;
+    const res = await fetch(url, { method: 'GET', credentials: 'omit' });
+    if (!res.ok) {
+      console.warn('getLunchOptions: fetch failed', res.status, res.statusText);
+      return { vastEten: [], keuzeEten: [] };
+    }
+    const data = await res.json();
+    const fields = data && data.fields ? data.fields : {};
+    const parseArrayField = (f) => {
+      try {
+        if (!f) return [];
+        const arr = f.arrayValue && Array.isArray(f.arrayValue.values) ? f.arrayValue.values : [];
+        return arr.map(v => parseFirestoreValue(v)).filter(Boolean);
+      } catch (_) { return []; }
+    };
+    const vast = parseArrayField(fields.vastEten);
+    const keuze = parseArrayField(fields.keuzeEten);
+    return { vastEten: vast, keuzeEten: keuze };
+  } catch (e) {
+    console.error('getLunchOptions error', e);
+    return { vastEten: [], keuzeEten: [] };
+  }
+}
