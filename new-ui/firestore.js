@@ -254,14 +254,29 @@ export async function getLunchChoiceCount(choice) {
     if (!choice) return 0;
     const apiKey = firebaseConfigDev.apiKey;
     const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const nowIso = new Date().toISOString();
     const body = {
       structuredQuery: {
         from: [{ collectionId: 'members' }],
         where: {
-          fieldFilter: {
-            field: { fieldPath: 'lunchKeuze' },
-            op: 'EQUAL',
-            value: { stringValue: String(choice) }
+          compositeFilter: {
+            op: 'AND',
+            filters: [
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'lunchKeuze' },
+                  op: 'EQUAL',
+                  value: { stringValue: String(choice) }
+                }
+              },
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'lunchExpires' },
+                  op: 'GREATER_THAN',
+                  value: { timestampValue: nowIso }
+                }
+              }
+            ]
           }
         },
         // request a reasonably large page; adjust if you have >5000 members
@@ -270,7 +285,8 @@ export async function getLunchChoiceCount(choice) {
     };
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) {
-      console.warn('getLunchChoiceCount: runQuery failed', res.status, res.statusText);
+      const text = await res.text().catch(() => '<no body>');
+      console.warn('getLunchChoiceCount: runQuery failed', res.status, res.statusText, text);
       return 'ERROR';
     }
     const arr = await res.json();
@@ -303,14 +319,29 @@ export async function getParticipationCount(choice) {
     for (const v of variants) {
       if (!v) continue;
       if (seen.has(v)) continue; seen.add(v);
+      const nowIso = new Date().toISOString();
       const body = {
         structuredQuery: {
           from: [{ collectionId: 'members' }],
           where: {
-            fieldFilter: {
-              field: { fieldPath: 'lunchDeelname' },
-              op: 'EQUAL',
-              value: { stringValue: String(v) }
+            compositeFilter: {
+              op: 'AND',
+              filters: [
+                {
+                  fieldFilter: {
+                    field: { fieldPath: 'lunchDeelname' },
+                    op: 'EQUAL',
+                    value: { stringValue: String(v) }
+                  }
+                },
+                {
+                  fieldFilter: {
+                    field: { fieldPath: 'lunchExpires' },
+                    op: 'GREATER_THAN',
+                    value: { timestampValue: nowIso }
+                  }
+                }
+              ]
             }
           },
           limit: 5000
@@ -319,7 +350,8 @@ export async function getParticipationCount(choice) {
       try {
         const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!res.ok) {
-          console.warn('getParticipationCount: runQuery failed', res.status, res.statusText);
+          const text = await res.text().catch(() => '<no body>');
+          console.warn('getParticipationCount: runQuery failed', res.status, res.statusText, text);
           continue;
         }
         const arr = await res.json();
