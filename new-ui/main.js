@@ -431,8 +431,8 @@ function render(html) {
                             getPlannedDates().then(dates => {
                                 try {
                                     if (!Array.isArray(dates)) dates = [];
-                                    // normalize dates to YMD strings
-                                    const planned = dates.map(d => (typeof d === 'string' ? d.slice(0,10) : '')).filter(Boolean).slice(0,5);
+                                    // normalize dates to YMD strings (use all planned dates)
+                                    const planned = dates.map(d => (typeof d === 'string' ? d.slice(0,10) : '')).filter(Boolean);
                                     // get member scan dates normalized
                                     const scans = getMemberScanYMDs(selectedMember || {});
                                     console.debug('member stars: planned=', planned, 'scans=', scans);
