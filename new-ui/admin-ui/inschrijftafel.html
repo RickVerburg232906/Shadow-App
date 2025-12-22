@@ -100,30 +100,21 @@
 <div class="grid grid-cols-2 gap-3 mb-3">
 <div class="flex flex-col gap-1 rounded-xl p-3 bg-white shadow-sm border border-slate-100">
 <p class="text-text-sub text-xs font-medium uppercase tracking-wider">Mee-eten</p>
-<p class="text-primary tracking-tight text-3xl font-extrabold leading-tight">124</p>
-</div>
-<div class="flex flex-col gap-1 rounded-xl p-3 bg-white shadow-sm border border-slate-100 relative overflow-hidden">
-<div class="absolute right-0 top-0 p-2 opacity-10">
-<span class="material-symbols-outlined text-primary text-4xl">no_meals</span>
-</div>
-<p class="text-text-sub text-xs font-medium uppercase tracking-wider">Niet mee</p>
-<p class="text-text-sub tracking-tight text-3xl font-extrabold leading-tight">26</p>
-</div>
+<p id="count-yes" class="text-primary tracking-tight text-3xl font-extrabold leading-tight">…</p>
+ </div>
+ <div class="flex flex-col gap-1 rounded-xl p-3 bg-white shadow-sm border border-slate-100 relative overflow-hidden">
+ <div class="absolute right-0 top-0 p-2 opacity-10">
+ <span class="material-symbols-outlined text-primary text-4xl">no_meals</span>
+ </div>
+ <p class="text-text-sub text-xs font-medium uppercase tracking-wider">Niet mee</p>
+ <p id="count-no" class="text-text-sub tracking-tight text-3xl font-extrabold leading-tight">…</p>
+ </div>
 </div>
 <div class="flex flex-col gap-2 bg-secondary/10 rounded-xl p-4 shadow-sm border border-secondary/20">
-<p class="text-danger text-xs font-bold uppercase tracking-wider mb-1">Keuze maaltijden</p>
-<div class="flex items-center justify-between border-b border-secondary/20 pb-2 last:border-0 last:pb-0">
-<span class="text-text-main font-medium text-sm">Vegetarisch</span>
-<span class="text-danger font-extrabold text-lg">12</span>
-</div>
-<div class="flex items-center justify-between border-b border-secondary/20 pb-2 last:border-0 last:pb-0">
-<span class="text-text-main font-medium text-sm">Glutenvrij</span>
-<span class="text-danger font-extrabold text-lg">4</span>
-</div>
-<div class="flex items-center justify-between border-b border-secondary/20 pb-2 last:border-0 last:pb-0">
-<span class="text-text-main font-medium text-sm">Halal</span>
-<span class="text-danger font-extrabold text-lg">2</span>
-</div>
+  <p class="text-danger text-xs font-bold uppercase tracking-wider mb-1">Keuze maaltijden</p>
+  <div id="keuze-maaltijden-list">
+    <div class="text-text-sub text-sm">Laden...</div>
+  </div>
 </div>
 </div>
 <div class="flex flex-col items-stretch justify-start rounded-2xl shadow-sm bg-surface overflow-hidden border border-slate-100">
@@ -228,6 +219,63 @@
       }
     } catch (e) {
       console.error('role-visibility script error', e);
+    }
+  })();
+</script>
+<script type="module">
+  import { getLunchOptions, getLunchChoiceCount, getParticipationCount } from '../firestore.js';
+  (async function(){
+    try {
+      const container = document.getElementById('keuze-maaltijden-list');
+      if (!container) return;
+      container.innerHTML = '<div class="text-text-sub text-sm">Laden...</div>';
+      const opts = await getLunchOptions();
+      const keuze = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
+      if (keuze.length === 0) { container.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>'; return; }
+      // Render each choice with a placeholder count element
+      container.innerHTML = keuze.map((item, idx) => {
+        const id = 'choice-count-' + idx;
+        return `<div class="flex items-center justify-between border-b border-secondary/20 pb-2 last:border-0 last:pb-0">
+                  <span class="text-text-main font-medium text-sm">${String(item)}</span>
+                  <span id="${id}" class="text-danger font-extrabold text-lg">…</span>
+                </div>`;
+      }).join('');
+      // Fetch counts in parallel and update spans
+      keuze.forEach((item, idx) => {
+        (async () => {
+          const el = document.getElementById('choice-count-' + idx);
+          try {
+            const cnt = await getLunchChoiceCount(item);
+            const display = (typeof cnt === 'number' && isFinite(cnt)) ? String(cnt) : '0';
+            if (el) el.textContent = display;
+          } catch (e) {
+            console.error('count fetch error', e);
+            if (el) el.textContent = 'ERROR';
+          }
+        })();
+      });
+      // Update Mee-eten / Niet mee stats
+      (async function(){
+        try {
+          const yesEl = document.getElementById('count-yes');
+          const noEl = document.getElementById('count-no');
+          try {
+            const [yesCnt, noCnt] = await Promise.all([
+              getParticipationCount('yes'),
+              getParticipationCount('no')
+            ]);
+            if (yesEl) yesEl.textContent = String(isFinite(yesCnt) ? yesCnt : 0);
+            if (noEl) noEl.textContent = String(isFinite(noCnt) ? noCnt : 0);
+          } catch (e) {
+            console.error('participation counts error', e);
+            if (yesEl) yesEl.textContent = 'ERROR';
+            if (noEl) noEl.textContent = 'ERROR';
+          }
+        } catch (e) { console.error('update participation UI failed', e); }
+      })();
+    } catch (e) {
+      console.error('failed to load lunch options', e);
+      const c = document.getElementById('keuze-maaltijden-list'); if (c) c.innerHTML = '<div class="text-text-sub text-sm">Fout bij laden</div>';
     }
   })();
 </script>

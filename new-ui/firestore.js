@@ -224,3 +224,90 @@ export async function getMemberById(id) {
   }
     return out;
 }
+
+// Count members that have a given lunchChoice value. Uses runQuery to limit network usage.
+export async function getLunchChoiceCount(choice) {
+  try {
+    if (!choice) return 0;
+    const apiKey = firebaseConfigDev.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const body = {
+      structuredQuery: {
+        from: [{ collectionId: 'members' }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: 'lunchKeuze' },
+            op: 'EQUAL',
+            value: { stringValue: String(choice) }
+          }
+        },
+        // request a reasonably large page; adjust if you have >5000 members
+        limit: 5000
+      }
+    };
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      console.warn('getLunchChoiceCount: runQuery failed', res.status, res.statusText);
+      return 0;
+    }
+    const arr = await res.json();
+    let count = 0;
+    for (const entry of arr) {
+      if (entry && entry.document && entry.document.name) count++;
+    }
+    return count;
+  } catch (e) {
+    console.error('getLunchChoiceCount error', e);
+    return 0;
+  }
+}
+
+// Count members by participation value (handles 'yes'/'ja' and 'no'/'nee')
+export async function getParticipationCount(choice) {
+  try {
+    if (!choice) return 0;
+    const apiKey = firebaseConfigDev.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+
+    const variants = [];
+    const c = String(choice || '').toLowerCase();
+    if (c === 'yes' || c === 'ja') variants.push('yes', 'ja');
+    else if (c === 'no' || c === 'nee') variants.push('no', 'nee');
+    else variants.push(String(choice));
+
+    let total = 0;
+    const seen = new Set();
+    for (const v of variants) {
+      if (!v) continue;
+      if (seen.has(v)) continue; seen.add(v);
+      const body = {
+        structuredQuery: {
+          from: [{ collectionId: 'members' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'lunchDeelname' },
+              op: 'EQUAL',
+              value: { stringValue: String(v) }
+            }
+          },
+          limit: 5000
+        }
+      };
+      try {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.ok) {
+          console.warn('getParticipationCount: runQuery failed', res.status, res.statusText);
+          continue;
+        }
+        const arr = await res.json();
+        for (const entry of arr) if (entry && entry.document && entry.document.name) total++;
+      } catch (e) {
+        console.error('getParticipationCount fetch error for', v, e);
+      }
+    }
+    return total;
+  } catch (e) {
+    console.error('getParticipationCount error', e);
+    return 0;
+  }
+}
