@@ -180,3 +180,27 @@ export async function getLunchOptions() {
     return { vastEten: [], keuzeEten: [] };
   }
 }
+
+// Fetch a full member document by id and return parsed fields object
+export async function getMemberById(id) {
+  if (!id) return null;
+  const url = `${BASE_URL}/members/${encodeURIComponent(id)}?key=${firebaseConfigDev.apiKey}`;
+  const res = await fetch(url, { method: 'GET', credentials: 'omit' });
+    if (!res.ok) {
+        console.warn('getMemberById: fetch failed', res.status, res.statusText);
+        return null;
+    }
+    const data = await res.json();
+    if (!data || !data.fields) return null;
+    const out = {};
+  for (const k of Object.keys(data.fields)) {
+    const v = data.fields[k];
+    if (!v) { out[k] = null; continue; }
+    if (v.arrayValue && Array.isArray(v.arrayValue.values)) {
+      out[k] = v.arrayValue.values.map(x => parseFirestoreValue(x)).filter(x => x !== null);
+    } else {
+      out[k] = parseFirestoreValue(v);
+    }
+  }
+    return out;
+}

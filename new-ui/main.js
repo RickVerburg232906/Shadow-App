@@ -1,6 +1,6 @@
 // New UI main script
 
-import { getPlannedDates, searchMembers, getLunchOptions } from './firestore.js';
+import { getPlannedDates, searchMembers, getLunchOptions, getMemberById } from './firestore.js';
 
 console.log('New UI loaded');
 
@@ -8,6 +8,9 @@ console.log('New UI loaded');
 const pageContainerSelector = '.relative.flex';
 
 console.log('Setting up virtual navigation — pageContainerSelector=' + pageContainerSelector);
+
+// Currently selected member (persist selection across page fragments)
+let selectedMember = null;
 
 const originalPage = `<header class="flex items-center justify-between px-4 py-3 bg-surface-light dark:bg-surface-dark border-b border-gray-100 dark:border-gray-800 z-10">
 <div class="w-8"></div>
@@ -241,10 +244,10 @@ const memberInfoPage = `
 <main class="flex-1 flex flex-col gap-6 p-4 max-w-md mx-auto w-full">
     <section class="flex flex-col items-center gap-4 pt-2">
         <div class="flex flex-col items-center justify-center space-y-1">
-            <h1 class="text-primary dark:text-blue-400 text-2xl font-bold tracking-tight text-center">Jan de Vries</h1>
+            <h1 id="member-name" class="text-primary dark:text-blue-400 text-2xl font-bold tracking-tight text-center"></h1>
             <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">badge</span> Lidnummer: 123456</span>
-                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">location_on</span> Amsterdam</span>
+                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">badge</span> Lidnummer: <span id="member-number" class="ml-1"></span></span>
+                <span class="flex items-center gap-1 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700"><span class="material-symbols-outlined text-[16px]">location_on</span> <span id="member-region" class="ml-1"></span></span>
             </div>
         </div>
     </section>
@@ -331,6 +334,15 @@ function render(html) {
             const jlab = document.getElementById('jaarhanger-date-label');
             if (jlab) jlab.textContent = formatShortDateNL(new Date());
         } catch (e) { console.error('setting jaarhanger date label failed', e); }
+        // set member info on memberInfoPage if present
+        try {
+            const nameEl = document.getElementById('member-name');
+            const numEl = document.getElementById('member-number');
+            const regionEl = document.getElementById('member-region');
+            if (nameEl) nameEl.textContent = (selectedMember && selectedMember.name) ? selectedMember.name : '';
+            if (numEl) numEl.textContent = (selectedMember && selectedMember.lidnummer) ? selectedMember.lidnummer : '';
+            if (regionEl) regionEl.textContent = (selectedMember && selectedMember.regio) ? selectedMember.regio : '';
+        } catch (e) { console.error('setting member info failed', e); }
     } catch (e) { console.error('render post-fill check failed', e); }
     // Ensure new pages start at the top (reset scroll)
     try {
@@ -585,6 +597,8 @@ async function delegatedInputHandler(ev) {
         // clear any previously-selected member id while typing and disable continue
         const continueBtn = document.getElementById('continue-button');
         try { if (document.getElementById('participant-name-input')) document.getElementById('participant-name-input').removeAttribute('data-member-id'); } catch(_) {}
+        // Clear persisted selected member when typing new text
+        selectedMember = null;
         if (continueBtn) { continueBtn.disabled = true; continueBtn.classList.add('opacity-50'); continueBtn.setAttribute('aria-disabled','true'); }
         if (!val) {
             suggestionsEl.innerHTML = '';
@@ -607,7 +621,8 @@ async function delegatedInputHandler(ev) {
         }
         const html = results.map(r => {
             const label = (r.voor && r.naam) ? `${r.voor} ${r.naam}` : (r.naam || r.voor || '');
-            return `<button type="button" data-member-id="${r.id}" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">${label}</button>`;
+            const json = encodeURIComponent(JSON.stringify(r || {}));
+            return `<button type="button" data-member-id="${r.id}" data-member-json="${json}" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">${label}</button>`;
         }).join('\n');
         suggestionsEl.innerHTML = `<div class="flex flex-col">${html}</div>`;
         suggestionsEl.classList.remove('hidden');
@@ -618,12 +633,23 @@ async function delegatedInputHandler(ev) {
 }
 
 // Click handler to capture suggestion clicks (delegated)
-function delegatedSuggestionClickHandler(ev) {
+async function delegatedSuggestionClickHandler(ev) {
     try {
         const btn = ev.target.closest('#name-suggestions button[data-member-id]');
         if (!btn) return;
         const id = btn.getAttribute('data-member-id');
+        const raw = btn.getAttribute('data-member-json');
         const text = (btn.textContent || '').trim();
+        let memberObj = null;
+        try { memberObj = raw ? JSON.parse(decodeURIComponent(raw)) : null; } catch (e) { memberObj = null; }
+        // If the quick result didn't include full fields, fetch the full member doc
+        try {
+            const full = await getMemberById(id);
+            if (full) {
+                memberObj = Object.assign({}, memberObj || {}, full);
+                console.debug('Fetched full member for selected suggestion', id, memberObj);
+            }
+        } catch (e) { console.warn('fetching full member failed', e); }
         const input = document.getElementById('participant-name-input');
         if (input) {
             input.value = text;
@@ -634,6 +660,16 @@ function delegatedSuggestionClickHandler(ev) {
             suggestionsEl.classList.add('hidden');
             suggestionsEl.style.display = 'none';
         }
+        // Persist selected member info for later pages
+        try {
+            selectedMember = {
+                id: id,
+                name: text,
+                // Firestore fields: 'LidNr' and 'Regio Omschrijving'
+                lidnummer: memberObj?.LidNr ?? memberObj?.lidnr ?? memberObj?.lidnummer ?? '',
+                regio: memberObj?.['Regio Omschrijving'] ?? memberObj?.regio ?? memberObj?.region ?? memberObj?.woonplaats ?? ''
+            };
+        } catch (e) { selectedMember = { id, name: text }; }
         // Enable continue button now that a member was explicitly selected
         const continueBtn2 = document.getElementById('continue-button');
         if (continueBtn2) { continueBtn2.disabled = false; continueBtn2.classList.remove('opacity-50'); continueBtn2.removeAttribute('aria-disabled'); }
