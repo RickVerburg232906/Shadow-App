@@ -126,7 +126,7 @@ const lunchPage = `
     </div>
     <div class="w-10"></div>
 </header>
-<main class="flex-1 px-4 pb-28 pt-2">
+<main class="flex-1 overflow-y-auto px-4 pb-28 pt-2">
     <section class="mb-8">
         <h2 class="mb-5 text-center text-2xl font-bold leading-tight text-text-main dark:text-white">Eet je mee vandaag?</h2>
         <div class="flex gap-4">
@@ -248,6 +248,8 @@ function render(html) {
     // Ensure new pages start at the top (reset scroll)
     try {
         resetScrollPositions();
+        // adjust inner main to fit viewport (header/footer aware)
+        try { adjustMainHeight(); } catch(e) { console.error('adjustMainHeight post-render failed', e); }
     } catch (e) { console.error('render scroll reset failed', e); }
 }
 
@@ -278,6 +280,29 @@ function resetScrollPositions() {
     } catch (e) {}
 }
 
+// Ensure inner <main> uses the available viewport height (header + footer aware)
+function adjustMainHeight() {
+    try {
+        const container = document.querySelector(pageContainerSelector);
+        if (!container) return;
+        const main = container.querySelector('main');
+        if (!main) return;
+        const header = container.querySelector('header');
+        const footer = container.querySelector('footer');
+        const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        const headerH = header ? Math.ceil(header.getBoundingClientRect().height) : 0;
+        const footerH = footer ? Math.ceil(footer.getBoundingClientRect().height) : 0;
+        const available = Math.max(0, vh - headerH - footerH);
+        main.style.maxHeight = available + 'px';
+        main.style.overflowY = 'auto';
+        main.style.boxSizing = 'border-box';
+        // ensure main starts at top
+        try { if (typeof main.scrollTo === 'function') main.scrollTo({ top: 0 }); else main.scrollTop = 0; } catch(_){}
+    } catch (e) { console.error('adjustMainHeight failed', e); }
+}
+
+window.addEventListener('resize', function () { try { adjustMainHeight(); } catch(e){console.error(e);} });
+
 function pushPage(html) {
     console.log('pushPage: pushing');
     navStack.push(html);
@@ -288,7 +313,8 @@ function pushPage(html) {
         container.classList.add('min-h-screen');
     }
     // ensure we reset scroll immediately after pushing a new page
-    try { resetScrollPositions(); } catch(_){}
+    try { resetScrollPositions(); } catch(_){ }
+    try { adjustMainHeight(); } catch(_){ }
 }
 
 function popPage() {
@@ -637,6 +663,8 @@ async function fillLunchOptions() {
         const lab = document.getElementById('lunch-date-label');
         if (lab) lab.textContent = formatShortDateNL(new Date());
     } catch (_) {}
+    // Adjust main height after async content population
+    try { adjustMainHeight(); } catch (e) { console.error('adjustMainHeight after fillLunchOptions failed', e); }
 }
 
 // Minimal HTML escaping for inserted strings
