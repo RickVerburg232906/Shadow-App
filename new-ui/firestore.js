@@ -48,3 +48,78 @@ export async function getPlannedDates() {
 }
 
 export default { getPlannedDates };
+
+// Search members by prefix in either `Naam` or `Voor naam` fields.
+export async function searchMembers(prefix, maxResults = 8) {
+  try {
+    prefix = (prefix || '').trim();
+    if (!prefix) return [];
+    const apiKey = firebaseConfigDev.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+
+    // Use a single GREATER_THAN_OR_EQUAL query per field and filter <= prefix+\uffff on client side.
+    function escapeFieldPath(fieldPath) {
+      // Split dotted paths and quote tokens that contain characters
+      // outside [A-Za-z0-9_] by wrapping them in backticks and escaping backticks.
+      return fieldPath.split('.').map(tok => {
+        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tok)) return tok;
+        return '`' + tok.replace(/`/g, '\\`') + '`';
+      }).join('.');
+    }
+
+    const makeBody = (fieldPath, limitCount) => {
+      const fp = escapeFieldPath(fieldPath);
+      return {
+        structuredQuery: {
+          from: [{ collectionId: 'members' }],
+          where: {
+            fieldFilter: { field: { fieldPath: fp }, op: 'GREATER_THAN_OR_EQUAL', value: { stringValue: prefix } }
+          },
+          orderBy: [{ field: { fieldPath: fp }, direction: 'ASCENDING' }],
+          limit: limitCount
+        }
+      };
+    };
+
+    const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+    const limitCount = Math.max(maxResults * 2, 16);
+    const bodies = [makeBody('Naam', limitCount), makeBody('Voor naam', limitCount)];
+    const results = [];
+    for (const bdy of bodies) {
+      try {
+        const bodyStr = JSON.stringify(bdy);
+        const res = await fetch(url, Object.assign({}, opts, { body: bodyStr }));
+        if (!res.ok) {
+          const text = await res.text().catch(() => '<no body>');
+          console.warn('searchMembers: runQuery failed', res.status, res.statusText, text);
+          continue;
+        }
+        const arr = await res.json();
+        for (const entry of arr) {
+          if (entry && entry.document && entry.document.name) {
+            const id = entry.document.name.split('/').pop();
+            const f = entry.document.fields || {};
+            const naam = f.Naam ? (f.Naam.stringValue || '') : '';
+            const voor = f['Voor naam'] ? (f['Voor naam'].stringValue || '') : '';
+            results.push({ id, naam, voor });
+          }
+        }
+      } catch (e) {
+        console.error('searchMembers fetch error', e);
+      }
+    }
+
+    // Filter client-side to entries where field value <= prefix + '\uffff'
+    const upper = prefix + '\uffff';
+    const filtered = results.filter(r => {
+      const combined = (r.naam || r.voor || '').toLowerCase();
+      return combined >= prefix.toLowerCase() && combined <= upper.toLowerCase();
+    });
+    const map = new Map();
+    for (const d of filtered) map.set(d.id, d);
+    return Array.from(map.values()).slice(0, maxResults);
+  } catch (e) {
+    console.error('searchMembers error', e);
+    return [];
+  }
+}

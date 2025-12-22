@@ -1,6 +1,6 @@
 // New UI main script
 
-import { getPlannedDates } from './firestore.js';
+import { getPlannedDates, searchMembers } from './firestore.js';
 
 console.log('New UI loaded');
 
@@ -96,7 +96,8 @@ const signupPage = `<header class="sticky top-0 z-50 w-full bg-white dark:bg-sur
                 </span>
 <div class="relative flex items-center">
 <span class="material-symbols-outlined absolute left-4 text-text-muted">person</span>
-<input class="form-input w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-text-main dark:text-white h-14 pl-12 pr-4 text-base font-medium placeholder:text-text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Bijv. Jan Jansen" type="text" value=""/>
+<input id="participant-name-input" class="form-input w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-text-main dark:text-white h-14 pl-12 pr-4 text-base font-medium placeholder:text-text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Bijv. Jan Jansen" type="text" value="" autocomplete="off"/>
+    <div id="name-suggestions" class="absolute left-0 right-0 top-full mt-2 z-50 bg-surface-light dark:bg-surface-dark rounded-lg shadow-lg hidden max-h-60 overflow-auto"></div>
 </div>
 <p class="text-xs text-text-muted dark:text-gray-500 ml-1 mt-1">
                     Deze naam wordt gebruikt voor de deelnemerslijst.
@@ -107,7 +108,7 @@ const signupPage = `<header class="sticky top-0 z-50 w-full bg-white dark:bg-sur
 <div class="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-6 pb-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
 <div class="max-w-md mx-auto w-full">
 <button class="w-full flex items-center justify-center rounded-xl bg-primary hover:bg-blue-800 text-white h-14 px-6 text-lg font-bold tracking-wide shadow-lg shadow-primary/30 transition-all active:scale-[0.98]">
-<span>Inschrijven</span>
+<span>Verder</span>
 </button>
 </div>
 </div>
@@ -176,7 +177,9 @@ function delegatedClickHandler(ev) {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
         console.log('DOMContentLoaded — attaching delegated click handler to document');
-        document.addEventListener('click', delegatedClickHandler);
+            document.addEventListener('click', delegatedClickHandler);
+            document.addEventListener('input', delegatedInputHandler);
+            document.addEventListener('click', delegatedSuggestionClickHandler);
         // initial render
         render(navStack[0]);
         // load dynamic rides data from Firestore
@@ -185,6 +188,8 @@ if (document.readyState === 'loading') {
 } else {
     console.log('Document already loaded — attaching delegated click handler to document');
     document.addEventListener('click', delegatedClickHandler);
+    document.addEventListener('input', delegatedInputHandler);
+    document.addEventListener('click', delegatedSuggestionClickHandler);
     // initial render
     render(navStack[0]);
     // load dynamic rides data from Firestore
@@ -246,4 +251,62 @@ async function loadAndRenderRides() {
     } catch (e) {
         console.error('loadAndRenderRides error', e);
     }
+}
+
+// Input handler for name autocomplete (delegated)
+async function delegatedInputHandler(ev) {
+    try {
+        const target = ev.target;
+        if (!target) return;
+        if (target.id !== 'participant-name-input') return;
+        const raw = target.value || '';
+        // Ensure the first non-space character is uppercase
+        const newRaw = raw.replace(/^(\s*)(\S)/, (m, spaces, ch) => spaces + ch.toUpperCase());
+        if (newRaw !== raw) {
+            const start = target.selectionStart || 0;
+            const end = target.selectionEnd || start;
+            target.value = newRaw;
+            try { target.setSelectionRange(start, end); } catch (e) {}
+        }
+        const val = (newRaw || '').trim();
+        const suggestionsEl = document.getElementById('name-suggestions');
+        if (!suggestionsEl) return;
+        if (!val) {
+            suggestionsEl.innerHTML = '';
+            suggestionsEl.classList.add('hidden');
+            return;
+        }
+        // query members
+        const results = await searchMembers(val, 8);
+        if (!Array.isArray(results) || results.length === 0) {
+            suggestionsEl.innerHTML = '';
+            suggestionsEl.classList.add('hidden');
+            return;
+        }
+        const html = results.map(r => {
+            const label = (r.voor && r.naam) ? `${r.voor} ${r.naam}` : (r.naam || r.voor || '');
+            return `<button type="button" data-member-id="${r.id}" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800">${label}</button>`;
+        }).join('\n');
+        suggestionsEl.innerHTML = `<div class="flex flex-col">${html}</div>`;
+        suggestionsEl.classList.remove('hidden');
+    } catch (e) {
+        console.error('delegatedInputHandler error', e);
+    }
+}
+
+// Click handler to capture suggestion clicks (delegated)
+function delegatedSuggestionClickHandler(ev) {
+    try {
+        const btn = ev.target.closest('#name-suggestions button[data-member-id]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-member-id');
+        const text = (btn.textContent || '').trim();
+        const input = document.getElementById('participant-name-input');
+        if (input) {
+            input.value = text;
+            input.setAttribute('data-member-id', id);
+        }
+        const suggestionsEl = document.getElementById('name-suggestions');
+        if (suggestionsEl) suggestionsEl.classList.add('hidden');
+    } catch (e) { console.error('delegatedSuggestionClickHandler error', e); }
 }
