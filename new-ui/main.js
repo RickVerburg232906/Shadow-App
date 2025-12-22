@@ -531,8 +531,6 @@ async function initApp() {
         navStack.push(originalPage || '');
         render(navStack[0]);
     } catch (e) { console.error('initApp: initial render failed', e); }
-    // load dynamic rides data from Firestore
-    loadAndRenderRides().catch(e => console.error('loadAndRenderRides failed', e));
 }
 
 // ----- Rides loader -----
