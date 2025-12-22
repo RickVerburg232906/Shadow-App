@@ -176,6 +176,56 @@ const lunchPage = `
     </button>
 </footer>`;
 
+// Jaarhanger page fragment (in-app)
+const jaarhangerPage = `
+<div id="jaarhanger-page">
+<header class="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm transition-colors">
+    <div class="flex items-center px-4 py-3 justify-between h-16">
+        <button id="back-button" class="group flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-card-dark shadow-sm transition-transform active:scale-95">
+            <span class="material-symbols-outlined text-xl group-hover:-translate-x-0.5 transition-transform">arrow_back</span>
+        </button>
+        <h1 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Jaarhanger Aanvraag</h1>
+        <div class="w-10"></div>
+    </div>
+</header>
+<main class="flex-1 flex flex-col px-4 pt-6 pb-28">
+    <section class="mb-8">
+        <h2 class="mb-5 text-center text-2xl font-bold leading-tight text-text-primary-light dark:text-text-primary-dark">Wil je een jaarhanger?</h2>
+        <div class="flex gap-4">
+            <label class="relative flex-1 cursor-pointer group">
+                <input class="peer sr-only" name="participation" type="radio" value="yes" />
+                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-white dark:bg-card-dark py-6 shadow-card transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-glow peer-checked:translate-y-[-2px]">
+                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">check_circle</span>
+                    <span class="font-bold">Ja</span>
+                </div>
+            </label>
+            <label class="relative flex-1 cursor-pointer group">
+                <input class="peer sr-only" name="participation" type="radio" value="no" />
+                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-white dark:bg-card-dark py-6 shadow-card transition-all peer-checked:bg-accent-red peer-checked:text-white peer-checked:shadow-lg peer-checked:translate-y-[-2px]">
+                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">cancel</span>
+                    <span class="font-bold">Nee</span>
+                </div>
+            </label>
+        </div>
+    </section>
+    <section class="space-y-4 px-2">
+        <div class="flex items-center gap-3 mb-2">
+            <span class="material-symbols-outlined text-primary text-2xl">info</span>
+            <h3 class="text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">Wat is een Jaarhanger?</h3>
+        </div>
+        <div class="bg-white dark:bg-card-dark rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
+            <p class="text-text-secondary-light dark:text-text-secondary-dark text-base leading-relaxed font-body">Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De <span class="font-semibold text-primary">'moederpin'</span> kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt.</p>
+            <div class="my-4 h-px bg-gray-100 dark:bg-gray-800 w-full"></div>
+            <p class="text-text-secondary-light dark:text-text-secondary-dark text-base leading-relaxed font-body">De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. <span class="italic font-medium text-text-primary-light dark:text-text-white">Da's pas een collectors item!</span></p>
+        </div>
+    </section>
+</main>
+<footer class="fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-card-dark p-4 pb-safe z-50 border-t border-gray-100 dark:border-gray-800 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-colors">
+    <button id="confirm-lunch-button" class="relative w-full overflow-hidden rounded-2xl bg-primary/80 h-14 flex items-center justify-center font-bold text-white shadow-lg shadow-primary/25 transition-all">
+        <span class="relative z-10 flex items-center justify-center"><span>Bevestigen</span></span>
+    </button>
+</footer>`;
+
 // Navigation stack holds HTML strings. The top is current page.
 const navStack = [originalPage];
 
@@ -234,6 +284,15 @@ function delegatedClickHandler(ev) {
             return;
         }
 
+        const confirmLunch = ev.target.closest('#confirm-lunch-button');
+        if (confirmLunch) {
+            // Ignore if disabled
+            if (confirmLunch.disabled) return;
+            // Show jaarhanger as an in-app page fragment
+            try { pushPage(jaarhangerPage); } catch (e) { console.error('pushPage jaarhanger failed', e); }
+            return;
+        }
+
         const back = ev.target.closest('#back-button');
         if (back) {
             popPage();
@@ -244,6 +303,23 @@ function delegatedClickHandler(ev) {
     } catch (err) {
         console.error('delegatedClickHandler error', err);
     }
+}
+
+// Handle participation change specifically for the jaarhanger in-app page
+function handleJaarhangerParticipationChange(target) {
+    try {
+        const footerBtn = document.querySelector('footer button');
+        if (!footerBtn) return;
+        const footerSpan = footerBtn.querySelector('span span') || footerBtn.querySelector('span');
+        if (target.value === 'no') {
+            footerBtn.style.background = '#8C2B07';
+            if (footerSpan) footerSpan.innerText = 'Bevestigen';
+        } else {
+            footerBtn.style.background = '';
+            if (footerSpan) footerSpan.innerText = 'Bevestigen';
+        }
+        try { updateConfirmButtonState(); } catch(_){}
+    } catch (e) { console.error('handleJaarhangerParticipationChange failed', e); }
 }
 
 if (document.readyState === 'loading') {
@@ -414,29 +490,36 @@ function delegatedChangeHandler(ev) {
             if (!footerBtn) return;
             const footerSpan = footerBtn.querySelector('span span') || footerBtn.querySelector('span');
             const sections = document.querySelectorAll('main section:not(:first-child)');
-            if (target.value === 'no') {
-                footerBtn.style.background = '#8C2B07';
-                if (footerSpan) footerSpan.innerText = 'Afwezigheid Bevestigen';
-                sections.forEach(sec => { sec.style.opacity = '0.3'; sec.style.pointerEvents = 'none'; });
-                // Clear any keuze-eten selections when user chooses 'nee'
-                try {
-                    const keuzeContainer = document.getElementById('keuzeEtenList');
-                    if (keuzeContainer) {
-                        const inputs = Array.from(keuzeContainer.querySelectorAll('input[name="main_course"]'));
-                        inputs.forEach(i => {
-                            try { i.checked = false; } catch(_) {}
-                            const lbl = i.closest('label');
-                            if (lbl) lbl.classList.remove('active');
-                        });
-                    }
-                } catch (e) { console.error('clearing keuze selections failed', e); }
-            } else {
-                footerBtn.style.background = '';
-                if (footerSpan) footerSpan.innerText = 'Keuze Bevestigen';
-                sections.forEach(sec => { sec.style.opacity = '1'; sec.style.pointerEvents = 'auto'; });
-            }
-            try { updateConfirmButtonState(); } catch(_){}
-            return;
+                // If the change comes from the jaarhanger page, handle it differently
+                const inJaarhanger = !!document.getElementById('jaarhanger-page');
+                if (inJaarhanger) {
+                    handleJaarhangerParticipationChange(target);
+                    return;
+                }
+                // Default (lunch) behaviour: fade page sections and update footer text
+                if (target.value === 'no') {
+                    footerBtn.style.background = '#8C2B07';
+                    if (footerSpan) footerSpan.innerText = 'Afwezigheid Bevestigen';
+                    sections.forEach(sec => { sec.style.opacity = '0.3'; sec.style.pointerEvents = 'none'; });
+                    // Clear any keuze-eten selections when user chooses 'nee'
+                    try {
+                        const keuzeContainer = document.getElementById('keuzeEtenList');
+                        if (keuzeContainer) {
+                            const inputs = Array.from(keuzeContainer.querySelectorAll('input[name="main_course"]'));
+                            inputs.forEach(i => {
+                                try { i.checked = false; } catch(_) {}
+                                const lbl = i.closest('label');
+                                if (lbl) lbl.classList.remove('active');
+                            });
+                        }
+                    } catch (e) { console.error('clearing keuze selections failed', e); }
+                } else {
+                    footerBtn.style.background = '';
+                    if (footerSpan) footerSpan.innerText = 'Keuze Bevestigen';
+                    sections.forEach(sec => { sec.style.opacity = '1'; sec.style.pointerEvents = 'auto'; });
+                }
+                try { updateConfirmButtonState(); } catch(_){}
+                return;
         }
 
         // Keuze eten radios (main_course) — toggle active class on label
