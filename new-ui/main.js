@@ -236,6 +236,46 @@ function render(html) {
         return;
     }
     container.innerHTML = html;
+    // If the rendered page contains lunch placeholders, populate them.
+    try {
+        const hasKeuze = !!document.getElementById('keuzeEtenList');
+        const hasVast = !!document.getElementById('vastEtenList');
+        if (hasKeuze || hasVast) {
+            // populate options; do not block render
+            try { fillLunchOptions().catch(e => console.error('fillLunchOptions failed after render', e)); } catch (e) { console.error(e); }
+        }
+    } catch (e) { console.error('render post-fill check failed', e); }
+    // Ensure new pages start at the top (reset scroll)
+    try {
+        resetScrollPositions();
+    } catch (e) { console.error('render scroll reset failed', e); }
+}
+
+// Reset scroll on likely scroll containers so new pages always start at the top.
+function resetScrollPositions() {
+    try {
+        // window / document
+        try { window.scrollTo(0, 0); } catch(_){}
+        try { document.documentElement.scrollTop = 0; } catch(_){}
+        try { document.body.scrollTop = 0; } catch(_){}
+    } catch (e) {}
+    try {
+        // app container
+        const container = document.querySelector(pageContainerSelector);
+        if (container) {
+            try { container.scrollTop = 0; } catch(_){}
+        }
+    } catch (e) {}
+    try {
+        // main and typical overflow containers
+        const els = Array.from(document.querySelectorAll('main, [class*="overflow-y-auto"], [class*="overflow-auto"]'));
+        els.forEach(el => {
+            try {
+                if (typeof el.scrollTo === 'function') el.scrollTo({ top: 0, behavior: 'auto' });
+                else el.scrollTop = 0;
+            } catch(_){}
+        });
+    } catch (e) {}
 }
 
 function pushPage(html) {
@@ -247,6 +287,8 @@ function pushPage(html) {
         container.classList.remove('h-screen', 'shadow-xl', 'overflow-hidden');
         container.classList.add('min-h-screen');
     }
+    // ensure we reset scroll immediately after pushing a new page
+    try { resetScrollPositions(); } catch(_){}
 }
 
 function popPage() {
