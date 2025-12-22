@@ -201,7 +201,9 @@ function render(html) {
                                     try {
                                         const qrImg = document.getElementById('checkin-qr-img');
                                         if (qrImg) {
+                                            const memberId = (selectedMember && (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId)) ? (selectedMember.lidnummer || selectedMember.id || selectedMember.lid || selectedMember.memberId) : '';
                                             const payload = {
+                                                memberId: String(memberId || ''),
                                                 lunchKeuze: (selectedMember && selectedMember.lunchChoice) ? selectedMember.lunchChoice : '',
                                                 lunchDeelname: (selectedMember && selectedMember.participation) ? selectedMember.participation : '',
                                                 Jaarhanger: (selectedMember && typeof selectedMember.jaarhanger !== 'undefined' && selectedMember.jaarhanger !== null) ? selectedMember.jaarhanger : ''

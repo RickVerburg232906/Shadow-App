@@ -11,19 +11,23 @@ const firebaseConfigDev = {
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
 
 // Simple Firestore REST update for a member document. Uses PATCH with updateMask to set specific fields.
-export async function checkInMemberById(memberId, { lunchDeelname = null, lunchKeuze = null } = {}) {
+export async function checkInMemberById(memberId, { lunchDeelname = null, lunchKeuze = null, Jaarhanger = null } = {}) {
   if (!memberId) return { success: false, error: 'missing-id' };
   try {
     const url = `${BASE_URL}/members/${encodeURIComponent(memberId)}?key=${firebaseConfigDev.apiKey}`;
     const fields = {};
     if (lunchDeelname !== null) fields.lunchDeelname = { stringValue: String(lunchDeelname) };
     if (lunchKeuze !== null) fields.lunchKeuze = { stringValue: String(lunchKeuze) };
-    fields.lastScan = { timestampValue: new Date().toISOString() };
+    if (Jaarhanger !== null) fields.Jaarhanger = { stringValue: String(Jaarhanger) };
+    // set expiry for lunch fields (24h)
+    const expires = new Date(Date.now() + (24 * 60 * 60 * 1000));
+    fields.lunchExpires = { timestampValue: expires.toISOString() };
     const body = { fields };
     const params = [];
     if (lunchDeelname !== null) params.push('updateMask.fieldPaths=lunchDeelname');
     if (lunchKeuze !== null) params.push('updateMask.fieldPaths=lunchKeuze');
-    params.push('updateMask.fieldPaths=lastScan');
+    if (Jaarhanger !== null) params.push('updateMask.fieldPaths=Jaarhanger');
+    params.push('updateMask.fieldPaths=lunchExpires');
     const finalUrl = url + (params.length ? ('&' + params.join('&')) : '');
     const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) {
@@ -49,8 +53,8 @@ export async function manualRegisterRide(memberId, rideDateYMD) {
     const fields = doc.fields || {};
     const scans = (fields.ScanDatums && Array.isArray(fields.ScanDatums.arrayValue && fields.ScanDatums.arrayValue.values) ? fields.ScanDatums.arrayValue.values.map(v => v.stringValue || '') : []);
     if (!scans.includes(rideDateYMD)) scans.push(rideDateYMD);
-    const body = { fields: { ScanDatums: { arrayValue: { values: scans.map(s => ({ stringValue: String(s) })) } }, lastScan: { timestampValue: new Date().toISOString() } } };
-    const finalUrl = `${getUrl}&updateMask.fieldPaths=ScanDatums&updateMask.fieldPaths=lastScan`;
+    const body = { fields: { ScanDatums: { arrayValue: { values: scans.map(s => ({ stringValue: String(s) })) } } } };
+    const finalUrl = `${getUrl}&updateMask.fieldPaths=ScanDatums`;
     const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) { const txt = await res.text().catch(() => ''); return { success: false, raw: txt }; }
     return { success: true, raw: await res.json() };
@@ -154,8 +158,56 @@ export async function initInschrijftafel() {
               }
             } catch (e) { console.warn('prepare preview failed', e); }
 
-            const res = await startQrScanner('adminQRReader', (decoded) => {
-              try { console.log('QR decoded:', decoded); alert('Gescand: ' + decoded); } catch(_){ }
+            const res = await startQrScanner('adminQRReader', async (decoded) => {
+              try {
+                console.log('QR decoded:', decoded);
+                // Attempt to parse JSON payload; fall back to raw string
+                let parsed = null;
+                try { parsed = JSON.parse(decoded); } catch(_) { parsed = null; }
+                // Expect payload to include a member id and fields: Jaarhanger, lunchDeelname, lunchKeuze
+                let memberId = null;
+                let Jaarhanger = null;
+                let lunchDeelname = null;
+                let lunchKeuze = null;
+                if (parsed && typeof parsed === 'object') {
+                  memberId = parsed.memberId || parsed.lidnummer || parsed.id || parsed.lid || parsed.lid_nr || parsed.lidnummer || null;
+                  Jaarhanger = parsed.Jaarhanger ?? parsed.jaarhanger ?? null;
+                  lunchDeelname = parsed.lunchDeelname ?? parsed.lunchDeelname ?? parsed.lunchDeelname ?? null;
+                  lunchKeuze = parsed.lunchKeuze ?? parsed.lunchKeuze ?? parsed.lunchKeuze ?? null;
+                } else {
+                  // Try format like 'id:123|Jaarhanger:yes|lunchDeelname:yes|lunchKeuze:Vlees'
+                  const parts = String(decoded || '').split(/[|;,]/).map(s => s.trim());
+                  for (const p of parts) {
+                    const kv = p.split(':'); if (kv.length < 2) continue;
+                    const k = kv[0].trim().toLowerCase(); const v = kv.slice(1).join(':').trim();
+                    if (!memberId && /id|lid|lidnummer/.test(k)) memberId = v;
+                    if (!Jaarhanger && /jaarhanger|jaarn?hanger|jaar/.test(k)) Jaarhanger = v;
+                    if (!lunchDeelname && /lunchdeelname|participatie|deelname/.test(k)) lunchDeelname = v;
+                    if (!lunchKeuze && /lunchkeuze|keuze/.test(k)) lunchKeuze = v;
+                  }
+                }
+                if (!memberId) {
+                  alert('Gescand: geen lidnummer gevonden in QR');
+                  return;
+                }
+                // write lunch fields and expiry to Firestore (if present)
+                try {
+                  const r = await checkInMemberById(String(memberId), { lunchDeelname, lunchKeuze, Jaarhanger });
+                  if (r && r.success) {
+                    try { alert('Ingeschreven: ' + (memberId || '')); } catch(_) {}
+                  } else {
+                    console.warn('checkInMemberById returned', r);
+                    alert('Kon lid niet bijwerken');
+                  }
+                } catch (e) { console.error('apply scan to member failed', e); alert('Fout bij schrijven naar Firestore'); }
+
+                // also record today's date in ScanDatums
+                try {
+                  const today = new Date().toISOString().slice(0,10);
+                  const mr = await manualRegisterRide(String(memberId), today);
+                  if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+                } catch (e) { console.error('manualRegisterRide error', e); }
+              } catch(_){ }
             }, { fps: 10, qrbox: 250 });
             running = res && res.scannerInstance ? res.scannerInstance : null;
             try { startBtn.innerHTML = '<span class="material-symbols-outlined">stop</span> Stop Scanner'; } catch(_){ }
@@ -165,3 +217,5 @@ export async function initInschrijftafel() {
     } catch (e) { console.error('wire scanner button failed', e); }
 
 }
+
+// purge scheduling removed per request
