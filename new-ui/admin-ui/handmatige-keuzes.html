@@ -69,8 +69,10 @@
    Volledige Naam
   </span>
 <div class="relative flex items-center">
-      <span class="material-symbols-outlined absolute left-4 text-text-muted">person</span>
-            <div class="relative w-full">
+    <span aria-hidden="true" class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-text-muted z-10 text-2xl">
+    person
+   </span>
+        <div class="relative w-full">
                 <input id="participant-name-input-manual" class="participant-name-input form-input w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-text-main dark:text-white h-14 pl-12 pr-4 text-base font-medium placeholder:text-text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Bijv. Jan Jansen" type="text" autocomplete="off" />
                 <div id="name-suggestions-manual" class="absolute left-0 right-0 top-full mt-2 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg hidden max-h-56 overflow-auto"></div>
             </div>
@@ -85,6 +87,24 @@
         <div class="px-5 pt-5 pb-2">
             <h2 class="text-text-main dark:text-white text-xl font-bold leading-tight">Lunch Keuze</h2>
             <p class="text-gray-500 text-sm mt-1">Selecteer het type lunch voor de deelnemer.</p>
+        </div>
+
+        <div id="eetmee-host" class="px-5 pb-4">
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">Eet mee?</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <label class="cursor-pointer relative">
+                    <input class="peer sr-only" name="eetmee" value="ja" type="radio" />
+                    <div class="h-12 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white shadow-sm hover:bg-gray-50">
+                        Ja
+                    </div>
+                </label>
+                <label class="cursor-pointer relative">
+                    <input class="peer sr-only" name="eetmee" value="nee" type="radio" />
+                    <div class="h-12 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-danger peer-checked:bg-danger peer-checked:text-white shadow-sm hover:bg-gray-50">
+                        Nee
+                    </div>
+                </label>
+            </div>
         </div>
 
         <div id="lunch-choices-list" class="flex flex-col gap-3 p-5 pt-2">
@@ -107,43 +127,27 @@
 <p class="text-sm text-gray-600 mb-4">Wil de deelnemer een jaarhanger ontvangen?</p>
 <div class="grid grid-cols-2 gap-4">
 <label class="cursor-pointer relative">
-<input class="peer sr-only" name="jaarhanger" type="radio"/>
-<div class="h-14 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-secondary peer-checked:bg-secondary/10 peer-checked:text-secondary shadow-sm hover:bg-gray-50">
+    <input class="peer sr-only" name="jaarhanger" value="ja" type="radio"/>
+  <div class="h-14 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white shadow-sm hover:bg-gray-50">
                         Ja
                     </div>
-<div class="absolute top-1/2 right-4 -translate-y-1/2 opacity-0 peer-checked:opacity-100 text-secondary transition-opacity">
-<span class="material-symbols-outlined">check_circle</span>
-</div>
 </label>
 <label class="cursor-pointer relative">
-<input checked="" class="peer sr-only" name="jaarhanger" type="radio"/>
-<div class="h-14 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-gray-400 peer-checked:bg-gray-100 peer-checked:text-text-main shadow-sm hover:bg-gray-50">
+    <input class="peer sr-only" name="jaarhanger" value="nee" type="radio"/>
+  <div class="h-14 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-danger peer-checked:bg-danger peer-checked:text-white shadow-sm hover:bg-gray-50">
                         Nee
                     </div>
 </label>
 </div>
 </div>
 <script type="module">
-    import { renderLunchOptions } from '../admin.js';
-    document.addEventListener('DOMContentLoaded', () => {
-        const input = document.getElementById('participant-name-input-manual');
-            const lunchHost = document.getElementById('lunch-choices-host');
-            const jaarHost = document.getElementById('jaarhanger-host');
-
-            // when a member is selected via suggestions, show sections and render choices
-            input && input.addEventListener('member-selected', (ev) => {
-                try {
-                    if (lunchHost) { lunchHost.style.display = ''; lunchHost.removeAttribute('aria-hidden'); lunchHost.classList.remove('hidden'); }
-                    if (jaarHost) { jaarHost.style.display = ''; jaarHost.removeAttribute('aria-hidden'); jaarHost.classList.remove('hidden'); }
-                    try { renderLunchOptions(); } catch(e) { console.error(e); }
-                } catch (e) { console.error('member-selected handler failed', e); }
-            });
-    });
+  import { initHandmatigeKeuzes } from '../admin.js';
+  document.addEventListener('DOMContentLoaded', () => { try { initHandmatigeKeuzes(); } catch(e){ console.error(e); } });
 </script>
 </main>
 <div class="fixed left-0 w-full bg-white dark:bg-[#1a202c] border-t border-gray-200 dark:border-gray-800 p-4 z-30" style="bottom: env(safe-area-inset-bottom);">
 <div class="w-full">
-<button class="flex items-center justify-center h-14 w-full rounded-lg bg-primary text-white font-bold text-lg shadow-lg shadow-primary/30 active:scale-[0.99] transition-transform">
+<button id="save-manual-button" class="flex items-center justify-center h-14 w-full rounded-lg bg-primary text-white font-bold text-lg shadow-lg shadow-primary/30 active:scale-[0.99] transition-transform">
             Opslaan &amp; Verder
         </button>
 </div>

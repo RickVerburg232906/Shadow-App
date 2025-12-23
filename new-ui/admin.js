@@ -192,23 +192,41 @@ function getMemberScanYMDs_local(member) {
 }
 
 // Render lunch choices page elements (used by handmatige-keuzes.html)
-export async function renderLunchOptions(hostId = 'lunch-choices-list', inclusiefId = 'inclusief-list') {
+
+export async function renderLunchOptions(hostId = 'lunch-choices-list', inclusiefId = 'inclusief-list', { force = false } = {}) {
   try {
-    const res = await getLunchOptions();
-    const keuze = Array.isArray(res.keuzeEten) ? res.keuzeEten : [];
-    const vast = Array.isArray(res.vastEten) ? res.vastEten : [];
     const host = document.getElementById(hostId);
     const incl = document.getElementById(inclusiefId);
+
+    // If host is not present or intentionally hidden and not forced, skip render
+    if (!force && host && (host.style.display === 'none' || host.classList.contains('hidden') || host.getAttribute('aria-hidden') === 'true')) return;
+
+    // always fetch fresh data (no cache)
+    const res = await getLunchOptions();
+
+    const keuze = Array.isArray(res && res.keuzeEten) ? res.keuzeEten : [];
+    const vast = Array.isArray(res && res.vastEten) ? res.vastEten : [];
+
     if (incl) {
       if (!vast || vast.length === 0) incl.textContent = 'Geen vaste gerechten gevonden';
       else incl.textContent = String(vast.join(', '));
     }
     if (!host) return;
+
+    // avoid re-rendering identical choice list
+    try {
+      const hash = JSON.stringify(keuze || []);
+      if (!force && host._lastKeuzeHash && host._lastKeuzeHash === hash) return;
+      host._lastKeuzeHash = hash;
+    } catch(_){}
+
     if (!keuze || keuze.length === 0) {
       host.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>';
       return;
     }
-    host.innerHTML = keuze.map((k, idx) => {
+
+    // build minimal DOM string — avoid expensive work per item
+    host.innerHTML = keuze.map((k) => {
       const safe = String(k || '').replace(/"/g, '&quot;');
       return `
         <label class="radio-card group relative flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:bg-gray-50">
@@ -217,13 +235,294 @@ export async function renderLunchOptions(hostId = 'lunch-choices-list', inclusie
             <span class="font-semibold text-text-main">${escapeHtml(String(k))}</span>
           </div>
           <div class="relative flex items-center justify-center w-5 h-5 rounded-full border border-gray-300 bg-white">
-            <div class="w-2.5 h-2.5 rounded-full bg-primary opacity-0 group-[:checked]:opacity-100 transition-opacity"></div>
+            <div class="w-2.5 h-2.5 rounded-full bg-primary opacity-0 transition-opacity"></div>
           </div>
-          <input class="invisible absolute" name="lunch_choice" type="radio" value="${safe}" ${idx===0? 'checked':''} />
+          <input class="invisible absolute" name="lunch_choice" type="radio" value="${safe}" />
         </label>
       `;
     }).join('\n');
   } catch (e) { console.error('renderLunchOptions failed', e); }
+}
+
+// Attach handlers to lunch choice radios to update visual state when selected
+export function attachLunchChoiceHandlers(hostId = 'lunch-choices-list') {
+  try {
+    const host = document.getElementById(hostId);
+    if (!host) return;
+    const radios = Array.from(host.querySelectorAll('input[name="lunch_choice"]'));
+    if (!radios || radios.length === 0) return;
+    function applyLunchSelectionState() {
+      try {
+        const rs = Array.from(host.querySelectorAll('input[name="lunch_choice"]'));
+        rs.forEach(rr => {
+          const lab = rr.closest('label') || rr.parentElement;
+          if (!lab) return;
+          const innerText = lab.querySelector('.font-semibold');
+          const icon = lab.querySelector('.material-symbols-outlined');
+          const dot = lab.querySelector('[class~="w-2.5"]');
+          const outerCircle = lab.querySelector('[class~="w-5"]');
+          if (rr.checked) {
+            try {
+              lab.classList.add('border-primary');
+              lab.classList.remove('border-gray-200');
+              lab.style.backgroundColor = '#163e8d';
+              lab.style.borderColor = '#163e8d';
+              lab.style.color = '#ffffff';
+            } catch(_){}
+            if (innerText) { innerText.style.color = '#ffffff'; }
+            if (icon) { icon.style.color = '#ffffff'; }
+            if (outerCircle) {
+              try {
+                outerCircle.style.backgroundColor = '#ffffff';
+                outerCircle.style.borderColor = '#163e8d';
+                outerCircle.style.padding = '4px';
+                outerCircle.style.borderRadius = '9999px';
+                outerCircle.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:#163e8d">check</span>';
+              } catch(_){}
+            }
+          } else {
+            try {
+              lab.classList.remove('border-primary');
+              lab.classList.add('border-gray-200');
+              lab.style.backgroundColor = '';
+              lab.style.borderColor = '';
+              lab.style.color = '';
+            } catch(_){}
+            if (innerText) { innerText.style.color = ''; }
+            if (icon) { icon.style.color = ''; }
+            if (outerCircle) {
+              try {
+                outerCircle.style.backgroundColor = '';
+                outerCircle.style.borderColor = '';
+                outerCircle.style.padding = '';
+                outerCircle.style.borderRadius = '';
+                outerCircle.innerHTML = '<div class="w-2.5 h-2.5 rounded-full" style="background:#ffffff;opacity:0"></div>';
+              } catch(_){}
+            }
+          }
+        });
+      } catch (e) { console.error('applyLunchSelectionState failed', e); }
+    }
+
+    radios.forEach(r => {
+      if (r._lunchHandlerAttached) return;
+      r._lunchHandlerAttached = true;
+      r.addEventListener('change', () => { try { applyLunchSelectionState(); } catch(e){ console.error(e); } });
+    });
+
+    // delegate clicks on host to ensure selection updates even if change doesn't fire immediately
+    if (!host._lunchClickHandlerAttached) {
+      host._lunchClickHandlerAttached = true;
+      host.addEventListener('click', (ev) => {
+        try {
+          const lbl = ev.target.closest('label') || (ev.target.parentElement && ev.target.parentElement.closest && ev.target.parentElement.closest('label'));
+          if (lbl) {
+            const input = lbl.querySelector('input[name="lunch_choice"]');
+            if (input) {
+              // programmatically ensure radio is checked when label area clicked
+              try {
+                input.checked = true;
+              } catch(_){}
+              try { applyLunchSelectionState(); } catch(_){}
+              try { console.debug('lunch host click -> set checked for', input.value); } catch(_){}
+              return;
+            }
+          }
+          // fallback: schedule apply to catch native changes
+          setTimeout(() => { try { applyLunchSelectionState(); } catch(_){} }, 0);
+        } catch (e) { console.error('host click handler failed', e); }
+      });
+    }
+    // apply initial state
+    try {
+      const checked = radios.find(r => r.checked);
+      if (checked) checked.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch(_){}
+  } catch (e) { console.error('attachLunchChoiceHandlers failed', e); }
+}
+
+// Initialize the handmatige-keuzes page behavior: reveal hosts on member selection
+export function initHandmatigeKeuzes({ inputId = 'participant-name-input-manual', lunchHostId = 'lunch-choices-host', jaarHostId = 'jaarhanger-host' } = {}) {
+  try {
+    const input = document.getElementById(inputId);
+    const lunchHost = document.getElementById(lunchHostId);
+    const jaarHost = document.getElementById(jaarHostId);
+
+    function updateEetMeeState(value) {
+      const eatInputs = Array.from(document.querySelectorAll('input[name="eetmee"]'));
+      eatInputs.forEach(inp => {
+        const visual = inp.nextElementSibling;
+        if (!visual) return;
+        visual.classList.remove('bg-primary','text-white','border-primary','bg-danger','border-danger');
+        visual.classList.add('bg-white','text-gray-600','border-gray-200');
+        if (inp.value === value && inp.checked) {
+          if (value === 'ja') {
+            visual.classList.remove('bg-white','text-gray-600');
+            visual.classList.add('bg-primary','text-white','border-primary');
+          } else {
+            visual.classList.remove('bg-white','text-gray-600');
+            visual.classList.add('bg-danger','text-white','border-danger');
+          }
+        }
+      });
+
+      const lunchList = document.getElementById('lunch-choices-list');
+      if (value === 'nee') {
+        if (lunchList) {
+          const radios = Array.from(lunchList.querySelectorAll('input[type="radio"]'));
+          radios.forEach(r => {
+            try { r.checked = false; } catch(_){}
+            try { r.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){}
+          });
+          lunchList.classList.add('opacity-50','pointer-events-none');
+          try {
+            // also clear any visual selected state on labels
+            const labs = Array.from(lunchList.querySelectorAll('label'));
+            labs.forEach(lab => {
+              try {
+                lab.classList.remove('border-primary','bg-primary');
+                lab.classList.add('bg-white','border-gray-200');
+                lab.style.backgroundColor = '';
+                lab.style.borderColor = '';
+                lab.style.color = '';
+                const innerText = lab.querySelector('.font-semibold'); if (innerText) innerText.style.color = '';
+                const icon = lab.querySelector('.material-symbols-outlined'); if (icon) icon.style.color = '';
+                const dot = lab.querySelector('[class~="w-2.5"]'); if (dot) { dot.style.backgroundColor = ''; dot.style.opacity = '0'; }
+              } catch(_){}
+            });
+          } catch(_){}
+        }
+      } else {
+        if (lunchList) {
+          lunchList.classList.remove('opacity-50','pointer-events-none');
+        }
+      }
+    }
+
+    const eetInputs = Array.from(document.querySelectorAll('input[name="eetmee"]'));
+    eetInputs.forEach(inp => {
+      inp.addEventListener('change', () => {
+        try { updateEetMeeState(inp.value); } catch (e) { console.error(e); }
+      });
+    });
+
+    // Save button validation and handler
+    const saveBtn = document.getElementById('save-manual-button');
+    function setSaveEnabled(enabled) {
+      try {
+        if (!saveBtn) return;
+        saveBtn.disabled = !enabled;
+        if (enabled) { saveBtn.classList.remove('opacity-50'); saveBtn.removeAttribute('aria-disabled'); }
+        else { saveBtn.classList.add('opacity-50'); saveBtn.setAttribute('aria-disabled', 'true'); }
+      } catch(_){}
+    }
+
+    function validateAndToggleSave() {
+      try {
+        if (!saveBtn) return;
+        const memberId = (input && ((input.dataset && input.dataset.memberId) || input.getAttribute('data-member-id'))) || null;
+        const eet = (document.querySelector('input[name="eetmee"]:checked') || {}).value || null;
+        const jaar = (document.querySelector('input[name="jaarhanger"]:checked') || {}).value || null;
+        let lunchChoice = null;
+        if (eet === 'ja') lunchChoice = (document.querySelector('#lunch-choices-list input[name="lunch_choice"]:checked') || {}).value || null;
+        const ok = memberId && eet && jaar && (eet !== 'ja' || lunchChoice);
+        setSaveEnabled(Boolean(ok));
+      } catch (e) { console.error('validateAndToggleSave failed', e); }
+    }
+
+    // revalidate on relevant changes
+    document.addEventListener('change', (ev) => {
+      try { if (ev && ev.target) {
+        const name = ev.target.getAttribute && ev.target.getAttribute('name');
+        if (name === 'eetmee' || name === 'jaarhanger' || name === 'lunch_choice') validateAndToggleSave();
+      } } catch(_){}
+    });
+
+    if (saveBtn) {
+      // start disabled
+      setSaveEnabled(false);
+      saveBtn.addEventListener('click', async (ev) => {
+        try {
+          ev.preventDefault();
+          const memberId = (input && ((input.dataset && input.dataset.memberId) || input.getAttribute('data-member-id'))) || null;
+          if (!memberId) { alert('Geen deelnemer geselecteerd'); return; }
+          const eet = (document.querySelector('input[name="eetmee"]:checked') || {}).value || null;
+          const jaar = (document.querySelector('input[name="jaarhanger"]:checked') || {}).value || null;
+          let lunchChoice = null;
+          if (eet === 'ja') lunchChoice = (document.querySelector('#lunch-choices-list input[name="lunch_choice"]:checked') || {}).value || null;
+          setSaveEnabled(false);
+          const payload = { lunchDeelname: (eet === 'ja' ? 'ja' : 'nee'), lunchKeuze: lunchChoice || null, Jaarhanger: jaar || null };
+          try {
+            const res = await checkInMemberById(String(memberId), payload);
+            if (res && res.success) {
+              // also write today's date into ScanDatums for this member
+              try {
+                const today = new Date().toISOString().slice(0,10);
+                await manualRegisterRide(String(memberId), today);
+              } catch (e) { console.warn('write scan date failed', e); }
+              setSaveEnabled(false);
+              try { setTimeout(() => { window.location.href = 'inschrijftafel.html'; }, 700); } catch(_){}
+            } else {
+              alert('Kon niet opslaan');
+              setSaveEnabled(true);
+            }
+          } catch (e) { console.error('save failed', e); alert('Fout bij opslaan'); setSaveEnabled(true); }
+        } catch (e) { console.error('saveBtn handler failed', e); setSaveEnabled(true); }
+      });
+    }
+
+      if (input) {
+      input.addEventListener('member-selected', async (ev) => {
+        try {
+          try { console.debug('initHandmatigeKeuzes member-selected detail:', ev && ev.detail); } catch(_){}
+          if (lunchHost) { lunchHost.style.display = ''; lunchHost.removeAttribute('aria-hidden'); lunchHost.classList.remove('hidden'); }
+          if (jaarHost) { jaarHost.style.display = ''; jaarHost.removeAttribute('aria-hidden'); jaarHost.classList.remove('hidden'); }
+                try { await renderLunchOptions(); } catch(e) { console.error(e); }
+                try { attachLunchChoiceHandlers(); } catch(_){}
+          const selected = document.querySelector('input[name="eetmee"]:checked');
+          if (selected) updateEetMeeState(selected.value);
+          // attempt to prefill Jaarhanger from member record if available
+            try {
+            const memberId = (ev && ev.detail && ev.detail.id) || input.dataset.memberId || input.getAttribute('data-member-id');
+            const memberDetail = (ev && ev.detail && ev.detail.member) ? ev.detail.member : null;
+            let m = null;
+            if (memberDetail) m = memberDetail;
+            else if (memberId) m = await getMemberById(memberId).catch(() => null);
+            if (m) {
+              // try to find any field that indicates jaarhanger
+              let found = null;
+              for (const k of Object.keys(m)) {
+                const lk = String(k || '').toLowerCase();
+                if (lk.includes('jaarhang') || lk.includes('jaarhanger')) { found = m[k]; break; }
+              }
+              if (found === null) {
+                const keys = ['Jaarhanger','jaarhanger','JaarHanger','JaarhangerKeuze','jaarhangerKeuze','Jaarhanger_keuze'];
+                for (const k of keys) if (m[k] !== undefined) { found = m[k]; break; }
+              }
+              if (found !== null && typeof found !== 'undefined' && String(found || '').trim() !== '') {
+                const yn = normalizeYesNo(found);
+                  if (yn === 'yes') {
+                    const el = document.querySelector('input[name="jaarhanger"][value="ja"]'); if (el) { el.checked = true; try { el.dispatchEvent(new Event('change',{bubbles:true})); } catch(_){} }
+                  } else if (yn === 'no') {
+                    const el = document.querySelector('input[name="jaarhanger"][value="nee"]'); if (el) { el.checked = true; try { el.dispatchEvent(new Event('change',{bubbles:true})); } catch(_){} }
+                  }
+              }
+            }
+          } catch (e) { console.warn('prefill jaarhanger failed', e); }
+        } catch (e) { console.error('member-selected handler failed', e); }
+      });
+      // hide hosts again when input is cleared
+      input.addEventListener('input', (ev) => {
+        try {
+          const v = String(input.value || '').trim();
+          if (!v) {
+            if (lunchHost) { lunchHost.style.display = 'none'; lunchHost.setAttribute('aria-hidden', 'true'); lunchHost.classList.add('hidden'); }
+            if (jaarHost) { jaarHost.style.display = 'none'; jaarHost.setAttribute('aria-hidden', 'true'); jaarHost.classList.add('hidden'); }
+          }
+        } catch (e) { console.error('input clear handler failed', e); }
+      });
+    }
+  } catch (e) { console.error('initHandmatigeKeuzes failed', e); }
 }
 
 function showScanSuccess(msg) {
@@ -596,7 +895,7 @@ function createManualSearchHandlers() {
             selected = { id, label, raw: memberObj };
             input.value = label;
               try { input.setAttribute('data-member-id', id); } catch(_){ }
-              try { input.dispatchEvent(new CustomEvent('member-selected', { detail: { id: String(id) } })); } catch(_){}
+              try { input.dispatchEvent(new CustomEvent('member-selected', { detail: { id: String(id), member: memberObj || null }, bubbles: true })); } catch(_){ }
             suggestionsEl.classList.add('hidden');
 
             // If this input is the history input, do NOT open the confirm modal — history input handles registration separately.
