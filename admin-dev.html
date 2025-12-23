@@ -9,12 +9,19 @@
   </head>
   <body>
     <!-- Topbar -->
-    <header class="topbar">
-      <div class="brand">Shadow App</div>
-      <nav class="nav" aria-label="Hoofdnavigatie">
-        <a href="/" class="tab" id="btnMember">Lid</a>
-        <a href="/admin-scan.html" class="tab" id="btnAdmin">Inschrijftafel</a>
-      </nav>
+    <header class="topbar" style="height:64px;">
+      <div style="display:flex; align-items:flex-end; height:100%; padding:0 12px; width:100%;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="brand">Shadow App</div>
+        </div>
+        <nav class="nav" aria-label="Hoofdnavigatie" style="margin-left:16px;">
+          <a href="/" class="tab" id="btnMember">Lid</a>
+          <a href="/admin-scan.html" class="tab" id="btnAdmin">Inschrijftafel</a>
+        </nav>
+        <div style="margin-left:auto; display:flex; align-items:flex-end;">
+          <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" style="height:100%; width:auto; display:block; object-fit:contain; object-position:right bottom;" />
+        </div>
+      </div>
     </header>
 
     <main class="wrap">
