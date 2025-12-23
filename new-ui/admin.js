@@ -370,11 +370,10 @@ export function attachLunchChoiceHandlers(hostId = 'lunch-choices-list') {
             const input = lbl.querySelector('input[name="lunch_choice"]');
             if (input) {
               // programmatically ensure radio is checked when label area clicked
-              try {
-                input.checked = true;
-              } catch(_){}
-              try { applyLunchSelectionState(); } catch(_){}
-              try { console.debug('lunch host click -> set checked for', input.value); } catch(_){}
+              try { input.checked = true; } catch(_){ }
+              try { input.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){ }
+              try { applyLunchSelectionState(); } catch(_){ }
+              try { console.debug('lunch host click -> set checked for', input.value); } catch(_){ }
               return;
             }
           }
@@ -397,6 +396,28 @@ export function initHandmatigeKeuzes({ inputId = 'participant-name-input-manual'
     const input = document.getElementById(inputId);
     const lunchHost = document.getElementById(lunchHostId);
     const jaarHost = document.getElementById(jaarHostId);
+
+    // keep currently selected member document (if available) so we can read prefills
+    let _currentMember = null;
+
+    function getMemberJaarhanger(member) {
+      try {
+        if (!member) return null;
+        let found = null;
+        for (const k of Object.keys(member)) {
+          const lk = String(k || '').toLowerCase();
+          if (lk.includes('jaarhang') || lk.includes('jaarhanger')) { found = member[k]; break; }
+        }
+        if (found === null) {
+          const keys = ['Jaarhanger','jaarhanger','JaarHanger','JaarhangerKeuze','jaarhangerKeuze','Jaarhanger_keuze'];
+          for (const k of keys) if (member[k] !== undefined) { found = member[k]; break; }
+        }
+        const yn = normalizeYesNo(found);
+        if (yn === 'yes') return 'ja';
+        if (yn === 'no') return 'nee';
+        return null;
+      } catch (e) { return null; }
+    }
 
     function updateEetMeeState(value) {
       const eatInputs = Array.from(document.querySelectorAll('input[name="eetmee"]'));
@@ -473,9 +494,12 @@ export function initHandmatigeKeuzes({ inputId = 'participant-name-input-manual'
         const memberId = (input && ((input.dataset && input.dataset.memberId) || input.getAttribute('data-member-id'))) || null;
         const eet = (document.querySelector('input[name="eetmee"]:checked') || {}).value || null;
         const jaar = (document.querySelector('input[name="jaarhanger"]:checked') || {}).value || null;
+        // if jaarhanger not selected in DOM, check current member object for a prefixed value
+        const jaarFromMember = (!jaar && _currentMember) ? getMemberJaarhanger(_currentMember) : null;
         let lunchChoice = null;
         if (eet === 'ja') lunchChoice = (document.querySelector('#lunch-choices-list input[name="lunch_choice"]:checked') || {}).value || null;
-        const ok = memberId && eet && jaar && (eet !== 'ja' || lunchChoice);
+        const jaarPresent = jaar || jaarFromMember || null;
+        const ok = memberId && eet && jaarPresent && (eet !== 'ja' || lunchChoice);
         setSaveEnabled(Boolean(ok));
       } catch (e) { console.error('validateAndToggleSave failed', e); }
     }
@@ -501,7 +525,10 @@ export function initHandmatigeKeuzes({ inputId = 'participant-name-input-manual'
           let lunchChoice = null;
           if (eet === 'ja') lunchChoice = (document.querySelector('#lunch-choices-list input[name="lunch_choice"]:checked') || {}).value || null;
           setSaveEnabled(false);
-          const payload = { lunchDeelname: (eet === 'ja' ? 'ja' : 'nee'), lunchKeuze: lunchChoice || null, Jaarhanger: jaar || null };
+          // prefer DOM jaar selection, fallback to member stored value
+          const jaarFromMember = (!jaar && _currentMember) ? getMemberJaarhanger(_currentMember) : null;
+          const jaarToSave = jaar || jaarFromMember || null;
+          const payload = { lunchDeelname: (eet === 'ja' ? 'ja' : 'nee'), lunchKeuze: lunchChoice || null, Jaarhanger: jaarToSave };
           try {
             const res = await checkInMemberById(String(memberId), payload);
             if (res && res.success) {
@@ -538,6 +565,8 @@ export function initHandmatigeKeuzes({ inputId = 'participant-name-input-manual'
             let m = null;
             if (memberDetail) m = memberDetail;
             else if (memberId) m = await getMemberById(memberId).catch(() => null);
+            // store current member object for validation/save fallback
+            if (m) _currentMember = m;
             if (m) {
               // try to find any field that indicates jaarhanger
               let found = null;
@@ -568,6 +597,8 @@ export function initHandmatigeKeuzes({ inputId = 'participant-name-input-manual'
           if (!v) {
             if (lunchHost) { lunchHost.style.display = 'none'; lunchHost.setAttribute('aria-hidden', 'true'); lunchHost.classList.add('hidden'); }
             if (jaarHost) { jaarHost.style.display = 'none'; jaarHost.setAttribute('aria-hidden', 'true'); jaarHost.classList.add('hidden'); }
+            // clear cached member when input cleared
+            try { _currentMember = null; } catch(_){}
           }
         } catch (e) { console.error('input clear handler failed', e); }
       });
