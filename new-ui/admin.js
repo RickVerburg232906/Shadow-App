@@ -1,6 +1,6 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
-import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers } from './firestore.js';
-import { db, collection, onSnapshot } from '../src/firebase.js';
+import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firestore.js';
+import { db, collection, onSnapshot, doc } from '../src/firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
@@ -48,6 +48,85 @@ function ensureScanToastStyles() {
   document.head.appendChild(s);
 }
 
+// Render stars for a member in the history section (shows planned vs scanned)
+async function renderHistoryStars(memberId) {
+  try {
+    if (!memberId) return;
+    const container = document.getElementById('history-member-stars');
+    if (!container) return;
+    container.innerHTML = '<div class="text-text-sub text-sm">Laden…</div>';
+    const planned = await getPlannedDates().catch(() => []);
+    const member = await getMemberById(memberId).catch(() => null);
+    const scans = getMemberScanYMDs_local(member || {});
+    const plannedY = Array.isArray(planned) ? planned.map(d => (typeof d === 'string' ? d.slice(0,10) : '')).filter(Boolean) : [];
+    // Build full-width clickable star buttons
+    const starHtml = plannedY.map(pd => {
+      const isScanned = scans.includes(pd);
+      const title = `Rit ${pd}`;
+      // large star inside a full-width flex item
+      if (isScanned) {
+        return `<button data-filled="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white" title="${title}"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1, 'wght' 400; -webkit-font-variation-settings: 'FILL' 1, 'wght' 400; color: #F2C438; font-size:32px;">star</span></button>`;
+      }
+      return `<button data-filled="0" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white" title="${title}"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; -webkit-font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px;">star</span></button>`;
+    }).join('');
+    container.innerHTML = `<div class="flex gap-2">${starHtml}</div>` || `<div class="text-sm text-gray-500">Geen geplande ritten</div>`;
+
+    // attach live listener to update when member ScanDatums change (best-effort)
+      try {
+        if (container._starsUnsub && typeof container._starsUnsub === 'function') container._starsUnsub();
+        if (doc && onSnapshot && db) {
+          container._starsUnsub = onSnapshot(doc(db, 'members', String(memberId)), snap => {
+            try {
+              const data = (snap && snap.exists && snap.exists()) ? snap.data() : (snap && snap.data ? snap.data() : {});
+              const scans2 = getMemberScanYMDs_local(data || {});
+              const starHtml2 = plannedY.map(pd => {
+                const isScanned = scans2.includes(pd);
+                const title = `Rit ${pd}`;
+                if (isScanned) return `<button data-filled="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1, 'wght' 400; color: #F2C438; font-size:32px;">star</span></button>`;
+                return `<button data-filled="0" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px;">star</span></button>`;
+              }).join('');
+              container.innerHTML = `<div class="flex gap-2">${starHtml2}</div>`;
+              attachHistoryStarHandlers(container, memberId, plannedY);
+            } catch (e) { console.error('history stars snapshot render failed', e); }
+          });
+        }
+      } catch (e) { console.warn('attach snapshot for history stars failed', e); }
+    // Attach click handlers for stars (register when clicked)
+    try { attachHistoryStarHandlers(container, memberId, plannedY); } catch(_){}
+  } catch (e) { console.error('renderHistoryStars failed', e); }
+}
+
+function attachHistoryStarHandlers(container, memberId, plannedY) {
+  try {
+    if (!container) return;
+    // delegate clicks on buttons
+    const btns = Array.from(container.querySelectorAll('button[data-history-date]'));
+    btns.forEach(b => {
+      // avoid duplicating handlers
+      if (b._historyHandlerAttached) return;
+      b._historyHandlerAttached = true;
+      b.addEventListener('click', async (ev) => {
+        try {
+          ev.preventDefault();
+          // If the star is already filled, do nothing
+          try { if (b.getAttribute('data-filled') === '1') return; } catch(_){}
+          const date = b.getAttribute('data-history-date');
+          if (!memberId || !date) return;
+          // register the ride for this member/date
+          const res = await manualRegisterRide(String(memberId), String(date));
+          if (res && res.success) {
+            try { showScanSuccess && showScanSuccess('Rit geregistreerd'); } catch(_){}
+            // re-render to update filled state
+            try { renderHistoryStars(memberId); } catch(_){}
+          } else {
+            alert('Kon rit niet registreren');
+          }
+        } catch (e) { console.error('history star click failed', e); alert('Fout bij registreren'); }
+      });
+    });
+  } catch (e) { console.error('attachHistoryStarHandlers failed', e); }
+}
+
 // Minimal HTML escape used by the manual modal
 function escapeHtml(s) {
   try {
@@ -69,6 +148,47 @@ function normalizeYesNo(v) {
     if (!isNaN(num)) return num > 0 ? 'yes' : 'no';
     return null;
   } catch (e) { return null; }
+}
+
+// Return array of YMD scan dates from member object. Copied from main.js implementation (scoped helper).
+function getMemberScanYMDs_local(member) {
+  try {
+    if (!member) return [];
+    const candidates = [member.ScanDatums, member.scanDatums, member.ScanDatum, member.scanDatum, member.scanDates, member.ScanDates, member.ScanDatumList, member.scanDatumList];
+    let raw = null;
+    for (const c of candidates) { if (typeof c !== 'undefined' && c !== null) { raw = c; break; } }
+    if (!raw) {
+      for (const k of Object.keys(member || {})) {
+        if (k.toLowerCase().includes('scan')) { raw = member[k]; break; }
+      }
+    }
+    if (!raw) return [];
+    const result = [];
+    if (Array.isArray(raw)) {
+      for (const it of raw) {
+        if (!it) continue;
+        if (typeof it === 'string') { result.push(String(it).slice(0,10)); continue; }
+        if (typeof it === 'object') {
+          if (typeof it.seconds === 'number') { try { result.push(new Date(it.seconds * 1000).toISOString().slice(0,10)); continue; } catch(_){} }
+          if (it.value && typeof it.value === 'string') { result.push(String(it.value).slice(0,10)); continue; }
+          for (const pk of ['date','datum','scanDate','ScanDatum']) { if (it[pk]) { result.push(String(it[pk]).slice(0,10)); break; } }
+        }
+      }
+      return Array.from(new Set(result)).filter(Boolean);
+    }
+    if (typeof raw === 'object') {
+      for (const [k,v] of Object.entries(raw)) {
+        if (typeof k === 'string' && /^\d{4}-\d{2}-\d{2}/.test(k)) result.push(k.slice(0,10));
+        if (v) {
+          if (typeof v === 'string') result.push(v.slice(0,10));
+          else if (typeof v === 'object' && typeof v.seconds === 'number') result.push(new Date(v.seconds * 1000).toISOString().slice(0,10));
+        }
+      }
+      return Array.from(new Set(result)).filter(Boolean);
+    }
+    if (typeof raw === 'string') return [raw.slice(0,10)];
+    return [];
+  } catch (e) { return []; }
 }
 
 function showScanSuccess(msg) {
@@ -391,61 +511,80 @@ export async function initInschrijftafel() {
         } catch (e) { console.error('start btn handler error', e); }
       });
     }
+
+    
   } catch (e) { console.error('initInschrijftafel failed', e); }
 }
 
 // Manual name-search + check-in flow for inschrijftafel page
 function createManualSearchHandlers() {
   try {
-    const input = document.getElementById('participant-name-input');
-    const suggestionsEl = document.getElementById('name-suggestions');
-    let selected = null;
-    if (!input || !suggestionsEl) return;
+    const inputs = Array.from(document.querySelectorAll('input.participant-name-input'));
+    if (!inputs || inputs.length === 0) return;
 
-    input.addEventListener('input', async (ev) => {
+    inputs.forEach((input) => {
       try {
-        const raw = (input.value || '').trim();
-        if (!raw) { suggestionsEl.innerHTML = ''; suggestionsEl.classList.add('hidden'); return; }
-        const results = await searchMembers(raw, 8);
-        if (!Array.isArray(results) || results.length === 0) { suggestionsEl.innerHTML = ''; suggestionsEl.classList.add('hidden'); return; }
-        const html = results.map(r => {
-          const label = (r.voor && r.naam) ? `${r.voor} ${r.naam}` : (r.naam || r.voor || '');
-          const json = encodeURIComponent(JSON.stringify(r || {}));
-          return `<button type="button" data-member-id="${r.id}" data-member-json="${json}" class="w-full text-left px-4 py-2 hover:bg-gray-100">${label}</button>`;
-        }).join('\n');
-        suggestionsEl.innerHTML = `<div class="flex flex-col">${html}</div>`;
-        suggestionsEl.classList.remove('hidden');
-      } catch (e) { console.error('manual search input error', e); }
-    });
+        const suggestionsEl = (input.parentElement && input.parentElement.querySelector('[id^="name-suggestions"]')) || document.getElementById('name-suggestions');
+        if (!suggestionsEl) return;
+        let selected = null;
 
-    suggestionsEl.addEventListener('click', async (ev) => {
-      try {
-        const btn = ev.target.closest('button[data-member-id]');
-        if (!btn) return;
-        const id = btn.getAttribute('data-member-id');
-        const raw = btn.getAttribute('data-member-json');
-        const label = (btn.textContent || '').trim();
-        let memberObj = null;
-        try { memberObj = raw ? JSON.parse(decodeURIComponent(raw)) : null; } catch(_) { memberObj = null; }
-        // fetch full doc if possible
-        try {
-          const full = await getMemberById(id);
-          if (full) memberObj = Object.assign({}, memberObj || {}, full);
-        } catch (e) { console.warn('fetching full member failed', e); }
+        input.addEventListener('input', async () => {
+          try {
+            const raw = (input.value || '').trim();
+            if (!raw) { suggestionsEl.innerHTML = ''; suggestionsEl.classList.add('hidden'); return; }
+            const results = await searchMembers(raw, 8);
+            if (!Array.isArray(results) || results.length === 0) { suggestionsEl.innerHTML = ''; suggestionsEl.classList.add('hidden'); return; }
+            const html = results.map(r => {
+              const label = (r.voor && r.naam) ? `${r.voor} ${r.naam}` : (r.naam || r.voor || '');
+              const json = encodeURIComponent(JSON.stringify(r || {}));
+              return `<button type="button" data-member-id="${r.id}" data-member-json="${json}" class="w-full text-left px-4 py-2 hover:bg-gray-100">${label}</button>`;
+            }).join('\n');
+            suggestionsEl.innerHTML = `<div class="flex flex-col">${html}</div>`;
+            suggestionsEl.classList.remove('hidden');
+          } catch (e) { console.error('manual search input error', e); }
+        });
 
-        // store selected
-        selected = { id, label, raw: memberObj };
-        input.value = label;
-        suggestionsEl.classList.add('hidden');
+        suggestionsEl.addEventListener('click', async (ev) => {
+          try {
+            const btn = ev.target.closest('button[data-member-id]');
+            if (!btn) return;
+            const id = btn.getAttribute('data-member-id');
+            const raw = btn.getAttribute('data-member-json');
+            const label = (btn.textContent || '').trim();
+            let memberObj = null;
+            try { memberObj = raw ? JSON.parse(decodeURIComponent(raw)) : null; } catch(_) { memberObj = null; }
+            try {
+              const full = await getMemberById(id);
+              if (full) memberObj = Object.assign({}, memberObj || {}, full);
+            } catch (e) { console.warn('fetching full member failed', e); }
 
-        // open a small inline confirm flow (participation + lunch + jaarhanger)
-        openManualConfirm(selected);
-      } catch (e) { console.error('manual suggestion click error', e); }
-    });
+            selected = { id, label, raw: memberObj };
+            input.value = label;
+            try { input.setAttribute('data-member-id', id); } catch(_){}
+            suggestionsEl.classList.add('hidden');
 
-    // click outside to close suggestions
-    document.addEventListener('click', (ev) => {
-      if (!suggestionsEl.contains(ev.target) && ev.target !== input) suggestionsEl.classList.add('hidden');
+            // If this input is the history input, do NOT open the confirm modal — history input handles registration separately.
+            try {
+              const isHistory = (input.id && input.id.includes('history')) || (suggestionsEl.id && suggestionsEl.id.includes('history')) || (input.closest && input.closest('#historie-section'));
+              if (isHistory) {
+                  // keep selection but do not open modal (no toast)
+                  try {
+                    // render stars for this member in the history stars container
+                    try { renderHistoryStars(String(id)); } catch(_){}
+                  } catch(_){}
+              } else {
+                // attach modal to the input's host block (two levels up: relative -> block)
+                try { openManualConfirm(selected, input.parentElement && input.parentElement.parentElement ? input.parentElement.parentElement : input.parentElement); } catch (_) { openManualConfirm(selected); }
+              }
+            } catch (e) { console.error('post-selection handling failed', e); }
+          } catch (e) { console.error('manual suggestion click error', e); }
+        });
+
+        // click outside to close suggestions for this input
+        document.addEventListener('click', (ev) => {
+          if (!suggestionsEl.contains(ev.target) && ev.target !== input) suggestionsEl.classList.add('hidden');
+        });
+      } catch (e) { console.error('createManualSearchHandlers per-input failed', e); }
     });
   } catch (e) { console.error('createManualSearchHandlers failed', e); }
 }
@@ -533,15 +672,19 @@ function initLiveLunchStats() {
   } catch (e) { console.error('initLiveLunchStats failed', e); }
 }
 
-async function openManualConfirm(selected) {
+async function openManualConfirm(selected, attachTo) {
   try {
     if (!selected || !selected.id) return;
-    // build simple modal UI under the search area
-    let modal = document.getElementById('manual-checkin-modal');
+    // build simple modal UI under the provided attachTo block (so each input gets its own modal)
+    const host = attachTo && attachTo.nodeType === 1 ? attachTo : document.getElementById('manual-search-hint') || document.getElementById('manual-search-hint-history') || document.body;
+    const uid = (attachTo && attachTo.id) ? attachTo.id.replace(/[^a-z0-9_-]/gi,'') : ('m' + Math.random().toString(36).slice(2,8));
+    const modalId = `manual-checkin-modal-${uid}`;
+    // create a fresh modal each time (scoped) to avoid cross-input interference
+    let modal = document.getElementById(modalId);
     if (!modal) {
       modal = document.createElement('div');
-      modal.id = 'manual-checkin-modal';
-      modal.className = 'mt-2 p-3 bg-surface rounded-lg border border-primary/10 shadow-sm text-sm';
+      modal.id = modalId;
+      modal.className = 'manual-checkin-modal mt-2 p-3 bg-surface rounded-lg border border-primary/10 shadow-sm text-sm';
       modal.innerHTML = `
         <div class="flex items-center justify-between mb-2">
           <div>
@@ -565,9 +708,9 @@ async function openManualConfirm(selected) {
           <div class="flex gap-4 items-start">
             <div class="flex-1">
               <div class="text-xs font-semibold uppercase text-text-sub mb-1">Vast menu</div>
-              <div id="manual-vast-list" class="flex flex-wrap gap-2 mb-2 text-xs"></div>
+              <div id="manual-vast-list-${uid}" class="flex flex-wrap gap-2 mb-2 text-xs"></div>
               <div class="text-xs font-semibold uppercase text-text-sub mb-1">Keuze Maaltijd</div>
-              <div id="manual-keuze-list" class="flex flex-wrap gap-2"></div>
+              <div id="manual-keuze-list-${uid}" class="flex flex-wrap gap-2"></div>
             </div>
           </div>
         </div>
@@ -585,41 +728,38 @@ async function openManualConfirm(selected) {
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <button id="manual-confirm" disabled class="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-md px-4 py-2 text-sm font-semibold shadow-md hover:bg-primary/90 opacity-50" aria-disabled="true">
+          <button id="manual-confirm-${uid}" disabled class="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-md px-4 py-2 text-sm font-semibold shadow-md hover:bg-primary/90 opacity-50" aria-disabled="true">
             <span class="material-symbols-outlined text-[18px]">check</span>
             <span>Bevestig</span>
           </button>
         </div>
       `;
-      const container = document.getElementById('manual-search-hint');
-      if (container && container.parentNode) container.parentNode.appendChild(modal);
-    }
-
-    // populate name and lidnr
-    try {
-      const nameEl = document.getElementById('manual-name');
-      const lidEl = document.getElementById('manual-lidnr');
-      if (nameEl) nameEl.textContent = selected.label || '';
-      if (lidEl) lidEl.textContent = selected.raw && (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr) ? (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr) : '';
-      // Prefill jaarhanger if present on member doc
       try {
-        const raw = selected.raw || {};
-        const rawJaar = raw?.Jaarhanger ?? raw?.jaarhanger ?? raw?.JaarhangerAanvraag ?? raw?.['Jaarhanger Aanvraag'] ?? raw?.jaarhanger_aanvraag ?? raw?.jaarhangerAanvraag ?? null;
-        const norm = normalizeYesNo(rawJaar);
-        if (norm === 'yes') {
-          const elYes = document.querySelector('#manual-checkin-modal input[name="manual-jaar"][value="yes"]');
-          if (elYes) elYes.checked = true;
-        } else if (norm === 'no') {
-          const elNo = document.querySelector('#manual-checkin-modal input[name="manual-jaar"][value="no"]');
-          if (elNo) elNo.checked = true;
-        }
-      } catch (_) {}
+        // Prefer to append to the provided host block so modal is local to that input
+        if (host && host.appendChild) host.appendChild(modal);
+        else document.body.appendChild(modal);
+      } catch(_) { document.body.appendChild(modal); }
+    }
+    // populate name and lidnr (if modal contains such elements) and prefill jaarhanger
+    try {
+      const modalRoot = modal;
+      const raw = selected.raw || {};
+      const rawJaar = raw?.Jaarhanger ?? raw?.jaarhanger ?? raw?.JaarhangerAanvraag ?? raw?.['Jaarhanger Aanvraag'] ?? raw?.jaarhanger_aanvraag ?? raw?.jaarhangerAanvraag ?? null;
+      const norm = normalizeYesNo(rawJaar);
+      if (norm === 'yes') {
+        const elYes = modalRoot.querySelector('input[name="manual-jaar"][value="yes"]');
+        if (elYes) elYes.checked = true;
+      } else if (norm === 'no') {
+        const elNo = modalRoot.querySelector('input[name="manual-jaar"][value="no"]');
+        if (elNo) elNo.checked = true;
+      }
     } catch (_) {}
 
     // fill maaltijd options
     try {
-      const list = document.getElementById('manual-keuze-list');
-      const vastEl = document.getElementById('manual-vast-list');
+      const modalRoot = modal;
+      const list = modalRoot.querySelector(`#manual-keuze-list-${uid}`);
+      const vastEl = modalRoot.querySelector(`#manual-vast-list-${uid}`);
       if (list) {
         list.innerHTML = '<div class="text-text-sub text-sm">Laden…</div>';
         const opts = await getLunchOptions();
@@ -669,7 +809,7 @@ async function openManualConfirm(selected) {
         try {
           const part = modalRoot.querySelector('input[name="manual-participation"]:checked');
           const isNo = part && String(part.value) === 'no';
-          const keuzeLabels = Array.from(modalRoot.querySelectorAll('#manual-keuze-list label'));
+          const keuzeLabels = Array.from(modalRoot.querySelectorAll(`#manual-keuze-list-${uid} label`));
           keuzeLabels.forEach(l => {
             const inp = l.querySelector('input[type="radio"]');
             if (!inp) return;
@@ -692,7 +832,7 @@ async function openManualConfirm(selected) {
 
       function updateManualConfirmState() {
         try {
-          const confirmBtn = modalRoot.querySelector('#manual-confirm');
+          const confirmBtn = modalRoot.querySelector(`#manual-confirm-${uid}`);
           if (!confirmBtn) return;
           const part = modalRoot.querySelector('input[name="manual-participation"]:checked');
           const jaar = modalRoot.querySelector('input[name="manual-jaar"]:checked');
@@ -718,13 +858,13 @@ async function openManualConfirm(selected) {
       // ensure initial enforcement
       setTimeout(() => { try { refreshLabelStates(); enforceParticipationState(); updateManualConfirmState(); } catch(_){} }, 30);
 
-      const confirm = document.getElementById('manual-confirm');
+      const confirm = modalRoot.querySelector(`#manual-confirm-${uid}`);
       if (confirm) confirm.addEventListener('click', async () => {
         try {
-          const participation = (modal.querySelector('input[name="manual-participation"]:checked') || {}).value || null;
-          const keuzeInp = modal.querySelector('input[name="manual-keuze"]:checked');
+          const participation = (modalRoot.querySelector('input[name="manual-participation"]:checked') || {}).value || null;
+          const keuzeInp = modalRoot.querySelector('input[name="manual-keuze"]:checked');
           const keuze = keuzeInp ? keuzeInp.value : null;
-          const jaar = (modal.querySelector('input[name="manual-jaar"]:checked') || {}).value || null;
+          const jaar = (modalRoot.querySelector('input[name="manual-jaar"]:checked') || {}).value || null;
           // perform check-in (reuse existing checkInMemberById)
           try {
             const memberId = String(selected.id || (selected.raw && (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr)) || '');
