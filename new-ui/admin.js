@@ -191,6 +191,41 @@ function getMemberScanYMDs_local(member) {
   } catch (e) { return []; }
 }
 
+// Render lunch choices page elements (used by handmatige-keuzes.html)
+export async function renderLunchOptions(hostId = 'lunch-choices-list', inclusiefId = 'inclusief-list') {
+  try {
+    const res = await getLunchOptions();
+    const keuze = Array.isArray(res.keuzeEten) ? res.keuzeEten : [];
+    const vast = Array.isArray(res.vastEten) ? res.vastEten : [];
+    const host = document.getElementById(hostId);
+    const incl = document.getElementById(inclusiefId);
+    if (incl) {
+      if (!vast || vast.length === 0) incl.textContent = 'Geen vaste gerechten gevonden';
+      else incl.textContent = String(vast.join(', '));
+    }
+    if (!host) return;
+    if (!keuze || keuze.length === 0) {
+      host.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>';
+      return;
+    }
+    host.innerHTML = keuze.map((k, idx) => {
+      const safe = String(k || '').replace(/"/g, '&quot;');
+      return `
+        <label class="radio-card group relative flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:bg-gray-50">
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-gray-400">lunch_dining</span>
+            <span class="font-semibold text-text-main">${escapeHtml(String(k))}</span>
+          </div>
+          <div class="relative flex items-center justify-center w-5 h-5 rounded-full border border-gray-300 bg-white">
+            <div class="w-2.5 h-2.5 rounded-full bg-primary opacity-0 group-[:checked]:opacity-100 transition-opacity"></div>
+          </div>
+          <input class="invisible absolute" name="lunch_choice" type="radio" value="${safe}" ${idx===0? 'checked':''} />
+        </label>
+      `;
+    }).join('\n');
+  } catch (e) { console.error('renderLunchOptions failed', e); }
+}
+
 function showScanSuccess(msg) {
   try {
     ensureScanToastStyles();
