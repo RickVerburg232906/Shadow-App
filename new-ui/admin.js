@@ -573,8 +573,8 @@ function createManualSearchHandlers() {
                     try { renderHistoryStars(String(id)); } catch(_){}
                   } catch(_){}
               } else {
-                // attach modal to the input's host block (two levels up: relative -> block)
-                try { openManualConfirm(selected, input.parentElement && input.parentElement.parentElement ? input.parentElement.parentElement : input.parentElement); } catch (_) { openManualConfirm(selected); }
+                // Manual sign-up UI removed; no modal will be opened for non-history selections.
+                // Selection will be stored on the input via data-member-id and no further UI is shown.
               }
             } catch (e) { console.error('post-selection handling failed', e); }
           } catch (e) { console.error('manual suggestion click error', e); }
@@ -630,7 +630,7 @@ function initLiveLunchStats() {
                   else if (typeof exp.seconds === 'number') expMs = Number(exp.seconds) * 1000;
                   else expMs = Date.parse(String(exp)) || 0;
                   if (expMs && expMs > nowMs) valid = true;
-                } catch (_) { /* ignore */ }
+                } catch (_) { /* ignore per-doc expiry parse */ }
               }
               // If no expiry field, treat as not registered for lunch
               if (!valid) continue;
@@ -651,15 +651,13 @@ function initLiveLunchStats() {
           if (noEl) noEl.textContent = String(no);
           // update per-choice counts if we have elements
           for (const [choice, el] of Object.entries(choiceContainers)) {
-            try { el.textContent = String(choiceCounts.get(choice) || 0); } catch(_){}
+            try { el.textContent = String(choiceCounts.get(choice) || 0); } catch(_){ }
           }
           // also update any choice-count-* elements by matching text if necessary
           try {
             const elems = Array.from(document.querySelectorAll('[id^="choice-count-"]'));
             elems.forEach((e, idx) => {
-              // if the element already updated above it will be accurate; skip if we updated via container mapping
               if (e && e.textContent && e.textContent.trim() !== '') return;
-              // otherwise try to map by position (best-effort)
               const count = Array.from(choiceCounts.values())[idx] || 0;
               e.textContent = String(count);
             });
@@ -667,223 +665,9 @@ function initLiveLunchStats() {
         } catch (e) { console.error('live lunch stats snapshot error', e); }
       }, err => { console.warn('live lunch stats onSnapshot error', err); });
       // store unsub on window for debugging if needed
-      try { if (typeof window !== 'undefined') window._liveLunchStatsUnsub = unsub; } catch(_){}
+      try { if (typeof window !== 'undefined') window._liveLunchStatsUnsub = unsub; } catch(_){ }
     } catch (e) { console.error('initLiveLunchStats subscribe failed', e); }
   } catch (e) { console.error('initLiveLunchStats failed', e); }
-}
-
-async function openManualConfirm(selected, attachTo) {
-  try {
-    if (!selected || !selected.id) return;
-    // build simple modal UI under the provided attachTo block (so each input gets its own modal)
-    const host = attachTo && attachTo.nodeType === 1 ? attachTo : document.getElementById('manual-search-hint') || document.getElementById('manual-search-hint-history') || document.body;
-    const uid = (attachTo && attachTo.id) ? attachTo.id.replace(/[^a-z0-9_-]/gi,'') : ('m' + Math.random().toString(36).slice(2,8));
-    const modalId = `manual-checkin-modal-${uid}`;
-    // create a fresh modal each time (scoped) to avoid cross-input interference
-    let modal = document.getElementById(modalId);
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = modalId;
-      modal.className = 'manual-checkin-modal mt-2 p-3 bg-surface rounded-lg border border-primary/10 shadow-sm text-sm';
-      modal.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
-          <div>
-            <div class="text-sm font-semibold">Inschrijven</div>
-          </div>
-        </div>
-        <div class="mb-2">
-          <div class="text-xs font-semibold uppercase text-text-sub mb-1">Mee-eten?</div>
-          <div class="flex gap-2">
-            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
-              <input class="sr-only" type="radio" name="manual-participation" value="yes">
-              <span class="text-sm">Ja</span>
-            </label>
-            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
-              <input class="sr-only" type="radio" name="manual-participation" value="no">
-              <span class="text-sm">Nee</span>
-            </label>
-          </div>
-        </div>
-        <div class="mb-2">
-          <div class="flex gap-4 items-start">
-            <div class="flex-1">
-              <div class="text-xs font-semibold uppercase text-text-sub mb-1">Vast menu</div>
-              <div id="manual-vast-list-${uid}" class="flex flex-wrap gap-2 mb-2 text-xs"></div>
-              <div class="text-xs font-semibold uppercase text-text-sub mb-1">Keuze Maaltijd</div>
-              <div id="manual-keuze-list-${uid}" class="flex flex-wrap gap-2"></div>
-            </div>
-          </div>
-        </div>
-        <div class="mb-2">
-          <div class="text-xs font-semibold uppercase text-text-sub mb-1">Jaarhanger</div>
-          <div class="flex gap-2">
-            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
-              <input class="sr-only" type="radio" name="manual-jaar" value="yes">
-              <span class="text-sm">Ja</span>
-            </label>
-            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
-              <input class="sr-only" type="radio" name="manual-jaar" value="no">
-              <span class="text-sm">Nee</span>
-            </label>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <button id="manual-confirm-${uid}" disabled class="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-md px-4 py-2 text-sm font-semibold shadow-md hover:bg-primary/90 opacity-50" aria-disabled="true">
-            <span class="material-symbols-outlined text-[18px]">check</span>
-            <span>Bevestig</span>
-          </button>
-        </div>
-      `;
-      try {
-        // Prefer to append to the provided host block so modal is local to that input
-        if (host && host.appendChild) host.appendChild(modal);
-        else document.body.appendChild(modal);
-      } catch(_) { document.body.appendChild(modal); }
-    }
-    // populate name and lidnr (if modal contains such elements) and prefill jaarhanger
-    try {
-      const modalRoot = modal;
-      const raw = selected.raw || {};
-      const rawJaar = raw?.Jaarhanger ?? raw?.jaarhanger ?? raw?.JaarhangerAanvraag ?? raw?.['Jaarhanger Aanvraag'] ?? raw?.jaarhanger_aanvraag ?? raw?.jaarhangerAanvraag ?? null;
-      const norm = normalizeYesNo(rawJaar);
-      if (norm === 'yes') {
-        const elYes = modalRoot.querySelector('input[name="manual-jaar"][value="yes"]');
-        if (elYes) elYes.checked = true;
-      } else if (norm === 'no') {
-        const elNo = modalRoot.querySelector('input[name="manual-jaar"][value="no"]');
-        if (elNo) elNo.checked = true;
-      }
-    } catch (_) {}
-
-    // fill maaltijd options
-    try {
-      const modalRoot = modal;
-      const list = modalRoot.querySelector(`#manual-keuze-list-${uid}`);
-      const vastEl = modalRoot.querySelector(`#manual-vast-list-${uid}`);
-      if (list) {
-        list.innerHTML = '<div class="text-text-sub text-sm">Laden…</div>';
-        const opts = await getLunchOptions();
-        const keuze = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
-        const vast = Array.isArray(opts.vastEten) ? opts.vastEten : [];
-        if (keuze.length === 0) list.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>';
-        else {
-          list.innerHTML = keuze.map((it, idx) => `
-            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
-              <input class="sr-only" type="radio" name="manual-keuze" value="${escapeHtml(String(it))}">
-              <span class="text-sm">${escapeHtml(String(it))}</span>
-            </label>
-          `).join('');
-        }
-        if (vastEl) {
-          if (!vast || vast.length === 0) {
-            vastEl.innerHTML = '<div class="text-xs text-text-sub">Geen vast menu</div>';
-          } else {
-            // render compact badges for fixed menu using project colors
-            vastEl.innerHTML = vast.map(v => `<span class="inline-block px-2 py-0.5 rounded-md text-xs border border-primary/10 bg-primary/10 text-primary">${escapeHtml(String(v))}</span>`).join(' ');
-          }
-        }
-      }
-    } catch (e) { console.error('fill manual keuzes failed', e); }
-
-      // wire buttons + interactive label-state toggling and participation enforcement
-    try {
-      const modalRoot = modal;
-      function refreshLabelStates() {
-        try {
-          const labels = modalRoot.querySelectorAll('label');
-          labels.forEach(l => {
-            const inp = l.querySelector('input[type="radio"]');
-            if (!inp) return;
-            if (inp.checked) {
-              l.classList.add('bg-primary','text-white');
-              l.classList.remove('border-primary/20');
-            } else {
-              l.classList.remove('bg-primary','text-white');
-              l.classList.add('border-primary/20');
-            }
-          });
-        } catch (e) { /* ignore */ }
-      }
-
-      function enforceParticipationState() {
-        try {
-          const part = modalRoot.querySelector('input[name="manual-participation"]:checked');
-          const isNo = part && String(part.value) === 'no';
-          const keuzeLabels = Array.from(modalRoot.querySelectorAll(`#manual-keuze-list-${uid} label`));
-          keuzeLabels.forEach(l => {
-            const inp = l.querySelector('input[type="radio"]');
-            if (!inp) return;
-            if (isNo) {
-              // clear selection and disable
-              try { inp.checked = false; } catch(_){}
-              l.classList.add('opacity-40');
-              l.classList.add('pointer-events-none');
-              l.classList.remove('bg-primary','text-white');
-            } else {
-              l.classList.remove('opacity-40');
-              l.classList.remove('pointer-events-none');
-            }
-          });
-          // ensure visual state consistent
-          refreshLabelStates();
-          updateManualConfirmState();
-        } catch (e) { console.error('enforceParticipationState failed', e); }
-      }
-
-      function updateManualConfirmState() {
-        try {
-          const confirmBtn = modalRoot.querySelector(`#manual-confirm-${uid}`);
-          if (!confirmBtn) return;
-          const part = modalRoot.querySelector('input[name="manual-participation"]:checked');
-          const jaar = modalRoot.querySelector('input[name="manual-jaar"]:checked');
-          const keuzeNeeded = part && String(part.value) === 'yes';
-          const keuzeSel = modalRoot.querySelector('input[name="manual-keuze"]:checked');
-          let ok = true;
-          if (!part) ok = false;
-          if (!jaar) ok = false;
-          if (keuzeNeeded && !keuzeSel) ok = false;
-          if (ok) {
-            confirmBtn.disabled = false; confirmBtn.classList.remove('opacity-50'); confirmBtn.removeAttribute('aria-disabled');
-          } else {
-            confirmBtn.disabled = true; confirmBtn.classList.add('opacity-50'); confirmBtn.setAttribute('aria-disabled','true');
-          }
-        } catch (e) { /* ignore */ }
-      }
-
-      // update on any change inside modal
-      modalRoot.addEventListener('change', () => { try { refreshLabelStates(); enforceParticipationState(); updateManualConfirmState(); } catch(_){} });
-      // also update when clicking labels (some browsers don't fire change until focus out)
-      modalRoot.addEventListener('click', (ev) => { try { setTimeout(() => { refreshLabelStates(); enforceParticipationState(); updateManualConfirmState(); }, 10); } catch(_){} });
-
-      // ensure initial enforcement
-      setTimeout(() => { try { refreshLabelStates(); enforceParticipationState(); updateManualConfirmState(); } catch(_){} }, 30);
-
-      const confirm = modalRoot.querySelector(`#manual-confirm-${uid}`);
-      if (confirm) confirm.addEventListener('click', async () => {
-        try {
-          const participation = (modalRoot.querySelector('input[name="manual-participation"]:checked') || {}).value || null;
-          const keuzeInp = modalRoot.querySelector('input[name="manual-keuze"]:checked');
-          const keuze = keuzeInp ? keuzeInp.value : null;
-          const jaar = (modalRoot.querySelector('input[name="manual-jaar"]:checked') || {}).value || null;
-          // perform check-in (reuse existing checkInMemberById)
-          try {
-            const memberId = String(selected.id || (selected.raw && (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr)) || '');
-            if (!memberId) { alert('Geen lidnummer gevonden'); return; }
-            const r = await checkInMemberById(memberId, { lunchDeelname: participation, lunchKeuze: keuze, Jaarhanger: jaar });
-            if (r && r.success) {
-              try { showScanSuccess('Ingeschreven: ' + (memberId || '')); } catch(_){}
-              // append to recent activity
-              try { const full = await getMemberById(memberId); renderActivityItem(full || { lidnummer: memberId }, new Date().toISOString()); } catch(_) { renderActivityItem({ lidnummer: memberId }, new Date().toISOString()); }
-            } else { alert('Kon lid niet bijwerken'); }
-          } catch (e) { console.error('manual confirm checkin failed', e); alert('Fout bij inschrijven'); }
-          // also register today's ride
-          try { const today = new Date().toISOString().slice(0,10); await manualRegisterRide(String(selected.id || ''), today); } catch(_){}
-          try { modal.remove(); } catch(_){}
-        } catch (e) { console.error('manual confirm error', e); }
-      });
-    } catch (e) { console.error('wire manual buttons failed', e); }
-
-  } catch (e) { console.error('openManualConfirm failed', e); }
 }
 
 // initialize manual search handlers after DOM loaded
