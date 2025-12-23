@@ -212,11 +212,6 @@ function render(html) {
             const jlab = document.getElementById('jaarhanger-date-label');
             if (jlab) jlab.textContent = formatShortDateNL(new Date());
         } catch (e) { console.error('setting jaarhanger date label failed', e); }
-        // set header date label if present
-        try {
-            const hlab = document.getElementById('header-date');
-            if (hlab) hlab.textContent = formatShortDateNL(new Date());
-        } catch (e) { console.error('setting header date failed', e); }
         // set member info on memberInfoPage if present
         try {
             const nameEl = document.getElementById('member-name');

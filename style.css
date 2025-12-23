@@ -50,8 +50,6 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
   height: var(--topbar-h);
   z-index: 10000;
 }
-/* header/logo normalization moved to inline styles per user request */
-
 .brand { font-weight:800; letter-spacing:.3px; }
 .nav { display:flex; gap:8px; }
 .nav .tab {
