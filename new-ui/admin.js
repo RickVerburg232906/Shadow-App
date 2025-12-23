@@ -60,12 +60,27 @@ async function renderHistoryStars(memberId) {
     const scans = getMemberScanYMDs_local(member || {});
     const plannedY = Array.isArray(planned) ? planned.map(d => (typeof d === 'string' ? d.slice(0,10) : '')).filter(Boolean) : [];
     // Build full-width clickable star buttons
+    const todayY = new Date().toISOString().slice(0,10);
     const starHtml = plannedY.map(pd => {
       const isScanned = scans.includes(pd);
+      const isFuture = (pd > todayY);
       const title = `Rit ${pd}`;
       // large star inside a full-width flex item
       if (isScanned) {
         return `<button data-filled="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white" title="${title}"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1, 'wght' 400; -webkit-font-variation-settings: 'FILL' 1, 'wght' 400; color: #F2C438; font-size:32px;">star</span></button>`;
+      }
+      if (isFuture) {
+        // future event: keep star visible but render a semi-opaque overlay with a centered white lock
+        return `
+          <button data-filled="0" data-future="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white relative" title="${title}" disabled aria-disabled="true" style="pointer-events:none;">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px; z-index:0;">star</span>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(22,62,141,0.6);border-radius:0.5rem;z-index:40;pointer-events:none;">
+              <div style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;">
+                <span class="material-symbols-outlined" style="font-size:20px;color:#ffffff;">lock</span>
+              </div>
+            </div>
+          </button>
+        `;
       }
       return `<button data-filled="0" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white" title="${title}"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; -webkit-font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px;">star</span></button>`;
     }).join('');
@@ -79,10 +94,22 @@ async function renderHistoryStars(memberId) {
             try {
               const data = (snap && snap.exists && snap.exists()) ? snap.data() : (snap && snap.data ? snap.data() : {});
               const scans2 = getMemberScanYMDs_local(data || {});
+              const todayY2 = new Date().toISOString().slice(0,10);
               const starHtml2 = plannedY.map(pd => {
                 const isScanned = scans2.includes(pd);
+                const isFuture2 = (pd > todayY2);
                 const title = `Rit ${pd}`;
                 if (isScanned) return `<button data-filled="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1, 'wght' 400; color: #F2C438; font-size:32px;">star</span></button>`;
+                if (isFuture2) return `
+                  <button data-filled="0" data-future="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white relative" title="${title}" disabled aria-disabled="true" style="pointer-events:none;">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px; z-index:0;">star</span>
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(22,62,141,0.6);border-radius:0.5rem;z-index:40;pointer-events:none;">
+                      <div style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;">
+                        <span class="material-symbols-outlined" style="font-size:20px;color:#ffffff;">lock</span>
+                      </div>
+                    </div>
+                  </button>
+                `;
                 return `<button data-filled="0" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px;">star</span></button>`;
               }).join('');
               container.innerHTML = `<div class="flex gap-2">${starHtml2}</div>`;
@@ -105,21 +132,44 @@ function attachHistoryStarHandlers(container, memberId, plannedY) {
       // avoid duplicating handlers
       if (b._historyHandlerAttached) return;
       b._historyHandlerAttached = true;
+      // skip attaching handler for future (locked) buttons
+      try { if (b.getAttribute('data-future') === '1') return; } catch(_){}
       b.addEventListener('click', async (ev) => {
         try {
           ev.preventDefault();
           // If the star is already filled, do nothing
-          try { if (b.getAttribute('data-filled') === '1') return; } catch(_){}
+          try { if (b.getAttribute('data-filled') === '1') return; } catch(_){ }
           const date = b.getAttribute('data-history-date');
           if (!memberId || !date) return;
+          // Optimistic UI: mark button as filled immediately to avoid re-render flicker
+          try {
+            b.setAttribute('data-filled', '1');
+            b.disabled = true;
+            b.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1, \'wght\' 400; color: #F2C438; font-size:32px;">star</span>';
+          } catch(_){}
           // register the ride for this member/date
-          const res = await manualRegisterRide(String(memberId), String(date));
-          if (res && res.success) {
-            try { showScanSuccess && showScanSuccess('Rit geregistreerd'); } catch(_){}
-            // re-render to update filled state
-            try { renderHistoryStars(memberId); } catch(_){}
-          } else {
-            alert('Kon rit niet registreren');
+          try {
+            const res = await manualRegisterRide(String(memberId), String(date));
+            if (res && res.success) {
+              // success: keep optimistic state; don't re-render entire list
+              return;
+            } else {
+              // revert optimistic state on failure
+              try {
+                b.setAttribute('data-filled', '0');
+                b.disabled = false;
+                b.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 0, \'wght\' 400; color: #D1D5DB; font-size:32px;">star</span>';
+              } catch(_){}
+              alert('Kon rit niet registreren');
+            }
+          } catch (e) {
+            try {
+              b.setAttribute('data-filled', '0');
+              b.disabled = false;
+              b.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 0, \'wght\' 400; color: #D1D5DB; font-size:32px;">star</span>';
+            } catch(_){}
+            console.error('history star register failed', e);
+            alert('Fout bij registreren');
           }
         } catch (e) { console.error('history star click failed', e); alert('Fout bij registreren'); }
       });
