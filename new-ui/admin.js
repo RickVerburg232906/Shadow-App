@@ -595,7 +595,8 @@ function createManualSearchHandlers() {
 
             selected = { id, label, raw: memberObj };
             input.value = label;
-            try { input.setAttribute('data-member-id', id); } catch(_){}
+              try { input.setAttribute('data-member-id', id); } catch(_){ }
+              try { input.dispatchEvent(new CustomEvent('member-selected', { detail: { id: String(id) } })); } catch(_){}
             suggestionsEl.classList.add('hidden');
 
             // If this input is the history input, do NOT open the confirm modal — history input handles registration separately.
