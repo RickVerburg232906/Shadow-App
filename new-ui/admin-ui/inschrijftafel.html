@@ -83,17 +83,14 @@
   </head>
 <body class="bg-background-light dark:bg-background-dark text-text-main">
 <div class="relative flex h-full min-h-screen w-screen flex-col overflow-x-hidden shadow-xl bg-background-light">
-<div class="flex items-center bg-surface p-4 pb-3 justify-between sticky top-0 z-50 shadow-sm">
-<div class="text-text-main flex size-12 shrink-0 items-center justify-start cursor-pointer" onclick="history.back()" role="button" tabindex="0">
-<span class="material-symbols-outlined text-3xl">arrow_back</span>
-</div>
-<h2 class="text-primary text-xl font-extrabold leading-tight tracking-[-0.015em] flex-1 text-center">Inschrijftafel</h2>
-<div class="flex w-12 items-center justify-end">
-<div id="hamburger-btn" class="size-10 bg-primary/10 rounded-full flex items-center justify-center cursor-pointer" role="button" title="Menu">
-<span class="material-symbols-outlined text-primary">menu</span>
-</div>
-</div>
-</div>
+<header class="sticky top-0 z-50 bg-primary text-white shadow-md">
+  <div class="flex items-center p-4 h-16 justify-between">
+    <button onclick="history.back()" class="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-white/10 transition-colors">
+      <span class="material-symbols-outlined text-white" style="font-size: 24px;">arrow_back</span>
+    </button>
+    <h1 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-10">Inschrijftafel</h1>
+  </div>
+</header>
 <div class="flex-1 flex flex-col gap-5 p-4 pb-4">
 <div>
 <h3 class="text-text-main text-lg font-bold mb-3 px-1">Lunch Statistieken</h3>

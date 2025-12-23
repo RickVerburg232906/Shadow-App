@@ -732,7 +732,6 @@ export async function initInschrijftafel() {
     try {
       const role = (localStorage.getItem('role') || '').trim();
       if (role !== 'admin') {
-        try { const h = document.getElementById('hamburger-btn'); if (h) h.style.display = 'none'; } catch(_){ }
         try { const sec = document.getElementById('historie-section'); if (sec) sec.style.display = 'none'; } catch(_){ }
       }
     } catch (e) { console.error('role-visibility', e); }
