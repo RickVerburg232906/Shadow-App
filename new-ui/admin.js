@@ -55,6 +55,21 @@ function escapeHtml(s) {
   } catch (e) { return String(s || ''); }
 }
 
+// Normalize yes/no-like values (used when prefilling jaarhanger)
+function normalizeYesNo(v) {
+  try {
+    if (v === null || typeof v === 'undefined') return null;
+    if (typeof v === 'boolean') return v ? 'yes' : 'no';
+    const s = String(v).trim().toLowerCase();
+    if (s === '') return null;
+    if (s === 'ja' || s === 'yes' || s === 'true' || s === '1' || s === 'y') return 'yes';
+    if (s === 'nee' || s === 'no' || s === 'false' || s === '0' || s === 'n') return 'no';
+    const num = Number(s);
+    if (!isNaN(num)) return num > 0 ? 'yes' : 'no';
+    return null;
+  } catch (e) { return null; }
+}
+
 function showScanSuccess(msg) {
   try {
     ensureScanToastStyles();
@@ -442,36 +457,54 @@ async function openManualConfirm(selected) {
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'manual-checkin-modal';
-      modal.className = 'mt-3 p-4 bg-surface rounded-xl border border-slate-100 shadow-sm';
+      modal.className = 'mt-2 p-3 bg-surface rounded-lg border border-primary/10 shadow-sm text-sm';
       modal.innerHTML = `
-        <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center justify-between mb-2">
           <div>
-            <div class="text-sm font-bold">Inschrijven: <span id="manual-name" class="font-semibold"></span></div>
-            <div class="text-xs text-text-sub">Lidnummer: <span id="manual-lidnr" class="font-mono"></span></div>
+            <div class="text-sm font-semibold">Inschrijven</div>
           </div>
         </div>
-        <div class="mb-3">
-          <div class="text-xs font-bold uppercase text-text-sub mb-1">Mee-eten?</div>
-          <label class="inline-flex items-center mr-4"><input type="radio" name="manual-participation" value="yes"> <span class="ml-2">Ja</span></label>
-          <label class="inline-flex items-center"><input type="radio" name="manual-participation" value="no"> <span class="ml-2">Nee</span></label>
-        </div>
-        <div class="mb-3">
-          <div class="flex items-center justify-between mb-1">
-            <div class="text-xs font-bold uppercase text-text-sub">Keuze Maaltijd</div>
-            <div class="text-xs text-text-sub">Vast menu:</div>
-          </div>
-          <div class="flex items-start gap-4">
-            <div id="manual-keuze-list" class="flex-1 flex flex-col gap-2"></div>
-            <div id="manual-vast-list" class="shrink-0 ml-3 flex flex-col gap-1 max-w-[160px] text-xs text-text-sub"></div>
+        <div class="mb-2">
+          <div class="text-xs font-semibold uppercase text-text-sub mb-1">Mee-eten?</div>
+          <div class="flex gap-2">
+            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
+              <input class="sr-only" type="radio" name="manual-participation" value="yes">
+              <span class="text-sm">Ja</span>
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
+              <input class="sr-only" type="radio" name="manual-participation" value="no">
+              <span class="text-sm">Nee</span>
+            </label>
           </div>
         </div>
-        <div class="mb-3">
-          <div class="text-xs font-bold uppercase text-text-sub mb-1">Jaarhanger</div>
-          <label class="inline-flex items-center mr-4"><input type="radio" name="manual-jaar" value="yes"> <span class="ml-2">Ja</span></label>
-          <label class="inline-flex items-center"><input type="radio" name="manual-jaar" value="no"> <span class="ml-2">Nee</span></label>
+        <div class="mb-2">
+          <div class="flex gap-4 items-start">
+            <div class="flex-1">
+              <div class="text-xs font-semibold uppercase text-text-sub mb-1">Vast menu</div>
+              <div id="manual-vast-list" class="flex flex-wrap gap-2 mb-2 text-xs"></div>
+              <div class="text-xs font-semibold uppercase text-text-sub mb-1">Keuze Maaltijd</div>
+              <div id="manual-keuze-list" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-2">
+          <div class="text-xs font-semibold uppercase text-text-sub mb-1">Jaarhanger</div>
+          <div class="flex gap-2">
+            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
+              <input class="sr-only" type="radio" name="manual-jaar" value="yes">
+              <span class="text-sm">Ja</span>
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
+              <input class="sr-only" type="radio" name="manual-jaar" value="no">
+              <span class="text-sm">Nee</span>
+            </label>
+          </div>
         </div>
         <div class="flex items-center gap-3">
-          <button id="manual-confirm" class="bg-primary text-white rounded-lg px-4 py-2 font-bold">Bevestig</button>
+          <button id="manual-confirm" disabled class="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-md px-4 py-2 text-sm font-semibold shadow-md hover:bg-primary/90 opacity-50" aria-disabled="true">
+            <span class="material-symbols-outlined text-[18px]">check</span>
+            <span>Bevestig</span>
+          </button>
         </div>
       `;
       const container = document.getElementById('manual-search-hint');
@@ -484,6 +517,19 @@ async function openManualConfirm(selected) {
       const lidEl = document.getElementById('manual-lidnr');
       if (nameEl) nameEl.textContent = selected.label || '';
       if (lidEl) lidEl.textContent = selected.raw && (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr) ? (selected.raw.lidnummer || selected.raw.LidNr || selected.raw.lidnr) : '';
+      // Prefill jaarhanger if present on member doc
+      try {
+        const raw = selected.raw || {};
+        const rawJaar = raw?.Jaarhanger ?? raw?.jaarhanger ?? raw?.JaarhangerAanvraag ?? raw?.['Jaarhanger Aanvraag'] ?? raw?.jaarhanger_aanvraag ?? raw?.jaarhangerAanvraag ?? null;
+        const norm = normalizeYesNo(rawJaar);
+        if (norm === 'yes') {
+          const elYes = document.querySelector('#manual-checkin-modal input[name="manual-jaar"][value="yes"]');
+          if (elYes) elYes.checked = true;
+        } else if (norm === 'no') {
+          const elNo = document.querySelector('#manual-checkin-modal input[name="manual-jaar"][value="no"]');
+          if (elNo) elNo.checked = true;
+        }
+      } catch (_) {}
     } catch (_) {}
 
     // fill maaltijd options
@@ -497,21 +543,97 @@ async function openManualConfirm(selected) {
         const vast = Array.isArray(opts.vastEten) ? opts.vastEten : [];
         if (keuze.length === 0) list.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>';
         else {
-          list.innerHTML = keuze.map((it, idx) => `<label class="inline-flex items-center gap-3"><input type="radio" name="manual-keuze" value="${escapeHtml(String(it))}"><span>${escapeHtml(String(it))}</span></label>`).join('');
+          list.innerHTML = keuze.map((it, idx) => `
+            <label class="inline-flex items-center gap-2 px-3 py-1 rounded-md border border-primary/20 cursor-pointer">
+              <input class="sr-only" type="radio" name="manual-keuze" value="${escapeHtml(String(it))}">
+              <span class="text-sm">${escapeHtml(String(it))}</span>
+            </label>
+          `).join('');
         }
         if (vastEl) {
           if (!vast || vast.length === 0) {
             vastEl.innerHTML = '<div class="text-xs text-text-sub">Geen vast menu</div>';
           } else {
-            // render compact badges for fixed menu
-            vastEl.innerHTML = vast.map(v => `<span class="inline-block px-2 py-1 bg-gray-100 rounded-md text-[12px]">${escapeHtml(String(v))}</span>`).join(' ');
+            // render compact badges for fixed menu using project colors
+            vastEl.innerHTML = vast.map(v => `<span class="inline-block px-2 py-0.5 rounded-md text-xs border border-primary/10 bg-primary/10 text-primary">${escapeHtml(String(v))}</span>`).join(' ');
           }
         }
       }
     } catch (e) { console.error('fill manual keuzes failed', e); }
 
-    // wire buttons
+      // wire buttons + interactive label-state toggling and participation enforcement
     try {
+      const modalRoot = modal;
+      function refreshLabelStates() {
+        try {
+          const labels = modalRoot.querySelectorAll('label');
+          labels.forEach(l => {
+            const inp = l.querySelector('input[type="radio"]');
+            if (!inp) return;
+            if (inp.checked) {
+              l.classList.add('bg-primary','text-white');
+              l.classList.remove('border-primary/20');
+            } else {
+              l.classList.remove('bg-primary','text-white');
+              l.classList.add('border-primary/20');
+            }
+          });
+        } catch (e) { /* ignore */ }
+      }
+
+      function enforceParticipationState() {
+        try {
+          const part = modalRoot.querySelector('input[name="manual-participation"]:checked');
+          const isNo = part && String(part.value) === 'no';
+          const keuzeLabels = Array.from(modalRoot.querySelectorAll('#manual-keuze-list label'));
+          keuzeLabels.forEach(l => {
+            const inp = l.querySelector('input[type="radio"]');
+            if (!inp) return;
+            if (isNo) {
+              // clear selection and disable
+              try { inp.checked = false; } catch(_){}
+              l.classList.add('opacity-40');
+              l.classList.add('pointer-events-none');
+              l.classList.remove('bg-primary','text-white');
+            } else {
+              l.classList.remove('opacity-40');
+              l.classList.remove('pointer-events-none');
+            }
+          });
+          // ensure visual state consistent
+          refreshLabelStates();
+          updateManualConfirmState();
+        } catch (e) { console.error('enforceParticipationState failed', e); }
+      }
+
+      function updateManualConfirmState() {
+        try {
+          const confirmBtn = modalRoot.querySelector('#manual-confirm');
+          if (!confirmBtn) return;
+          const part = modalRoot.querySelector('input[name="manual-participation"]:checked');
+          const jaar = modalRoot.querySelector('input[name="manual-jaar"]:checked');
+          const keuzeNeeded = part && String(part.value) === 'yes';
+          const keuzeSel = modalRoot.querySelector('input[name="manual-keuze"]:checked');
+          let ok = true;
+          if (!part) ok = false;
+          if (!jaar) ok = false;
+          if (keuzeNeeded && !keuzeSel) ok = false;
+          if (ok) {
+            confirmBtn.disabled = false; confirmBtn.classList.remove('opacity-50'); confirmBtn.removeAttribute('aria-disabled');
+          } else {
+            confirmBtn.disabled = true; confirmBtn.classList.add('opacity-50'); confirmBtn.setAttribute('aria-disabled','true');
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      // update on any change inside modal
+      modalRoot.addEventListener('change', () => { try { refreshLabelStates(); enforceParticipationState(); updateManualConfirmState(); } catch(_){} });
+      // also update when clicking labels (some browsers don't fire change until focus out)
+      modalRoot.addEventListener('click', (ev) => { try { setTimeout(() => { refreshLabelStates(); enforceParticipationState(); updateManualConfirmState(); }, 10); } catch(_){} });
+
+      // ensure initial enforcement
+      setTimeout(() => { try { refreshLabelStates(); enforceParticipationState(); updateManualConfirmState(); } catch(_){} }, 30);
+
       const confirm = document.getElementById('manual-confirm');
       if (confirm) confirm.addEventListener('click', async () => {
         try {
