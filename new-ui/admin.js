@@ -1,5 +1,6 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
 import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers } from './firestore.js';
+import { db, collection, onSnapshot } from '../src/firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
@@ -222,9 +223,9 @@ export async function initInschrijftafel() {
       const yesEl = document.getElementById('count-yes');
       const noEl = document.getElementById('count-no');
       try {
-        const [yesCnt, noCnt] = await Promise.all([ getParticipationCount('yes'), getParticipationCount('no') ]);
-        if (yesEl) yesEl.textContent = String(isFinite(yesCnt) ? yesCnt : 0);
-        if (noEl) noEl.textContent = String(isFinite(noCnt) ? noCnt : 0);
+        // Start live listener to keep counts dynamic
+        initLiveLunchStats();
+        // initLiveLunchStats will update yesEl/noEl when snapshot arrives
       } catch (e) { if (yesEl) yesEl.textContent = 'ERROR'; if (noEl) noEl.textContent = 'ERROR'; }
     } catch (e) { console.error('update participation UI failed', e); }
 
@@ -447,6 +448,89 @@ function createManualSearchHandlers() {
       if (!suggestionsEl.contains(ev.target) && ev.target !== input) suggestionsEl.classList.add('hidden');
     });
   } catch (e) { console.error('createManualSearchHandlers failed', e); }
+}
+
+// Live listener to keep lunch statistics dynamic (yes/no + per-choice)
+function initLiveLunchStats() {
+  try {
+    const yesEl = document.getElementById('count-yes');
+    const noEl = document.getElementById('count-no');
+    const choiceContainers = {}; // map choice -> element id(s)
+
+    // get lunch choices so we can map counts to UI elements
+    (async () => {
+      try {
+        const opts = await getLunchOptions();
+        const keuzes = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
+        // Ensure choice count placeholders exist (ids choice-count-{idx})
+        keuzes.forEach((k, idx) => {
+          const el = document.getElementById('choice-count-' + idx);
+          if (el) choiceContainers[String(k)] = el;
+        });
+      } catch (e) { console.error('initLiveLunchStats getLunchOptions failed', e); }
+    })();
+
+    // Subscribe to full members collection and recompute counts on every snapshot
+    try {
+      const colRef = collection(db, 'members');
+      const unsub = onSnapshot(colRef, snap => {
+        try {
+          let yes = 0, no = 0;
+          const choiceCounts = new Map();
+          const nowMs = Date.now();
+          for (const doc of snap.docs) {
+            try {
+              const data = (typeof doc.data === 'function') ? doc.data() : (doc || {});
+              // respect lunchExpires like the REST path does
+              let valid = false;
+              const exp = data && data.lunchExpires;
+              if (exp) {
+                try {
+                  let expMs = 0;
+                  if (typeof exp.toMillis === 'function') expMs = exp.toMillis();
+                  else if (typeof exp.seconds === 'number') expMs = Number(exp.seconds) * 1000;
+                  else expMs = Date.parse(String(exp)) || 0;
+                  if (expMs && expMs > nowMs) valid = true;
+                } catch (_) { /* ignore */ }
+              }
+              // If no expiry field, treat as not registered for lunch
+              if (!valid) continue;
+              const deel = normalizeYesNo(data.lunchDeelname || data.lunch || data.participation || null);
+              if (deel === 'yes') {
+                yes += 1;
+                const kc = data.lunchKeuze || data.lunchChoice || data.keuze || null;
+                if (kc) {
+                  const key = String(kc);
+                  choiceCounts.set(key, (choiceCounts.get(key) || 0) + 1);
+                }
+              } else if (deel === 'no') {
+                no += 1;
+              }
+            } catch (e) { /* ignore per-doc errors */ }
+          }
+          if (yesEl) yesEl.textContent = String(yes);
+          if (noEl) noEl.textContent = String(no);
+          // update per-choice counts if we have elements
+          for (const [choice, el] of Object.entries(choiceContainers)) {
+            try { el.textContent = String(choiceCounts.get(choice) || 0); } catch(_){}
+          }
+          // also update any choice-count-* elements by matching text if necessary
+          try {
+            const elems = Array.from(document.querySelectorAll('[id^="choice-count-"]'));
+            elems.forEach((e, idx) => {
+              // if the element already updated above it will be accurate; skip if we updated via container mapping
+              if (e && e.textContent && e.textContent.trim() !== '') return;
+              // otherwise try to map by position (best-effort)
+              const count = Array.from(choiceCounts.values())[idx] || 0;
+              e.textContent = String(count);
+            });
+          } catch (_) {}
+        } catch (e) { console.error('live lunch stats snapshot error', e); }
+      }, err => { console.warn('live lunch stats onSnapshot error', err); });
+      // store unsub on window for debugging if needed
+      try { if (typeof window !== 'undefined') window._liveLunchStatsUnsub = unsub; } catch(_){}
+    } catch (e) { console.error('initLiveLunchStats subscribe failed', e); }
+  } catch (e) { console.error('initLiveLunchStats failed', e); }
 }
 
 async function openManualConfirm(selected) {
