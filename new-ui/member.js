@@ -1,3 +1,4 @@
+// module: member.js — main page behaviors for lunch and signup
 import { getPlannedDates, searchMembers, getMemberById, getLunchOptions } from './firestore.js';
 
 /* Header short date */
@@ -104,7 +105,9 @@ async function init(){
 		setupParticipationToggle();
 		setupSignupFooterNavigation();
 		// load lunch options if present on the page
-		try{ setupLunchOptions(); }catch(_){ }
+		try{ await setupLunchOptions(); }catch(_){ }
+		// wire agree-lunch validation after lunch options rendered
+		try{ setupAgreeLunchButton(); }catch(_){ }
 	}catch(e){ console.error('init failed', e); }
 	// reveal page after initialization
 	try{ document.body.classList.remove('is-loading'); }catch(e){}
@@ -354,13 +357,30 @@ function setupParticipationToggle(){
 			}catch(_){ }
 		}
 
-		radios.forEach(r => r.addEventListener('change', ()=>{
+		radios.forEach(r => {
+			// Prevent mouse-clicking the label from causing the browser to scroll
+			// into view for the visually-hidden radio. Handle click on the label
+			// by checking the input and focusing it without scrolling.
 			try{
-				if(!r.checked) return;
-				if(r.value === 'no') applyNo();
-				else applyYes();
-			}catch(e){ console.error('participation change handler', e); }
-		}));
+				const lbl = r.closest('.choice-option');
+				if (lbl){
+					lbl.addEventListener('click', (ev)=>{
+						ev.preventDefault();
+						try{ r.focus({ preventScroll: true }); }catch(_){ try{ r.focus(); }catch(_){} }
+						if (!r.checked){ r.checked = true; }
+						try{ r.dispatchEvent(new Event('change', { bubbles: true })); }catch(_){}
+					});
+				}
+			}catch(_){ }
+
+			r.addEventListener('change', ()=>{
+				try{
+					if(!r.checked) return;
+					if(r.value === 'no') applyNo();
+					else applyYes();
+				}catch(e){ console.error('participation change handler', e); }
+			});
+		});
 
 		// initialize based on current selection
 		const cur = document.querySelector('input[name="participation"]:checked');
@@ -452,4 +472,78 @@ async function setupLunchOptions(){
 			}
 		}
 	}catch(e){ console.error('setupLunchOptions failed', e); }
+}
+
+// Enable the lunch confirmation button only when required values are present
+function isLunchFormValid(){
+	try{
+		const participation = document.querySelector('input[name="participation"]:checked');
+		if(!participation) return false;
+		if(String(participation.value) === 'yes'){
+			// If there are no choice options at all, treat as valid (only yes/no required)
+			const anyMainExists = document.querySelector('input[name="main_course"]');
+			if(!anyMainExists) return true;
+			// require a main_course selection when options exist
+			const main = document.querySelector('input[name="main_course"]:checked');
+			return !!main;
+		}
+		return true; // 'no' is a valid selection
+	}catch(e){ return false; }
+}
+
+function updateAgreeLunchButton(){
+	try{
+		const btn = document.getElementById('agree-lunch');
+		if(!btn) return;
+		const valid = isLunchFormValid();
+		btn.disabled = !valid;
+		btn.setAttribute('aria-disabled', String(!valid));
+	}catch(e){ }
+}
+
+function setupAgreeLunchButton(){
+	try{
+		const btn = document.getElementById('agree-lunch');
+		if(!btn) return;
+
+		// initialize state
+		updateAgreeLunchButton();
+
+		// Recompute when participation changes
+		document.querySelectorAll('input[name="participation"]').forEach(r => r.addEventListener('change', ()=> updateAgreeLunchButton()));
+		// Recompute when a main_course radio changes (these are added dynamically)
+		document.addEventListener('change', (ev)=>{
+			const t = ev.target;
+			if(t && t.name === 'main_course') updateAgreeLunchButton();
+		}, { passive: true });
+
+		// Prevent clicks when invalid (defensive)
+		btn.addEventListener('click', (ev)=>{
+			if(btn.disabled){ ev.preventDefault(); ev.stopPropagation(); return; }
+			// When valid, route based on whether the stored member has a Jaarhanger value
+			try{
+				const member = getStoredSelectedMember();
+				const hasJ = hasJaarhanger(member);
+				if(hasJ){ window.location.href = 'memberInfoPage.html'; }
+				else { window.location.href = 'jaarhangerPage.html'; }
+			}catch(e){ console.error('agree-lunch click handler failed', e); }
+		});
+	}catch(e){ console.error('setupAgreeLunchButton failed', e); }
+}
+
+// Determine whether the provided member object contains a Jaarhanger value
+function hasJaarhanger(member){
+	try{
+		if(!member || typeof member !== 'object') return false;
+		const candidates = ['Jaarhanger','jaarhanger','JaarHanger','JaarhangerAfgekort','JaarHangerAfgekort'];
+		for(const k of candidates){ if(Object.prototype.hasOwnProperty.call(member, k)){ const v = member[k]; if(v === null || typeof v === 'undefined') return false; if(typeof v === 'string' && v.trim() === '') return false; return true; } }
+		// fallback: check any key that includes 'jaar' and 'hanger' or 'jaarhanger'
+		for(const k of Object.keys(member||{})){
+			const lk = String(k).toLowerCase();
+			if(lk.includes('jaar') && lk.includes('hanger')){
+				const v = member[k]; if(v === null || typeof v === 'undefined') return false; if(typeof v === 'string' && v.trim() === '') return false; return true;
+			}
+		}
+		return false;
+	}catch(e){ return false; }
 }

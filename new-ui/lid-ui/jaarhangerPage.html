@@ -1,51 +1,105 @@
-<div id="jaarhanger-page">
-<link rel="stylesheet" href="lid-ui.css">
-<header class="fixed top-0 left-0 right-0 z-50 bg-primary text-white shadow-md">
-    <div class="flex items-end p-4 h-16 justify-between">
-    <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
-        <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
+<!DOCTYPE html>
 
-    </button>
-    <h1 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-4">Inschrijftafel</h1>
-        <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub" class="h-full ml-3 object-contain club-logo" />
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Custom stylesheet (replaces Tailwind) -->
+<link rel="stylesheet" href="../style.css"/>
+  </head>
+<body class="app light is-loading">
+  <div class="page-loader" aria-hidden="true">
+    <div class="page-loader__spinner" aria-hidden="true"></div>
   </div>
-</header>
-<main class="flex-1 flex flex-col px-4 pt-24 pb-28">
-    <section class="mb-8">
-        <h2 class="mb-5 text-center text-2xl font-bold leading-tight text-text-primary-light dark:text-text-primary-dark">Wil je een jaarhanger?</h2>
-        <div class="flex gap-4">
-            <label class="relative flex-1 cursor-pointer group">
-                <input class="peer sr-only" name="participation" type="radio" value="yes" />
-                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-white dark:bg-card-dark py-6 shadow-card transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-glow peer-checked:translate-y-[-2px]">
-                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">check_circle</span>
-                    <span class="font-bold">Ja</span>
-                </div>
-            </label>
-            <label class="relative flex-1 cursor-pointer group">
-                <input class="peer sr-only" name="participation" type="radio" value="no" />
-                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-white dark:bg-card-dark py-6 shadow-card transition-all peer-checked:bg-accent-red peer-checked:text-white peer-checked:shadow-lg peer-checked:translate-y-[-2px]">
-                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">cancel</span>
-                    <span class="font-bold">Nee</span>
-                </div>
-            </label>
-        </div>
-    </section>
-    <section class="space-y-4 px-2">
-        <div class="flex items-center gap-3 mb-2">
-            <span class="material-symbols-outlined text-primary text-2xl">info</span>
-            <h3 class="text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">Wat is een Jaarhanger?</h3>
-        </div>
-        <div class="bg-white dark:bg-card-dark rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-colors">
-            <p class="text-text-secondary-light dark:text-text-secondary-dark text-base leading-relaxed font-body">Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De <span class="font-semibold text-primary">'moederpin'</span> kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt.</p>
-            <div class="my-4 h-px bg-gray-100 dark:bg-gray-800 w-full"></div>
-            <p class="text-text-secondary-light dark:text-text-secondary-dark text-base leading-relaxed font-body">De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. <span class="italic font-medium text-text-primary-light dark:text-text-white">Da's pas een collectors item!</span></p>
-        </div>
-    </section>
-</main>
-<footer class="fixed bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] transition-colors app-footer">
-    <div class="flex flex-col gap-3">
-    <button id="confirm-jaarhanger-button" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center">
-        <span>Bevestigen</span>
-    </button>
+<header class="nav-header">
+    <div class="nav-inner">
+    <!-- Critical inline style to show loader immediately while JS initializes -->
+    <style>
+      .page-loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-light);z-index:9999;visibility:hidden;opacity:0;transition:opacity .2s ease}
+      /* top 10vh blue bar while loading */
+      .page-loader::before{ content:""; position:absolute; left:0; right:0; top:0; height:10vh; background:var(--primary); }
+      body.is-loading .page-loader{visibility:visible;opacity:1}
+      body.is-loading .main-content, body.is-loading .app-footer{visibility:hidden;opacity:0;pointer-events:none}
+    </style>
+      <button id="back-button" class="back-button" aria-label="Terug">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="title-container">
+        <h1 class="page-title">Jaarhanger</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
     </div>
+</header>
+<main class="main-content">
+  <section class="choice-section">
+    <h2 class="choice-title">Wil je een jaarhanger?</h2>
+    <div class="choice-grid">
+      <label class="choice-option">
+        <input class="sr-only" type="radio" name="participation" value="yes" />
+        <div class="choice-card">
+          <span class="material-symbols-outlined">check_circle</span>
+          <span class="choice-label">Ja</span>
+        </div>
+      </label>
+
+      <label class="choice-option">
+        <input class="sr-only" type="radio" name="participation" value="no" />
+        <div class="choice-card choice-card--danger">
+          <span class="material-symbols-outlined">cancel</span>
+          <span class="choice-label">Nee</span>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <section class="section-header card-divider full-width">
+    <div>
+      <div class="info-row">
+        <span class="material-symbols-outlined info-note__icon">info</span>
+        <h3 class="header-title">Wat is een Jaarhanger?</h3>
+      </div>
+      <div class="surface-card">
+        <p class="lead-text">
+          Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De <strong class="text-tertiary">'moederpin'</strong> kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt.
+        </p>
+        <div class="vast-divider spacer-12"></div>
+        <p class="lead-text">
+          De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. <em class="jaarhanger-em">Da's pas een collectors item!</em>
+        </p>
+      </div>
+    </div>
+  </section>
+
+</main>
+<footer class="app-footer" role="contentinfo">
+  <div class="app-footer__inner">
+    <button class="app-footer__button" id="agree-jaarhanger">Bevestigen</button>
+  </div>
 </footer>
+
+<script type="module">
+  (async ()=>{
+    try{
+      await import('../member.js');
+    }catch(err){
+      console.error('Failed importing ../member.js', err);
+      try{
+        const url = new URL('../member.js', location.href).href;
+        const resp = await fetch(url, { cache: 'no-store' });
+        const text = await resp.text().catch(()=>'<no-body>');
+        console.error('Server response for', url, ':', resp.status, resp.statusText);
+        console.error('Response body (first 2000 chars):\n', String(text).slice(0,2000));
+      }catch(e){ console.error('Failed fetching module body', e); }
+      throw err;
+    }
+  })();
+</script>
+</body>
+</html>

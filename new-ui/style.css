@@ -235,7 +235,7 @@ body.is-loading .app-footer{
 
 /* color accent used for icons and top bar */
 .bg-tertiary{ background: #7b2f00; }
-.text-tertiary{ color: #7b2f00; }
+.text-tertiary{ color: var(--blue); }
 
 /* small utilities used by the snippet */
 .h-2{ height: 8px; }
@@ -283,6 +283,12 @@ body.is-loading .app-footer{
   font-weight:1000;
   font-size: 14px;
 }
+
+/* Jaarhanger / info helpers used by jaarhangerPage */
+.info-row{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.lead-text{ margin:0 0 8px 0; color: #374151; font-weight:500; }
+.spacer-12{ margin:12px 0; }
+.jaarhanger-em{ font-style: unset; font-weight:600; }
 
 /* Surface / form utilities (generic, reusable) */
 .bg-surface-light{ background: var(--bg-light); }
@@ -372,6 +378,9 @@ html.dark .suggestion-item{ color: var(--text-light); }
 .app-footer__button:hover{ background:#123273; }
 .app-footer__button:active{ transform: scale(0.98); }
 
+/* Visual for disabled footer button */
+.app-footer__button[disabled]{ opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+
 /* Danger variant for footer button (used when marking absence) */
 .app-footer__button--danger{ background: #8C2B07; color: #fff; box-shadow: 0 10px 20px rgba(140,43,7,0.18); }
 .app-footer__button--danger:hover{ background:#7a2605; }
@@ -386,7 +395,7 @@ html.dark .suggestion-item{ color: var(--text-light); }
 .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
 /* Lunch choice component */
-.choice-section{ margin-bottom:16px; width:100%; box-sizing:border-box; }
+.choice-section{width:100%; box-sizing:border-box; }
 .choice-title{ margin-bottom:20px; text-align:center; font-size:1.25rem; font-weight:700; color: #0f1724; }
 .choice-grid{ display:flex; gap:16px; }
 .choice-option{ position:relative; flex:1; cursor:pointer; }
@@ -433,7 +442,6 @@ html.dark .suggestion-item{ color: var(--text-light); }
 }
 .keuze-btn:hover{ transform: translateY(-2px); box-shadow: 0 10px 20px rgba(2,6,23,0.06); }
 .keuze-btn.active{ background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.04)); border-color: rgba(16,185,129,0.18); color:#0f5132; }
-@media (max-width:420px){ .keuze-btn{ flex:1 1 100%; } }
 
 /* Prevent gray tap highlight and accidental text selection on touch devices
    for interactive elements like the lunch choices and footer buttons. */
