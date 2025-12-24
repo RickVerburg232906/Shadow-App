@@ -1,62 +1,74 @@
-<link rel="stylesheet" href="lid-ui.css">
-<header class="fixed top-0 left-0 right-0 z-50 bg-primary text-white shadow-md">
-    <div class="flex items-end p-4 h-16 justify-between">
-    <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
-        <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
+<!DOCTYPE html>
 
-    </button>
-    <h1 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-4">Inschrijftafel</h1>
-        <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub" class="h-full ml-3 object-contain club-logo" />
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Custom stylesheet (replaces Tailwind) -->
+<link rel="stylesheet" href="../style.css"/>
+  </head>
+<body class="app light is-loading">
+  <div class="page-loader" aria-hidden="true">
+    <div class="page-loader__spinner" aria-hidden="true"></div>
   </div>
+<header class="nav-header">
+    <div class="nav-inner">
+    <!-- Critical inline style to show loader immediately while JS initializes -->
+    <style>
+      .page-loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-light);z-index:9999;visibility:hidden;opacity:0;transition:opacity .2s ease}
+      /* top 10vh blue bar while loading */
+      .page-loader::before{ content:""; position:absolute; left:0; right:0; top:0; height:10vh; background:var(--primary); }
+      body.is-loading .page-loader{visibility:visible;opacity:1}
+      body.is-loading .main-content, body.is-loading .app-footer{visibility:hidden;opacity:0;pointer-events:none}
+    </style>
+      <button id="back-button" class="back-button" aria-label="Terug">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="title-container">
+        <h1 class="page-title">Lunch</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
 </header>
-<main class="flex-1 overflow-y-auto px-4 pt-24 pb-28">
-    <section class="mb-8">
-        <h2 class="mb-5 text-center text-2xl font-bold leading-tight text-text-main dark:text-white">Eet je mee vandaag?</h2>
-        <div class="flex gap-4">
-            <label class="relative flex-1 cursor-pointer group">
-                <input class="peer sr-only" name="participation" type="radio" value="yes" />
-                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark py-6 shadow-card transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-glow peer-checked:translate-y-[-2px]">
-                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">restaurant</span>
-                    <span class="font-bold">Ja, ik eet mee</span>
-                </div>
-            </label>
-            <label class="relative flex-1 cursor-pointer group">
-                <input class="peer sr-only" name="participation" type="radio" value="no" />
-                <div class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark py-6 shadow-card transition-all peer-checked:bg-accent-red peer-checked:text-white peer-checked:shadow-lg peer-checked:translate-y-[-2px]">
-                    <span class="material-symbols-outlined text-3xl transition-transform peer-checked:scale-110">close</span>
-                    <span class="font-bold">Nee, ik sla over</span>
-                </div>
-            </label>
+<main class="main-content">
+  <section class="choice-section">
+    <h2 class="choice-title">Eet je mee vandaag?</h2>
+    <div class="choice-grid">
+      <label class="choice-option">
+        <input class="sr-only" type="radio" name="participation" value="yes" />
+        <div class="choice-card">
+          <span class="material-symbols-outlined">restaurant</span>
+          <span class="choice-label">Ja, ik eet mee</span>
         </div>
-    </section>
+      </label>
 
-    <div class="mb-8 flex items-start gap-3 rounded-xl bg-primary/10 p-4 border border-primary/10 dark:bg-primary/20 dark:border-primary/20">
-        <span class="material-symbols-outlined shrink-0 text-[20px] text-primary dark:text-blue-300 mt-0.5">info</span>
-        <p class="text-sm font-semibold leading-snug text-primary dark:text-blue-100">Na het inchecken kan je keuze niet meer worden gewijzigd</p>
+      <label class="choice-option">
+        <input class="sr-only" type="radio" name="participation" value="no" />
+        <div class="choice-card choice-card--danger">
+          <span class="material-symbols-outlined">close</span>
+          <span class="choice-label">Nee, ik sla over</span>
+        </div>
+      </label>
     </div>
-
-    <section class="mb-8">
-        <div class="mb-3 flex items-center justify-between px-1">
-            <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Vast Eten</h3>
-            <span class="inline-flex items-center rounded-md bg-gray-200 dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 ring-1 ring-inset ring-gray-500/10">Iedereen ontvangt</span>
-        </div>
-        <div class="overflow-hidden rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card">
-            <div id="vastEtenList" class="flex flex-col"></div>
-        </div>
-    </section>
-
-    <section class="mb-6">
-        <div class="mb-3 flex items-center justify-between px-1">
-            <h3 class="text-lg font-bold tracking-tight text-text-main dark:text-white">Keuze Eten</h3>
-            <span class="inline-flex items-center rounded-md bg-secondary-yellow/10 px-2 py-1 text-xs font-bold text-yellow-700 dark:text-secondary-yellow ring-1 ring-inset ring-secondary-yellow/20">Kies één</span>
-        </div>
-        <div id="keuzeEtenList" class="flex flex-col gap-3"></div>
-    </section>
-    </main>
-<footer class="fixed bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] app-footer">
-    <div class="flex flex-col gap-3">
-    <button id="confirm-lunch-button" disabled aria-disabled="true" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center opacity-50">
-        <span>Keuze Bevestigen</span>
-    </button>
-    </div>
+  </section>
+  <div class="info-note">
+    <span class="material-symbols-outlined info-note__icon">info</span>
+    <p class="info-note__text">Na het inchecken kan je keuze niet meer worden gewijzigd</p>
+  </div>
+</main>
+<footer class="app-footer" role="contentinfo">
+  <div class="app-footer__inner">
+    <button class="app-footer__button" id="agree-lunch">Doorgaan</button>
+  </div>
 </footer>
+
+<script type="module" src="../member.js"></script>
+</body>
+</html>

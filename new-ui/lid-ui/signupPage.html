@@ -37,4 +37,35 @@
       <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
     </div>
 </header>
-<script type="module" src="../main.js"></script>
+<main class="main-content">
+  <div class="terms-card">
+    <div class="terms-card__card">
+        <div class="accent-bar accent-bar--yellow"></div>
+        <div class="terms-card__content">
+          <h1 class="terms-card__heading">Inschrijven voor Landelijke Rit</h1>
+          <p class="terms-card__text">Vul hieronder je voor of achternaam en selecteer jezelf uit de lijst.</p>
+        </div>
+      </div>
+
+      <!-- Sign-up form (uses only new-ui/style.css classes) -->
+      <div class="surface-card card-divider">
+        <label class="form-label">
+          <span class="form-label__title">Voor of Achternaam</span>
+          <div class="icon-input">
+            <span class="material-symbols-outlined icon-left">person</span>
+            <input class="form-input" placeholder="Bijv. Rick" type="text" value="" />
+          </div>
+          <p class="muted-text">Deze naam wordt gebruikt voor het inschrijven.</p>
+        </label>
+      </div>
+  </div>
+</main>
+<footer class="app-footer" role="contentinfo">
+  <div class="app-footer__inner">
+    <button class="app-footer__button" id="agree-signup">Doorgaan</button>
+  </div>
+</footer>
+
+<script type="module" src="../member.js"></script>
+</body>
+</html>

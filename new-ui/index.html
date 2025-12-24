@@ -18,64 +18,65 @@
   <div class="page-loader" aria-hidden="true">
     <div class="page-loader__spinner" aria-hidden="true"></div>
   </div>
-<!-- Navigation Header -->
-<header class="nav-header">
-    <!-- Critical inline style to show loader immediately while JS initializes -->
-    <style>
-      .page-loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-light);z-index:9999;visibility:hidden;opacity:0;transition:opacity .2s ease}
-      /* top 10vh blue bar while loading */
-      .page-loader::before{ content:""; position:absolute; left:0; right:0; top:0; height:10vh; background:var(--primary); }
-      body.is-loading .page-loader{visibility:visible;opacity:1}
-      body.is-loading .main-content, body.is-loading .app-footer{visibility:hidden;opacity:0;pointer-events:none}
-    </style>
-    <div class="nav-inner">
-      <button class="btn-inschrijftafel"> 
-        <span class="material-symbols-outlined">table_restaurant</span> 
-        Inschrijftafel
-      </button>
-      <div class="title-container">
-        <h1 class="page-title">Voorwaarden</h1>
-        <span class="header-date" aria-hidden="true"></span>
-      </div>
-      <img class="header-logo" src="assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
-    </div>
-</header>
-<main class="main-content">
-
-  <!-- Geplande ritten (data wordt door JS geladen in .planned-rides) -->
-  <section class="planned-list">
-      <h3 id="planned-title" class="section-title">Geplande Ritten</h3>
-      <div class="planned-rides"></div>
-  </section>
-
-  <div class="terms-card">
-    <div class="terms-card__body">
-      <article class="terms-card__card">
-        <div class="terms-card__accent"></div>
-        <div class="terms-card__content">
-          <div class="terms-card__row">
-            <span class="terms-icon material-symbols-outlined">gavel</span>
-            <h4 class="terms-card__heading">Veiligheid &amp; Privacy</h4>
-          </div>
-          <p class="terms-card__text">
-            Door deel te nemen aan dit evenement bevestigt u dat u beschikt over een geldig rijbewijs. U gaat akkoord met het delen van foto's gemaakt tijdens de dag.
-          </p>
-
-          <div class="terms-card__warning">
-            <span class="terms-icon material-symbols-outlined">warning</span>
-            <span class="terms-card__warning-text">Deelname is volledig op eigen risico.</span>
-          </div>
-
+  <!-- Navigation Header -->
+  <header class="nav-header">
+      <!-- Critical inline style to show loader immediately while JS initializes -->
+      <style>
+        .page-loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-light);z-index:9999;visibility:hidden;opacity:0;transition:opacity .2s ease}
+        /* top 10vh blue bar while loading */
+        .page-loader::before{ content:""; position:absolute; left:0; right:0; top:0; height:10vh; background:var(--primary); }
+        body.is-loading .page-loader{visibility:visible;opacity:1}
+        body.is-loading .main-content, body.is-loading .app-footer{visibility:hidden;opacity:0;pointer-events:none}
+      </style>
+      <div class="nav-inner">
+        <button class="btn-inschrijftafel"> 
+          <span class="material-symbols-outlined">table_restaurant</span> 
+          Inschrijftafel
+        </button>
+        <div class="title-container">
+          <h1 class="page-title">Voorwaarden</h1>
+          <span class="header-date" aria-hidden="true"></span>
         </div>
-      </article>
+        <img class="header-logo" src="assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+      </div>
+  </header>
+  <main class="main-content">
+
+    <!-- Geplande ritten (data wordt door JS geladen in .planned-rides) -->
+    <section class="planned-list">
+        <h3 id="planned-title" class="section-title">Geplande Ritten</h3>
+        <div class="planned-rides"></div>
+    </section>
+
+    <div class="terms-card">
+      <div class="terms-card__body">
+        <article class="terms-card__card">
+          <div class="terms-card__accent"></div>
+          <div class="terms-card__content">
+            <div class="terms-card__row">
+              <span class="terms-icon material-symbols-outlined">gavel</span>
+              <h4 class="terms-card__heading">Veiligheid &amp; Privacy</h4>
+            </div>
+            <p class="terms-card__text">
+              Door deel te nemen aan dit evenement bevestigt u dat u beschikt over een geldig rijbewijs. U gaat akkoord met het delen van foto's gemaakt tijdens de dag.
+            </p>
+
+            <div class="terms-card__warning">
+              <span class="terms-icon material-symbols-outlined">warning</span>
+              <span class="terms-card__warning-text">Deelname is volledig op eigen risico.</span>
+            </div>
+
+          </div>
+        </article>
+      </div>
     </div>
-  </div>
-</main>
-<script type="module" src="main.js"></script>
+  </main>
   <!-- Footer (semantic, controlled by CSS) -->
   <footer class="app-footer" role="contentinfo">
     <div class="app-footer__inner">
-      <button class="app-footer__button" id="agree-button">Ja, ik ga akkoord</button>
+      <button class="app-footer__button" id="agree-index">Ja, ik ga akkoord</button>
     </div>
   </footer>
-</body></html>
+  <script type="module" src="member.js"></script>
+</body>
+</html>
