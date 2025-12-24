@@ -132,6 +132,18 @@ body.is-loading .app-footer{
 .main-content, .app-footer{ transition: opacity 220ms ease, visibility 0ms linear 220ms; }
 .main-content[style], .app-footer[style]{}
 
+/* Page navigation animation: fade/slide main content when navigating away */
+.is-navigating .main-content{
+  transform: translateX(-12px);
+  opacity: 0;
+  transition: transform 320ms ease, opacity 320ms ease;
+}
+.is-navigating .app-footer{
+  transform: translateY(8px);
+  opacity: 0;
+  transition: transform 320ms ease, opacity 320ms ease;
+}
+
 /* Planned rides section (styles adapted from the provided Tailwind-like snippet) */
 .section-title{
   color: #0e121a;
@@ -289,6 +301,54 @@ body.is-loading .app-footer{
 .lead-text{ margin:0 0 8px 0; color: #374151; font-weight:500; }
 .spacer-12{ margin:12px 0; }
 .jaarhanger-em{ font-style: unset; font-weight:600; }
+
+/* Member info page styles */
+.member-header{ width:100%; display:flex; justify-content:center; padding-top:12px; padding-bottom:6px; }
+.member-name{ font-size:20px; font-weight:700; color:#0f1724; margin:0; text-align:center; }
+.meta-badges{ margin-top:8px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.info-chip{ display:inline-flex; align-items:center; gap:8px; background:var(--bg-light); padding:8px 12px; border-radius:999px; border:1px solid #f3f4f6; color:#6b7280; font-size:0.9rem; }
+
+.stats-card{ max-width:640px; margin-top:8px; width:100%; }
+.stats-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.stat-count{ color:#6b7280; font-weight:600; }
+.stats-stars{ display:flex; gap:12px; justify-content:center; padding:12px; background:transparent; border-radius:10px; }
+.star{ font-size:32px; }
+.star.filled{ color:#F2C438; }
+.star.empty{ color:#e5e7eb; }
+
+.choice-list{ width:100%; max-width:640px; margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+.choice-item{ display:flex; align-items:center; gap:12px; padding:12px; background:var(--bg-light); border:1px solid #f3f4f6; border-left:4px solid var(--blue); border-radius:12px; }
+.choice-item.gold{ border-left-color: #F2C438; }
+.left-icon{ width:44px; height:44px; border-radius:999px; display:flex; align-items:center; justify-content:center; background: rgba(22,62,141,0.06); }
+.choice-category{ margin:0; font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em; }
+.choice-value{ margin:0; font-weight:700; color:#0f1724; }
+.status-badge{ background:#d1fae5; color:#065f46; padding:6px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; margin-left: auto; margin-right: 8px; }
+
+/* Red variant for negative/non-participation badge */
+.status-badge--no{ background: #fee2e2; color: #991b1b; }
+
+/* Round action button placed on the right side of choice items */
+.choice-action{
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  border:0;
+  background: rgba(15,23,36,0.06);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  color: #0f1724;
+}
+.choice-action .material-symbols-outlined{ font-size:20px; }
+.choice-action:active{ transform: translateY(1px); }
+.choice-action:focus{ outline: 3px solid rgba(22,62,141,0.12); outline-offset:2px; }
+
+.checkin-section{ width:100%; max-width:640px; margin-top:12px; display:flex; justify-content:center; }
+.checkin-card{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+.qr-box{ padding:12px; border:2px dashed #e5e7eb; border-radius:12px; display:inline-block; }
+.qr-box img{ width:192px; height:192px; object-fit:contain; display:block; }
+.checkin-hint{ display:flex; align-items:center; gap:8px; color:var(--blue); font-weight:600; }
 
 /* Jaarhanger photo */
 .jaarhanger-photo-wrap{ margin-top:12px; }

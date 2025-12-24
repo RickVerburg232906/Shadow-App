@@ -110,6 +110,8 @@ async function init(){
 		try{ setupAgreeLunchButton(); }catch(_){ }
 		// wire jaarhanger footer button if present
 		try{ setupAgreeJaarhanger(); }catch(_){ }
+		// populate member info if on member info page
+		try{ populateMemberInfo(); }catch(_){ }
 	}catch(e){ console.error('init failed', e); }
 	// reveal page after initialization
 	try{ document.body.classList.remove('is-loading'); }catch(e){}
@@ -537,10 +539,27 @@ function setupAgreeLunchButton(){
 			if(btn.disabled){ ev.preventDefault(); ev.stopPropagation(); return; }
 			// When valid, route based on whether the stored member has a Jaarhanger value
 			try{
-				const member = getStoredSelectedMember();
-				const hasJ = hasJaarhanger(member);
-				if(hasJ){ window.location.href = 'memberInfoPage.html'; }
-				else { window.location.href = 'jaarhangerPage.html'; }
+				// persist the chosen lunch values into the stored member so the member-info page can read them
+				try{
+					const member = getStoredSelectedMember() || {};
+					const participation = document.querySelector('input[name="participation"]:checked');
+					if(participation){
+						const deel = String(participation.value) === 'yes' ? 'ja' : 'nee';
+						member.lunchDeelname = deel;
+						if(deel === 'ja'){
+							const main = document.querySelector('input[name="main_course"]:checked');
+							member.lunchKeuze = main ? String(main.value) : (member.lunchKeuze || null);
+						} else {
+							member.lunchKeuze = null;
+						}
+						// persist back to sessionStorage and window
+						try{ sessionStorage.setItem('selectedMember', JSON.stringify(member)); }catch(_){ }
+						try{ window.selectedMember = member; }catch(_){ }
+					}
+					const hasJ = hasJaarhanger(member);
+					if(hasJ){ window.location.href = 'memberInfoPage.html'; }
+					else { window.location.href = 'jaarhangerPage.html'; }
+				}catch(e){ console.error('failed persisting lunch selection', e); }
 			}catch(e){ console.error('agree-lunch click handler failed', e); }
 		});
 	}catch(e){ console.error('setupAgreeLunchButton failed', e); }
@@ -571,8 +590,221 @@ function setupAgreeJaarhanger(){
 		btn.addEventListener('click', (ev)=>{
 			try{
 				if(btn.disabled) { ev.preventDefault(); ev.stopPropagation(); return; }
+				// read selected jaarhanger radio on the page (value 'yes'|'no')
+				const sel = document.querySelector('input[name="participation"]:checked');
+				let jaar = null;
+				if(sel){ jaar = (String(sel.value).toLowerCase() === 'yes') ? 'Ja' : 'Nee'; }
+				try{
+					const member = getStoredSelectedMember() || {};
+					// write Jaarhanger value (use capitalized Dutch Yes/No)
+					if(jaar !== null){ member.Jaarhanger = jaar; }
+					try{ sessionStorage.setItem('selectedMember', JSON.stringify(member)); }catch(_){ }
+					try{ window.selectedMember = member; }catch(_){ }
+				}catch(e){ console.error('failed saving jaarhanger to sessionStorage', e); }
 				window.location.href = 'memberInfoPage.html';
 			}catch(e){ console.error('agree-jaarhanger click failed', e); }
 		});
 	}catch(e){ console.error('setupAgreeJaarhanger failed', e); }
+}
+
+// Return a readable display name for a member object, trying multiple field names
+function getMemberDisplayName(member){
+	try{
+		if(!member || typeof member !== 'object') return '';
+		// Common Firestore field names
+		const firstKeys = ['Voor naam','Voornaam','voornaam','voor','FirstName','firstName'];
+		const lastKeys = ['Naam','Achternaam','achternaam','naam','LastName','lastName'];
+		// additional Dutch variants
+		const initialKeys = ['Voor letters','Voorletters','voorletters','voor_letters'];
+		const tussenKeys = ['Tussen voegsel','Tussenvoegsel','tussenvoegsel','tussen'];
+		let first = '';
+		let last = '';
+		let initials = '';
+		let tussen = '';
+		for(const k of firstKeys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]){ first = String(member[k]); break; } }
+		for(const k of lastKeys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]){ last = String(member[k]); break; } }
+		for(const k of initialKeys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]){ initials = String(member[k]); break; } }
+		for(const k of tussenKeys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]){ tussen = String(member[k]); break; } }
+		// Build name with available pieces
+		const parts = [];
+		if(initials) parts.push(initials);
+		if(first) parts.push(first);
+		if(tussen) parts.push(tussen);
+		if(last) parts.push(last);
+		if(parts.length) return parts.join(' ');
+		if(member.displayName) return String(member.displayName);
+		if(member.naam && member.voor) return `${member.voor} ${member.naam}`;
+		if(member.voor && member.Naam) return `${member.voor} ${member.Naam}`;
+		if(member.Naam) return String(member.Naam);
+		// try any 'name'-like keys
+		for(const k of Object.keys(member)){
+			const lk = String(k).toLowerCase();
+			if(lk.includes('name') || lk.includes('naam')){
+				const v = member[k]; if(v) return String(v);
+			}
+		}
+		return '';
+	}catch(e){ return ''; }
+}
+
+// Populate member info UI elements from stored selected member
+function populateMemberInfo(){
+	try{
+		const nameEl = document.querySelector('.member-name');
+		if(!nameEl) return;
+		const member = getStoredSelectedMember();
+		if(!member) return;
+		const display = getMemberDisplayName(member) || '';
+		if(display) nameEl.textContent = display;
+		// populate lidnummer and location if present
+		try{
+			const chips = document.querySelectorAll('.meta-badges .info-chip');
+			if(chips && chips.length > 0){
+				chips.forEach(ch => {
+					try{
+						const icon = ch.querySelector('.material-symbols-outlined');
+						const iconName = icon ? String(icon.textContent || '').trim().toLowerCase() : '';
+						if(iconName === 'badge'){
+							const id = getMemberId(member) || '';
+							// remove previous text nodes after icon
+							try{ while(icon.nextSibling) icon.parentNode.removeChild(icon.nextSibling); }catch(_){}
+							if(id) icon.insertAdjacentText('afterend', ' ' + id);
+						} else if(iconName === 'location_on'){
+							const loc = getMemberLocation(member) || '';
+							try{ while(icon.nextSibling) icon.parentNode.removeChild(icon.nextSibling); }catch(_){}
+							if(loc) icon.insertAdjacentText('afterend', ' ' + loc);
+						}
+					}catch(_){ }
+				});
+			}
+		}catch(_){ }
+
+		// populate lunch and jaarhanger choices in the 'Mijn Keuzes' section if present
+		try{
+			const choiceItems = document.querySelectorAll('.choice-list .choice-item, .choice-list .choice-item .choice-body');
+			if(choiceItems && choiceItems.length > 0){
+				const items = document.querySelectorAll('.choice-list .choice-item');
+				items.forEach(it => {
+					try{
+						const cat = it.querySelector('.choice-category');
+						const val = it.querySelector('.choice-value');
+						if(!cat || !val) return;
+						const key = String(cat.textContent || '').trim().toLowerCase();
+						if(key === 'lunch'){
+							// try multiple possible field names for lunch choice/status
+							let lunchVal = null;
+							let lunchDeel = null;
+							for(const k of Object.keys(member||{})){
+								const lk = String(k).toLowerCase();
+								const v = member[k];
+								if(lk.includes('lunch')){
+									if(lk.includes('keuze') || lk.includes('choice') || lk.includes('keuze')){ if(v !== null && typeof v !== 'undefined') lunchVal = v; }
+									if(lk.includes('deel') || lk.includes('deelname') || lk.includes('particip')){ if(v !== null && typeof v !== 'undefined') lunchDeel = v; }
+								}
+							}
+							// fallback to explicit properties
+							if(lunchVal === null){ if(member.lunchKeuze) lunchVal = member.lunchKeuze; if(member.LunchKeuze) lunchVal = member.LunchKeuze; }
+							if(lunchDeel === null){ if(member.lunchDeelname) lunchDeel = member.lunchDeelname; if(member.LunchDeelname) lunchDeel = member.LunchDeelname; }
+							const statusSpan = it.querySelector('.status-badge');
+							const iconSpan = statusSpan ? statusSpan.querySelector('.material-symbols-outlined') : null;
+							const deelStr = (typeof lunchDeel === 'string' ? lunchDeel.toLowerCase().trim() : (typeof lunchDeel === 'boolean' ? (lunchDeel ? 'ja' : 'nee') : null));
+							if(deelStr === 'ja' || deelStr === 'ja.'){ // explicit yes
+								if(iconSpan) iconSpan.textContent = 'check';
+								if(statusSpan) statusSpan.classList.remove('status-badge--no');
+								val.textContent = lunchVal ? String(lunchVal) : 'Geen keuze geregistreerd';
+							} else if(deelStr === 'nee' || deelStr === 'nee.'){
+								if(iconSpan) iconSpan.textContent = 'close';
+								if(statusSpan) statusSpan.classList.add('status-badge--no');
+								val.textContent = 'Geen deelname';
+							} else {
+								// unknown participation: show keuze if present, otherwise neutral
+								if(lunchVal){ if(iconSpan) iconSpan.textContent = 'check'; if(statusSpan) statusSpan.classList.remove('status-badge--no'); val.textContent = String(lunchVal); }
+								else { if(iconSpan) iconSpan.textContent = 'help'; if(statusSpan) statusSpan.classList.remove('status-badge--no'); val.textContent = 'Geen keuze geregistreerd'; }
+							}
+						} else if(key.includes('jaarhanger')){
+							// For Jaarhanger: only update the status badge icon (do not change the visible text)
+							let j = null;
+							for(const k of Object.keys(member||{})){
+								const lk = String(k).toLowerCase();
+								if(lk.includes('jaar') && lk.includes('hanger')){ j = member[k]; break; }
+							}
+							const statusSpanJ = it.querySelector('.status-badge');
+							const iconJ = statusSpanJ ? statusSpanJ.querySelector('.material-symbols-outlined') : null;
+							if(j && typeof j !== 'undefined' && j !== null && String(j).trim() !== ''){
+								if(iconJ) iconJ.textContent = 'check';
+								if(statusSpanJ) statusSpanJ.classList.remove('status-badge--no');
+								// always set the visible Jaarhanger text to the current year edition
+								try{
+									const year = (new Date()).getFullYear();
+									if(val) val.textContent = `${year} Editie`;
+								}catch(_){ }
+							} else {
+								if(iconJ) iconJ.textContent = 'close';
+								if(statusSpanJ) statusSpanJ.classList.add('status-badge--no');
+								try{ const year = (new Date()).getFullYear(); if(val) val.textContent = `${year} Editie`; }catch(_){ }
+							}
+						}
+					}catch(_){ }
+				});
+			}
+		}catch(_){ }
+
+		// wire click navigation from choice items (e.g. Lunch) to their pages with animation
+		try{
+			setupChoiceItemNavigation();
+		}catch(_){ }
+	}catch(e){ console.error('populateMemberInfo failed', e); }
+}
+
+// Animate and navigate when clicking choice items (e.g. Lunch)
+function setupChoiceItemNavigation(){
+	try{
+		const items = document.querySelectorAll('.choice-list .choice-item');
+		if(!items || items.length === 0) return;
+		items.forEach(it => {
+			try{
+				const cat = it.querySelector('.choice-category');
+				if(!cat) return;
+				const name = String(cat.textContent || '').trim().toLowerCase();
+				// determine navigation target based on category
+				let target = null;
+				if(name.includes('lunch')) target = 'lunchPage.html';
+				else if(name.includes('jaar') || name.includes('jaarhanger')) target = 'jaarhangerPage.html';
+				if(!target) return;
+
+				it.addEventListener('click', (ev)=>{
+					// ignore clicks on action button itself
+					if(ev.target && ev.target.closest && ev.target.closest('.choice-action')) return;
+					// play a short navigation animation then go to target page
+					try{
+						document.body.classList.add('is-navigating');
+						setTimeout(()=>{ window.location.href = target; }, 340);
+					}catch(e){ window.location.href = target; }
+				});
+			}catch(e){ /* ignore per-item errors */ }
+		});
+	}catch(e){ console.error('setupChoiceItemNavigation failed', e); }
+}
+
+function getMemberId(member){
+	try{
+		if(!member) return '';
+		const keys = ['LidNr','Lidnummer','LidNummer','lidnummer','Lid Nummer','MemberId','memberId','lidId','id','ID'];
+		for(const k of keys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]) return String(member[k]); }
+		// possible numeric membership under 'Nr' or 'Nummer'
+		for(const k of Object.keys(member)){
+			const lk = String(k).toLowerCase();
+			if(lk.includes('lid') && (lk.includes('nr') || lk.includes('nummer') || lk.includes('id'))) return String(member[k]);
+		}
+		return '';
+	}catch(e){ return ''; }
+}
+
+function getMemberLocation(member){
+	try{
+		if(!member) return '';
+		const keys = ['Regio Omschrijving','RegioOmschrijving','Regio Omschrijving','Regio','regio','Plaats','plaats','Woonplaats','woonplaats','stad','City','city'];
+		for(const k of keys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]) return String(member[k]); }
+		return '';
+	}catch(e){ return ''; }
 }
