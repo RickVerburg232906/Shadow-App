@@ -13,20 +13,10 @@
 <!-- Custom stylesheet (replaces Tailwind) -->
 <link rel="stylesheet" href="../style.css"/>
   </head>
-<body class="app light is-loading">
-  <div class="page-loader" aria-hidden="true">
-    <div class="page-loader__spinner" aria-hidden="true"></div>
-  </div>
+<body class="app light">
 <header class="nav-header">
     <div class="nav-inner">
-    <!-- Critical inline style to show loader immediately while JS initializes -->
-    <style>
-      .page-loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-light);z-index:9999;visibility:hidden;opacity:0;transition:opacity .2s ease}
-      /* top 10vh blue bar while loading */
-      .page-loader::before{ content:""; position:absolute; left:0; right:0; top:0; height:10vh; background:var(--primary); }
-      body.is-loading .page-loader{visibility:visible;opacity:1}
-      body.is-loading .main-content, body.is-loading .app-footer{visibility:hidden;opacity:0;pointer-events:none}
-    </style>
+    
       <button id="back-button" class="back-button" aria-label="Terug">
         <span class="material-symbols-outlined">home</span>
       </button>
@@ -91,10 +81,9 @@
         <h4 class="section-title">Check-in</h4>
         <p class="muted-text">Scan deze code bij aankomst</p>
       </div>
-      <div class="qr-box">
-        <img alt="QR Code for member check-in" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBF3MINnSD61Cj-u6sOx3PbqTDtZwzRbuDIOq6aCZRWu8exggxk0w89l3_iuz6Zr-gFFrpukoJzGc3wCDuqoGZnD7uQ53MTErwR32MQGjkt4iaWAPnR5jYLzTLdAqcqn6RQPsaAr1aambtFc0T-nNewJvQBNHEsbT8ZIzKYyY_viKbBjOHkexbrgx-ox5SPVKd9QB0lSkp42rlIMuIq5XyPfqE82gEgUmLJAkxZKMfKxlEmlFeRoh6zbt9Sv7FXOJGq7SkSQ0F-6WKQ" />
+      <div id="memberInfoQRWrap" class="qr-box" aria-hidden="false">
+        <img id="memberInfoQRImg" alt="QR Code for member check-in" src="" />
       </div>
-      <div class="muted-text checkin-hint"><span class="material-symbols-outlined">brightness_high</span> Helderheid verhogen voor scannen</div>
     </div>
   </section>
 

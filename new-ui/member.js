@@ -2,949 +2,1002 @@
 import { getPlannedDates, searchMembers, getMemberById, getLunchOptions } from './firestore.js';
 import { db, doc, onSnapshot } from '../src/firebase.js';
 
-/* Header short date */
-function formatShortDutchDate(d = new Date()){
-	const days = ['Zo','Ma','Di','Wo','Do','Vr','Za'];
-	const months = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-	return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+// --- Fragment loader & inline navigation for lid-ui pages ---
+const lidFragments = {
+	originalPage: null,
+	signupPage: null,
+	lunchPage: null,
+	jaarhangerPage: null,
+	memberInfoPage: null
+};
+let lidFragmentsLoaded = false;
+const navStack = [];
+// Page order for footer-driven linear navigation
+const PAGE_ORDER = ['original','signup','lunch','jaarhanger','member'];
+let currentFragment = 'original';
+
+function normalizeFragmentName(name){
+	const n = String(name || '').toLowerCase();
+	if (n === 'signup' || n === 'signuppage') return 'signup';
+	if (n === 'lunch' || n === 'lunchpage') return 'lunch';
+	if (n === 'jaar' || n === 'jaarhanger' || n === 'jaarhangerpage') return 'jaarhanger';
+	if (n === 'member' || n === 'memberinfopage') return 'member';
+	return 'original';
 }
 
-function setHeaderDate(){
-	const el = document.querySelector('.header-date');
-	if(!el) return;
-	el.textContent = formatShortDutchDate();
-}
+async function loadLidFragments() {
+	if (lidFragmentsLoaded) return;
+	const bases = ['./lid-ui/', 'lid-ui/', '/lid-ui/', '/new-ui/lid-ui/'];
+	const files = ['originalPage.html', 'signupPage.html', 'lunchPage.html', 'jaarhangerPage.html', 'memberInfoPage.html'];
+	const results = {};
+	for (const fname of files) {
+		let got = '';
+		for (const base of bases) {
+			try {
+				const res = await fetch(base + fname, { cache: 'no-store' });
+				if (res && res.ok) {
+					const txt = await res.text();
+					if (txt && txt.trim()) { got = txt; break; }
+				}
+			} catch (e) {
+				// try next base
+			}
+		}
+		results[fname] = got || '';
+	}
+	lidFragments.originalPage = results['originalPage.html'] || '';
+	lidFragments.signupPage = results['signupPage.html'] || '';
+	lidFragments.lunchPage = results['lunchPage.html'] || '';
+	lidFragments.jaarhangerPage = results['jaarhangerPage.html'] || '';
+	lidFragments.memberInfoPage = results['memberInfoPage.html'] || '';
 
-/* Planned rides rendering */
-function formatLongDutchDateFromYMD(ymd){
-	try{
-		const [y,m,d] = ymd.split('-').map(Number);
-		const months = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
-		return `${months[m-1]} ${d}, ${y}`;
-	}catch(e){ return ymd; }
-}
-
-function daysUntil(ymd){
-	const today = new Date();
-	const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-	const parts = ymd.split('-').map(Number);
-	const d = new Date(parts[0], parts[1]-1, parts[2]);
-	const diff = Math.round((d - t) / (1000*60*60*24));
-	return diff;
-}
-
-function createRideNode(ymd){
-	const diff = daysUntil(ymd);
-	const longDate = formatLongDutchDateFromYMD(ymd);
-
-	const outer = document.createElement('div');
-	outer.className = 'card-wrapper';
-
-	let badgeHtml = '';
-	if (diff === 0) {
-		badgeHtml = `<span class="badge badge-today">Vandaag</span>`;
-	} else if (diff > 0) {
-		const label = diff === 1 ? '1 dag' : `${diff} dagen`;
-		badgeHtml = `<span class="badge badge-count">${label}</span>`;
+	// Provide minimal fallback if originalPage missing
+	if (!lidFragments.originalPage || !lidFragments.originalPage.includes('id="rides-list"')) {
+		lidFragments.originalPage = `<header><h1>Geplande Ritten</h1></header><main><div id="rides-list" class="planned-rides"></div></main><footer><button id="agree-index">Ja, ik ga akkoord</button></footer>`;
 	}
 
-	outer.innerHTML = `
-		<div class="card">
-			<div style="text-align:left">
-				<div class="ride-date">${longDate}</div>
-			</div>
-			<div>
-				${badgeHtml}
-			</div>
-		</div>
-	`;
-	return outer;
+	lidFragmentsLoaded = true;
 }
 
-export async function renderPlannedRides(selector = '.planned-rides'){
-	try{
-		const planned = await getPlannedDates();
-		const list = (Array.isArray(planned) ? planned : []).map(s => s.slice(0,10)).filter(Boolean).sort();
+function getFragmentByName(name) {
+	const n = String(name || '').toLowerCase();
+	if (n === 'signup' || n === 'signuppage') return lidFragments.signupPage;
+	if (n === 'lunch' || n === 'lunchpage') return lidFragments.lunchPage;
+	if (n === 'jaar' || n === 'jaarhanger' || n === 'jaarhangerpage') return lidFragments.jaarhangerPage;
+	if (n === 'member' || n === 'memberinfopage') return lidFragments.memberInfoPage;
+	return lidFragments.originalPage;
+}
 
-		let container = document.querySelector(selector);
-		if(!container){
-			// Do not auto-create the container on pages that don't include it.
-			// This prevents planned rides from being injected into pages like the signup page.
+async function renderFragment(name) {
+	try {
+		await loadLidFragments();
+		const container = document.querySelector('.main-content') || document.body;
+		if (!container) return;
+		// push current header/footer/main to stack for back navigation
+		try {
+			const curHeader = document.querySelector('header');
+			const curFooter = document.querySelector('footer');
+			navStack.push({
+				header: curHeader ? curHeader.outerHTML : null,
+				footer: curFooter ? curFooter.outerHTML : null,
+				main: container.innerHTML || '',
+				fragmentName: currentFragment || 'original'
+			});
+		} catch (_) { try { navStack.push({ header: null, footer: null, main: container.innerHTML || '', fragmentName: currentFragment || 'original' }); } catch(__) {} }
+
+		const norm = normalizeFragmentName(name);
+		const html = getFragmentByName(name) || '';
+		try {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, 'text/html');
+
+			// Rename participation radio names to be fragment-scoped to avoid cross-page interference
+			try {
+				const parts = ['signup','lunch','jaarhanger','member','original'];
+				let fragKey = norm || 'original';
+				// ensure stable fragment key
+				if (!parts.includes(fragKey)) fragKey = fragKey.split(/[^a-z]/)[0] || 'original';
+				const inputs = doc.querySelectorAll('input[type="radio"][name="participation"]');
+				if (inputs && inputs.length) {
+					inputs.forEach((inp) => {
+						try { inp.setAttribute('name', `participation-${fragKey}`); } catch(_) {}
+					});
+				}
+			} catch (_) {}
+
+			// If fragment provides its own header/footer, replace the current ones.
+			// If the fragment does NOT contain a header/footer, remove the existing one
+			const fragHeader = doc.querySelector('header');
+			const fragFooter = doc.querySelector('footer');
+			// Replace or remove header
+			if (fragHeader) {
+				try {
+					const existingHeader = document.querySelector('header');
+					if (existingHeader) existingHeader.replaceWith(fragHeader);
+					else document.body.insertBefore(fragHeader, document.body.firstChild);
+				} catch (e) {
+					try { document.querySelector('header')?.remove(); document.body.insertAdjacentHTML('afterbegin', doc.querySelector('header').outerHTML); } catch(_) {}
+				}
+			} else {
+				// fragment has no header -> remove any existing header to fully adopt fragment page
+				try { const existingHeader = document.querySelector('header'); if (existingHeader) existingHeader.remove(); } catch(_) {}
+			}
+			// Replace or remove footer
+			if (fragFooter) {
+				try {
+					const existingFooter = document.querySelector('footer');
+					if (existingFooter) existingFooter.replaceWith(fragFooter);
+					else document.body.appendChild(fragFooter);
+				} catch (e) {
+					try { document.querySelector('footer')?.remove(); document.body.insertAdjacentHTML('beforeend', doc.querySelector('footer').outerHTML); } catch(_) {}
+				}
+			} else {
+				// fragment has no footer -> remove any existing footer to fully adopt fragment page
+				try { const existingFooter = document.querySelector('footer'); if (existingFooter) existingFooter.remove(); } catch(_) {}
+			}
+
+			// Determine main content to insert
+			let insert = '';
+			const mainEl = doc.querySelector('main');
+			if (mainEl) insert = mainEl.innerHTML;
+			else {
+				// remove header/footer nodes from cloned body then use remaining
+				const cloneBody = doc.body.cloneNode(true);
+				const h = cloneBody.querySelector('header'); if (h) h.remove();
+				const f = cloneBody.querySelector('footer'); if (f) f.remove();
+				insert = cloneBody.innerHTML || html;
+			}
+			container.innerHTML = insert;
+			// mark current fragment
+			currentFragment = norm;
+			// If jaarhanger fragment, ensure its footer button starts disabled until a selection is made
+			try {
+				if (currentFragment === 'jaarhanger') {
+					const jbtn = document.getElementById('agree-jaarhanger');
+					if (jbtn) {
+						jbtn.disabled = true;
+						jbtn.setAttribute('aria-disabled', 'true');
+						jbtn.classList && jbtn.classList.add('disabled');
+					}
+				}
+			} catch (_) {}
+		} catch (e) {
+			// fallback: insert raw HTML
+			container.innerHTML = html;
+		}
+
+		// After injecting HTML, run common setup routines so the fragment behaves like a standalone page
+		try { setHeaderDate(); } catch (_) {}
+		try { await renderPlannedRides('.planned-rides'); } catch (_) {}
+		try { setupFormInputCapitalization(); } catch (_) {}
+		try { setupMemberSuggestions(); } catch (_) {}
+		try { setupLunchOptions(); } catch (_) {}
+		try { setupParticipationToggle(); } catch (_) {}
+		try { populateLunchFromStoredMember(); } catch (_) {}
+		try { populateJaarhangerFromStoredMember(); } catch (_) {}
+		try { populateMemberInfo(); } catch (_) {}
+		try { setupAgreeLunchButton(); } catch (_) {}
+		try { setupAgreeJaarhanger(); } catch (_) {}
+		try { setupSignupFooterNavigation(); } catch (_) {}
+		try { setupBackButton(); } catch (_) {}
+		try { setupAgreeButton(); } catch (_) {}
+		try { setupChoiceItemNavigation(); } catch (_) {}
+	} catch (e) {
+		console.warn('renderFragment failed', e);
+	}
+}
+
+function popFragment() {
+	try {
+		const container = document.querySelector('.main-content') || document.body;
+		if (!container) return;
+		if (navStack.length === 0) return;
+		const prev = navStack.pop();
+		if (!prev) return;
+		try {
+			if (typeof prev === 'string') {
+				container.innerHTML = prev || '';
+			} else {
+				// prev is { header, footer, main }
+				const parser = new DOMParser();
+				// restore header
+				if (prev.header) {
+					try {
+						const hdoc = parser.parseFromString(prev.header, 'text/html');
+						const newHeader = hdoc.querySelector('header');
+						if (newHeader) {
+							const existingHeader = document.querySelector('header');
+							if (existingHeader) existingHeader.replaceWith(newHeader);
+							else document.body.insertBefore(newHeader, document.body.firstChild);
+						}
+					} catch (_) {}
+				} else {
+					// remove header if fragment had introduced one
+					try { const existingHeader = document.querySelector('header'); if (existingHeader) existingHeader.remove(); } catch(_) {}
+				}
+				// restore footer
+				if (prev.footer) {
+					try {
+						const fdoc = parser.parseFromString(prev.footer, 'text/html');
+						const newFooter = fdoc.querySelector('footer');
+						if (newFooter) {
+							const existingFooter = document.querySelector('footer');
+							if (existingFooter) existingFooter.replaceWith(newFooter);
+							else document.body.appendChild(newFooter);
+						}
+					} catch (_) {}
+				} else {
+					try { const existingFooter = document.querySelector('footer'); if (existingFooter) existingFooter.remove(); } catch(_) {}
+				}
+				// restore main
+				container.innerHTML = prev.main || '';
+			}
+				// Ensure fragment-specific footer states are initialized after all setup
+				try { updateLunchFooterState(); } catch (e) { console.warn('post-render updateLunchFooterState failed', e); }
+				try { updateJaarhangerFooterState(); } catch (e) { console.warn('post-render updateJaarhangerFooterState failed', e); }
+		} catch (e) {
+			// fallback: try string restore
+			try { container.innerHTML = (prev && prev.main) ? prev.main : String(prev || ''); } catch(_) { container.innerHTML = '' }
+		}
+		// re-run basic setup
+		try { setHeaderDate(); } catch (_) {}
+		try { setupFormInputCapitalization(); } catch (_) {}
+		try { setupMemberSuggestions(); } catch (_) {}
+		try { setupLunchOptions(); } catch (_) {}
+		try { setupParticipationToggle(); } catch (_) {}
+		try { populateMemberInfo(); } catch (_) {}
+		try { setupBackButton(); } catch (_) {}
+		try { setupAgreeButton(); } catch (_) {}
+	} catch (e) { console.warn('popFragment failed', e); }
+}
+
+// Ensure QR generation helper (dynamic loader)
+function ensureQRLib() {
+	return new Promise((resolve, reject) => {
+		if (window.QRCode && typeof window.QRCode.toDataURL === 'function') return resolve(window.QRCode);
+		if (document.querySelector('script[data-qr-lib]')) {
+			const s = document.querySelector('script[data-qr-lib]');
+			s.addEventListener('load', () => resolve(window.QRCode));
+			s.addEventListener('error', () => reject(new Error('QR lib failed')));
 			return;
 		}
-
-		// Clear and build list into the existing container (header provided in HTML)
-		container.innerHTML = '';
-		const listWrap = document.createElement('div');
-		listWrap.className = 'planned-list';
-		for(const ymd of list){
-			// skip dates that are already past
-			if (daysUntil(ymd) < 0) continue;
-			const node = createRideNode(ymd);
-			listWrap.appendChild(node);
-		}
-		// empty state
-		if (!listWrap.hasChildNodes()){
-			const empty = document.createElement('div');
-			empty.className = 'card-wrapper';
-			empty.innerHTML = '<div class="card"><div class="ride-date">Geen geplande ritten</div></div>';
-			listWrap.appendChild(empty);
-		}
-		container.appendChild(listWrap);
-	}catch(e){ console.error('renderPlannedRides failed', e); }
+		const s = document.createElement('script');
+		s.setAttribute('data-qr-lib', '1');
+		s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js';
+		s.onload = () => resolve(window.QRCode);
+		s.onerror = () => reject(new Error('Failed to load QR lib'));
+		document.head.appendChild(s);
+	});
 }
 
-// Init: run async init that waits for data to avoid flashes
-async function init(){
+async function renderMemberInfoQR(member){
 	try{
-		setHeaderDate();
-		await renderPlannedRides();
-		setupAgreeButton();
-		setupBackButton();
-		setupFormInputCapitalization();
-		setupMemberSuggestions();
-		setupParticipationToggle();
-		setupSignupFooterNavigation();
-		// load lunch options if present on the page
-		try{ await setupLunchOptions(); }catch(_){ }
-		// prefill lunch controls and wire agree button only when lunch controls exist
+		const wrap = document.getElementById('memberInfoQRWrap');
+		const img = document.getElementById('memberInfoQRImg');
+		if(!wrap || !img) return;
+		// Build payload with requested fields
+		const lid = getMemberId(member) || (member && (member.id || member.uid || member.LidNr)) || '';
+		const jaar = member?.Jaarhanger ?? member?.jaarhanger ?? null;
+		const lunchDeel = member?.lunchDeelname ?? member?.LunchDeelname ?? member?.lunch ?? member?.Lunch ?? null;
+		const lunchKeuze = member?.lunchKeuze ?? member?.LunchKeuze ?? member?.lunchKeuze ?? null;
+		const payload = {};
+		if(lid) payload.LidNr = String(lid);
+		if(jaar) payload.Jaarhanger = jaar;
+		if(lunchDeel) payload.lunchDeelname = lunchDeel;
+		if(lunchKeuze) payload.lunchKeuze = lunchKeuze;
+
+		const payloadStr = JSON.stringify(payload);
+
+		// Try using QR lib, fallback to Google Chart static image
 		try{
-			const hasLunchControls = document.getElementById('keuzeEtenButtons') || document.getElementById('vastEtenDisplay') || document.querySelector('input[name="main_course"]') || (window.location.pathname||'').toLowerCase().includes('lunchpage');
-			if(hasLunchControls){ try{ populateLunchFromStoredMember(); }catch(_){ } try{ setupAgreeLunchButton(); }catch(_){ } }
-		}catch(_){ }
-
-		// wire and prefill jaarhanger only when jaarhanger controls exist
-		try{
-			const hasJaarControls = document.getElementById('jaarhangerToggle') || document.getElementById('yearhangerToggle') || document.getElementById('jaarhangerSelectionBadge') || document.querySelector('.jaarhanger-content') || (window.location.pathname||'').toLowerCase().includes('jaarhangerpage');
-			if(hasJaarControls){ try{ setupAgreeJaarhanger(); }catch(_){ } try{ populateJaarhangerFromStoredMember(); }catch(_){ } }
-		}catch(_){ }
-		// populate member info if on member info page
-		try{ populateMemberInfo(); }catch(_){ }
-	}catch(e){ console.error('init failed', e); }
-	// reveal page after initialization
-	try{ document.body.classList.remove('is-loading'); }catch(e){}
-}
-
-function setupFormInputCapitalization(){
-	try{
-		function capitalizeFirst(el){
-			const v = el.value || '';
-			if(!v) return;
-			const first = v.charAt(0);
-			const capital = first.toUpperCase();
-			if(first === capital) return;
-			const start = el.selectionStart;
-			const end = el.selectionEnd;
-			el.value = capital + v.slice(1);
-			if (typeof start === 'number' && typeof end === 'number') el.setSelectionRange(start, end);
-		}
-
-		document.querySelectorAll && document.querySelectorAll('.form-input').forEach(el => {
-			el.addEventListener('input', () => capitalizeFirst(el));
-		});
-	}catch(e){ console.error('setupFormInputCapitalization failed', e); }
-}
-
-function setupMemberSuggestions(){
-	try{
-		const debounceMs = 500;
-
-		function removeSuggestions(el){
-			const wrap = el.closest('.icon-input');
-			if(!wrap) return;
-			const ex = wrap.querySelector('.suggestions');
-			if(ex) ex.remove();
-		}
-
-		function renderSuggestions(el, items){
-			removeSuggestions(el);
-			if(!items || items.length === 0) return;
-			const wrap = el.closest('.icon-input');
-			if(!wrap) return;
-			const box = document.createElement('div');
-			box.className = 'suggestions';
-			for(const it of items){
-				const label = (it.voor && it.naam) ? `${it.voor} ${it.naam}` : (it.voor || it.naam || '');
-				const row = document.createElement('div');
-				row.className = 'suggestion-item';
-				row.textContent = label;
-				if (it.id) row.dataset.memberId = it.id;
-				row.addEventListener('mousedown', (ev)=>{
-					// mousedown so it fires before blur
-					ev.preventDefault();
-					el.value = label;
-					// fetch full member document by id, store and dispatch
-					(async function(id){
-						try{
-							const member = await getMemberById(id);
-							console.debug('memberSelected (loaded):', member);
-							try{ if(member && typeof member === 'object') member.__id = id; }catch(_){ }
-							try{ window.selectedMember = member; }catch(_){ }
-							try{ sessionStorage.setItem('selectedMember', JSON.stringify(member || {})); }catch(_){ }
-							try{ window.dispatchEvent(new CustomEvent('memberSelected', { detail: member })); }catch(_){ }
-						}catch(e){ console.error('failed loading member', e); }
-					})(it.id);
-					removeSuggestions(el);
-				});
-				box.appendChild(row);
-			}
-			wrap.appendChild(box);
-		}
-
-		document.querySelectorAll('.form-input').forEach(el => {
-			let timer = null;
-			el.addEventListener('input', ()=>{
-				// capitalisation is handled elsewhere; debounce search
-				if (timer) clearTimeout(timer);
-				const v = (el.value || '').trim();
-				if(!v){ removeSuggestions(el); return; }
-				timer = setTimeout(async ()=>{
-					try{
-						const results = await searchMembers(v, 8);
-						renderSuggestions(el, results);
-					}catch(e){ console.error('member suggestions failed', e); }
-				}, debounceMs);
+			await ensureQRLib();
+			const container = img.parentElement;
+			const measured = (container && container.clientWidth) || img.getBoundingClientRect().width || 300;
+			const base = Math.floor(measured);
+			const drawSize = Math.min(Math.max(320, base * 2), 2048); // 2x size, clamped
+			const internalSize = Math.floor(drawSize * (window.devicePixelRatio || 1));
+			const dataUrl = await new Promise((resolve, reject) => {
+				try{ window.QRCode.toDataURL(payloadStr, { width: internalSize }, (err, url) => err ? reject(err) : resolve(url)); }catch(e){ reject(e); }
 			});
+			img.src = dataUrl;
+			img.width = drawSize;
+			img.height = drawSize;
+			img.style.display = 'block';
+			wrap.style.display = 'inline-block';
+			return;
+		}catch(e){
+			// fallback
+			const container = img.parentElement;
+			const measured = (container && container.clientWidth) || img.getBoundingClientRect().width || 300;
+			const base = Math.floor(measured);
+			const drawSize = Math.min(Math.max(320, base * 2), 2048); // doubled fallback size
+			const encoded = encodeURIComponent(payloadStr);
+			img.src = `https://chart.googleapis.com/chart?cht=qr&chs=${drawSize}x${drawSize}&chl=${encoded}&choe=UTF-8`;
+			img.width = drawSize;
+			img.height = drawSize;
+			img.style.display = 'block';
+			wrap.style.display = 'inline-block';
+			return;
+		}
+	}catch(e){ console.warn('renderMemberInfoQR failed', e); }
+}
 
-			// clear input on click when it already has content
-			el.addEventListener('click', ()=>{
-				try{
-					if (el.value && String(el.value).trim()){
-						el.value = '';
-						removeSuggestions(el);
+// Render planned rides into the provided selector (e.g. '.planned-rides')
+			export async function renderPlannedRides(selector = '.planned-rides') {
+				try {
+					const container = document.querySelector(selector);
+					if (!container) return;
+					container.innerHTML = '';
+					const dates = await getPlannedDates();
+					if (!Array.isArray(dates) || dates.length === 0) {
+						container.innerHTML = '<div class="planned-list"><p class="muted">Geen geplande ritten</p></div>';
+						return;
 					}
-				}catch(e){ /* ignore */ }
-			});
 
-			// hide suggestions on blur (slight delay to allow click)
-			el.addEventListener('blur', ()=> setTimeout(()=> removeSuggestions(el), 150));
+					// Helpers
+					const toYMD = (v) => {
+						try {
+							if (!v) return '';
+							if (typeof v === 'string' && /\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+							const d = new Date(v);
+							if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+							return '';
+						} catch { return ''; }
+					};
+
+					const today = (() => {
+						const d = new Date();
+						return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+					})();
+
+					const dayDiff = (ymd) => {
+						try {
+							const parts = ymd.split('-').map(n => parseInt(n,10));
+							if (parts.length !== 3) return NaN;
+							const a = new Date(parts[0], parts[1]-1, parts[2]);
+							const bParts = today.split('-').map(n => parseInt(n,10));
+							const b = new Date(bParts[0], bParts[1]-1, bParts[2]);
+							const diff = Math.round((a - b) / 86400000);
+							return diff;
+						} catch { return NaN; }
+					};
+
+					const fmtPretty = (ymd) => {
+						try {
+							const d = new Date(ymd + 'T00:00:00');
+							return new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+						} catch { return ymd; }
+					};
+
+					const rawList = (Array.isArray(dates) ? dates : []).map(toYMD).filter(Boolean);
+					// keep only today or future rides
+					const items = rawList.map(ymd => ({ ymd, diff: dayDiff(ymd) })).filter(i => typeof i.diff === 'number' && i.diff >= 0).sort((a,b) => a.ymd.localeCompare(b.ymd));
+					if (items.length === 0) {
+						container.innerHTML = '<div class="planned-list"><p class="muted">Geen geplande ritten</p></div>';
+						return;
+					}
+					const wrap = document.createElement('div'); wrap.className = 'planned-list';
+					for (const it of items) {
+						const ymd = it.ymd;
+						const diff = it.diff;
+						const cardWrap = document.createElement('div'); cardWrap.className = 'card-wrapper';
+						const card = document.createElement('div'); card.className = 'card';
+						card.setAttribute('data-ride', ymd);
+						card.tabIndex = 0;
+						const left = document.createElement('div'); left.className = 'ride-date'; left.textContent = fmtPretty(ymd);
+						const right = document.createElement('div');
+						if (diff === 0) {
+							right.className = 'badge badge-today'; right.textContent = 'Vandaag';
+						} else {
+							right.className = 'badge badge-count'; right.textContent = `${diff} dagen`;
+						}
+						card.appendChild(left); card.appendChild(right); cardWrap.appendChild(card); wrap.appendChild(cardWrap);
+					}
+					container.appendChild(wrap);
+				} catch (e) {
+					console.warn('renderPlannedRides failed', e);
+				}
+			}
+
+			// Ensure first letter capitalization on text inputs with class `form-input` (idempotent)
+			function setupFormInputCapitalization() {
+				try {
+					const inputs = Array.from(document.querySelectorAll('input.form-input'));
+					for (const el of inputs) {
+						try {
+							if (!el || el.dataset && el.dataset._capBound) continue;
+							// composition handling for IME
+							el.addEventListener('compositionstart', () => { try { el.dataset._composing = '1'; } catch(_) {} }, { passive: true });
+							el.addEventListener('compositionend', (ev) => { try { delete el.dataset._composing; /* run one final capitalization */ capitalizeOnce(el); } catch(_) {} });
+							el.addEventListener('input', (ev) => {
+								try { if (el.dataset && el.dataset._composing) return; capitalizeOnce(el); } catch(_) {}
+							});
+							if (el.dataset) el.dataset._capBound = '1';
+						} catch (e) { /* ignore per-element errors */ }
+					}
+				} catch (e) { console.warn('setupFormInputCapitalization failed', e); }
+
+				function capitalizeOnce(el) {
+					try {
+						const v = el.value || '';
+						if (!v) return;
+						const first = v.charAt(0);
+						const upper = first.toUpperCase();
+						if (first === upper) return;
+						const s = el.selectionStart;
+						const e = el.selectionEnd;
+						el.value = upper + v.slice(1);
+						// restore caret/selection (length unchanged)
+						try { if (typeof s === 'number' && typeof e === 'number') el.setSelectionRange(s, e); } catch(_) {}
+					} catch (e) { /* ignore */ }
+				}
+			}
+
+		// Ensure planned rides render on initial load
+		(function ensureInitialPlannedRender() {
+			const run = async () => {
+				try {
+					if (typeof setHeaderDate === 'function') try { setHeaderDate(); } catch(_) {}
+					await renderPlannedRides('.planned-rides');
+				} catch (e) { /* ignore */ }
+			};
+			if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+			else run();
+		})();
+
+// Fallback: idempotent binding for footer agree button
+function setupAgreeButton() {
+	try {
+		const btn = document.getElementById('agree-index');
+		if (!btn) return;
+		if (btn.dataset && btn.dataset._agreeBound) return;
+		btn.addEventListener('click', (e) => {
+			e.preventDefault();
+			try {
+				const idx = PAGE_ORDER.indexOf(currentFragment || 'original');
+				const next = (idx >= 0 && idx < PAGE_ORDER.length - 1) ? PAGE_ORDER[idx + 1] : 'signup';
+				renderFragment(next);
+			} catch (err) {
+				try { window.location.href = 'lid-ui/signupPage.html'; } catch(_) {}
+			}
 		});
-	}catch(e){ console.error('setupMemberSuggestions failed', e); }
+		if (btn.dataset) btn.dataset._agreeBound = '1';
+	} catch (e) { console.warn('setupAgreeButton failed', e); }
 }
 
-if (document.readyState === 'loading'){
-	document.addEventListener('DOMContentLoaded', init);
-} else {
-	init();
-}
+// Member name suggestions: show dropdown of matches after 200ms inactivity
+function setupMemberSuggestions() {
+	try {
+		const inputs = Array.from(document.querySelectorAll('input.form-input'));
+		for (const el of inputs) {
+			try {
+				if (!el || (el.dataset && el.dataset._suggestBound)) continue;
+				// Only attach suggestions for likely name inputs (heuristic: placeholder contains 'Bijv' or parent label contains 'Naam')
+				const placeholder = (el.getAttribute('placeholder') || '').toLowerCase();
+				const labelText = (el.closest('label') ? (el.closest('label').innerText || '').toLowerCase() : '');
+				if (!placeholder.includes('bijv') && !labelText.includes('naam')) {
+					// still allow if page is signup (title Inschrijven)
+					const pageTitle = (document.querySelector('.page-title') || {}).textContent || '';
+					if (!/inschrijf|inschrijven|inschrijven/i.test(pageTitle)) continue;
+				}
 
-function setupAgreeButton(){
-	try{
-		// attach to the index/home agree button (unique id)
-		const btnIndex = document.getElementById('agree-index');
-		if(btnIndex){
-			btnIndex.addEventListener('click', ()=>{
-				window.location.href = 'lid-ui/signupPage.html';
-			});
+				let timer = null;
+				let activeIndex = -1;
+				let listEl = null;
+				const maxResults = 8;
+
+				function closeList() {
+					if (listEl && listEl.parentNode) listEl.parentNode.removeChild(listEl);
+					listEl = null; activeIndex = -1;
+				}
+
+				async function showSuggestions(prefix) {
+					try {
+						const q = String(prefix || '').trim();
+						if (!q) { closeList(); return; }
+						const results = await searchMembers(q, maxResults);
+						if (!Array.isArray(results) || results.length === 0) { closeList(); return; }
+						// build dropdown
+						closeList();
+						listEl = document.createElement('div');
+						listEl.className = 'member-suggestions';
+						listEl.style.position = 'absolute';
+						listEl.style.zIndex = 9999;
+						listEl.style.background = '#fff';
+						listEl.style.border = '1px solid rgba(0,0,0,0.08)';
+						listEl.style.boxShadow = '0 6px 18px rgba(0,0,0,0.08)';
+						listEl.style.borderRadius = '8px';
+						listEl.style.overflow = 'hidden';
+						listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
+						listEl.style.maxHeight = '260px';
+						listEl.style.overflowY = 'auto';
+						listEl.setAttribute('role','listbox');
+
+						const rect = el.getBoundingClientRect();
+						const docEl = document.documentElement;
+						const top = rect.bottom + window.scrollY + 6;
+						const left = rect.left + window.scrollX;
+						listEl.style.top = top + 'px';
+						listEl.style.left = left + 'px';
+
+						results.forEach((r, i) => {
+							const item = document.createElement('div');
+							item.className = 'member-suggestion-item';
+							item.setAttribute('role','option');
+							item.style.padding = '8px 12px';
+							item.style.cursor = 'pointer';
+							item.style.borderBottom = '1px solid rgba(0,0,0,0.04)';
+							const nameDisplay = `${(r.voor||'').trim()} ${(r.naam||'').trim()}`.trim();
+							item.textContent = nameDisplay || (r.naam || r.voor || r.id || '');
+							item.dataset.memberId = r.id || '';
+							item.addEventListener('click', (ev) => {
+								ev.preventDefault();
+								el.value = item.textContent;
+								if (el.dataset) el.dataset.selectedMember = item.dataset.memberId || '';
+								try { window._selectedMemberId = item.dataset.memberId || ''; } catch(_) {}
+								closeList();
+								el.focus();
+								try { updateSignupFooterState(); } catch(_) {}
+							});
+							listEl.appendChild(item);
+						});
+
+						document.body.appendChild(listEl);
+					} catch (e) { console.warn('showSuggestions failed', e); }
+				}
+
+				function schedule(prefix) {
+					if (timer) clearTimeout(timer);
+					timer = setTimeout(() => { showSuggestions(prefix); }, 200);
+				}
+
+				el.addEventListener('compositionstart', () => { try { el.dataset._composing = '1'; } catch(_) {} }, { passive: true });
+				el.addEventListener('compositionend', (ev) => { try { delete el.dataset._composing; schedule(el.value || ''); } catch(_) {} });
+				el.addEventListener('input', (ev) => {
+					try { if (el.dataset && el.dataset._composing) return; if (el.dataset) { delete el.dataset.selectedMember; } try { window._selectedMemberId = ''; } catch(_) {} schedule(el.value || ''); try { updateSignupFooterState(); } catch(_) {} } catch(_) {}
+				});
+				el.addEventListener('keydown', (ev) => {
+					try {
+						if (!listEl) return;
+						const items = Array.from(listEl.querySelectorAll('[role="option"]'));
+						if (!items.length) return;
+						if (ev.key === 'ArrowDown') { ev.preventDefault(); activeIndex = Math.min(items.length-1, activeIndex+1); updateActive(items); }
+						else if (ev.key === 'ArrowUp') { ev.preventDefault(); activeIndex = Math.max(0, activeIndex-1); updateActive(items); }
+						else if (ev.key === 'Enter') { ev.preventDefault(); if (activeIndex >=0 && items[activeIndex]) items[activeIndex].click(); }
+						else if (ev.key === 'Escape') { closeList(); }
+					} catch(_){}
+				});
+
+				function updateActive(items) {
+					items.forEach((it, idx) => { it.style.background = (idx === activeIndex) ? 'rgba(22,62,141,0.06)' : ''; });
+					if (items[activeIndex]) {
+						items[activeIndex].scrollIntoView({ block: 'nearest' });
+					}
+				}
+
+				// Keep dropdown open until user selects a suggestion or presses Escape.
+				// (Do NOT close on outside click—user requested persistent dropdown until selection.)
+
+				// cleanup flag
+				if (el.dataset) el.dataset._suggestBound = '1';
+			} catch (e) { /* ignore per-element errors */ }
 		}
-	}catch(e){ console.error('setupAgreeButton failed', e); }
+	} catch (e) { console.warn('setupMemberSuggestions failed', e); }
 }
 
-function setupBackButton(){
-	try{
-		const b = document.getElementById('back-button');
-		if(!b) return;
-		b.addEventListener('click', ()=>{
-			try{
-				const current = (window.location.pathname||'').split('/').filter(Boolean).pop() || '';
-				// If we're on the member info page, treat this as a Home button
-				if (/memberinfopage/i.test(current)){
-					window.location.href = '../index.html';
+// Document-level delegation so footer navigation works even when footer DOM is replaced
+function setupFooterDelegation() {
+	try {
+		if (document._footerNavBound) return;
+		document.addEventListener('click', (e) => {
+			try {
+				const el = e.target.closest ? e.target.closest('.app-footer__button, button.app-footer__button, #agree-index, [data-next]') : null;
+				if (!el) return;
+				const footer = el.closest ? (el.closest('footer') || el.closest('.app-footer')) : null;
+				if (!footer) return; // ensure footer area
+				e.preventDefault();
+				const dataNext = el.getAttribute && el.getAttribute('data-next');
+				if (dataNext) {
+					try { renderFragment(normalizeFragmentName(dataNext)); } catch (_) { window.location.href = dataNext; }
 					return;
 				}
-				// Prefer history.back(); fallback to index.html
-				if(window.history && window.history.length > 1){
-					window.history.back();
-				} else {
-					window.location.href = '../index.html';
-				}
-			}catch(e){ try{ window.location.href = '../index.html'; }catch(_){} }
-		});
-	}catch(e){ console.error('setupBackButton failed', e); }
+				const idx = PAGE_ORDER.indexOf(currentFragment || 'original');
+				const next = (idx >= 0 && idx < PAGE_ORDER.length - 1) ? PAGE_ORDER[idx + 1] : null;
+				if (next) try { renderFragment(next); } catch (err) { window.location.href = `lid-ui/${next}Page.html`; }
+				else try { renderFragment('signup'); } catch (err) { window.location.href = 'lid-ui/signupPage.html'; }
+			} catch (_) {}
+		}, true);
+		document._footerNavBound = true;
+	} catch (e) { console.warn('setupFooterDelegation failed', e); }
 }
 
-// Normalize and extract YMD scan dates from various possible member shapes
-function getMemberScanYMDs(member){
-	try{
-		if (!member) return [];
-		const candidates = [member.ScanDatums, member.scanDatums, member.ScanDatum, member.scanDatum, member.scanDates, member.ScanDates, member.ScanDatumList, member.scanDatumList];
-		let raw = null;
-		for (const c of candidates) { if (typeof c !== 'undefined' && c !== null) { raw = c; break; } }
-		if (!raw) {
-			for (const k of Object.keys(member || {})) {
-				if (k.toLowerCase().includes('scan')) { raw = member[k]; break; }
-			}
-		}
-		if (!raw) return [];
-		const result = [];
-		if (Array.isArray(raw)){
-			for (const it of raw){
-				if (!it) continue;
-				if (typeof it === 'string'){ result.push(String(it).slice(0,10)); continue; }
-				if (typeof it === 'object'){
-					if (typeof it.seconds === 'number'){ try{ result.push(new Date(it.seconds*1000).toISOString().slice(0,10)); continue;}catch(_){} }
-					if (it.value && typeof it.value === 'string'){ result.push(String(it.value).slice(0,10)); continue; }
-					for (const pk of ['date','datum','scanDate','ScanDatum']){ if (it[pk]){ result.push(String(it[pk]).slice(0,10)); break; } }
-				}
-			}
-			return Array.from(new Set(result)).filter(Boolean);
-		}
-		if (typeof raw === 'object'){
-			for (const [k,v] of Object.entries(raw)){
-				if (typeof k === 'string' && /^\d{4}-\d{2}-\d{2}/.test(k)) result.push(k.slice(0,10));
-				if (v){ if (typeof v === 'string') result.push(v.slice(0,10)); else if (typeof v === 'object' && typeof v.seconds === 'number') result.push(new Date(v.seconds*1000).toISOString().slice(0,10)); }
-			}
-			return Array.from(new Set(result)).filter(Boolean);
-		}
-		if (typeof raw === 'string') return [raw.slice(0,10)];
-		return [];
-	}catch(e){ return []; }
-}
+try { setupFooterDelegation(); } catch(_) {}
 
-function getStoredSelectedMember(){
-	try{
-		if (window.selectedMember) return window.selectedMember;
-		const s = sessionStorage.getItem('selectedMember');
-		if (s) return JSON.parse(s);
-		return null;
-	}catch(e){ return null; }
-}
+// Store selected member data for other flows
+let SELECTED_MEMBER = null;
 
-function setupSignupFooterNavigation(){
-	try{
-		// only wire the signup page footer button
+// Bind the signup footer button to load full member data from Firestore
+function setupSignupFooterNavigation() {
+	try {
 		const btn = document.getElementById('agree-signup');
 		if (!btn) return;
-		btn.addEventListener('click', (ev) => {
-			try{
-				const member = getStoredSelectedMember();
-				const scans = getMemberScanYMDs(member || {});
-				const today = new Date().toISOString().slice(0,10);
-				const hasToday = Array.isArray(scans) && scans.includes(today);
-				console.debug('signup footer click - member:', member, 'scanYMDs:', scans, 'todayInScans:', hasToday);
-				if (hasToday){
-					// navigate to member info page
-					window.location.href = 'memberInfoPage.html';
-				} else {
-					// navigate to lunch page
-					window.location.href = 'lunchPage.html';
-				}
-			}catch(e){ console.error('signup footer navigation failed', e); }
-		});
-	}catch(e){ console.error('setupSignupFooterNavigation failed', e); }
-}
-
-// Toggle behavior for participation radios: when 'no' is selected, clear and disable keuzeEten choices and fade sections
-function setupParticipationToggle(){
-	try{
-		const radios = Array.from(document.querySelectorAll('input[name="participation"]'));
-		if(!radios || radios.length === 0) return;
-		const vastSection = document.getElementById('vastEtenSection');
-		const keuzeSection = document.getElementById('keuzeEtenSection');
-
-		function applyNo(){
-			// uncheck and disable all main_course radios
-			const mains = Array.from(document.querySelectorAll('input[name="main_course"]'));
-			mains.forEach(i => {
-				try{ if(i.checked) i.checked = false; }catch(_){}
-				try{ i.disabled = true; }catch(_){}
-				try{ i.dispatchEvent(new Event('change', { bubbles: true })); }catch(_){}
-			});
-			// remove visual selections
-			document.querySelectorAll('.choice-card.is-selected').forEach(n => n.classList.remove('is-selected'));
-			// add muted class to containers and their parent sections (fade headers/badges too)
-			if(vastSection) vastSection.classList.add('muted-section');
-			if(keuzeSection) keuzeSection.classList.add('muted-section');
-			try{ const vs = vastSection ? vastSection.closest('section') : null; if(vs) vs.classList.add('muted-section'); }catch(_){ }
-			try{ const ks = keuzeSection ? keuzeSection.closest('section') : null; if(ks) ks.classList.add('muted-section'); }catch(_){ }
-			// update footer button to reflect absence
-			try{
-				const btn = document.getElementById('agree-lunch');
-				if(btn){ btn.textContent = 'Afwezigheid Bevestigen'; btn.classList.add('app-footer__button--danger'); }
-				// also mark jaarhanger page footer button as danger when present
-				const btnJ = document.getElementById('agree-jaarhanger');
-				if(btnJ){ btnJ.classList.add('app-footer__button--danger'); }
-			}catch(_){ }
-		}
-
-		function applyYes(){
-			const mains = Array.from(document.querySelectorAll('input[name="main_course"]'));
-			mains.forEach(i => { try{ i.disabled = false; }catch(_){}});
-			if(vastSection) vastSection.classList.remove('muted-section');
-			if(keuzeSection) keuzeSection.classList.remove('muted-section');
-			try{ const vs = vastSection ? vastSection.closest('section') : null; if(vs) vs.classList.remove('muted-section'); }catch(_){ }
-			try{ const ks = keuzeSection ? keuzeSection.closest('section') : null; if(ks) ks.classList.remove('muted-section'); }catch(_){ }
-			// restore footer button text and style
-			try{
-				const btn = document.getElementById('agree-lunch');
-				if(btn){ btn.textContent = 'Keuze Bevestigen'; btn.classList.remove('app-footer__button--danger'); }
-				const btnJ = document.getElementById('agree-jaarhanger');
-				if(btnJ){ btnJ.classList.remove('app-footer__button--danger'); }
-			}catch(_){ }
-		}
-
-		radios.forEach(r => {
-			// Prevent mouse-clicking the label from causing the browser to scroll
-			// into view for the visually-hidden radio. Handle click on the label
-			// by checking the input and focusing it without scrolling.
-			try{
-				const lbl = r.closest('.choice-option');
-				if (lbl){
-					lbl.addEventListener('click', (ev)=>{
-						ev.preventDefault();
-						try{ r.focus({ preventScroll: true }); }catch(_){ try{ r.focus(); }catch(_){} }
-						if (!r.checked){ r.checked = true; }
-						try{ r.dispatchEvent(new Event('change', { bubbles: true })); }catch(_){}
-					});
-				}
-			}catch(_){ }
-
-			r.addEventListener('change', ()=>{
-				try{
-					if(!r.checked) return;
-					if(r.value === 'no') applyNo();
-					else applyYes();
-				}catch(e){ console.error('participation change handler', e); }
-			});
-		});
-
-		// initialize based on current selection
-		const cur = document.querySelector('input[name="participation"]:checked');
-		if(cur){ if(cur.value === 'no') applyNo(); else applyYes(); }
-	}catch(e){ console.error('setupParticipationToggle failed', e); }
-}
-
-// Load and render lunch options from Firestore globals/lunch
-async function setupLunchOptions(){
-	try{
-		const vastEl = document.getElementById('vastEtenDisplay');
-		const keuzeWrap = document.getElementById('keuzeEtenButtons');
-		if(!vastEl && !keuzeWrap) return; // nothing to do on this page
-
-		// show loading state
-		if(vastEl) vastEl.textContent = 'Laden...';
-		if(keuzeWrap) keuzeWrap.innerHTML = '';
-
-		const opts = await getLunchOptions();
-		const vast = Array.isArray(opts.vastEten) ? opts.vastEten : [];
-		const keuze = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
-
-		if(vastEl){
-			// Render each item as its own row with dividers (matches screenshot 1)
-			vastEl.innerHTML = '';
-			const list = document.createElement('div');
-			list.className = 'vast-list';
-			if(vast.length === 0){
-				const e = document.createElement('div');
-				e.className = 'muted-text';
-				e.textContent = 'Geen vast eten beschikbaar';
-				list.appendChild(e);
-			} else {
-				for (let i = 0; i < vast.length; i++){
-					const text = vast[i];
-					const row = document.createElement('div');
-					row.className = 'vast-row';
-					row.textContent = text;
-					list.appendChild(row);
-					if (i < vast.length - 1){
-						const divider = document.createElement('div');
-						divider.className = 'vast-divider';
-						list.appendChild(divider);
+		if (btn.dataset && btn.dataset._signupBound) return;
+		btn.addEventListener('click', async (e) => {
+			try {
+				e.preventDefault();
+				// find the most relevant input (heuristic: first .form-input in main)
+				const container = document.querySelector('.main-content') || document.body;
+				const input = container.querySelector('input.form-input');
+				let memberId = '';
+				try { memberId = window._selectedMemberId || (input && input.dataset ? (input.dataset.selectedMember || '') : ''); } catch(_) { memberId = (input && input.dataset ? (input.dataset.selectedMember || '') : ''); }
+				const typed = input ? (input.value || '').trim() : '';
+				if (!memberId && typed) {
+					// try to resolve by searching members (wider search)
+					const matches = await searchMembers(typed, 8);
+					if (Array.isArray(matches) && matches.length > 0) {
+						// prefer exact display match
+						const norm = typed.toLowerCase().replace(/\s+/g,' ').trim();
+						const found = matches.find(m => `${(m.voor||'').trim()} ${(m.naam||'').trim()}`.toLowerCase().replace(/\s+/g,' ').trim() === norm);
+						if (found) memberId = found.id;
+						else if (matches.length === 1) memberId = matches[0].id;
+						else memberId = matches[0].id; // fallback to first match
 					}
 				}
-			}
-			vastEl.appendChild(list);
-		}
-
-		if(keuzeWrap){
-			if(keuze.length === 0){
-				const e = document.createElement('div');
-				e.className = 'muted-text';
-				e.textContent = 'Geen keuzemogelijkheden';
-				keuzeWrap.appendChild(e);
-			} else {
-				// render as radio-based choice cards (no default checked)
-				for(const k of keuze){
-					const lbl = document.createElement('label');
-					lbl.className = 'choice-option';
-
-					const input = document.createElement('input');
-					input.type = 'radio';
-					input.name = 'main_course';
-					input.value = k;
-					input.className = 'choice-card-input sr-only';
-
-					const card = document.createElement('div');
-					card.className = 'choice-card';
-					const body = document.createElement('div');
-					body.className = 'choice-card__body';
-					const title = document.createElement('p');
-					title.className = 'choice-card__title';
-					title.textContent = k;
-					body.appendChild(title);
-					card.appendChild(body);
-
-					// wire selection visual state
-					input.addEventListener('change', ()=>{
-						const currently = keuzeWrap.querySelectorAll('.choice-card.is-selected');
-						currently.forEach(n => n.classList.remove('is-selected'));
-						if (input.checked) card.classList.add('is-selected');
-					});
-
-					lbl.appendChild(input);
-					lbl.appendChild(card);
-					keuzeWrap.appendChild(lbl);
-				}
-			}
-		}
-	}catch(e){ console.error('setupLunchOptions failed', e); }
-}
-
-// Enable the lunch confirmation button only when required values are present
-function isLunchFormValid(){
-	try{
-		const participation = document.querySelector('input[name="participation"]:checked');
-		if(!participation) return false;
-		if(String(participation.value) === 'yes'){
-			// If there are no choice options at all, treat as valid (only yes/no required)
-			const anyMainExists = document.querySelector('input[name="main_course"]');
-			if(!anyMainExists) return true;
-			// require a main_course selection when options exist
-			const main = document.querySelector('input[name="main_course"]:checked');
-			return !!main;
-		}
-		return true; // 'no' is a valid selection
-	}catch(e){ return false; }
-}
-
-function updateAgreeLunchButton(){
-	try{
-		const btn = document.getElementById('agree-lunch');
-		if(!btn) return;
-		const valid = isLunchFormValid();
-		btn.disabled = !valid;
-		btn.setAttribute('aria-disabled', String(!valid));
-	}catch(e){ }
-}
-
-function setupAgreeLunchButton(){
-	try{
-		const btn = document.getElementById('agree-lunch');
-		if(!btn) return;
-
-		// initialize state
-		updateAgreeLunchButton();
-
-		// Recompute when participation changes
-		document.querySelectorAll('input[name="participation"]').forEach(r => r.addEventListener('change', ()=> updateAgreeLunchButton()));
-		// Recompute when a main_course radio changes (these are added dynamically)
-		document.addEventListener('change', (ev)=>{
-			const t = ev.target;
-			if(t && t.name === 'main_course') updateAgreeLunchButton();
-		}, { passive: true });
-
-		// Prevent clicks when invalid (defensive)
-		btn.addEventListener('click', (ev)=>{
-			if(btn.disabled){ ev.preventDefault(); ev.stopPropagation(); return; }
-			// When valid, route based on whether the stored member has a Jaarhanger value
-			try{
-				// persist the chosen lunch values into the stored member so the member-info page can read them
-				try{
-					const member = getStoredSelectedMember() || {};
-					const participation = document.querySelector('input[name="participation"]:checked');
-					if(participation){
-						const deel = String(participation.value) === 'yes' ? 'ja' : 'nee';
-						member.lunchDeelname = deel;
-						if(deel === 'ja'){
-							const main = document.querySelector('input[name="main_course"]:checked');
-							member.lunchKeuze = main ? String(main.value) : (member.lunchKeuze || null);
-						} else {
-							member.lunchKeuze = null;
-						}
-						// persist back to sessionStorage and window
-						try{ sessionStorage.setItem('selectedMember', JSON.stringify(member)); }catch(_){ }
-						try{ window.selectedMember = member; }catch(_){ }
-					}
-					const hasJ = hasJaarhanger(member);
-					if(hasJ){ window.location.href = 'memberInfoPage.html'; }
-					else { window.location.href = 'jaarhangerPage.html'; }
-				}catch(e){ console.error('failed persisting lunch selection', e); }
-			}catch(e){ console.error('agree-lunch click handler failed', e); }
-		});
-	}catch(e){ console.error('setupAgreeLunchButton failed', e); }
-}
-
-// Determine whether the provided member object contains a Jaarhanger value
-function hasJaarhanger(member){
-	try{
-		if(!member || typeof member !== 'object') return false;
-		const candidates = ['Jaarhanger','jaarhanger','JaarHanger','JaarhangerAfgekort','JaarHangerAfgekort'];
-		for(const k of candidates){
-			if(Object.prototype.hasOwnProperty.call(member, k)){
-				const v = member[k];
-				if(v === null || typeof v === 'undefined') return false;
-				if(typeof v === 'string' && v.trim() === '') return false;
-				// Only treat explicit 'Ja' (or boolean true) as having the jaarhanger
-				if(typeof v === 'boolean') return v === true;
-				if(typeof v === 'string') return v.trim().toLowerCase().startsWith('j');
-				return false;
-			}
-		}
-		// fallback: check any key that includes 'jaar' and 'hanger' or 'jaarhanger'
-		for(const k of Object.keys(member||{})){
-			const lk = String(k).toLowerCase();
-			if(lk.includes('jaar') && lk.includes('hanger')){
-				const v = member[k];
-				if(v === null || typeof v === 'undefined') return false;
-				if(typeof v === 'string' && v.trim() === '') return false;
-				if(typeof v === 'boolean') return v === true;
-				if(typeof v === 'string') return v.trim().toLowerCase().startsWith('j');
-				return false;
-			}
-		}
-		return false;
-	}catch(e){ return false; }
-}
-
-// Wire the jaarhanger page footer button to go to member info
-function setupAgreeJaarhanger(){
-	try{
-		const btn = document.getElementById('agree-jaarhanger');
-		if(!btn) return;
-		btn.addEventListener('click', (ev)=>{
-			try{
-				if(btn.disabled) { ev.preventDefault(); ev.stopPropagation(); return; }
-				// read selected jaarhanger radio on the page (value 'yes'|'no')
-				const sel = document.querySelector('input[name="participation"]:checked');
-				let jaar = null;
-				if(sel){ jaar = (String(sel.value).toLowerCase() === 'yes') ? 'Ja' : 'Nee'; }
-				try{
-					const member = getStoredSelectedMember() || {};
-					// write Jaarhanger value (use capitalized Dutch Yes/No)
-					if(jaar !== null){ member.Jaarhanger = jaar; }
-					try{ sessionStorage.setItem('selectedMember', JSON.stringify(member)); }catch(_){ }
-					try{ window.selectedMember = member; }catch(_){ }
-				}catch(e){ console.error('failed saving jaarhanger to sessionStorage', e); }
-				window.location.href = 'memberInfoPage.html';
-			}catch(e){ console.error('agree-jaarhanger click failed', e); }
-		});
-	}catch(e){ console.error('setupAgreeJaarhanger failed', e); }
-}
-
-// Return a readable display name for a member object, trying multiple field names
-function getMemberDisplayName(member){
-	try{
-		if(!member || typeof member !== 'object') return '';
-		// Common Firestore field names
-		const firstKeys = ['Voor naam','Voornaam','voornaam','voor','FirstName','firstName'];
-		const lastKeys = ['Naam','Achternaam','achternaam','naam','LastName','lastName'];
-		// additional Dutch variants
-		const initialKeys = ['Voor letters','Voorletters','voorletters','voor_letters'];
-		const tussenKeys = ['Tussen voegsel','Tussenvoegsel','tussenvoegsel','tussen'];
-		let first = '';
-		let last = '';
-		let initials = '';
-		let tussen = '';
-		for(const k of firstKeys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]){ first = String(member[k]); break; } }
-		for(const k of lastKeys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]){ last = String(member[k]); break; } }
-		for(const k of initialKeys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]){ initials = String(member[k]); break; } }
-		for(const k of tussenKeys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]){ tussen = String(member[k]); break; } }
-		// Build name with available pieces
-		const parts = [];
-		if(initials) parts.push(initials);
-		if(first) parts.push(first);
-		if(tussen) parts.push(tussen);
-		if(last) parts.push(last);
-		if(parts.length) return parts.join(' ');
-		if(member.displayName) return String(member.displayName);
-		if(member.naam && member.voor) return `${member.voor} ${member.naam}`;
-		if(member.voor && member.Naam) return `${member.voor} ${member.Naam}`;
-		if(member.Naam) return String(member.Naam);
-		// try any 'name'-like keys
-		for(const k of Object.keys(member)){
-			const lk = String(k).toLowerCase();
-			if(lk.includes('name') || lk.includes('naam')){
-				const v = member[k]; if(v) return String(v);
-			}
-		}
-		return '';
-	}catch(e){ return ''; }
-}
-
-// Populate member info UI elements from stored selected member
-function populateMemberInfo(){
-	try{
-		const nameEl = document.querySelector('.member-name');
-		if(!nameEl) return;
-		const member = getStoredSelectedMember();
-		if(!member) return;
-		const display = getMemberDisplayName(member) || '';
-		if(display) nameEl.textContent = display;
-		// populate lidnummer and location if present
-		try{
-			const chips = document.querySelectorAll('.meta-badges .info-chip');
-			if(chips && chips.length > 0){
-				chips.forEach(ch => {
-					try{
-						const icon = ch.querySelector('.material-symbols-outlined');
-						const iconName = icon ? String(icon.textContent || '').trim().toLowerCase() : '';
-						if(iconName === 'badge'){
-							const id = getMemberId(member) || '';
-							// remove previous text nodes after icon
-							try{ while(icon.nextSibling) icon.parentNode.removeChild(icon.nextSibling); }catch(_){}
-							if(id) icon.insertAdjacentText('afterend', ' ' + id);
-						} else if(iconName === 'location_on'){
-							const loc = getMemberLocation(member) || '';
-							try{ while(icon.nextSibling) icon.parentNode.removeChild(icon.nextSibling); }catch(_){}
-							if(loc) icon.insertAdjacentText('afterend', ' ' + loc);
-						}
-					}catch(_){ }
-				});
-			}
-		}catch(_){ }
-
-		// populate lunch and jaarhanger choices in the 'Mijn Keuzes' section if present
-		try{
-			const choiceItems = document.querySelectorAll('.choice-list .choice-item, .choice-list .choice-item .choice-body');
-			if(choiceItems && choiceItems.length > 0){
-				const items = document.querySelectorAll('.choice-list .choice-item');
-				// determine whether the stored member has a scan for today; if so, lock edits
-				const hasTodayScan = memberHasScanToday(member);
-				if(hasTodayScan) console.debug('Member has scan for today, locking choices');
-				items.forEach(it => {
-					try{
-						const cat = it.querySelector('.choice-category');
-						const val = it.querySelector('.choice-value');
-						if(!cat || !val) return;
-						const key = String(cat.textContent || '').trim().toLowerCase();
-						if(key === 'lunch'){
-							// try multiple possible field names for lunch choice/status
-							let lunchVal = null;
-							let lunchDeel = null;
-							for(const k of Object.keys(member||{})){
-								const lk = String(k).toLowerCase();
-								const v = member[k];
-								if(lk.includes('lunch')){
-									if(lk.includes('keuze') || lk.includes('choice') || lk.includes('keuze')){ if(v !== null && typeof v !== 'undefined') lunchVal = v; }
-									if(lk.includes('deel') || lk.includes('deelname') || lk.includes('particip')){ if(v !== null && typeof v !== 'undefined') lunchDeel = v; }
-								}
-							}
-							// fallback to explicit properties
-							if(lunchVal === null){ if(member.lunchKeuze) lunchVal = member.lunchKeuze; if(member.LunchKeuze) lunchVal = member.LunchKeuze; }
-							if(lunchDeel === null){ if(member.lunchDeelname) lunchDeel = member.lunchDeelname; if(member.LunchDeelname) lunchDeel = member.LunchDeelname; }
-							const statusSpan = it.querySelector('.status-badge');
-							const iconSpan = statusSpan ? statusSpan.querySelector('.material-symbols-outlined') : null;
-							const deelStr = (typeof lunchDeel === 'string' ? lunchDeel.toLowerCase().trim() : (typeof lunchDeel === 'boolean' ? (lunchDeel ? 'ja' : 'nee') : null));
-							if(deelStr === 'ja' || deelStr === 'ja.'){ // explicit yes
-								if(iconSpan) iconSpan.textContent = 'check';
-								if(statusSpan) statusSpan.classList.remove('status-badge--no');
-								val.textContent = lunchVal ? String(lunchVal) : 'Geen keuze geregistreerd';
-							} else if(deelStr === 'nee' || deelStr === 'nee.'){
-								if(iconSpan) iconSpan.textContent = 'close';
-								if(statusSpan) statusSpan.classList.add('status-badge--no');
-								val.textContent = 'Geen deelname';
-							} else {
-								// unknown participation: show keuze if present, otherwise neutral
-								if(lunchVal){ if(iconSpan) iconSpan.textContent = 'check'; if(statusSpan) statusSpan.classList.remove('status-badge--no'); val.textContent = String(lunchVal); }
-								else { if(iconSpan) iconSpan.textContent = 'help'; if(statusSpan) statusSpan.classList.remove('status-badge--no'); val.textContent = 'Geen keuze geregistreerd'; }
-							}
-                            } else if(key.includes('jaarhanger')){
-	// For Jaarhanger: only update the status badge icon (do not change the visible text)
-	let j = null;
-	for(const k of Object.keys(member||{})){
-		const lk = String(k).toLowerCase();
-		if(lk.includes('jaar') && lk.includes('hanger')){ j = member[k]; break; }
-	}
-	const statusSpanJ = it.querySelector('.status-badge');
-	const iconJ = statusSpanJ ? statusSpanJ.querySelector('.material-symbols-outlined') : null;
-						const isYes = (typeof j === 'boolean' ? j === true : (typeof j === 'string' ? String(j).trim().toLowerCase().startsWith('j') : false));
-						if(isYes){
-							if(iconJ) iconJ.textContent = 'check';
-							if(statusSpanJ) statusSpanJ.classList.remove('status-badge--no');
-						} else {
-							if(iconJ) iconJ.textContent = 'close';
-							if(statusSpanJ) statusSpanJ.classList.add('status-badge--no');
-						}
-						// always set the visible Jaarhanger text to the current year edition
-						try{ const year = (new Date()).getFullYear(); if(val) val.textContent = `${year} Editie`; }catch(_){ }
-}
-
-// If member has been scanned today, lock the lunch/jaarhanger choice from further edits
-if (hasTodayScan){
-	try{
-		// avoid double-setting if already done
-		if(!it.dataset.locked){
-			it.dataset.locked = '1';
-			it.classList.add('is-locked');
-			const actionIcon = it.querySelector('.choice-action-icon');
-			if(actionIcon){
-				const inner = actionIcon.querySelector('.material-symbols-outlined');
-				if(inner) inner.textContent = 'lock';
-				actionIcon.classList.add('is-locked');
-				actionIcon.setAttribute('title', 'Geverifieerd — niet aanpasbaar');
-			}
-		}
-	}catch(_){ }
-}
-
-					}catch(_){ }
-				});
-			}
-		}catch(_){ }
-
-		// wire click navigation from choice items (e.g. Lunch) to their pages with animation
-		try{
-			setupChoiceItemNavigation();
-		}catch(_){ }
-
-		// Subscribe to realtime updates for this member doc (best-effort).
-		try{
-			const docId = (member && (member.__id || member.id || getMemberId(member))) ? String(member.__id || member.id || getMemberId(member)) : null;
-			if(docId && typeof window !== 'undefined' && doc && onSnapshot && db){
-				if(!(window._memberInfoUnsub && window._memberInfoSubId === docId)){
-					try{
-						if(window._memberInfoUnsub){
-							try{ window._memberInfoUnsub(); }catch(_){ }
-							window._memberInfoUnsub = null;
-							window._memberInfoSubId = null;
-						}
-					}catch(_){ }
-					try{
-						window._memberInfoSubId = docId;
-						window._memberInfoUnsub = onSnapshot(doc(db, 'members', docId), snap => {
-							try{
-								if(!snap) return;
-								let data = {};
-								try{ data = snap.exists && typeof snap.exists === 'function' && snap.exists() ? snap.data() : (snap.data ? snap.data() : {}); }catch(_){ data = snap.data ? snap.data() : {}; }
-								if(!data) return;
-								// ensure doc id on stored member
-								try{ if(data && typeof data === 'object') data.__id = docId; }catch(_){ }
-								try{ window.selectedMember = data; }catch(_){ }
-								try{ sessionStorage.setItem('selectedMember', JSON.stringify(data || {})); }catch(_){ }
-								// re-render member info
-								try{ populateMemberInfo(); }catch(_){ }
-							}catch(e){ console.error('member info onSnapshot handler failed', e); }
-						});
-					}catch(e){ console.warn('member info onSnapshot subscribe failed', e); }
-				}
-			}
-		}catch(_){ }
-	}catch(e){ console.error('populateMemberInfo failed', e); }
-}
-
-// Animate and navigate when clicking choice items (e.g. Lunch)
-function setupChoiceItemNavigation(){
-	try{
-		const items = document.querySelectorAll('.choice-list .choice-item');
-		if(!items || items.length === 0) return;
-		items.forEach(it => {
-				// skip locked items (scanned today)
-				if (it.dataset && it.dataset.locked === '1'){
-					// ensure visual disabled state and skip wiring navigation
-					try{ it.classList.add('is-locked'); }catch(_){ }
+				if (!memberId) {
+					// no member found — show simple error and do not proceed
+					try { alert('Geen lid geselecteerd. Kies een naam uit de lijst.'); } catch(_) {}
 					return;
 				}
-			try{
-				const cat = it.querySelector('.choice-category');
-				if(!cat) return;
-				const name = String(cat.textContent || '').trim().toLowerCase();
-				// determine navigation target based on category
-				let target = null;
-				if(name.includes('lunch')) target = 'lunchPage.html';
-				else if(name.includes('jaar') || name.includes('jaarhanger')) target = 'jaarhangerPage.html';
-				if(!target) return;
-
-				it.addEventListener('click', (ev)=>{
-					// play a short navigation animation then go to target page
-					try{
-						document.body.classList.add('is-navigating');
-						setTimeout(()=>{ window.location.href = target; }, 340);
-					}catch(e){ window.location.href = target; }
-				});
-			}catch(e){ /* ignore per-item errors */ }
+				// fetch full member
+				let full = null;
+				try { full = await getMemberById(String(memberId)); } catch (err) { console.warn('getMemberById failed', err); }
+				SELECTED_MEMBER = full || null;
+				// expose globally for other scripts if needed
+				try { window.SELECTED_MEMBER = SELECTED_MEMBER; } catch(_) {}
+				// call populate if exists
+				try { if (typeof populateMemberInfo === 'function') populateMemberInfo(); } catch(_) {}
+				// navigate to next page in order (signup -> lunch)
+				try {
+					const idx = PAGE_ORDER.indexOf('signup');
+					const next = (idx >=0 && idx < PAGE_ORDER.length-1) ? PAGE_ORDER[idx+1] : 'lunch';
+					renderFragment(next);
+				} catch (err) { try { window.location.href = 'lid-ui/lunchPage.html'; } catch(_) {} }
+			} catch (e) { console.warn('signup navigation handler failed', e); }
 		});
-	}catch(e){ console.error('setupChoiceItemNavigation failed', e); }
+		if (btn.dataset) btn.dataset._signupBound = '1';
+		try { updateSignupFooterState(); } catch(_) {}
+	} catch (e) { console.warn('setupSignupFooterNavigation failed', e); }
 }
 
-function getMemberId(member){
-	try{
-		if(!member) return '';
-		const keys = ['LidNr','Lidnummer','LidNummer','lidnummer','Lid Nummer','MemberId','memberId','lidId','id','ID'];
-		for(const k of keys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]) return String(member[k]); }
-		// possible numeric membership under 'Nr' or 'Nummer'
-		for(const k of Object.keys(member)){
-			const lk = String(k).toLowerCase();
-			if(lk.includes('lid') && (lk.includes('nr') || lk.includes('nummer') || lk.includes('id'))) return String(member[k]);
+// Enable/disable the signup footer button based on whether a member is selected
+function updateSignupFooterState() {
+	try {
+		const btn = document.getElementById('agree-signup');
+		if (!btn) return;
+		const input = (document.querySelector('.main-content') || document.body).querySelector('input.form-input');
+		const hasSel = Boolean((window._selectedMemberId && String(window._selectedMemberId).trim()) || (input && input.dataset && input.dataset.selectedMember));
+		btn.disabled = !hasSel;
+		if (btn.disabled) {
+			btn.setAttribute('aria-disabled', 'true');
+			btn.classList && btn.classList.add('disabled');
+		} else {
+			btn.removeAttribute('aria-disabled');
+			btn.classList && btn.classList.remove('disabled');
 		}
-		return '';
-	}catch(e){ return ''; }
+	} catch (e) { /* ignore */ }
 }
 
-function getMemberLocation(member){
-	try{
-		if(!member) return '';
-		const keys = ['Regio Omschrijving','RegioOmschrijving','Regio Omschrijving','Regio','regio','Plaats','plaats','Woonplaats','woonplaats','stad','City','city'];
-		for(const k of keys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]) return String(member[k]); }
-		return '';
-	}catch(e){ return ''; }
-}
+// Load lunch options from firestore and render the fixed & choice sections
+async function setupLunchOptions() {
+	try {
+		const display = document.getElementById('vastEtenDisplay');
+		const buttonsWrap = document.getElementById('keuzeEtenButtons');
+		if (!display && !buttonsWrap) return;
+		// show loading
+		if (display) display.textContent = 'Laden...';
+		if (buttonsWrap) buttonsWrap.innerHTML = '';
 
-// Prefill lunch page controls from stored member (participation + main_course)
-function populateLunchFromStoredMember(){
-	try{
-		const member = getStoredSelectedMember();
-		if(!member) return;
-		// participation
-		const deelRaw = member.lunchDeelname ?? member.LunchDeelname ?? member.lunch ?? member.Lunch ?? null;
-		const deel = (typeof deelRaw === 'string') ? deelRaw.toLowerCase().trim() : (typeof deelRaw === 'boolean' ? (deelRaw ? 'ja' : 'nee') : null);
-		if(deel === 'ja' || deel === 'yes'){
-			const el = document.querySelector('input[name="participation"][value="yes"]');
-			if(el){ el.checked = true; try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){} }
-		} else if(deel === 'nee' || deel === 'no'){
-			const el = document.querySelector('input[name="participation"][value="no"]');
-			if(el){ el.checked = true; try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){} }
-		}
+		const opts = await getLunchOptions();
+		const vast = Array.isArray(opts && opts.vastEten) ? opts.vastEten : [];
+		const keuze = Array.isArray(opts && opts.keuzeEten) ? opts.keuzeEten : [];
 
-		// main course
-		const keuzeRaw = member.lunchKeuze ?? member.LunchKeuze ?? member.lunch_choice ?? member.lunchChoice ?? null;
-		const keuze = (keuzeRaw == null) ? null : String(keuzeRaw);
-		if(keuze){
-			// find radio with matching value
-			const main = Array.from(document.querySelectorAll('input[name="main_course"]'))
-				.find(i => String(i.value).trim() === String(keuze).trim());
-			if(main){
-				try{ main.checked = true; main.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){ main.checked = true; }
-				// mark visual card
-				const card = main.closest('.choice-option')?.querySelector('.choice-card');
-				if(card){ card.classList.add('is-selected'); }
+		// Render vast eten as a styled list (card with rows)
+		if (display) {
+			if (vast.length === 0) {
+				display.innerHTML = '<div class="muted-text">Geen vaste maaltijd vermeld.</div>';
+			} else {
+				const list = document.createElement('div');
+				list.className = 'vast-list';
+				vast.forEach((v, i) => {
+					const it = document.createElement('div');
+					it.className = 'vast-item';
+					const txt = String(v || '').trim();
+					it.innerHTML = `<span class="choice-label">${escapeHtml(txt)}</span>`;
+					list.appendChild(it);
+				});
+				// clear and append
+				display.innerHTML = '';
+				display.appendChild(list);
 			}
 		}
-	}catch(e){ console.error('populateLunchFromStoredMember failed', e); }
-}
 
-// Prefill jaarhanger page controls from stored member
-function populateJaarhangerFromStoredMember(){
-	try{
-		const member = getStoredSelectedMember();
-		if(!member) return;
-		const j = member.Jaarhanger ?? member.jaarhanger ?? null;
-		// map to yes/no radio values
-		const value = (j && String(j).toLowerCase().startsWith('j')) ? 'yes' : (j && String(j).toLowerCase().startsWith('n') ? 'no' : null);
-		if(value){
-			const el = document.querySelector('input[name="participation"][value="' + value + '"]');
-			if(el){ el.checked = true; try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){} }
+		// Render keuze eten as radio buttons / choice cards
+		if (buttonsWrap) {
+			if (keuze.length === 0) {
+				buttonsWrap.innerHTML = '<div class="muted-text">Geen keuzemogelijkheden beschikbaar.</div>';
+			} else {
+				const name = 'lunchChoice';
+				const frag = document.createDocumentFragment();
+				keuze.forEach((k, i) => {
+					const val = String(k || '').trim();
+					const id = `lunch-choice-${i}`;
+					const label = document.createElement('label');
+					label.className = 'choice-option';
+					const input = document.createElement('input');
+					input.type = 'radio';
+					input.name = name;
+					input.className = 'sr-only lunch-choice-input';
+					input.value = val;
+					input.id = id;
+					const card = document.createElement('div');
+					card.className = 'choice-card';
+					card.innerHTML = `<span class="choice-label">${escapeHtml(val)}</span>`;
+					label.appendChild(input);
+					label.appendChild(card);
+					// click handler to set selection
+					label.addEventListener('click', (e) => {
+						try {
+							// mark the input checked
+							input.checked = true;
+							window._lunchChoice = val;
+							if (input.dataset) input.dataset._checked = '1';
+							try { updateLunchFooterState(); } catch(_) {}
+						} catch(_){ }
+					});
+
+					// ensure change events update footer state
+					input.addEventListener('change', (e) => {
+						try { if (input.checked) { window._lunchChoice = val; } else { window._lunchChoice = window._lunchChoice || ''; } updateLunchFooterState(); } catch(_) {}
+					});
+					frag.appendChild(label);
+				});
+				buttonsWrap.appendChild(frag);
+			}
 		}
-	}catch(e){ console.error('populateJaarhangerFromStoredMember failed', e); }
+
+		// If SELECTED_MEMBER present, pre-select stored choice
+		try {
+			const stored = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+			if (stored) {
+				const deel = (stored.lunchDeelname || stored.LunchDeelname || stored.lunch || stored.Lunch || null);
+				const keuzeVal = (stored.lunchKeuze || stored.LunchKeuze || stored.keuze || null);
+				if (typeof deel === 'string' && deel.toLowerCase().startsWith('y')) {
+					// select yes participation and maybe preselect choice
+					try { window._lunchChoice = keuzeVal || window._lunchChoice || ''; } catch(_){}
+				}
+				// apply preselection in DOM
+				if (window._lunchChoice) {
+					const radios = document.querySelectorAll('input.lunch-choice-input');
+					radios.forEach(r => { if (r.value === String(window._lunchChoice)) { r.checked = true; r.dataset._checked = '1'; } });
+				}
+			}
+		} catch (e) { /* ignore */ }
+
+		// ensure footer state is correct after rendering
+		try { updateLunchFooterState(); } catch(_) {}
+
+	} catch (e) {
+		console.warn('setupLunchOptions failed', e);
+	}
 }
 
-// Robust check whether a member has a scan that equals today's date.
-function memberHasScanToday(member){
-	try{
-		if(!member) return false;
-		const today = (new Date()).toISOString().slice(0,10);
-		// Only consider normalized scan YMDs returned by getMemberScanYMDs()
-		const scans = getMemberScanYMDs(member) || [];
-		const norm = scans.map(s => String(s||'').slice(0,10));
-		return norm.includes(today);
-	}catch(e){ return false; }
+// small helper to escape HTML for insertion
+function escapeHtml(s) {
+	return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Lunch footer state helpers
+function getParticipationValue() {
+	try {
+		const name = `participation-${currentFragment || 'original'}`;
+		const inp = document.querySelector(`input[type="radio"][name="${name}"]:checked`);
+		return inp ? (inp.value || '') : '';
+	} catch (_) { return ''; }
+}
+
+function hasKeuzeOptions() {
+	try { return document.querySelectorAll('input.lunch-choice-input').length > 0; } catch (_) { return false; }
+}
+
+function hasSelectedKeuze() {
+	try { return document.querySelectorAll('input.lunch-choice-input:checked').length > 0; } catch (_) { return false; }
+}
+
+function updateLunchFooterState() {
+	try {
+		const btn = document.getElementById('agree-lunch') || document.querySelector('.app-footer__button#agree-lunch') || document.querySelector('#agree-lunch');
+		if (!btn) return;
+		const participation = getParticipationValue();
+		const keuzesExist = hasKeuzeOptions();
+		const keuzeSelected = hasSelectedKeuze();
+		let enable = false;
+		// 1) if 'no' selected -> enable
+		if (participation === 'no') enable = true;
+		// 2) if no keuze options exist and 'yes' selected -> enable
+		else if (!keuzesExist && participation === 'yes') enable = true;
+		// 3) if keuzes exist and 'yes' selected and one keuze selected -> enable
+		else if (keuzesExist && participation === 'yes' && keuzeSelected) enable = true;
+
+		btn.disabled = !enable;
+		if (btn.disabled) { btn.setAttribute('aria-disabled','true'); btn.classList && btn.classList.add('disabled'); }
+		else { btn.removeAttribute('aria-disabled'); btn.classList && btn.classList.remove('disabled'); }
+	} catch (e) { console.warn('updateLunchFooterState failed', e); }
+}
+
+// Toggle visual state when participation (yes/no) is changed
+function setupParticipationToggle() {
+	try {
+		console.log('[participation] setupParticipationToggle running');
+		// avoid double-binding
+		if (document._participationBound) return;
+		const root = document.querySelector('.main-content') || document.body;
+		if (!root) return;
+
+		function applyNoState() {
+			try {
+				const vast = document.getElementById('vastEtenSection');
+				const keuze = document.getElementById('keuzeEtenSection');
+				if (vast) vast.classList.add('muted-section');
+				if (keuze) keuze.classList.add('muted-section');
+				console.log('[participation] applyNoState: vast=', !!vast, 'keuze=', !!keuze);
+				// mark footer button as danger
+				const footBtn = document.querySelector('.app-footer__button');
+				if (footBtn) {
+					// preserve original label
+					if (!footBtn.dataset._origLabel) footBtn.dataset._origLabel = footBtn.textContent || '';
+					footBtn.classList.add('app-footer__button--danger');
+					// Only change the visible label for the Lunch page (or when the button id matches)
+					if (footBtn.id === 'agree-lunch' || currentFragment === 'lunch') {
+						footBtn.textContent = 'Afwezigheid Bevestigen';
+					}
+					console.log('[participation] applyNoState: footBtn found, classes=', footBtn.className, 'id=', footBtn.id);
+					// fallback: apply inline style to ensure visible change when CSS not applied
+					try { footBtn.style.background = '#8C2B07'; footBtn.style.color = '#fff'; } catch(_) {}
+				}
+				// deselect any chosen lunch choice radios
+				try {
+					const radios = Array.from(document.querySelectorAll('input.lunch-choice-input'));
+					radios.forEach(r => { r.checked = false; if (r.dataset) delete r.dataset._checked; });
+					try { window._lunchChoice = ''; } catch(_) {}
+				} catch(_) {}
+			} catch (e) { console.warn('applyNoState failed', e); }
+		}
+
+		function applyYesState() {
+			try {
+				const vast = document.getElementById('vastEtenSection');
+				const keuze = document.getElementById('keuzeEtenSection');
+				if (vast) vast.classList.remove('muted-section');
+				if (keuze) keuze.classList.remove('muted-section');
+				const footBtn = document.querySelector('.app-footer__button');
+				if (footBtn) {
+					console.log('[participation] applyYesState: restoring footBtn classes before=', footBtn.className);
+					footBtn.classList.remove('app-footer__button--danger');
+					// restore original label if we stored one
+					if (footBtn.dataset && footBtn.dataset._origLabel) {
+						// only restore if this was modified for lunch
+						if (footBtn.id === 'agree-lunch' || currentFragment === 'lunch') {
+							footBtn.textContent = footBtn.dataset._origLabel;
+						}
+						try { delete footBtn.dataset._origLabel; } catch(_) {}
+					} else {
+						// fallback label only for lunch button
+						if (footBtn.id === 'agree-lunch' || currentFragment === 'lunch') footBtn.textContent = 'Keuze Bevestigen';
+					}
+					// remove inline fallback styles if present
+					try { footBtn.style.background = ''; footBtn.style.color = ''; } catch(_) {}
+				}
+			} catch (e) { console.warn('applyYesState failed', e); }
+		}
+
+		function onChange(ev) {
+			try {
+				const val = (ev && ev.target && ev.target.value) ? String(ev.target.value) : '';
+				console.log('[participation] change detected ->', val);
+				if (!val) return;
+				if (val === 'no') applyNoState();
+				else applyYesState();
+				try { updateLunchFooterState(); } catch(_) {}
+				try { updateJaarhangerFooterState(); } catch(_) {}
+			} catch (err) { console.warn('onChange error', err); }
+		}
+
+		// Bind to any participation radios in the fragment (use fragment-scoped name)
+		const partName = `participation-${currentFragment || 'original'}`;
+		const radios = Array.from(root.querySelectorAll(`input[type="radio"][name="${partName}"]`));
+		let boundCount = 0;
+		radios.forEach(r => {
+			try {
+				if (r.dataset && r.dataset._partBound) return;
+				r.addEventListener('change', onChange);
+				if (r.dataset) r.dataset._partBound = '1';
+				boundCount += 1;
+			} catch (_) {}
+		});
+
+		// Also bind click on visible label/card containers to ensure clicks on the card trigger change
+		try {
+			const labels = Array.from(root.querySelectorAll('.choice-option'));
+			console.log('[participation] found labels count=', labels.length);
+			labels.forEach(lb => {
+				try {
+					if (lb.dataset && lb.dataset._labelBound) return;
+					lb.addEventListener('click', (ev) => {
+						try {
+							// find any radio inside this label (avoid name mismatch from earlier binding timing)
+							const inp = lb.querySelector('input[type="radio"]');
+							if (inp) {
+								inp.checked = true;
+								onChange({ target: inp });
+							}
+						} catch (e) { console.warn('label click handler failed', e); }
+					}, true);
+					if (lb.dataset) lb.dataset._labelBound = '1';
+				} catch (_) {}
+			});
+		} catch (_) {}
+
+		// If no radios/labels were bound (fragment timing issues), add a delegated click handler as fallback
+		try {
+				if ((boundCount === 0) && !document._participationDelegationBound) {
+				console.log('[participation] no direct binds — adding delegated click fallback');
+				document.addEventListener('click', function delegatedParticipationClick(ev) {
+					try {
+							const lb = ev.target && ev.target.closest ? ev.target.closest('.choice-option') : null;
+							if (!lb) return;
+							// find any radio input inside the label to avoid stale partName closures
+							const inp = lb.querySelector('input[type="radio"]');
+							if (!inp) return;
+							inp.checked = true;
+							onChange({ target: inp });
+					} catch (e) { /* ignore per-click errors */ }
+				}, true);
+				document._participationDelegationBound = true;
+			}
+		} catch (_) {}
+
+		// apply initial state based on currently checked value or SELECTED_MEMBER
+		try {
+			const checked = radios.find(r => r.checked);
+			if (checked) {
+				if (checked.value === 'no') applyNoState(); else applyYesState();
+			} else {
+				// if SELECTED_MEMBER indicates non-participation, apply that
+				const stored = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+				if (stored) {
+					const deel = (stored.lunchDeelname || stored.LunchDeelname || stored.lunch || stored.Lunch || null);
+					if (typeof deel === 'string' && deel.toLowerCase().startsWith('n')) applyNoState();
+				}
+			}
+		} catch (_) {}
+		if (boundCount > 0) document._participationBound = true;
+		// initialize footer/button states for relevant fragments
+		try { updateLunchFooterState(); } catch(_) {}
+		try { updateJaarhangerFooterState(); } catch(_) {}
+	} catch (e) { console.warn('setupParticipationToggle failed', e); }
+}
+
+// Enable jaarhanger footer only when a participation radio is selected
+function updateJaarhangerFooterState() {
+	try {
+		console.log('[participation] updateJaarhangerFooterState running, currentFragment=', currentFragment);
+		const btn = document.getElementById('agree-jaarhanger');
+		if (!btn) return;
+		const name = `participation-${currentFragment || 'original'}`;
+		const selected = document.querySelector(`input[type="radio"][name="${name}"]:checked`);
+		const enabled = Boolean(selected);
+		btn.disabled = !enabled;
+		if (btn.disabled) { btn.setAttribute('aria-disabled','true'); btn.classList && btn.classList.add('disabled'); }
+		else { btn.removeAttribute('aria-disabled'); btn.classList && btn.classList.remove('disabled'); }
+	} catch (e) { console.warn('updateJaarhangerFooterState failed', e); }
 }

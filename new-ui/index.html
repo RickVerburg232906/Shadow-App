@@ -14,20 +14,10 @@
 <!-- Custom stylesheet (replaces Tailwind) -->
 <link rel="stylesheet" href="style.css"/>
   </head>
-<body class="app light is-loading">
-  <div class="page-loader" aria-hidden="true">
-    <div class="page-loader__spinner" aria-hidden="true"></div>
-  </div>
+<body class="app light">
   <!-- Navigation Header -->
   <header class="nav-header">
       <!-- Critical inline style to show loader immediately while JS initializes -->
-      <style>
-        .page-loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-light);z-index:9999;visibility:hidden;opacity:0;transition:opacity .2s ease}
-        /* top 10vh blue bar while loading */
-        .page-loader::before{ content:""; position:absolute; left:0; right:0; top:0; height:10vh; background:var(--primary); }
-        body.is-loading .page-loader{visibility:visible;opacity:1}
-        body.is-loading .main-content, body.is-loading .app-footer{visibility:hidden;opacity:0;pointer-events:none}
-      </style>
       <div class="nav-inner">
         <button class="btn-inschrijftafel"> 
           <span class="material-symbols-outlined">table_restaurant</span> 
