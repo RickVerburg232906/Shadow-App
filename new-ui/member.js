@@ -1,4 +1,4 @@
-import { getPlannedDates, searchMembers, getMemberById } from './firestore.js';
+import { getPlannedDates, searchMembers, getMemberById, getLunchOptions } from './firestore.js';
 
 /* Header short date */
 function formatShortDutchDate(d = new Date()){
@@ -101,7 +101,10 @@ async function init(){
 		setupBackButton();
 		setupFormInputCapitalization();
 		setupMemberSuggestions();
+		setupParticipationToggle();
 		setupSignupFooterNavigation();
+		// load lunch options if present on the page
+		try{ setupLunchOptions(); }catch(_){ }
 	}catch(e){ console.error('init failed', e); }
 	// reveal page after initialization
 	try{ document.body.classList.remove('is-loading'); }catch(e){}
@@ -305,4 +308,148 @@ function setupSignupFooterNavigation(){
 			}catch(e){ console.error('signup footer navigation failed', e); }
 		});
 	}catch(e){ console.error('setupSignupFooterNavigation failed', e); }
+}
+
+// Toggle behavior for participation radios: when 'no' is selected, clear and disable keuzeEten choices and fade sections
+function setupParticipationToggle(){
+	try{
+		const radios = Array.from(document.querySelectorAll('input[name="participation"]'));
+		if(!radios || radios.length === 0) return;
+		const vastSection = document.getElementById('vastEtenSection');
+		const keuzeSection = document.getElementById('keuzeEtenSection');
+
+		function applyNo(){
+			// uncheck and disable all main_course radios
+			const mains = Array.from(document.querySelectorAll('input[name="main_course"]'));
+			mains.forEach(i => {
+				try{ if(i.checked) i.checked = false; }catch(_){}
+				try{ i.disabled = true; }catch(_){}
+				try{ i.dispatchEvent(new Event('change', { bubbles: true })); }catch(_){}
+			});
+			// remove visual selections
+			document.querySelectorAll('.choice-card.is-selected').forEach(n => n.classList.remove('is-selected'));
+			// add muted class to containers and their parent sections (fade headers/badges too)
+			if(vastSection) vastSection.classList.add('muted-section');
+			if(keuzeSection) keuzeSection.classList.add('muted-section');
+			try{ const vs = vastSection ? vastSection.closest('section') : null; if(vs) vs.classList.add('muted-section'); }catch(_){ }
+			try{ const ks = keuzeSection ? keuzeSection.closest('section') : null; if(ks) ks.classList.add('muted-section'); }catch(_){ }
+			// update footer button to reflect absence
+			try{
+				const btn = document.getElementById('agree-lunch');
+				if(btn){ btn.textContent = 'Afwezigheid Bevestigen'; btn.classList.add('app-footer__button--danger'); }
+			}catch(_){ }
+		}
+
+		function applyYes(){
+			const mains = Array.from(document.querySelectorAll('input[name="main_course"]'));
+			mains.forEach(i => { try{ i.disabled = false; }catch(_){}});
+			if(vastSection) vastSection.classList.remove('muted-section');
+			if(keuzeSection) keuzeSection.classList.remove('muted-section');
+			try{ const vs = vastSection ? vastSection.closest('section') : null; if(vs) vs.classList.remove('muted-section'); }catch(_){ }
+			try{ const ks = keuzeSection ? keuzeSection.closest('section') : null; if(ks) ks.classList.remove('muted-section'); }catch(_){ }
+			// restore footer button text and style
+			try{
+				const btn = document.getElementById('agree-lunch');
+				if(btn){ btn.textContent = 'Keuze Bevestigen'; btn.classList.remove('app-footer__button--danger'); }
+			}catch(_){ }
+		}
+
+		radios.forEach(r => r.addEventListener('change', ()=>{
+			try{
+				if(!r.checked) return;
+				if(r.value === 'no') applyNo();
+				else applyYes();
+			}catch(e){ console.error('participation change handler', e); }
+		}));
+
+		// initialize based on current selection
+		const cur = document.querySelector('input[name="participation"]:checked');
+		if(cur){ if(cur.value === 'no') applyNo(); else applyYes(); }
+	}catch(e){ console.error('setupParticipationToggle failed', e); }
+}
+
+// Load and render lunch options from Firestore globals/lunch
+async function setupLunchOptions(){
+	try{
+		const vastEl = document.getElementById('vastEtenDisplay');
+		const keuzeWrap = document.getElementById('keuzeEtenButtons');
+		if(!vastEl && !keuzeWrap) return; // nothing to do on this page
+
+		// show loading state
+		if(vastEl) vastEl.textContent = 'Laden...';
+		if(keuzeWrap) keuzeWrap.innerHTML = '';
+
+		const opts = await getLunchOptions();
+		const vast = Array.isArray(opts.vastEten) ? opts.vastEten : [];
+		const keuze = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
+
+		if(vastEl){
+			// Render each item as its own row with dividers (matches screenshot 1)
+			vastEl.innerHTML = '';
+			const list = document.createElement('div');
+			list.className = 'vast-list';
+			if(vast.length === 0){
+				const e = document.createElement('div');
+				e.className = 'muted-text';
+				e.textContent = 'Geen vast eten beschikbaar';
+				list.appendChild(e);
+			} else {
+				for (let i = 0; i < vast.length; i++){
+					const text = vast[i];
+					const row = document.createElement('div');
+					row.className = 'vast-row';
+					row.textContent = text;
+					list.appendChild(row);
+					if (i < vast.length - 1){
+						const divider = document.createElement('div');
+						divider.className = 'vast-divider';
+						list.appendChild(divider);
+					}
+				}
+			}
+			vastEl.appendChild(list);
+		}
+
+		if(keuzeWrap){
+			if(keuze.length === 0){
+				const e = document.createElement('div');
+				e.className = 'muted-text';
+				e.textContent = 'Geen keuzemogelijkheden';
+				keuzeWrap.appendChild(e);
+			} else {
+				// render as radio-based choice cards (no default checked)
+				for(const k of keuze){
+					const lbl = document.createElement('label');
+					lbl.className = 'choice-option';
+
+					const input = document.createElement('input');
+					input.type = 'radio';
+					input.name = 'main_course';
+					input.value = k;
+					input.className = 'choice-card-input sr-only';
+
+					const card = document.createElement('div');
+					card.className = 'choice-card';
+					const body = document.createElement('div');
+					body.className = 'choice-card__body';
+					const title = document.createElement('p');
+					title.className = 'choice-card__title';
+					title.textContent = k;
+					body.appendChild(title);
+					card.appendChild(body);
+
+					// wire selection visual state
+					input.addEventListener('change', ()=>{
+						const currently = keuzeWrap.querySelectorAll('.choice-card.is-selected');
+						currently.forEach(n => n.classList.remove('is-selected'));
+						if (input.checked) card.classList.add('is-selected');
+					});
+
+					lbl.appendChild(input);
+					lbl.appendChild(card);
+					keuzeWrap.appendChild(lbl);
+				}
+			}
+		}
+	}catch(e){ console.error('setupLunchOptions failed', e); }
 }

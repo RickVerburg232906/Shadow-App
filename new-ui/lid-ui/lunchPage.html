@@ -62,10 +62,31 @@
     <span class="material-symbols-outlined info-note__icon">info</span>
     <p class="info-note__text">Na het inchecken kan je keuze niet meer worden gewijzigd</p>
   </div>
+  <!-- Vast Eten (populated from globals/lunch) -->
+  <section id="vastEtenSection" class="full-width">
+    <div class="section-header">
+      <h3 class="header-title">Vast Eten</h3>
+      <span class="badge-pill">Iedereen ontvangt</span>
+    </div>
+    <div class="surface-card">
+      <div id="vastEtenDisplay" aria-live="polite" class="muted-text" style="margin: 0;">Laden...</div>
+    </div>
+  </section>
+
+  <!-- Keuze Eten (populated from globals/lunch) -->
+  <section id="keuzeEtenSection" class="full-width card-divider">
+    <div class="section-header">
+      <h3 class="header-title">Keuze Eten</h3>
+      <span class="badge-pill badge-yellow">Kies één</span>
+    </div>
+    <div>
+      <div id="keuzeEtenButtons" class="keuze-buttons"></div>
+    </div>
+  </section>
 </main>
 <footer class="app-footer" role="contentinfo">
   <div class="app-footer__inner">
-    <button class="app-footer__button" id="agree-lunch">Doorgaan</button>
+    <button class="app-footer__button" id="agree-lunch">Keuze Bevestigen</button>
   </div>
 </footer>
 

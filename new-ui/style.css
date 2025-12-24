@@ -1,12 +1,13 @@
 :root{
   --blue: #163e8d;
-  --yellow: --yellow;
+  --yellow: #ffcc00;
   --bg-light: #ffffff;
-  --bg-dark: #121720;
   --text-light: #ffffff;
   --max-width: 640px;
   /* Header sizing: percentage of viewport (change --header-height as needed) */
   --header-height: 10vh; /* nav header height */
+  /* Height to reserve for fixed footer so main can stop above it */
+  --footer-height: 12vh;
 }
 
 html,body{
@@ -108,13 +109,16 @@ body.app{
 .spacer{width:40px}
 
 .main-content{
-  flex:1;
+  flex:1 1 auto;
   display:flex;
   flex-direction: column;
   align-items: center; /* center children horizontally when stacked */
   justify-content: flex-start;
   padding: 8px 8px;
   text-align:center;
+  min-height: 0; /* allow flex child to shrink and enable internal scrolling */
+  overflow: auto; /* make main the scroll container between header and footer */
+  padding-bottom: calc(var(--footer-height) + 8px); /* reserve space above fixed footer */
 }
 
 /* Hide main UI while page is initializing to avoid flashes. Toggle by removing `is-loading` from <body>. */
@@ -284,7 +288,7 @@ body.is-loading .app-footer{
 .bg-surface-light{ background: var(--bg-light); }
 
 /* Reusable surface card used for small panels and forms */
-.surface-card{ box-sizing:border-box; width:100%; border-radius:14px; padding:16px; background:var(--bg-light); border:1px solid rgba(243,244,246,0.9); box-shadow: 0 8px 20px rgba(16,24,40,0.04); }
+.surface-card{ box-sizing:border-box; width:100%; border-radius:14px; background:var(--bg-light); border:1px solid rgba(243,244,246,0.9); box-shadow: 0 8px 20px rgba(16,24,40,0.04); padding: 12px;}
 
 /* Form label (vertical stack) */
 .form-label{ display:flex; flex-direction:column; gap:8px; text-align:left; }
@@ -368,6 +372,11 @@ html.dark .suggestion-item{ color: var(--text-light); }
 .app-footer__button:hover{ background:#123273; }
 .app-footer__button:active{ transform: scale(0.98); }
 
+/* Danger variant for footer button (used when marking absence) */
+.app-footer__button--danger{ background: #8C2B07; color: #fff; box-shadow: 0 10px 20px rgba(140,43,7,0.18); }
+.app-footer__button--danger:hover{ background:#7a2605; }
+.app-footer__button--danger:active{ transform: scale(0.98); }
+
 /* Page loader spinner visuals */
 .page-loader{ background: var(--bg-light); }
 .page-loader__spinner{ width:48px; height:48px; border-radius:50%; border:4px solid rgba(0,0,0,0.08); border-top-color:var(--blue); animation: spin 1s linear infinite; }
@@ -381,7 +390,7 @@ html.dark .suggestion-item{ color: var(--text-light); }
 .choice-title{ margin-bottom:20px; text-align:center; font-size:1.25rem; font-weight:700; color: #0f1724; }
 .choice-grid{ display:flex; gap:16px; }
 .choice-option{ position:relative; flex:1; cursor:pointer; }
-.choice-card{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; border-radius:14px; padding:20px 12px; background:var(--bg-light); border:1px solid #f3f4f6; box-shadow: 0 8px 20px rgba(16,24,40,0.04); transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease, color 120ms ease; }
+.choice-card{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; border-radius:14px; padding:20px 12px; background:#ffffff; border:1px solid #f3f4f6; box-shadow: 0 8px 20px rgba(16,24,40,0.04); transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease, color 120ms ease; }
 .choice-card .material-symbols-outlined{ font-size:28px; color:#0f1724; transition: transform 120ms ease, color 120ms ease; }
 .choice-card .choice-label{ font-weight:700; }
 
@@ -410,6 +419,22 @@ html.dark .suggestion-item{ color: var(--text-light); }
 .info-note__icon{ font-size:20px; color: var(--blue); margin-top:2px; flex:0 0 auto; }
 .info-note__text{ margin:0; font-size:0.9375rem; font-weight:700; line-height:1.2; color: var(--blue); }
 
+/* Small pill-like choice buttons used for lunch option selection */
+.keuze-btn{
+  appearance:none;
+  border:1px solid rgba(22,62,141,0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  color: var(--blue);
+  padding:10px 14px;
+  border-radius:999px;
+  font-weight:700;
+  cursor:pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+.keuze-btn:hover{ transform: translateY(-2px); box-shadow: 0 10px 20px rgba(2,6,23,0.06); }
+.keuze-btn.active{ background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.04)); border-color: rgba(16,185,129,0.18); color:#0f5132; }
+@media (max-width:420px){ .keuze-btn{ flex:1 1 100%; } }
+
 /* Prevent gray tap highlight and accidental text selection on touch devices
    for interactive elements like the lunch choices and footer buttons. */
 .choice-option, .choice-card, .choice-option .material-symbols-outlined, .app-footer__button {
@@ -417,4 +442,39 @@ html.dark .suggestion-item{ color: var(--text-light); }
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* Vast Eten list styling (rows inside a surface-card) */
+.vast-list { width:100%; box-sizing:border-box; border-radius:10px; overflow:hidden; background:transparent; }
+.vast-row { padding:14px; background: var(--bg-light); font-weight:700; color:#0f1724; font-size:1rem; }
+.vast-row:first-child{ border-top-left-radius:8px; border-top-right-radius:8px; }
+.vast-row:last-child{ border-bottom-left-radius:8px; border-bottom-right-radius:8px; }
+.vast-divider { height:1px; background: #f3f4f6; width:100%; }
+
+/* Section header used in lunch page (replaces inline styles) */
+.section-header{ display:flex; align-items:center; justify-content:space-between; padding:0 4px; margin-bottom:12px; }
+.header-title{ font-size:1.125rem; font-weight:700; margin:0; }
+
+/* pill badge used for small inline labels */
+.badge-pill{ display:inline-flex; align-items:center; border-radius:8px; padding:6px 8px; font-size:0.75rem; font-weight:600; background:#f3f4f6; color:#374151; }
+.badge-yellow{ background: rgba(242,196,56,0.12); color:#b45309; border:1px solid rgba(242,196,56,0.12); font-weight:700; }
+
+/* reuseable container for keuze buttons (replaces inline styles) */
+.keuze-buttons{ display:flex; flex-direction:column; gap:6px; }
+
+/* Choice card internals (avoid inline styles) */
+.choice-card__body{ flex:1; padding-left:8px; display:flex; align-items:center; }
+.choice-card__title{ margin:0; font-weight:700; font-size:1rem; }
+
+/* Muted state for sections when participation = no */
+.muted-section{ opacity:0.55; filter:grayscale(20%); }
+.muted-section .choice-card{ opacity:0.75; }
+.muted-section .vast-row{ opacity:0.85; }
+/* Ensure headers and badges inside a muted section also fade */
+.muted-section .section-header,
+.muted-section .section-header *,
+.muted-section .header-title,
+.muted-section .badge-pill{
+  opacity: 0.6;
+  color: rgba(15,23,36,0.45);
 }
