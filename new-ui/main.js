@@ -66,11 +66,9 @@ export async function renderPlannedRides(selector = '.planned-rides'){
 
 		let container = document.querySelector(selector);
 		if(!container){
-			// create a container under main if none exists
-			const main = document.querySelector('.main-content') || document.querySelector('main') || document.body;
-			container = document.createElement('div');
-			container.className = selector.replace(/^\./,'');
-			main.appendChild(container);
+			// Do not auto-create the container on pages that don't include it.
+			// This prevents planned rides from being injected into pages like the signup page.
+			return;
 		}
 
 		// Clear and build list into the existing container (header provided in HTML)
@@ -94,10 +92,47 @@ export async function renderPlannedRides(selector = '.planned-rides'){
 	}catch(e){ console.error('renderPlannedRides failed', e); }
 }
 
-// Init
+// Init: run async init that waits for data to avoid flashes
+async function init(){
+	try{
+		setHeaderDate();
+		await renderPlannedRides();
+		setupAgreeButton();
+		setupBackButton();
+	}catch(e){ console.error('init failed', e); }
+	// reveal page after initialization
+	try{ document.body.classList.remove('is-loading'); }catch(e){}
+}
+
 if (document.readyState === 'loading'){
-	document.addEventListener('DOMContentLoaded', ()=>{ setHeaderDate(); renderPlannedRides(); });
+	document.addEventListener('DOMContentLoaded', init);
 } else {
-	setHeaderDate(); renderPlannedRides();
+	init();
+}
+
+function setupAgreeButton(){
+	try{
+		const btn = document.getElementById('agree-button');
+		if(!btn) return;
+		btn.addEventListener('click', ()=>{
+			// Navigate to the signup page (relative to site root)
+			window.location.href = 'lid-ui/signupPage.html';
+		});
+	}catch(e){ console.error('setupAgreeButton failed', e); }
+}
+
+function setupBackButton(){
+	try{
+		const b = document.getElementById('back-button');
+		if(!b) return;
+		b.addEventListener('click', ()=>{
+			// Prefer history.back(); fallback to index.html
+			if(window.history && window.history.length > 1){
+				window.history.back();
+			} else {
+				window.location.href = '../index.html';
+			}
+		});
+	}catch(e){ console.error('setupBackButton failed', e); }
 }
 

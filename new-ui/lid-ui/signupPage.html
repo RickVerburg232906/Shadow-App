@@ -1,44 +1,40 @@
-<link rel="stylesheet" href="lid-ui.css">
-<header class="fixed top-0 left-0 right-0 z-50 bg-primary text-white shadow-md">
-    <div class="flex items-end p-4 h-16 justify-between">
-    <button id="back-button" class="group flex size-10 items-center justify-center rounded-full bg-white dark:bg-surface-dark shadow-sm transition-transform active:scale-95">
-        <span class="material-symbols-outlined text-text-main dark:text-white group-hover:text-primary transition-colors">arrow_back</span>
+<!DOCTYPE html>
 
-    </button>
-    <h1 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-4">Inschrijftafel</h1>
-        <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub" class="h-full ml-3 object-contain club-logo" />
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Custom stylesheet (replaces Tailwind) -->
+<link rel="stylesheet" href="../style.css"/>
+  </head>
+<body class="app light is-loading">
+  <div class="page-loader" aria-hidden="true">
+    <div class="page-loader__spinner" aria-hidden="true"></div>
   </div>
+<header class="nav-header">
+    <div class="nav-inner">
+    <!-- Critical inline style to show loader immediately while JS initializes -->
+    <style>
+      .page-loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-light);z-index:9999;visibility:hidden;opacity:0;transition:opacity .2s ease}
+      /* top 10vh blue bar while loading */
+      .page-loader::before{ content:""; position:absolute; left:0; right:0; top:0; height:10vh; background:var(--primary); }
+      body.is-loading .page-loader{visibility:visible;opacity:1}
+      body.is-loading .main-content, body.is-loading .app-footer{visibility:hidden;opacity:0;pointer-events:none}
+    </style>
+      <button id="back-button" class="back-button" aria-label="Terug">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="title-container">
+        <h1 class="page-title">Inschrijven</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
 </header>
-<main class="flex-1 flex flex-col w-full px-4 pt-24 pb-28 gap-6">
-<div class="flex flex-col gap-2">
-<h1 class="text-text-main dark:text-white text-[28px] font-extrabold leading-tight tracking-tight">
-                Inschrijven voor Landelijke Rit
-            </h1>
-<p class="text-text-main/70 dark:text-gray-400 text-base font-normal leading-relaxed">
-                Vul hieronder je gegevens in om deel te nemen aan de rit.
-            </p>
-</div>
-<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-5 shadow-sm border border-gray-200/50 dark:border-gray-800">
-<label class="flex flex-col gap-2 group">
-<span class="text-text-main dark:text-gray-200 text-sm font-bold uppercase tracking-wider ml-1">
-                    Volledige Naam
-                </span>
-<div class="relative flex items-center">
-<span class="material-symbols-outlined absolute left-4 text-text-muted">person</span>
-<input id="participant-name-input" class="form-input w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-text-main dark:text-white h-14 pl-12 pr-4 text-base font-medium placeholder:text-text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Bijv. Jan Jansen" type="text" value="" autocomplete="off"/>
-    <div id="name-suggestions" class="absolute left-0 right-0 top-full mt-2 z-50 bg-surface-light dark:bg-surface-dark rounded-lg shadow-lg hidden max-h-60 overflow-auto"></div>
-</div>
-<p class="text-xs text-text-muted dark:text-gray-500 ml-1 mt-1">
-                    Deze naam wordt gebruikt voor de deelnemerslijst.
-                </p>
-</label>
-</div>
-<div class="flex-1"></div>
-    <div class="fixed bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] app-footer">
-    <div class="flex flex-col gap-3">
-    <button id="continue-button" disabled class="w-full bg-primary hover:bg-primary-hover text-white hover:text-white dark:text-white font-bold text-base h-12 rounded-xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center opacity-50" aria-disabled="true">
-    <span>Verder</span>
-    </button>
-</div>
-</div>
-</main>
+<script type="module" src="../main.js"></script>
