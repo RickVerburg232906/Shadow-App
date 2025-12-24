@@ -290,6 +290,10 @@ body.is-loading .app-footer{
 .spacer-12{ margin:12px 0; }
 .jaarhanger-em{ font-style: unset; font-weight:600; }
 
+/* Jaarhanger photo */
+.jaarhanger-photo-wrap{ margin-top:12px; }
+.jaarhanger-photo{ width:100%; height:auto; object-fit:cover; border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.08); }
+
 /* Surface / form utilities (generic, reusable) */
 .bg-surface-light{ background: var(--bg-light); }
 
@@ -416,6 +420,7 @@ html.dark .suggestion-item{ color: var(--text-light); }
 .info-note{
   box-sizing:border-box;
   margin-bottom:16px;
+  margin-top: 8px;
   display:flex;
   align-items:flex-start;
   gap:12px;

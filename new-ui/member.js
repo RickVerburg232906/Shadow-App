@@ -108,6 +108,8 @@ async function init(){
 		try{ await setupLunchOptions(); }catch(_){ }
 		// wire agree-lunch validation after lunch options rendered
 		try{ setupAgreeLunchButton(); }catch(_){ }
+		// wire jaarhanger footer button if present
+		try{ setupAgreeJaarhanger(); }catch(_){ }
 	}catch(e){ console.error('init failed', e); }
 	// reveal page after initialization
 	try{ document.body.classList.remove('is-loading'); }catch(e){}
@@ -232,12 +234,20 @@ function setupBackButton(){
 		const b = document.getElementById('back-button');
 		if(!b) return;
 		b.addEventListener('click', ()=>{
-			// Prefer history.back(); fallback to index.html
-			if(window.history && window.history.length > 1){
-				window.history.back();
-			} else {
-				window.location.href = '../index.html';
-			}
+			try{
+				const current = (window.location.pathname||'').split('/').filter(Boolean).pop() || '';
+				// If we're on the member info page, treat this as a Home button
+				if (/memberinfopage/i.test(current)){
+					window.location.href = '../index.html';
+					return;
+				}
+				// Prefer history.back(); fallback to index.html
+				if(window.history && window.history.length > 1){
+					window.history.back();
+				} else {
+					window.location.href = '../index.html';
+				}
+			}catch(e){ try{ window.location.href = '../index.html'; }catch(_){} }
 		});
 	}catch(e){ console.error('setupBackButton failed', e); }
 }
@@ -340,6 +350,9 @@ function setupParticipationToggle(){
 			try{
 				const btn = document.getElementById('agree-lunch');
 				if(btn){ btn.textContent = 'Afwezigheid Bevestigen'; btn.classList.add('app-footer__button--danger'); }
+				// also mark jaarhanger page footer button as danger when present
+				const btnJ = document.getElementById('agree-jaarhanger');
+				if(btnJ){ btnJ.classList.add('app-footer__button--danger'); }
 			}catch(_){ }
 		}
 
@@ -354,6 +367,8 @@ function setupParticipationToggle(){
 			try{
 				const btn = document.getElementById('agree-lunch');
 				if(btn){ btn.textContent = 'Keuze Bevestigen'; btn.classList.remove('app-footer__button--danger'); }
+				const btnJ = document.getElementById('agree-jaarhanger');
+				if(btnJ){ btnJ.classList.remove('app-footer__button--danger'); }
 			}catch(_){ }
 		}
 
@@ -546,4 +561,18 @@ function hasJaarhanger(member){
 		}
 		return false;
 	}catch(e){ return false; }
+}
+
+// Wire the jaarhanger page footer button to go to member info
+function setupAgreeJaarhanger(){
+	try{
+		const btn = document.getElementById('agree-jaarhanger');
+		if(!btn) return;
+		btn.addEventListener('click', (ev)=>{
+			try{
+				if(btn.disabled) { ev.preventDefault(); ev.stopPropagation(); return; }
+				window.location.href = 'memberInfoPage.html';
+			}catch(e){ console.error('agree-jaarhanger click failed', e); }
+		});
+	}catch(e){ console.error('setupAgreeJaarhanger failed', e); }
 }
