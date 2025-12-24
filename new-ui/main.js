@@ -42,15 +42,18 @@ function createRideNode(ymd){
 	if (diff === 0) {
 		badgeHtml = `<span class="badge badge-today">Vandaag</span>`;
 	} else if (diff > 0) {
-		badgeHtml = `<span class="badge badge-count">${diff} dagen</span>`;
-	} else {
-		badgeHtml = '';
+		const label = diff === 1 ? '1 dag' : `${diff} dagen`;
+		badgeHtml = `<span class="badge badge-count">${label}</span>`;
 	}
 
 	outer.innerHTML = `
 		<div class="card">
-			<span class="ride-date">${longDate}</span>
-			${badgeHtml}
+			<div style="text-align:left">
+				<div class="ride-date">${longDate}</div>
+			</div>
+			<div>
+				${badgeHtml}
+			</div>
 		</div>
 	`;
 	return outer;
@@ -70,11 +73,8 @@ export async function renderPlannedRides(selector = '.planned-rides'){
 			main.appendChild(container);
 		}
 
-		// Clear and build header + list
+		// Clear and build list into the existing container (header provided in HTML)
 		container.innerHTML = '';
-		const headerWrap = document.createElement('div');
-		headerWrap.innerHTML = '<h3 class="section-title">Geplande Ritten</h3>';
-		container.appendChild(headerWrap);
 		const listWrap = document.createElement('div');
 		listWrap.className = 'planned-list';
 		for(const ymd of list){
@@ -82,6 +82,13 @@ export async function renderPlannedRides(selector = '.planned-rides'){
 			if (daysUntil(ymd) < 0) continue;
 			const node = createRideNode(ymd);
 			listWrap.appendChild(node);
+		}
+		// empty state
+		if (!listWrap.hasChildNodes()){
+			const empty = document.createElement('div');
+			empty.className = 'card-wrapper';
+			empty.innerHTML = '<div class="card"><div class="ride-date">Geen geplande ritten</div></div>';
+			listWrap.appendChild(empty);
 		}
 		container.appendChild(listWrap);
 	}catch(e){ console.error('renderPlannedRides failed', e); }

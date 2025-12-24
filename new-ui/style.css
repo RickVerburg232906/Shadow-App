@@ -109,9 +109,10 @@ body.app{
 .main-content{
   flex:1;
   display:flex;
-  align-items:stretch; /* allow children to take full width */
-  justify-content:center;
-  padding:8px;
+  flex-direction: column;
+  align-items: center; /* center children horizontally when stacked */
+  justify-content: flex-start;
+  padding:18px 8px;
   text-align:center;
 }
 
@@ -210,4 +211,70 @@ html.dark .badge{ border-color: rgba(55,65,81,1); }
   font-size: 1rem; /* text-base-ish */
   line-height:1;
   color: inherit;
+}
+
+/* ------------------------------------------
+   Terms / Voorwaarden card component styles
+   Use by wrapping the provided HTML in a container
+   with class `terms-card` (see user snippet).
+-------------------------------------------*/
+.terms-card{
+  max-width: var(--max-width);
+  width: 100%;
+  box-sizing: border-box;
+  margin: 18px auto;
+  padding: 0 12px;
+  display: block;
+}
+
+/* color accent used for icons and top bar */
+.bg-tertiary{ background: #7b2f00; }
+.text-tertiary{ color: #7b2f00; }
+
+/* small utilities used by the snippet */
+.h-2{ height: 8px; }
+.w-full{ width: 100%; }
+
+/* Universal full-width utilities
+  - .full-width: occupy 100% of the parent's content box (respects padding and box-sizing)
+  - .full-bleed: stretch to the viewport edges even when inside a centered container
+*/
+.full-width{ width:100%; max-width:100%; box-sizing:border-box; }
+.full-bleed{ width:100vw; position:relative; left:50%; right:50%; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%); }
+.overflow-hidden{ overflow: hidden; }
+.rounded-xl{ border-radius: 14px; }
+.shadow-sm{ box-shadow: 0 8px 20px rgba(16,24,40,0.06); }
+.border{ border-width: 1px; border-style: solid; }
+.border-gray-100{ border-color: #f3f4f6; }
+html.dark .dark\\:bg-gray-800{ background: #0f1724; }
+html.dark .dark\\:border-gray-700{ border-color: rgba(55,65,81,1); }
+
+/* card interior spacing */
+.terms-card .p-5{ padding: 20px; }
+.terms-card .px-4{ padding-left:16px; padding-right:16px; }
+.terms-card .pt-8{ padding-top:32px; }
+.terms-card .pb-6{ padding-bottom:24px; }
+.terms-card .pb-2{ padding-bottom:8px; }
+
+.terms-card .material-symbols-outlined{ font-variation-settings:'wght' 600; }
+.terms-card h3{ margin:0; }
+
+/* header row with icon */
+.terms-card .flex.items-start{ display:flex; align-items:flex-start; }
+.terms-card .gap-3{ gap:12px; }
+
+/* card body text */
+.terms-card p{ color: #4b5563; font-size: 0.95rem; line-height:1.5; margin:0; }
+html.dark .terms-card p{ color: #cbd5e1; }
+
+/* warning strip */
+.terms-card .warning-strip{ margin-top:16px; padding:12px; border-radius:10px; display:flex; gap:12px; align-items:center; background: #fff1f0; }
+html.dark .terms-card .warning-strip{ background: rgba(139,21,21,0.08); }
+.terms-card .warning-strip .material-symbols-outlined{ color: #b91c1c; font-size:20px; }
+.terms-card .warning-strip .text-tertiary{ color:#b91c1c; font-weight:600; font-size:12px; }
+
+/* small responsive tweak */
+@media (max-width:520px){
+  .terms-card{ padding: 0 10px; }
+  .terms-card .p-5{ padding:14px; }
 }
