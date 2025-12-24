@@ -1,5 +1,6 @@
 // module: member.js — main page behaviors for lunch and signup
 import { getPlannedDates, searchMembers, getMemberById, getLunchOptions } from './firestore.js';
+import { db, doc, onSnapshot } from '../src/firebase.js';
 
 /* Header short date */
 function formatShortDutchDate(d = new Date()){
@@ -106,14 +107,17 @@ async function init(){
 		setupSignupFooterNavigation();
 		// load lunch options if present on the page
 		try{ await setupLunchOptions(); }catch(_){ }
-		// prefill lunch controls from stored member
-		try{ populateLunchFromStoredMember(); }catch(_){ }
-		// wire agree-lunch validation after lunch options rendered
-		try{ setupAgreeLunchButton(); }catch(_){ }
-		// wire jaarhanger footer button if present
-		try{ setupAgreeJaarhanger(); }catch(_){ }
-		// prefill jaarhanger controls from stored member
-		try{ populateJaarhangerFromStoredMember(); }catch(_){ }
+		// prefill lunch controls and wire agree button only when lunch controls exist
+		try{
+			const hasLunchControls = document.getElementById('keuzeEtenButtons') || document.getElementById('vastEtenDisplay') || document.querySelector('input[name="main_course"]') || (window.location.pathname||'').toLowerCase().includes('lunchpage');
+			if(hasLunchControls){ try{ populateLunchFromStoredMember(); }catch(_){ } try{ setupAgreeLunchButton(); }catch(_){ } }
+		}catch(_){ }
+
+		// wire and prefill jaarhanger only when jaarhanger controls exist
+		try{
+			const hasJaarControls = document.getElementById('jaarhangerToggle') || document.getElementById('yearhangerToggle') || document.getElementById('jaarhangerSelectionBadge') || document.querySelector('.jaarhanger-content') || (window.location.pathname||'').toLowerCase().includes('jaarhangerpage');
+			if(hasJaarControls){ try{ setupAgreeJaarhanger(); }catch(_){ } try{ populateJaarhangerFromStoredMember(); }catch(_){ } }
+		}catch(_){ }
 		// populate member info if on member info page
 		try{ populateMemberInfo(); }catch(_){ }
 	}catch(e){ console.error('init failed', e); }
@@ -174,6 +178,7 @@ function setupMemberSuggestions(){
 						try{
 							const member = await getMemberById(id);
 							console.debug('memberSelected (loaded):', member);
+							try{ if(member && typeof member === 'object') member.__id = id; }catch(_){ }
 							try{ window.selectedMember = member; }catch(_){ }
 							try{ sessionStorage.setItem('selectedMember', JSON.stringify(member || {})); }catch(_){ }
 							try{ window.dispatchEvent(new CustomEvent('memberSelected', { detail: member })); }catch(_){ }
@@ -574,12 +579,27 @@ function hasJaarhanger(member){
 	try{
 		if(!member || typeof member !== 'object') return false;
 		const candidates = ['Jaarhanger','jaarhanger','JaarHanger','JaarhangerAfgekort','JaarHangerAfgekort'];
-		for(const k of candidates){ if(Object.prototype.hasOwnProperty.call(member, k)){ const v = member[k]; if(v === null || typeof v === 'undefined') return false; if(typeof v === 'string' && v.trim() === '') return false; return true; } }
+		for(const k of candidates){
+			if(Object.prototype.hasOwnProperty.call(member, k)){
+				const v = member[k];
+				if(v === null || typeof v === 'undefined') return false;
+				if(typeof v === 'string' && v.trim() === '') return false;
+				// Only treat explicit 'Ja' (or boolean true) as having the jaarhanger
+				if(typeof v === 'boolean') return v === true;
+				if(typeof v === 'string') return v.trim().toLowerCase().startsWith('j');
+				return false;
+			}
+		}
 		// fallback: check any key that includes 'jaar' and 'hanger' or 'jaarhanger'
 		for(const k of Object.keys(member||{})){
 			const lk = String(k).toLowerCase();
 			if(lk.includes('jaar') && lk.includes('hanger')){
-				const v = member[k]; if(v === null || typeof v === 'undefined') return false; if(typeof v === 'string' && v.trim() === '') return false; return true;
+				const v = member[k];
+				if(v === null || typeof v === 'undefined') return false;
+				if(typeof v === 'string' && v.trim() === '') return false;
+				if(typeof v === 'boolean') return v === true;
+				if(typeof v === 'string') return v.trim().toLowerCase().startsWith('j');
+				return false;
 			}
 		}
 		return false;
@@ -737,19 +757,16 @@ function populateMemberInfo(){
 	}
 	const statusSpanJ = it.querySelector('.status-badge');
 	const iconJ = statusSpanJ ? statusSpanJ.querySelector('.material-symbols-outlined') : null;
-	if(j && typeof j !== 'undefined' && j !== null && String(j).trim() !== ''){
-		if(iconJ) iconJ.textContent = 'check';
-		if(statusSpanJ) statusSpanJ.classList.remove('status-badge--no');
-		// always set the visible Jaarhanger text to the current year edition
-		try{
-			const year = (new Date()).getFullYear();
-			if(val) val.textContent = `${year} Editie`;
-		}catch(_){ }
-	} else {
-		if(iconJ) iconJ.textContent = 'close';
-		if(statusSpanJ) statusSpanJ.classList.add('status-badge--no');
-		try{ const year = (new Date()).getFullYear(); if(val) val.textContent = `${year} Editie`; }catch(_){ }
-	}
+						const isYes = (typeof j === 'boolean' ? j === true : (typeof j === 'string' ? String(j).trim().toLowerCase().startsWith('j') : false));
+						if(isYes){
+							if(iconJ) iconJ.textContent = 'check';
+							if(statusSpanJ) statusSpanJ.classList.remove('status-badge--no');
+						} else {
+							if(iconJ) iconJ.textContent = 'close';
+							if(statusSpanJ) statusSpanJ.classList.add('status-badge--no');
+						}
+						// always set the visible Jaarhanger text to the current year edition
+						try{ const year = (new Date()).getFullYear(); if(val) val.textContent = `${year} Editie`; }catch(_){ }
 }
 
 // If member has been scanned today, lock the lunch/jaarhanger choice from further edits
@@ -778,6 +795,39 @@ if (hasTodayScan){
 		// wire click navigation from choice items (e.g. Lunch) to their pages with animation
 		try{
 			setupChoiceItemNavigation();
+		}catch(_){ }
+
+		// Subscribe to realtime updates for this member doc (best-effort).
+		try{
+			const docId = (member && (member.__id || member.id || getMemberId(member))) ? String(member.__id || member.id || getMemberId(member)) : null;
+			if(docId && typeof window !== 'undefined' && doc && onSnapshot && db){
+				if(!(window._memberInfoUnsub && window._memberInfoSubId === docId)){
+					try{
+						if(window._memberInfoUnsub){
+							try{ window._memberInfoUnsub(); }catch(_){ }
+							window._memberInfoUnsub = null;
+							window._memberInfoSubId = null;
+						}
+					}catch(_){ }
+					try{
+						window._memberInfoSubId = docId;
+						window._memberInfoUnsub = onSnapshot(doc(db, 'members', docId), snap => {
+							try{
+								if(!snap) return;
+								let data = {};
+								try{ data = snap.exists && typeof snap.exists === 'function' && snap.exists() ? snap.data() : (snap.data ? snap.data() : {}); }catch(_){ data = snap.data ? snap.data() : {}; }
+								if(!data) return;
+								// ensure doc id on stored member
+								try{ if(data && typeof data === 'object') data.__id = docId; }catch(_){ }
+								try{ window.selectedMember = data; }catch(_){ }
+								try{ sessionStorage.setItem('selectedMember', JSON.stringify(data || {})); }catch(_){ }
+								// re-render member info
+								try{ populateMemberInfo(); }catch(_){ }
+							}catch(e){ console.error('member info onSnapshot handler failed', e); }
+						});
+					}catch(e){ console.warn('member info onSnapshot subscribe failed', e); }
+				}
+			}
 		}catch(_){ }
 	}catch(e){ console.error('populateMemberInfo failed', e); }
 }
@@ -892,21 +942,9 @@ function memberHasScanToday(member){
 	try{
 		if(!member) return false;
 		const today = (new Date()).toISOString().slice(0,10);
-		// Primary: use the normalized YMDs from getMemberScanYMDs
+		// Only consider normalized scan YMDs returned by getMemberScanYMDs()
 		const scans = getMemberScanYMDs(member) || [];
 		const norm = scans.map(s => String(s||'').slice(0,10));
-		if(norm.includes(today)) return true;
-		// Fallback: search any string-valued field for today's substring
-		try{
-			for(const k of Object.keys(member||{})){
-				const v = member[k];
-				if(!v) continue;
-				if(typeof v === 'string' && v.indexOf(today) !== -1) return true;
-				if(typeof v === 'object'){
-					try{ const s = JSON.stringify(v); if(s && s.indexOf(today) !== -1) return true; }catch(_){ }
-				}
-			}
-		}catch(_){ }
-		return false;
+		return norm.includes(today);
 	}catch(e){ return false; }
 }
