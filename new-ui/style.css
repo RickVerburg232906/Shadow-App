@@ -329,20 +329,46 @@ body.is-loading .app-footer{
 
 /* Round action button placed on the right side of choice items */
 .choice-action{
+  background: transparent;
+  border: 0;
+  padding: 6px;
+  width: auto;
+  height: auto;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(15,23,36,0.75);
+}
+.choice-action .material-symbols-outlined{ font-size:20px; }
+.choice-action:hover{ background: rgba(15,23,36,0.04); }
+.choice-action:active{ transform: translateY(1px); }
+.choice-action:focus{ box-shadow: 0 0 0 4px rgba(22,62,141,0.08); outline: none; }
+
+/* Inline icon used instead of a button (hand click) */
+.choice-action-icon{
   width:40px;
   height:40px;
-  border-radius:999px;
-  border:0;
-  background: rgba(15,23,36,0.06);
   display:inline-flex;
   align-items:center;
   justify-content:center;
+  border-radius:50%;
+  background: rgba(15,23,36,0.04);
+  border: 1px solid rgba(15,23,36,0.06);
+  color: rgba(15,23,36,0.75);
   cursor:pointer;
-  color: #0f1724;
+  transition: transform 120ms ease, background 120ms ease, color 120ms ease;
 }
-.choice-action .material-symbols-outlined{ font-size:20px; }
-.choice-action:active{ transform: translateY(1px); }
-.choice-action:focus{ outline: 3px solid rgba(22,62,141,0.12); outline-offset:2px; }
+.choice-action-icon .material-symbols-outlined{ font-size:20px; }
+.choice-action-icon:hover{ background: rgba(15,23,36,0.08); color: rgba(15,23,36,0.95); transform: translateY(-1px); }
+.choice-action-icon:active{ transform: translateY(1px) scale(0.98); }
+.choice-action-icon:focus{ box-shadow: 0 0 0 6px rgba(22,62,141,0.06); outline: none; }
+
+/* Locked state for choices when member was already scanned today */
+.choice-item.is-locked{ pointer-events: none; opacity: 0.85; }
+.choice-action-icon.is-locked{ background: rgba(15,23,36,0.02); color: rgba(15,23,36,0.40); cursor: default; }
+.choice-action-icon.is-locked .material-symbols-outlined{ font-size:20px; }
 
 .checkin-section{ width:100%; max-width:640px; margin-top:12px; display:flex; justify-content:center; }
 .checkin-card{ display:flex; flex-direction:column; align-items:center; gap:12px; }

@@ -106,10 +106,14 @@ async function init(){
 		setupSignupFooterNavigation();
 		// load lunch options if present on the page
 		try{ await setupLunchOptions(); }catch(_){ }
+		// prefill lunch controls from stored member
+		try{ populateLunchFromStoredMember(); }catch(_){ }
 		// wire agree-lunch validation after lunch options rendered
 		try{ setupAgreeLunchButton(); }catch(_){ }
 		// wire jaarhanger footer button if present
 		try{ setupAgreeJaarhanger(); }catch(_){ }
+		// prefill jaarhanger controls from stored member
+		try{ populateJaarhangerFromStoredMember(); }catch(_){ }
 		// populate member info if on member info page
 		try{ populateMemberInfo(); }catch(_){ }
 	}catch(e){ console.error('init failed', e); }
@@ -684,6 +688,9 @@ function populateMemberInfo(){
 			const choiceItems = document.querySelectorAll('.choice-list .choice-item, .choice-list .choice-item .choice-body');
 			if(choiceItems && choiceItems.length > 0){
 				const items = document.querySelectorAll('.choice-list .choice-item');
+				// determine whether the stored member has a scan for today; if so, lock edits
+				const hasTodayScan = memberHasScanToday(member);
+				if(hasTodayScan) console.debug('Member has scan for today, locking choices');
 				items.forEach(it => {
 					try{
 						const cat = it.querySelector('.choice-category');
@@ -721,29 +728,48 @@ function populateMemberInfo(){
 								if(lunchVal){ if(iconSpan) iconSpan.textContent = 'check'; if(statusSpan) statusSpan.classList.remove('status-badge--no'); val.textContent = String(lunchVal); }
 								else { if(iconSpan) iconSpan.textContent = 'help'; if(statusSpan) statusSpan.classList.remove('status-badge--no'); val.textContent = 'Geen keuze geregistreerd'; }
 							}
-						} else if(key.includes('jaarhanger')){
-							// For Jaarhanger: only update the status badge icon (do not change the visible text)
-							let j = null;
-							for(const k of Object.keys(member||{})){
-								const lk = String(k).toLowerCase();
-								if(lk.includes('jaar') && lk.includes('hanger')){ j = member[k]; break; }
-							}
-							const statusSpanJ = it.querySelector('.status-badge');
-							const iconJ = statusSpanJ ? statusSpanJ.querySelector('.material-symbols-outlined') : null;
-							if(j && typeof j !== 'undefined' && j !== null && String(j).trim() !== ''){
-								if(iconJ) iconJ.textContent = 'check';
-								if(statusSpanJ) statusSpanJ.classList.remove('status-badge--no');
-								// always set the visible Jaarhanger text to the current year edition
-								try{
-									const year = (new Date()).getFullYear();
-									if(val) val.textContent = `${year} Editie`;
-								}catch(_){ }
-							} else {
-								if(iconJ) iconJ.textContent = 'close';
-								if(statusSpanJ) statusSpanJ.classList.add('status-badge--no');
-								try{ const year = (new Date()).getFullYear(); if(val) val.textContent = `${year} Editie`; }catch(_){ }
-							}
-						}
+                            } else if(key.includes('jaarhanger')){
+	// For Jaarhanger: only update the status badge icon (do not change the visible text)
+	let j = null;
+	for(const k of Object.keys(member||{})){
+		const lk = String(k).toLowerCase();
+		if(lk.includes('jaar') && lk.includes('hanger')){ j = member[k]; break; }
+	}
+	const statusSpanJ = it.querySelector('.status-badge');
+	const iconJ = statusSpanJ ? statusSpanJ.querySelector('.material-symbols-outlined') : null;
+	if(j && typeof j !== 'undefined' && j !== null && String(j).trim() !== ''){
+		if(iconJ) iconJ.textContent = 'check';
+		if(statusSpanJ) statusSpanJ.classList.remove('status-badge--no');
+		// always set the visible Jaarhanger text to the current year edition
+		try{
+			const year = (new Date()).getFullYear();
+			if(val) val.textContent = `${year} Editie`;
+		}catch(_){ }
+	} else {
+		if(iconJ) iconJ.textContent = 'close';
+		if(statusSpanJ) statusSpanJ.classList.add('status-badge--no');
+		try{ const year = (new Date()).getFullYear(); if(val) val.textContent = `${year} Editie`; }catch(_){ }
+	}
+}
+
+// If member has been scanned today, lock the lunch/jaarhanger choice from further edits
+if (hasTodayScan){
+	try{
+		// avoid double-setting if already done
+		if(!it.dataset.locked){
+			it.dataset.locked = '1';
+			it.classList.add('is-locked');
+			const actionIcon = it.querySelector('.choice-action-icon');
+			if(actionIcon){
+				const inner = actionIcon.querySelector('.material-symbols-outlined');
+				if(inner) inner.textContent = 'lock';
+				actionIcon.classList.add('is-locked');
+				actionIcon.setAttribute('title', 'Geverifieerd — niet aanpasbaar');
+			}
+		}
+	}catch(_){ }
+}
+
 					}catch(_){ }
 				});
 			}
@@ -762,6 +788,12 @@ function setupChoiceItemNavigation(){
 		const items = document.querySelectorAll('.choice-list .choice-item');
 		if(!items || items.length === 0) return;
 		items.forEach(it => {
+				// skip locked items (scanned today)
+				if (it.dataset && it.dataset.locked === '1'){
+					// ensure visual disabled state and skip wiring navigation
+					try{ it.classList.add('is-locked'); }catch(_){ }
+					return;
+				}
 			try{
 				const cat = it.querySelector('.choice-category');
 				if(!cat) return;
@@ -773,8 +805,6 @@ function setupChoiceItemNavigation(){
 				if(!target) return;
 
 				it.addEventListener('click', (ev)=>{
-					// ignore clicks on action button itself
-					if(ev.target && ev.target.closest && ev.target.closest('.choice-action')) return;
 					// play a short navigation animation then go to target page
 					try{
 						document.body.classList.add('is-navigating');
@@ -807,4 +837,76 @@ function getMemberLocation(member){
 		for(const k of keys){ if(Object.prototype.hasOwnProperty.call(member,k) && member[k]) return String(member[k]); }
 		return '';
 	}catch(e){ return ''; }
+}
+
+// Prefill lunch page controls from stored member (participation + main_course)
+function populateLunchFromStoredMember(){
+	try{
+		const member = getStoredSelectedMember();
+		if(!member) return;
+		// participation
+		const deelRaw = member.lunchDeelname ?? member.LunchDeelname ?? member.lunch ?? member.Lunch ?? null;
+		const deel = (typeof deelRaw === 'string') ? deelRaw.toLowerCase().trim() : (typeof deelRaw === 'boolean' ? (deelRaw ? 'ja' : 'nee') : null);
+		if(deel === 'ja' || deel === 'yes'){
+			const el = document.querySelector('input[name="participation"][value="yes"]');
+			if(el){ el.checked = true; try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){} }
+		} else if(deel === 'nee' || deel === 'no'){
+			const el = document.querySelector('input[name="participation"][value="no"]');
+			if(el){ el.checked = true; try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){} }
+		}
+
+		// main course
+		const keuzeRaw = member.lunchKeuze ?? member.LunchKeuze ?? member.lunch_choice ?? member.lunchChoice ?? null;
+		const keuze = (keuzeRaw == null) ? null : String(keuzeRaw);
+		if(keuze){
+			// find radio with matching value
+			const main = Array.from(document.querySelectorAll('input[name="main_course"]'))
+				.find(i => String(i.value).trim() === String(keuze).trim());
+			if(main){
+				try{ main.checked = true; main.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){ main.checked = true; }
+				// mark visual card
+				const card = main.closest('.choice-option')?.querySelector('.choice-card');
+				if(card){ card.classList.add('is-selected'); }
+			}
+		}
+	}catch(e){ console.error('populateLunchFromStoredMember failed', e); }
+}
+
+// Prefill jaarhanger page controls from stored member
+function populateJaarhangerFromStoredMember(){
+	try{
+		const member = getStoredSelectedMember();
+		if(!member) return;
+		const j = member.Jaarhanger ?? member.jaarhanger ?? null;
+		// map to yes/no radio values
+		const value = (j && String(j).toLowerCase().startsWith('j')) ? 'yes' : (j && String(j).toLowerCase().startsWith('n') ? 'no' : null);
+		if(value){
+			const el = document.querySelector('input[name="participation"][value="' + value + '"]');
+			if(el){ el.checked = true; try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){} }
+		}
+	}catch(e){ console.error('populateJaarhangerFromStoredMember failed', e); }
+}
+
+// Robust check whether a member has a scan that equals today's date.
+function memberHasScanToday(member){
+	try{
+		if(!member) return false;
+		const today = (new Date()).toISOString().slice(0,10);
+		// Primary: use the normalized YMDs from getMemberScanYMDs
+		const scans = getMemberScanYMDs(member) || [];
+		const norm = scans.map(s => String(s||'').slice(0,10));
+		if(norm.includes(today)) return true;
+		// Fallback: search any string-valued field for today's substring
+		try{
+			for(const k of Object.keys(member||{})){
+				const v = member[k];
+				if(!v) continue;
+				if(typeof v === 'string' && v.indexOf(today) !== -1) return true;
+				if(typeof v === 'object'){
+					try{ const s = JSON.stringify(v); if(s && s.indexOf(today) !== -1) return true; }catch(_){ }
+				}
+			}
+		}catch(_){ }
+		return false;
+	}catch(e){ return false; }
 }
