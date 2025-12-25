@@ -502,6 +502,13 @@ div[role="button"] > .vast-item.selected,
 .mk-item-icon{ background: var(--primary-10); }
 .mk-item-icon--gold{ background: var(--accent-gold-10); }
 
+/* Make the inner material icon use the accent gold color for jaarhanger */
+.mk-item-icon--gold .material-symbols-outlined{ color: var(--accent-gold); }
+
+/* Make the left icon in the lunch item blue */
+.mk-item--lunch .mk-item-icon{ background: rgba(22,62,141,0.08); }
+.mk-item--lunch .mk-item-icon .material-symbols-outlined{ color: var(--blue); }
+
 .mk-item-body{ display:flex; flex-direction:column; align-items:flex-start; }
 .mk-item-category{ margin:0; font-size:0.72rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; }
 .mk-item-value{ margin:0; font-weight:800; color:#0f1724; font-size:1.0625rem; }
@@ -532,6 +539,13 @@ div[role="button"] > .vast-item.selected,
 .qr-box .qr-inner{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; padding:12px; box-sizing:border-box; }
 .qr-box img{ width:100%; height:100%; max-width:none; max-height:none; object-fit:contain; display:block; }
 
+/* QR overlay shown when member already checked in */
+.qr-box{ position:relative; }
+.qr-box .qr-overlay{ position:absolute; left:0; top:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; flex-direction:column; background: rgba(0,0,0,0.55); color: #fff; border-radius:12px; z-index:20; }
+.qr-box .qr-overlay .qr-overlay-inner{ text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px; }
+.qr-box .qr-overlay .material-symbols-outlined{ font-size:36px; line-height:1; }
+.qr-box .qr-overlay .overlay-text{ font-weight:700; font-size:16px; }
+
 .qr-placeholder{ color: rgba(15,23,36,0.45); font-weight:600; text-align:center; }
 .qr-box.loading{ opacity:0.85; }
 @media (max-width:480px){
@@ -539,7 +553,9 @@ div[role="button"] > .vast-item.selected,
 }
 
 /* Save QR button */
-.save-qr-btn{ background: #0f1724; color: #fff; border: none; padding: 10px 14px; border-radius: 10px; font-weight:700; cursor:pointer; box-shadow: 0 6px 18px rgba(16,24,40,0.06); }
+.save-qr-btn{ background: var(--blue); color: #fff; border: none; padding: 8px 16px; border-radius: 999px; font-weight:700; cursor:pointer; box-shadow: 0 6px 18px rgba(16,24,40,0.08); display:inline-flex; align-items:center; gap:10px; }
+.save-qr-btn .material-symbols-outlined{ font-size:18px; line-height:1; }
+.save-qr-btn .btn-text{ font-weight:700; }
 .save-qr-btn:active{ transform: translateY(1px); }
 .save-qr-btn[disabled]{ opacity:0.5; cursor:default; }
 

@@ -1244,9 +1244,30 @@ function extractLidFromText(text) {
   // 1) JSON payload? e.g., {"t":"member","uid":"12345"}
   try {
     const obj = JSON.parse(text);
-    const cand = obj?.uid || obj?.id || obj?.member || obj?.lid || obj?.lidnr;
+    // Accept multiple possible field names, including capitalized `LidNr`
+    const cand = obj?.uid || obj?.id || obj?.member || obj?.lid || obj?.lidnr || obj?.LidNr || obj?.Lid;
     if (cand) return String(cand).trim();
+    // Fallback: scan object keys case-insensitively for lid/lidnr
+    try {
+      for (const k of Object.keys(obj || {})) {
+        if (/^lid(nr)?$/i.test(k)) {
+          const v = obj[k];
+          if (v) return String(v).trim();
+        }
+      }
+    } catch(_) {}
   } catch (_) {}
+
+  // Fallback: try to extract LidNr directly from the raw text via regex
+  try {
+    const m = String(text).match(/"?LidNr"?\s*[:=]\s*"?(\d{3,})"?/i);
+    if (m && m[1]) return m[1].trim();
+    const m2 = String(text).match(/"?lidnr"?\s*[:=]\s*"?(\d{3,})"?/i);
+    if (m2 && m2[1]) return m2[1].trim();
+    // Generic numeric fallback (3+ digits)
+    const m3 = String(text).match(/(\d{3,})/);
+    if (m3 && m3[1]) return m3[1].trim();
+  } catch(_) {}
 
   // 2) Key:value in plain text e.g., "lidnr: 12345"
   const m1 = text.match(/lidnr\s*[:=]\s*([\w-]+)/i);

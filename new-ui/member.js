@@ -522,6 +522,8 @@ function setupFooterDelegation() {
 
 // Render member info choices (Lunch / Jaarhanger) on the memberInfoPage
 function renderMemberInfoChoices() {
+	// ensure this flag exists in the whole function scope
+	let scannedToday = false;
 	try {
 		// Render member header (name + LidNr) when available in session
 		try {
@@ -641,6 +643,8 @@ function renderMemberInfoChoices() {
 
 			const plannedSet = new Set((planned||[]));
 			const scanSet = new Set((scans||[]));
+			const today = todayYMD();
+			let scannedToday = false;
 			// Debug: log planned vs scanned dates to help troubleshooting why stars don't light
 			try {
 				if (window && window.location && window.location.hostname) {
@@ -693,10 +697,43 @@ function renderMemberInfoChoices() {
 				} catch(_) {}
 			}
 		} catch(e) { console.warn('renderMemberInfoChoices.stats failed', e); }
+		// determine scannedToday after stats calculation so other sections can read it
+		try {
+			scannedToday = scanSet.has(today);
+			// fallback: also check the stored shadow member object's ScanDatums using normalization
+			if (!scannedToday) {
+				let storedMember = null;
+				for (const k of Object.keys(sessionStorage || {})) {
+					try {
+						if (String(k).indexOf('shadow_ui_member_') === 0) {
+							const raw = sessionStorage.getItem(k);
+							if (raw) { try { storedMember = JSON.parse(raw); break; } catch(_) { /* ignore */ } }
+						}
+					} catch(_) {}
+				}
+				if (storedMember) {
+					try {
+						const scansFromObj = getMemberScanYMDs(storedMember || {});
+						if (Array.isArray(scansFromObj) && scansFromObj.includes(today)) scannedToday = true;
+					} catch(_) {}
+				}
+			}
+		} catch(_) {}
 		const lunchItem = document.querySelector('.mk-item--lunch');
 		if (lunchItem) {
 			try {
-				let deel = null;
+					// If member already scanned today, lock the lunch section
+					if (scannedToday) {
+						try { lunchItem.dataset.locked = '1'; } catch(_) {}
+						try { lunchItem.setAttribute('aria-disabled','true'); } catch(_) {}
+						try { lunchItem.style.pointerEvents = 'none'; } catch(_) {}
+						const badge = lunchItem.querySelector('.mk-status-badge');
+							if (badge) {
+								const chevron = lunchItem.querySelector('.mk-chevron');
+								if (chevron) chevron.textContent = 'lock';
+							}
+					}
+					let deel = null;
 				try { deel = getMemberSessionField('lunchDeelname'); } catch(_) { deel = null; }
 				if (!deel) try { deel = sessionStorage.getItem('lunchDeelname'); } catch(_) { }
 				deel = (deel || '').toString().toLowerCase();
@@ -734,6 +771,17 @@ function renderMemberInfoChoices() {
 				try { jah = getMemberSessionField('Jaarhanger'); } catch(_) { jah = null; }
 				if (!jah) try { jah = sessionStorage.getItem('Jaarhanger'); } catch(_) { }
 				jah = (jah || '').toString().toLowerCase();
+				// If member scanned today, lock jaarhanger as well
+				if (scannedToday) {
+					try { jaarItem.dataset.locked = '1'; } catch(_) {}
+					try { jaarItem.setAttribute('aria-disabled','true'); } catch(_) {}
+					try { jaarItem.style.pointerEvents = 'none'; } catch(_) {}
+					const badge = jaarItem.querySelector('.mk-status-badge');
+					if (badge) {
+						const chevron = jaarItem.querySelector('.mk-chevron');
+						if (chevron) chevron.textContent = 'lock';
+					}
+				}
 				const valueEl = jaarItem.querySelector('.mk-item-value');
 				// Always show the current year edition as subtitle
 				try { if (valueEl) valueEl.textContent = String(new Date().getFullYear()) + ' Editie'; } catch(_) {}
@@ -750,10 +798,166 @@ function renderMemberInfoChoices() {
 				}
 			}
 		} catch(_) {}
+		try { updateQROverlay(); } catch(_) {}
+		try { updateChoiceLocks(); } catch(_) {}
 	} catch (e) { console.warn('renderMemberInfoChoices failed', e); }
 }
 
+		// Ensure the "Mijn Keuzes" items reflect today's scanned state (lock visuals + nav blocking)
+		function updateChoiceLocks() {
+			try {
+				const today = todayYMD();
+				// find stored member
+				let storedMember = null;
+				try {
+					for (const k of Object.keys(sessionStorage || {})) {
+						try {
+							if (String(k).indexOf('shadow_ui_member_') === 0) {
+								const raw = sessionStorage.getItem(k);
+								if (raw) { try { storedMember = JSON.parse(raw); break; } catch(_) { /* ignore */ } }
+							}
+						} catch(_) {}
+					}
+				} catch(_) { storedMember = null; }
+
+				const scans = getMemberScanYMDs(storedMember || {});
+				const isToday = Array.isArray(scans) && scans.includes(today);
+
+				// lunch
+				try {
+					const lunchItem = document.querySelector('.mk-item--lunch');
+					if (lunchItem) {
+						if (isToday) {
+							lunchItem.dataset.locked = '1';
+							lunchItem.setAttribute('aria-disabled','true');
+							lunchItem.style.pointerEvents = 'none';
+							const badge = lunchItem.querySelector('.mk-status-badge');
+							if (badge) {
+								const chevron = lunchItem.querySelector('.mk-chevron');
+								if (chevron) chevron.textContent = 'lock';
+							}
+						} else {
+							// unlock
+							try { delete lunchItem.dataset.locked; } catch(_) {}
+							try { lunchItem.removeAttribute('aria-disabled'); } catch(_) {}
+							try { lunchItem.style.pointerEvents = ''; lunchItem.style.opacity = ''; } catch(_) {}
+							const chevron = lunchItem.querySelector('.mk-chevron');
+							if (chevron) chevron.textContent = 'chevron_right';
+						}
+					}
+				} catch(_) {}
+
+				// jaarhanger
+				try {
+					const jaarItem = document.querySelector('.mk-item--jaar');
+					if (jaarItem) {
+						if (isToday) {
+							jaarItem.dataset.locked = '1';
+							jaarItem.setAttribute('aria-disabled','true');
+							jaarItem.style.pointerEvents = 'none';
+							const badge = jaarItem.querySelector('.mk-status-badge');
+							if (badge) {
+								const chevron = jaarItem.querySelector('.mk-chevron');
+								if (chevron) chevron.textContent = 'lock';
+							}
+						} else {
+							try { delete jaarItem.dataset.locked; } catch(_) {}
+							try { jaarItem.removeAttribute('aria-disabled'); } catch(_) {}
+							try { jaarItem.style.pointerEvents = ''; jaarItem.style.opacity = ''; } catch(_) {}
+							const chevron = jaarItem.querySelector('.mk-chevron');
+							if (chevron) chevron.textContent = 'chevron_right';
+						}
+					}
+				} catch(_) {}
+			} catch (e) { console.warn('updateChoiceLocks failed', e); }
+		}
+
 try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderMemberInfoChoices); else renderMemberInfoChoices(); document.addEventListener('shadow:config-ready', renderMemberInfoChoices); } catch(_) {}
+
+// Update QR image and overlay based on current session member and scan dates
+function updateQROverlay() {
+	try {
+		const qrImg = document.getElementById('memberInfoQRImg');
+		const saveBtn = document.getElementById('save-qr-btn');
+		// resolve member object
+		let memberObj2 = null;
+		try {
+			for (const k of Object.keys(sessionStorage || {})) {
+				try {
+					if (String(k).indexOf('shadow_ui_member_') === 0) {
+						const raw = sessionStorage.getItem(k);
+						if (raw) { try { memberObj2 = JSON.parse(raw); break; } catch(_) { /* ignore */ } }
+					}
+				} catch(_) {}
+			}
+		} catch(_) { memberObj2 = null; }
+		const lidNr = getMemberLid(memberObj2 || {});
+		let jah = null; try { jah = getMemberSessionField('Jaarhanger'); } catch(_) { jah = null; } if (!jah) try { jah = sessionStorage.getItem('Jaarhanger'); } catch(_) {}
+		let lunchDel = null; try { lunchDel = getMemberSessionField('lunchDeelname'); } catch(_) { lunchDel = null; } if (!lunchDel) try { lunchDel = sessionStorage.getItem('lunchDeelname'); } catch(_) {}
+		let lunchKeuze = null; try { lunchKeuze = getMemberSessionField('lunchKeuze'); } catch(_) { lunchKeuze = null; } if (!lunchKeuze) try { lunchKeuze = sessionStorage.getItem('lunchKeuze'); } catch(_) {}
+		// Include multiple aliases for the member id so external scanners can reliably extract it
+		const payload = {
+			LidNr: String(lidNr || ''),
+			id: String(lidNr || ''),
+			uid: String(lidNr || ''),
+			lid: String(lidNr || ''),
+			lidnr: String(lidNr || ''),
+			Jaarhanger: (jah || '').toString(),
+			lunchDeelname: (lunchDel || '').toString(),
+			lunchKeuze: (lunchKeuze || '').toString()
+		};
+		try {
+			const dataStr = JSON.stringify(payload);
+			if (qrImg) {
+				qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(dataStr);
+				qrImg.alt = `QR: ${dataStr}`;
+				qrImg.setAttribute('data-qrcode-payload', dataStr);
+				// show overlay when scanned today
+				try {
+					const wrap = document.getElementById('memberInfoQRWrap');
+					if (wrap) {
+						let overlay = wrap.querySelector('.qr-overlay');
+						const scansFromObj = getMemberScanYMDs(memberObj2 || {});
+						const isToday = Array.isArray(scansFromObj) && scansFromObj.includes(todayYMD());
+						if (isToday) {
+							if (!overlay) {
+								overlay = document.createElement('div');
+								overlay.className = 'qr-overlay';
+								overlay.innerHTML = `<div class="qr-overlay-inner"><span class="material-symbols-outlined">lock</span><div class="overlay-text">Ingeschreven</div></div>`;
+								wrap.appendChild(overlay);
+							}
+						} else {
+							if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+						}
+					}
+				} catch(_) {}
+			}
+			if (saveBtn) {
+				saveBtn.style.display = '';
+				// ensure button has icon + label markup
+				if (!saveBtn.dataset || !saveBtn.dataset._labelled) {
+					try { saveBtn.innerHTML = '<span class="material-symbols-outlined">file_download</span><span class="btn-text">Sla QR code op</span>'; } catch(_) {}
+					if (saveBtn.dataset) saveBtn.dataset._labelled = '1';
+				}
+				if (!saveBtn.dataset._bound) {
+					saveBtn.addEventListener('click', async () => {
+						try {
+							if (!qrImg || !qrImg.src) return;
+							const res = await fetch(qrImg.src, { mode: 'cors' });
+							const blob = await res.blob();
+							const filename = `QR_${String(payload.LidNr||'member')}.png`;
+							const url = URL.createObjectURL(blob);
+							const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+							setTimeout(() => URL.revokeObjectURL(url), 1500);
+						} catch (e) { console.warn('save-qr failed', e); }
+					});
+					if (saveBtn.dataset) saveBtn.dataset._bound = '1';
+				}
+				try { updateChoiceLocks(); } catch(_) {}
+			}
+		} catch (e) { console.warn('updateQROverlay failed', e); }
+	} catch(_) {}
+}
 
 // Allow clicking the member-info cards to navigate to the related pages
 function setupMemberInfoCardNavigation() {
@@ -761,7 +965,11 @@ function setupMemberInfoCardNavigation() {
 		const lunchItem = document.querySelector('.mk-item--lunch');
 		if (lunchItem && !(lunchItem.dataset && lunchItem.dataset._navBound)) {
 			lunchItem.addEventListener('click', (ev) => {
-				try { ev.preventDefault(); window.location.href = '../lid-ui/lunchPage.html'; } catch(_) { try { window.location.href = '/lid-ui/lunchPage.html'; } catch(_) {} }
+				try {
+					if (lunchItem.dataset && lunchItem.dataset.locked === '1') { ev.preventDefault(); return; }
+					if (lunchItem.getAttribute && lunchItem.getAttribute('aria-disabled') === 'true') { ev.preventDefault(); return; }
+					ev.preventDefault(); window.location.href = '../lid-ui/lunchPage.html';
+				} catch(_) { try { window.location.href = '/lid-ui/lunchPage.html'; } catch(_) {} }
 			});
 			if (lunchItem.dataset) lunchItem.dataset._navBound = '1';
 		}
@@ -769,7 +977,11 @@ function setupMemberInfoCardNavigation() {
 		const jaarItem = document.querySelector('.mk-item--jaar');
 		if (jaarItem && !(jaarItem.dataset && jaarItem.dataset._navBound)) {
 			jaarItem.addEventListener('click', (ev) => {
-				try { ev.preventDefault(); window.location.href = '../lid-ui/jaarhangerPage.html'; } catch(_) { try { window.location.href = '/lid-ui/jaarhangerPage.html'; } catch(_) {} }
+				try {
+					if (jaarItem.dataset && jaarItem.dataset.locked === '1') { ev.preventDefault(); return; }
+					if (jaarItem.getAttribute && jaarItem.getAttribute('aria-disabled') === 'true') { ev.preventDefault(); return; }
+					ev.preventDefault(); window.location.href = '../lid-ui/jaarhangerPage.html';
+				} catch(_) { try { window.location.href = '/lid-ui/jaarhangerPage.html'; } catch(_) {} }
 			});
 			if (jaarItem.dataset) jaarItem.dataset._navBound = '1';
 		}
@@ -984,6 +1196,36 @@ function getMemberScanYMDs(member) {
 	} catch (e) { return []; }
 }
 
+// Robustly extract a member identifier (LidNr) from various shapes
+function getMemberLid(member) {
+	try {
+		if (!member) return '';
+		// direct common keys
+		const keys = ['LidNr','lidnummer','lidNr','lid','id','memberNo','MemberNo','Lid'];
+		for (const k of keys) {
+			try {
+				const v = member[k];
+				if (!v) continue;
+				if (typeof v === 'string' && v.trim()) return v.trim();
+				if (typeof v === 'number') return String(v);
+				// Firestore REST shape: { stringValue: '...' }
+				if (typeof v === 'object') {
+					if (v.stringValue) return String(v.stringValue);
+					if (v.label) return String(v.label);
+					if (v.value) return String(v.value);
+					if (v._text) return String(v._text);
+				}
+			} catch(_) {}
+		}
+		// sometimes the full member is wrapped under a 'data' or 'fields' key
+		try {
+			if (member.data && typeof member.data === 'object') return getMemberLid(member.data);
+			if (member.fields && typeof member.fields === 'object') return getMemberLid(member.fields);
+		} catch(_) {}
+		return '';
+	} catch(_) { return ''; }
+}
+
 function todayYMD() { try { return new Date().toISOString().slice(0,10); } catch(_) { return ''; } }
 
 function renderPlannedRides() {
@@ -1088,66 +1330,7 @@ try {
 	document.addEventListener('shadow:config-ready', renderPlannedRides);
 } catch(_) {}
 
-		// Generate QR for check-in with requested columns
-		try {
-			const qrImg = document.getElementById('memberInfoQRImg');
-			const saveBtn = document.getElementById('save-qr-btn');
-			// resolve member object again
-			let memberObj2 = null;
-			try {
-				for (const k of Object.keys(sessionStorage || {})) {
-					try {
-						if (String(k).indexOf('shadow_ui_member_') === 0) {
-							const raw = sessionStorage.getItem(k);
-							if (raw) { try { memberObj2 = JSON.parse(raw); break; } catch(_) { continue; } }
-						}
-					} catch(_) {}
-				}
-			} catch(_) { memberObj2 = null; }
-			// fallbacks
-			const lidNr = (memberObj2 && (memberObj2.LidNr || memberObj2.lidnummer || memberObj2.id || memberObj2.lid)) ? (memberObj2.LidNr || memberObj2.lidnummer || memberObj2.id || memberObj2.lid) : '';
-			let jah = null;
-			try { jah = getMemberSessionField('Jaarhanger'); } catch(_) { jah = null; }
-			if (!jah) try { jah = sessionStorage.getItem('Jaarhanger'); } catch(_) {}
-			let lunchDel = null;
-			try { lunchDel = getMemberSessionField('lunchDeelname'); } catch(_) { lunchDel = null; }
-			if (!lunchDel) try { lunchDel = sessionStorage.getItem('lunchDeelname'); } catch(_) {}
-			let lunchKeuze = null;
-			try { lunchKeuze = getMemberSessionField('lunchKeuze'); } catch(_) { lunchKeuze = null; }
-			if (!lunchKeuze) try { lunchKeuze = sessionStorage.getItem('lunchKeuze'); } catch(_) {}
-			const payload = {
-				LidNr: String(lidNr || ''),
-				Jaarhanger: (jah || '').toString(),
-				lunchDeelname: (lunchDel || '').toString(),
-				lunchKeuze: (lunchKeuze || '').toString()
-			};
-			try {
-				const dataStr = JSON.stringify(payload);
-				if (qrImg) {
-					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(dataStr);
-					qrImg.alt = `QR: ${dataStr}`;
-					qrImg.setAttribute('data-qrcode-payload', dataStr);
-				}
-				if (saveBtn) {
-					saveBtn.style.display = '';
-					if (!saveBtn.dataset._bound) {
-						saveBtn.addEventListener('click', async () => {
-							try {
-								if (!qrImg || !qrImg.src) return;
-								const res = await fetch(qrImg.src, { mode: 'cors' });
-								const blob = await res.blob();
-								const filename = `QR_${String(payload.LidNr||'member')}.png`;
-								const url = URL.createObjectURL(blob);
-								const a = document.createElement('a');
-								a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-								setTimeout(() => URL.revokeObjectURL(url), 1500);
-							} catch (e) { console.warn('save-qr failed', e); }
-						});
-						if (saveBtn.dataset) saveBtn.dataset._bound = '1';
-					}
-				}
-			} catch (e) { console.warn('generate QR failed', e); }
-		} catch(_) {}
+    		
 // Render lunch preview area (vastEten / keuzeEten) from sessionStorage 'lunch'
 function renderLunchPreview() {
 	try {
@@ -1498,4 +1681,70 @@ function setupJaarhangerFooterNavigation() {
 		if (btn.dataset) btn.dataset._jaarBound = '1';
 	} catch (e) { console.warn('setupJaarhangerFooterNavigation failed', e); }
 }
+
+// Persist lunch choice when the lunch page footer is clicked
+function setupLunchFooterNavigation() {
+	try {
+		const btn = document.getElementById('agree-lunch');
+		if (!btn) return;
+		if (btn.dataset && btn.dataset._lunchBound) return;
+		btn.addEventListener('click', (e) => {
+			try {
+				e.preventDefault();
+				// determine participation
+				let deel = null;
+				try { const sel = document.querySelector('input[name="participation-lunch"]:checked'); if (sel && sel.value) deel = (sel.value||'').toString().toLowerCase(); } catch(_) {}
+				if (!deel) {
+					try { deel = getMemberSessionField('lunchDeelname') || sessionStorage.getItem('lunchDeelname'); } catch(_) { deel = null; }
+					if (typeof deel === 'string') deel = deel.toLowerCase();
+				}
+
+				// normalize to 'ja'/'nee'
+				let toSaveDeel = '';
+				if (deel && (deel === 'yes' || deel.indexOf('ja') !== -1)) toSaveDeel = 'ja';
+				else if (deel && (deel === 'no' || deel.indexOf('nee') !== -1 || deel.indexOf('sla') !== -1)) toSaveDeel = 'nee';
+
+				// If participating, capture chosen meal if any
+				let toSaveKeuze = null;
+				if (toSaveDeel === 'ja') {
+					try { const chosen = document.querySelector('input[name="keuzeEten"]:checked'); if (chosen && typeof chosen.value !== 'undefined') toSaveKeuze = String(chosen.value); } catch(_) {}
+					// fallback to session
+					if (!toSaveKeuze) {
+						try { toSaveKeuze = getMemberSessionField('lunchKeuze') || sessionStorage.getItem('lunchKeuze'); } catch(_) { toSaveKeuze = null; }
+					}
+				}
+
+				// Persist into member shadow when possible
+				try {
+					if (toSaveDeel) setMemberSessionField('lunchDeelname', toSaveDeel);
+					else setMemberSessionField('lunchDeelname', '');
+					if (toSaveDeel === 'nee') {
+						// remove previous keuze when not participating
+						try { setMemberSessionField('lunchKeuze', null); } catch(_) {}
+					} else if (toSaveKeuze) {
+						try { setMemberSessionField('lunchKeuze', toSaveKeuze); } catch(_) {}
+					}
+				} catch(_) {
+					try { if (toSaveDeel) sessionStorage.setItem('lunchDeelname', toSaveDeel); } catch(_) {}
+					try { if (toSaveKeuze) sessionStorage.setItem('lunchKeuze', toSaveKeuze); else if (toSaveDeel==='nee') sessionStorage.removeItem('lunchKeuze'); } catch(_) {}
+				}
+
+				// After saving, navigate to jaarhanger page when Jaarhanger is not set, otherwise to member info
+				try {
+					let jah = null;
+					try { jah = getMemberSessionField('Jaarhanger'); } catch(_) { jah = null; }
+					if (!jah) try { jah = sessionStorage.getItem('Jaarhanger'); } catch(_) { jah = null; }
+					jah = (jah || '').toString().trim();
+					if (!jah) {
+						try { window.location.href = '../lid-ui/jaarhangerPage.html'; } catch(_) { try { window.location.href = '/lid-ui/jaarhangerPage.html'; } catch(_) {} }
+					} else {
+						try { window.location.href = '../lid-ui/memberInfoPage.html'; } catch(_) { try { window.location.href = '/lid-ui/memberInfoPage.html'; } catch(_) {} }
+					}
+				} catch(_) {}
+			} catch (err) { console.warn('agree-lunch handler failed', err); }
+		});
+		if (btn.dataset) btn.dataset._lunchBound = '1';
+	} catch (e) { console.warn('setupLunchFooterNavigation failed', e); }
+}
+
 
