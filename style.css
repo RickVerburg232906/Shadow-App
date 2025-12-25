@@ -137,26 +137,6 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
   font-size:18px;
 }
 
-/* Keuze buttons: more tactile, rounded pills with subtle depth */
-#keuzeEtenButtons .seg-btn {
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  border: 1px solid rgba(255,255,255,0.06);
-  color: var(--text);
-  padding: 10px 14px;
-  border-radius: 999px;
-  font-weight: 700;
-  box-shadow: 0 6px 14px rgba(2,6,23,0.35);
-  transition: transform .09s ease, box-shadow .12s ease, background .12s ease;
-}
-#keuzeEtenButtons .seg-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(2,6,23,0.45); }
-#keuzeEtenButtons .seg-btn:active { transform: translateY(0); }
-#keuzeEtenButtons .seg-btn.active {
-  background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.06));
-  border-color: rgba(16,185,129,0.28);
-  color: #10b981;
-  box-shadow: 0 12px 26px rgba(16,185,129,0.06);
-}
-#keuzeEtenButtons .seg-btn[disabled] { opacity: 0.5; filter: grayscale(.05); cursor: not-allowed; box-shadow: none; }
 
 /* Summary badge: subtle, compact and aligned with theme */
 #lunchSelectionBadge {
@@ -187,50 +167,9 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; 
 .seg-wrap .seg-toggle .seg-btn.no { border-color: rgba(239,68,68,0.12); }
 
 
-/* Keuze-eten preview (read-only) */
-#keuzeEtenPreviewWrap {
-  margin-bottom: 12px;
-  display: none; /* shown only when there are keuze items */
-}
-#keuzeEtenPreview {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-  color: var(--muted);
-}
-.keuze-chip {
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  border: 1px solid rgba(255,255,255,0.04);
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-}
 
-/* Choice buttons styling (keuzeEtenButtons) — ensure clear tappable targets */
-#keuzeEtenButtons .seg-btn {
-  min-width: 140px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.04);
-  color: var(--text);
-  font-weight: 700;
-}
-#keuzeEtenButtons .seg-btn:hover { filter: brightness(1.03); }
-#keuzeEtenButtons .seg-btn.active {
-  background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.06));
-  border-color: rgba(16,185,129,0.3);
-  color: #10b981;
-}
 
 /* Make the preview chips slightly subdued on very small screens */
-@media (max-width:420px) {
-  .keuze-chip { font-size: 13px; padding: 6px 8px; }
-  #keuzeEtenButtons .seg-btn { min-width: 120px; padding: 10px 12px; }
-}
 
 /* Collapsible Jaarhanger section (same style as lunch) */
 #yearhangerRow { margin-bottom: 16px; }
@@ -619,19 +558,8 @@ optgroup { font-weight:700; color: var(--muted); }
 .seg-btn + .seg-btn { border-left:1px solid #374151; }
 .seg-btn.active { background:#1f2937; outline:2px solid #3b82f6; color:#ffffff; }
 
-/* Keuze eten buttons container */
-#keuzeEtenButtons .seg-btn {
-  min-width: 140px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.12);
-}
-@media (max-width: 420px) {
-  #keuzeEtenButtons .seg-btn { flex: 1 1 100%; }
-}
-
 /* Admin lunch rows styling (applies when present) */
-.vast-eten-row, .keuze-eten-row {
+.vast-eten-row {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -641,12 +569,12 @@ optgroup { font-weight:700; color: var(--muted); }
   border: 1px solid rgba(255, 255, 255, 0.06);
   transition: all .15s ease;
 }
-.vast-eten-row:hover, .keuze-eten-row:hover {
+.vast-eten-row:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.12);
 }
-.vast-eten-row input, .keuze-eten-row input { flex: 1; padding: 10px 12px; }
-.vast-eten-row button, .keuze-eten-row button { min-width: 44px; }
+.vast-eten-row input { flex: 1; padding: 10px 12px; }
+.vast-eten-row button { min-width: 44px; }
 
 /* -------- Manual past rides list buttons (admin-scan) -------- */
 #manualPastRidesList, #pastRidesList {
@@ -699,6 +627,9 @@ optgroup { font-weight:700; color: var(--muted); }
 }
 #manualTodayBtn[disabled],
 #manualTodayBtn[aria-disabled="true"] { pointer-events: none; }
+
+/* choice related preview styles were removed */
+
 
 /* Make the standalone Today quick-book button visually match the past-rides buttons */
 #manualTodayBtn {

@@ -1,5 +1,5 @@
 // Minimal member-side helpers for signupPage
-import { getPlannedDates, getLunchOptions } from './firestore.js';
+import { getPlannedDates, getLunchOptions, searchMembers, getMemberById } from './firestore.js';
 // Keeps only what `lid-ui/signupPage.html` (and index) require: footer binding, simple suggestions glue,
 // sessionStorage diagnostics and safe helpers. Other features removed.
 
@@ -26,6 +26,111 @@ function setSessionAndDump(key, value) {
 		console.debug('setSessionAndDump: wrote', key);
 	} catch (e) { console.warn('setSessionAndDump failed', e); }
 	try { dumpSessionStorage(); } catch(_) {}
+}
+
+// Write a field into the member-specific shadow session object when possible,
+// otherwise fall back to a top-level sessionStorage key with the same name.
+function setMemberSessionField(field, val) {
+	try {
+		let memberId = '';
+		try { memberId = window._selectedMemberId || ''; } catch(_) { memberId = ''; }
+		if (!memberId) {
+			try {
+				for (const k of Object.keys(sessionStorage || {})) {
+					if (String(k).indexOf('shadow_ui_member_') === 0) { memberId = String(k).slice('shadow_ui_member_'.length); break; }
+				}
+			} catch(_) { memberId = ''; }
+		}
+		if (memberId) {
+			const key = `shadow_ui_member_${String(memberId)}`;
+			try {
+				const raw = sessionStorage.getItem(key);
+				const obj = raw ? JSON.parse(raw) : {};
+				if (val === null) delete obj[field]; else obj[field] = val;
+				try { setSessionAndDump(key, JSON.stringify(obj)); } catch(e) { sessionStorage.setItem(key, JSON.stringify(obj)); }
+				return true;
+			} catch (e) { console.debug('setMemberSessionField failed', e); }
+		}
+	} catch(_) {}
+	try {
+		if (val === null) sessionStorage.removeItem(field); else sessionStorage.setItem(field, String(val));
+	} catch(_) {}
+	return false;
+}
+
+// Read a field from the member-specific shadow session object when possible,
+// otherwise fallback to top-level sessionStorage key
+function getMemberSessionField(field) {
+	try {
+		let memberId = '';
+		try { memberId = window._selectedMemberId || ''; } catch(_) { memberId = ''; }
+		if (!memberId) {
+			try {
+				for (const k of Object.keys(sessionStorage || {})) {
+					if (String(k).indexOf('shadow_ui_member_') === 0) { memberId = String(k).slice('shadow_ui_member_'.length); break; }
+				}
+			} catch(_) { memberId = ''; }
+		}
+		if (memberId) {
+			try {
+				const key = `shadow_ui_member_${String(memberId)}`;
+				const raw = sessionStorage.getItem(key);
+				if (raw) {
+					try {
+						const obj = JSON.parse(raw);
+						if (Object.prototype.hasOwnProperty.call(obj, field)) return obj[field];
+					} catch(_) {}
+				}
+			} catch(_) {}
+		}
+	} catch(_) {}
+	try {
+		const val = sessionStorage.getItem(field);
+		return val;
+	} catch(_) { return null; }
+}
+
+// Enable/disable the lunch footer button according to rules:
+// 1) enabled if lunchDeelname == 'nee'
+// 2) if lunch has keuzeEten: enabled when lunchDeelname == 'ja' AND lunchKeuze matches a valid keuze
+// 3) if no keuzeEten configured: enabled when lunchDeelname == 'ja'
+function updateLunchFooterState() {
+	try {
+		const btn = document.getElementById('agree-lunch');
+		if (!btn) return;
+		// default disabled
+		let enabled = false;
+
+		// read global lunch config to know if keuzeEten exists
+		let lunchRaw = null;
+		try { lunchRaw = sessionStorage.getItem('lunch'); } catch(_) { lunchRaw = null; }
+		let lunchCfg = null;
+		try { lunchCfg = lunchRaw ? JSON.parse(lunchRaw) : null; } catch(_) { lunchCfg = null; }
+		const keuzeList = Array.isArray(lunchCfg?.keuzeEten) ? lunchCfg.keuzeEten.map(String) : [];
+
+		// read stored values (member-scoped preferred)
+		let deel = null;
+		try { deel = getMemberSessionField('lunchDeelname'); } catch(_) { deel = null; }
+		if (typeof deel === 'string') deel = deel.toLowerCase();
+
+		// If deel is 'nee', enable
+		if (deel === 'nee') enabled = true;
+		else if (deel === 'ja') {
+			if (Array.isArray(keuzeList) && keuzeList.length > 0) {
+				// need lunchKeuze to be a non-empty value that matches lijst
+				let keuze = null;
+				try { keuze = getMemberSessionField('lunchKeuze'); } catch(_) { keuze = null; }
+				if (keuze && keuzeList.indexOf(String(keuze)) !== -1) enabled = true;
+			} else {
+				// no keuze options: yes alone is enough
+				enabled = true;
+			}
+		}
+
+		btn.disabled = !enabled;
+		if (btn.disabled) { btn.setAttribute('aria-disabled','true'); btn.classList && btn.classList.add('disabled'); }
+		else { btn.removeAttribute('aria-disabled'); btn.classList && btn.classList.remove('disabled'); }
+	} catch (e) { console.warn('updateLunchFooterState failed', e); }
 }
 
 // Remove all per-member shadow keys
@@ -93,16 +198,7 @@ function setupMemberSuggestions() {
 									try { window._selectedMemberId = pickedId || ''; } catch(_) {}
 									closeList();
 									try { updateSignupFooterState(); } catch(_) {}
-									// Try to fetch full member if helper exists
-									const getById = window.getMemberById || (typeof getMemberById === 'function' ? getMemberById : null);
-									if (getById && pickedId) {
-										(async () => {
-											try { const full = await getById(String(pickedId)); if (full) {
-												try { if (typeof updatePageOrderForMember === 'function') updatePageOrderForMember(full); } catch(_) {}
-												try { if (typeof renderMemberInfoQR === 'function') renderMemberInfoQR(full); } catch(_) {}
-											} } catch(_) {}
-										})();
-									}
+									// Do not fetch full member here; fetching happens when the footer button is pressed
 								} catch (e) { console.warn('suggestion click failed', e); }
 							});
 							listEl.appendChild(item);
@@ -110,7 +206,7 @@ function setupMemberSuggestions() {
 						document.body.appendChild(listEl);
 					} catch (e) { console.warn('showSuggestions failed', e); }
 				}
-				function schedule(prefix) { if (timer) clearTimeout(timer); timer = setTimeout(() => { showSuggestions(prefix); }, 200); }
+				function schedule(prefix) { if (timer) clearTimeout(timer); timer = setTimeout(() => { showSuggestions(prefix); }, 300); }
 				el.addEventListener('input', (ev) => {
 					try {
 						if (el.dataset) { delete el.dataset.selectedMember; }
@@ -133,7 +229,8 @@ function updateSignupFooterState() {
 		const input = document.querySelector('input.form-input');
 		const explicit = (input && input.dataset && input.dataset.selectedMember) ? String(input.dataset.selectedMember) : (window._selectedMemberId || '');
 		const typed = input ? (input.value || '').trim() : '';
-		const enable = Boolean(explicit) || (typed && typed.length > 0);
+		// Only enable the signup button when an explicit dropdown selection exists
+		const enable = Boolean(explicit);
 		btn.disabled = !enable;
 		if (btn.disabled) { btn.setAttribute('aria-disabled','true'); btn.classList && btn.classList.add('disabled'); }
 		else { btn.removeAttribute('aria-disabled'); btn.classList && btn.classList.remove('disabled'); }
@@ -178,11 +275,23 @@ function setupSignupFooterNavigation() {
 						const full = await getById(String(memberId));
 						if (full) {
 							try { setSessionAndDump(`shadow_ui_member_${String(memberId)}`, JSON.stringify(full)); } catch(_) {}
+							try {
+								const scanDates = Array.isArray(full.ScanDatums) ? full.ScanDatums : (Array.isArray(full.scandatums) ? full.scandatums : []);
+								const scansY = (Array.isArray(scanDates) ? scanDates.map(toYMDString).filter(Boolean) : []);
+								const today = todayYMD();
+								if (scansY.includes(today)) {
+									try { window.location.href = '../lid-ui/memberInfoPage.html'; return; } catch(_) {}
+								} else {
+									// mark that we navigated to lunch so signup can clear when returning
+									try { sessionStorage.setItem('clearSignupOnShow','1'); } catch(_) {}
+									try { window.location.href = '../lid-ui/lunchPage.html'; return; } catch(_) {}
+								}
+							} catch(_) {}
 						}
 					} catch (e) { console.warn('setupSignupFooterNavigation: getMemberById failed', e); }
 				} else {
 					// mark current member id for other widgets
-					try { setSessionAndDump('shadow_ui_current_member', String(memberId)); } catch(_) {}
+					// do not set shadow_ui_current_member here; not required
 				}
 				// Optionally navigate / render result (if helper present)
 				try { if (typeof renderFragment === 'function') renderFragment('signup'); } catch(_) {}
@@ -192,18 +301,117 @@ function setupSignupFooterNavigation() {
 	} catch (e) { console.warn('setupSignupFooterNavigation failed', e); }
 }
 
+// Bind index footer button to navigate to the signup page
+function setupIndexFooterNavigation() {
+	try {
+		const btn = document.getElementById('agree-index');
+		if (!btn) return;
+		if (btn.dataset && btn.dataset._indexBound) return;
+		btn.addEventListener('click', (e) => {
+			try {
+				// navigate to the signup page (sibling folder `lid-ui`)
+				e.preventDefault();
+				window.location.href = '../lid-ui/signupPage.html';
+			} catch (err) { console.warn('agree-index handler failed', err); }
+		});
+		if (btn.dataset) btn.dataset._indexBound = '1';
+	} catch (e) { console.warn('setupIndexFooterNavigation failed', e); }
+}
+
 // Simple footer delegation to ensure footer buttons are wired in static pages
 function setupFooterDelegation() {
 	try {
 		// provide a lightweight binding for agree-signup enablement
 		try { setupMemberSuggestions(); } catch(_) {}
 		try { setupSignupFooterNavigation(); } catch(_) {}
+	try { setupIndexFooterNavigation(); } catch(_) {}
+	try { setupHeaderBackButtons(); } catch(_) {}
+	try { setupSignupInputClear(); } catch(_) {}
 		// ensure initial state
 		try { updateSignupFooterState(); } catch(_) {}
 		// expose helpers for console
 		try { window.dumpSessionStorage = dumpSessionStorage; } catch(_) {}
 		try { window.clearAllMemberSessionData = clearAllMemberSessionData; } catch(_) {}
 	} catch (e) { console.warn('setupFooterDelegation failed', e); }
+}
+
+// When the signup input is focused/clicked, clear its contents and any selected-member metadata
+function setupSignupInputClear() {
+	try {
+		const inputs = Array.from(document.querySelectorAll('input.form-input'));
+		if (!inputs || inputs.length === 0) return;
+
+		function doClear(input) {
+			try {
+				input.value = '';
+				if (input.dataset) { delete input.dataset.selectedMember; }
+				try { window._selectedMemberId = ''; } catch(_) {}
+				try { updateSignupFooterState(); } catch(_) {}
+			} catch(_) {}
+		}
+
+		// Clear on focus/click as before
+		for (const input of inputs) {
+			try {
+				if (input.dataset && input.dataset._clearBound) continue;
+				const clearFn = (ev) => { try { doClear(input); } catch(_) {} };
+				input.addEventListener('focus', clearFn);
+				input.addEventListener('click', clearFn);
+				if (input.dataset) input.dataset._clearBound = '1';
+			} catch(_) {}
+		}
+
+		// Also clear on initial load/pageshow when returning from lunch
+		function clearIfFromLunch() {
+			try {
+				const flag = (function(){ try { return sessionStorage.getItem('clearSignupOnShow'); } catch(_) { return null; } })();
+				const ref = (typeof document !== 'undefined' && document.referrer) ? String(document.referrer) : '';
+				const fromLunchRef = ref.indexOf('lunchPage.html') !== -1 || ref.indexOf('lunchpage.html') !== -1;
+				if (flag === '1' || fromLunchRef) {
+					for (const input of inputs) { try { doClear(input); } catch(_) {} }
+					try { sessionStorage.removeItem('clearSignupOnShow'); } catch(_) {}
+				}
+			} catch(_) {}
+		}
+
+		// run on DOMContentLoaded/pageshow
+		try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', clearIfFromLunch); else clearIfFromLunch(); } catch(_) {}
+		try { window.addEventListener && window.addEventListener('pageshow', clearIfFromLunch); } catch(_) {}
+	} catch (e) { console.warn('setupSignupInputClear failed', e); }
+}
+
+// Wire header back buttons to sensible navigation behavior.
+function setupHeaderBackButtons() {
+	try {
+		const buttons = Array.from(document.querySelectorAll('.back-button'));
+		if (!buttons || buttons.length === 0) return;
+		for (const btn of buttons) {
+			try {
+				if (btn.dataset && btn.dataset._backBound) continue;
+				btn.addEventListener('click', (ev) => {
+					try {
+						ev.preventDefault();
+						const filename = (window.location.pathname || '').split('/').pop() || '';
+						const name = String(filename).toLowerCase();
+						// memberInfo page: always go to index.html
+						if (name.indexOf('memberinfopage.html') !== -1) {
+							try { window.location.href = '../index.html'; } catch(_) { window.location.href = '/index.html'; }
+							return;
+						}
+						// Prefer to go back in history when possible, otherwise fall back to index
+						try {
+							if (window.history && window.history.length > 1) {
+								window.history.back();
+								return;
+							}
+						} catch(_) {}
+						try { window.location.href = '../index.html'; } catch(_) { window.location.href = '/index.html'; }
+					} catch(_) {}
+				});
+				if (btn.dataset) btn.dataset._backBound = '1';
+			} catch(_) {}
+		}
+	} catch (e) { console.warn('setupHeaderBackButtons failed', e); }
 }
 
 // Run on import
@@ -252,6 +460,27 @@ function daysUntil(iso) {
 		return Math.round((t1 - t0) / (1000 * 60 * 60 * 24));
 	} catch(_) { return null; }
 }
+
+function toYMDString(val) {
+	try {
+		if (!val) return '';
+		if (typeof val === 'string') {
+			const s = val.trim();
+			const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+			if (m) return m[1];
+			const d = new Date(s);
+			if (!isNaN(d)) return d.toISOString().slice(0,10);
+			return '';
+		}
+		if (val instanceof Date) {
+			if (isNaN(val)) return '';
+			return val.toISOString().slice(0,10);
+		}
+		return '';
+	} catch(_) { return ''; }
+}
+
+function todayYMD() { try { return new Date().toISOString().slice(0,10); } catch(_) { return ''; } }
 
 function renderPlannedRides() {
 	try {
@@ -354,4 +583,290 @@ try {
 	else renderPlannedRides();
 	document.addEventListener('shadow:config-ready', renderPlannedRides);
 } catch(_) {}
+
+// Render lunch preview area (vastEten / keuzeEten) from sessionStorage 'lunch'
+function renderLunchPreview() {
+	try {
+		const vastEl = document.getElementById('vastEtenDisplay');
+		const keuzeWrap = document.getElementById('keuzeEtenButtons');
+		const keuzeSection = document.getElementById('keuzeEtenSection');
+		if (!vastEl && !keuzeWrap) return;
+		let raw = null;
+		try { raw = sessionStorage.getItem('lunch'); } catch(_) { raw = null; }
+		if (!raw) {
+			if (vastEl) vastEl.textContent = 'Laden...';
+			if (keuzeWrap) keuzeWrap.innerHTML = '';
+			if (keuzeSection) { keuzeSection.style.display = 'none'; keuzeSection.hidden = true; }
+			return;
+		}
+		let data = null;
+		try { data = JSON.parse(raw); } catch(_) { data = null; }
+		const vast = data && Array.isArray(data.vastEten) ? data.vastEten : [];
+		const keuze = data && Array.isArray(data.keuzeEten) ? data.keuzeEten : [];
+		if (vastEl) {
+			if (vast && vast.length > 0) {
+				// build styled list using existing CSS (.vast-list, .vast-item)
+				const list = document.createElement('div');
+				list.className = 'vast-list';
+				for (const v of vast) {
+					const row = document.createElement('div');
+					row.className = 'vast-item';
+					row.textContent = String(v || '');
+					list.appendChild(row);
+				}
+				vastEl.innerHTML = '';
+				vastEl.appendChild(list);
+			} else {
+				vastEl.textContent = 'Geen vast eten beschikbaar';
+			}
+		}
+		if (keuzeWrap) {
+			keuzeWrap.innerHTML = '';
+			if (keuze && keuze.length > 0) {
+					for (const k of keuze) {
+						try {
+							// Build markup matching the user's snippet:
+							// <label class="...">
+							//   <input type="radio" class="choice-card-input sr-only" name="keuzeEten" value="..." />
+							//   <div class="choice-card"> ... </div>
+							// </label>
+							const labelEl = document.createElement('label');
+							labelEl.className = 'choice-card-label';
+
+							const input = document.createElement('input');
+							input.type = 'radio';
+							input.name = 'keuzeEten';
+							input.value = String(k || '');
+							// preserve accessible hiding via existing .sr-only class
+							input.className = 'choice-card-input sr-only';
+
+							// when a keuze is selected, persist it to the member session under `lunchKeuze`
+							input.addEventListener('change', (ev) => {
+								try {
+									if (input.checked) {
+										setMemberSessionField('lunchKeuze', input.value);
+										try { updateLunchFooterState(); } catch(_) {}
+									}
+								} catch(_) {}
+							});
+
+							const card = document.createElement('div');
+							card.className = 'choice-card';
+
+							const content = document.createElement('div');
+							content.className = 'choice-card-content';
+
+							const title = document.createElement('p');
+							title.className = 'choice-title';
+							title.textContent = String(k || '');
+
+							content.appendChild(title);
+							card.appendChild(content);
+
+							const check = document.createElement('div');
+							check.className = 'check-circle';
+							const icon = document.createElement('span');
+							icon.className = 'material-symbols-outlined always-white-icon';
+							icon.textContent = 'check';
+							check.appendChild(icon);
+
+							card.appendChild(check);
+
+							// Assemble
+							labelEl.appendChild(input);
+							labelEl.appendChild(card);
+							keuzeWrap.appendChild(labelEl);
+						} catch(_) { continue; }
+				}
+				if (keuzeSection) { keuzeSection.style.display = ''; keuzeSection.hidden = false; }
+			} else {
+				if (keuzeSection) { keuzeSection.style.display = 'none'; keuzeSection.hidden = true; }
+			}
+		}
+	} catch (e) { console.warn('renderLunchPreview failed', e); }
+	// ensure footer state updates after initial render and when config becomes available
+	try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', updateLunchFooterState); else updateLunchFooterState(); document.addEventListener('shadow:config-ready', updateLunchFooterState); } catch(_) {}
+}
+
+try {
+	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderLunchPreview);
+	else renderLunchPreview();
+	document.addEventListener('shadow:config-ready', renderLunchPreview);
+} catch(_) {}
+
+// Handle participation (Ja / Nee) behavior on the lunch page
+function setupLunchParticipationHandlers() {
+	try {
+		function setMemberSessionLunch(val) {
+			try { setMemberSessionField('lunchDeelname', val); } catch(_) { try { sessionStorage.setItem('lunchDeelname', val); } catch(_) {} }
+		}
+
+		function applyNoState() {
+			try {
+				// footer button
+				const btn = document.getElementById('agree-lunch');
+				if (btn) {
+					btn.classList.add('app-footer__button--danger');
+					btn.textContent = 'Afwezigheid Bevestigen';
+				}
+				// unselect keuzeEten radios
+				try {
+					const kInputs = Array.from(document.querySelectorAll('input[name="keuzeEten"]'));
+					for (const i of kInputs) { try { i.checked = false; } catch(_) {} }
+				} catch(_) {}
+
+				// ensure the participation radios reflect the 'nee' choice
+				try {
+					const p = Array.from(document.querySelectorAll('input[name="participation-lunch"]'));
+					for (const rr of p) {
+						try {
+							const vv = (rr.value || '').toString().toLowerCase();
+							rr.checked = (vv === 'no' || vv.indexOf('nee') !== -1 || vv.indexOf('sla') !== -1);
+						} catch(_) {}
+					}
+				} catch(_) {}
+				// clear member's gekozen lunch keuze
+				try { setMemberSessionField('lunchKeuze', null); } catch(_) {}
+				// fade sections
+				try { const v = document.getElementById('vastEtenSection'); if (v) v.classList.add('muted-section'); } catch(_) {}
+				try { const k = document.getElementById('keuzeEtenSection'); if (k) k.classList.add('muted-section'); } catch(_) {}
+
+				// disable keuzeEten inputs so they are not clickable when absent
+				try {
+					const kInputs = Array.from(document.querySelectorAll('input[name="keuzeEten"]'));
+					for (const i of kInputs) {
+						try {
+							i.disabled = true;
+							const lbl = i.closest('label');
+							if (lbl && lbl.classList) lbl.classList.add('choice-disabled');
+						} catch(_) {}
+					}
+				} catch(_) {}
+				// sessionStorage flag
+				try { setMemberSessionLunch('nee'); } catch(_) {}
+			} catch(_) {}
+		}
+
+		function applyYesState() {
+			try {
+				const btn = document.getElementById('agree-lunch');
+				if (btn) {
+					btn.classList.remove('app-footer__button--danger');
+					btn.textContent = 'Keuze Bevestigen';
+				}
+				try { const v = document.getElementById('vastEtenSection'); if (v) v.classList.remove('muted-section'); } catch(_) {}
+
+				// ensure the participation radios reflect the 'ja' choice
+				try {
+					const p = Array.from(document.querySelectorAll('input[name="participation-lunch"]'));
+					for (const rr of p) {
+						try {
+							const vv = (rr.value || '').toString().toLowerCase();
+							rr.checked = (vv === 'yes' || vv.indexOf('ja') !== -1);
+						} catch(_) {}
+					}
+				} catch(_) {}
+				try { const k = document.getElementById('keuzeEtenSection'); if (k) k.classList.remove('muted-section'); } catch(_) {}
+
+				// enable keuzeEten inputs when participating
+				try {
+					const kInputs = Array.from(document.querySelectorAll('input[name="keuzeEten"]'));
+					for (const i of kInputs) {
+						try {
+							i.disabled = false;
+							const lbl = i.closest('label');
+							if (lbl && lbl.classList) lbl.classList.remove('choice-disabled');
+						} catch(_) {}
+					}
+				} catch(_) {}
+				try { setMemberSessionLunch('ja'); } catch(_) {}
+			} catch(_) {}
+		}
+
+		const radios = Array.from(document.querySelectorAll('input[name="participation-lunch"]'));
+		if (!radios || radios.length === 0) return;
+		for (const r of radios) {
+			try {
+				r.addEventListener('change', (ev) => {
+					try {
+						const val = (r.value || '').toString().toLowerCase();
+						if (val === 'no' || val.includes('nee') || val.includes('sla')) {
+							applyNoState();
+						} else {
+							applyYesState();
+						}
+							try { updateLunchFooterState(); } catch(_) {}
+					} catch(_) {}
+				});
+			} catch(_) {}
+		}
+
+		// initialize state from sessionStorage if present
+		try {
+			let saved = null;
+			try { saved = getMemberSessionField('lunchDeelname'); } catch(_) { saved = null; }
+			if (!saved) {
+				try { saved = sessionStorage.getItem('lunchDeelname'); } catch(_) { saved = null; }
+			}
+			saved = (saved || '').toString().toLowerCase();
+			if (saved === 'nee') {
+				applyNoState();
+			} else if (saved === 'ja') {
+				applyYesState();
+			}
+
+			// if there is a saved lunchKeuze, select the corresponding radio
+			try {
+				let savedKeuze = getMemberSessionField('lunchKeuze');
+				if (!savedKeuze) savedKeuze = sessionStorage.getItem('lunchKeuze');
+				if (savedKeuze) {
+					const sel = document.querySelectorAll(`input[name="keuzeEten"][value="${String(savedKeuze).replace(/"/g,'\"')}"]`);
+					if (sel && sel.length) {
+						try { sel[0].checked = true; } catch(_) {}
+					}
+				}
+			} catch(_) {}
+		} catch(_) {}
+	} catch (e) { console.warn('setupLunchParticipationHandlers failed', e); }
+}
+
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupLunchParticipationHandlers); else setupLunchParticipationHandlers(); document.addEventListener('shadow:config-ready', setupLunchParticipationHandlers); } catch(_) {}
+
+// Setup jaarhanger page auto-fill from sessionStorage
+function setupJaarhangerHandlers() {
+	try {
+		const radios = Array.from(document.querySelectorAll('input[name="participation-jaarhanger"]'));
+		if (!radios || radios.length === 0) return;
+
+		function applySelection(val) {
+			try {
+				const v = (val || '').toString().toLowerCase();
+				for (const r of radios) {
+					try { r.checked = (r.value || '').toString().toLowerCase() === (v === 'yes' || v === 'ja' ? 'yes' : (v === 'no' || v === 'nee' ? 'no' : r.value)); } catch(_) {}
+				}
+				// enable footer when a selection exists
+				try { const btn = document.getElementById('agree-jaarhanger'); if (btn) { const any = radios.some(rr => rr.checked); btn.disabled = !any; if (btn.disabled) { btn.classList && btn.classList.add('disabled'); btn.setAttribute('aria-disabled','true'); } else { btn.classList && btn.classList.remove('disabled'); btn.removeAttribute('aria-disabled'); } } } catch(_) {}
+			} catch(_) {}
+		}
+
+		// try to read member session fields for jaarhanger choice
+		let val = null;
+		try { val = getMemberSessionField('jaarhanger'); } catch(_) { val = null; }
+		if (!val) {
+			// try other common keys
+			try { val = getMemberSessionField('Jaarhanger'); } catch(_) { val = null; }
+		}
+		if (!val) {
+			try { val = sessionStorage.getItem('jaarhanger'); } catch(_) { val = null; }
+		}
+		if (val) applySelection(val);
+
+		// wire change to update footer state
+		for (const r of radios) {
+			try { r.addEventListener('change', () => { try { const btn = document.getElementById('agree-jaarhanger'); if (btn) { const any = radios.some(rr => rr.checked); btn.disabled = !any; if (btn.disabled) { btn.classList && btn.classList.add('disabled'); btn.setAttribute('aria-disabled','true'); } else { btn.classList && btn.classList.remove('disabled'); btn.removeAttribute('aria-disabled'); } } } catch(_) {} }); } catch(_) {}
+		}
+	} catch (e) { console.warn('setupJaarhangerHandlers failed', e); }
+}
+
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupJaarhangerHandlers); else setupJaarhangerHandlers(); document.addEventListener('shadow:config-ready', setupJaarhangerHandlers); } catch(_) {}
 

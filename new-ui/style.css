@@ -398,6 +398,74 @@ body.app{
 .choice-body{ display:flex; flex-direction:column; align-items:flex-start; }
 .choice-category{ margin:0; font-size:0.72rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; }
 .choice-value{ margin:0; font-weight:800; color:#0f1724; font-size:1.0625rem; }
+
+/* ------------------------------------------
+   Keuze-eten card UI (matches provided markup)
+   - Use classes: choice-card-label, choice-card-input (sr-only), choice-card,
+     choice-card-content, choice-title, check-circle
+   - No Tailwind or inline styles; supports hover, focus, checked, dark mode
+-------------------------------------------*/
+.choice-card-label{ display:block; position:relative; cursor:pointer; }
+
+/* The input is visually hidden but accessible; .sr-only exists earlier in this file */
+.choice-card-input.sr-only{ position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+.choice-card{ position:relative; display:flex; align-items:center; gap:16px; padding:16px; border-radius:14px; border:2px solid transparent; background:var(--bg-light); box-shadow: 0 8px 20px rgba(16,24,40,0.04); transition: box-shadow 160ms ease, transform 120ms ease, border-color 120ms ease; min-height:88px; box-sizing:border-box; }
+.choice-card:hover{ box-shadow: 0 14px 34px rgba(16,24,40,0.06); transform: translateY(-2px); }
+.choice-card:focus-within{ border-color: rgba(22,62,141,0.12); }
+
+.choice-card-content{ flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; padding-left:4px; }
+.choice-title{ margin:0; font-weight:700; font-size:1rem; color:#0f1724; line-height:1.1; }
+
+.check-circle{ position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:9999px; border:2px solid rgba(156,163,175,0.45); background:transparent; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease; }
+.choice-card .material-symbols-outlined{ font-size:16px; line-height:1; font-weight:700; color:inherit; opacity:1; transition: opacity 120ms ease; }
+
+/* Focus styles when keyboard navigating */
+.choice-card-input:focus + .choice-card{ box-shadow: 0 10px 28px rgba(16,24,40,0.08); border-color: rgba(22,62,141,0.18); }
+
+/* Checked/selected state */
+.choice-card-input:checked + .choice-card{ background: var(--blue); color: #ffffff; border-color: var(--blue); box-shadow: 0 18px 44px rgba(16,24,40,0.08); transform: translateY(-2px); }
+.choice-card-input:checked + .choice-card,
+.choice-card-input:checked + .choice-card *{
+  color: #ffffff !important;
+}
+
+/* Force specific icons to always render white when this class is applied */
+.always-white-icon{ color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+.choice-card .material-symbols-outlined.always-white-icon{ color: #ffffff !important; opacity: 1 !important; }
+.choice-card-input:checked + .choice-card .check-circle{ border-color: var(--blue); background: var(--blue); transform: translateY(-50%) scale(1.02); }
+.choice-card-input:checked + .choice-card .check-circle .material-symbols-outlined{ opacity:1; }
+
+/* Dark mode support (basic) */
+/* Dark mode rules removed */
+
+@media (prefers-reduced-motion: reduce){ .choice-card, .check-circle, .choice-card-input:focus + .choice-card{ transition: none !important; } }
+
+
+/* Ensure the provided snippet shows a white pill background
+   Target only new-ui styles so changes are scoped to this UI.
+   Matches markup: div[role="button"] > .vast-item.selected */
+div[role="button"] > .vast-item.selected,
+.vast-item.selected{
+  background: #ffffff !important;
+  color: #0f1724 !important;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(16,24,40,0.06);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* Hide any leftover decorative checkbox/badge elements if present */
+.vast-item .choice-radio,
+.vast-item .keuze-badge,
+.vast-item .keuze-checkbox{ display: none !important; }
+
+
+/* Keuze-eten row styling (selection cards) for new-ui */
+/* Keuze-eten rows: show the white pill (like .vast-item) and keep the radio to the right */
+/* Radio sits to the right of the pill */
+.choice-radio { display:none; }
+.choice-radio.selected { display:none; }
+
 .status-badge{ background:#d1fae5; color:#065f46; width:36px; height:36px; padding:0; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; margin-left: auto; margin-right: 12px; box-shadow: 0 4px 10px rgba(16,24,40,0.04); }
 .choice-action-icon{ width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background: rgba(255,255,255,0.9); border: 1px solid rgba(15,23,36,0.06); color: rgba(15,23,36,0.75); }
 .choice-action-icon .material-symbols-outlined{ font-size:20px; }
@@ -413,38 +481,37 @@ body.app{
 
 .mk-section{ display:flex; flex-direction:column; gap:12px; width:100%; max-width:640px; margin:12px auto 0; }
 .mk-title{ color:#0e121a; font-size:1.125rem; font-weight:700; padding-left:4px; margin:0; }
-html.dark .mk-title{ color:#ffffff; }
+/* Dark mode rules removed */
 
 .mk-grid{ display:grid; gap:12px; width:100%; }
 
 .mk-item{ position:relative; display:flex; align-items:center; padding:16px; padding-left:20px; width:100%; box-sizing:border-box; background:#ffffff; border-radius:12px; box-shadow:0 6px 18px rgba(16,24,40,0.04); border:1px solid #f3f4f6; cursor:pointer; transition: background 120ms ease, transform 120ms ease; }
 .mk-item:hover{ background:#f8fafc; }
-html.dark .mk-item{ background:#111827; border-color:#374151; }
-html.dark .mk-item:hover{ background: rgba(255,255,255,0.02); }
+/* Dark mode rules removed */
 
 /* left accent bar implemented with pseudo element */
 .mk-item::before{ content:""; position:absolute; left:8px; top:8px; bottom:8px; width:8px; background:var(--primary); border-radius:8px; z-index:1; }
 .mk-item.mk-accent-gold::before{ background:var(--accent-gold); }
 
 .mk-item-icon{ width:44px; height:44px; border-radius:999px; display:flex; align-items:center; justify-content:center; background:var(--primary-10); margin-right:12px; flex:0 0 auto; z-index:2; }
-html.dark .mk-item-icon{ background: rgba(22,62,141,0.18); }
+.mk-item-icon{ background: var(--primary-10); }
 .mk-item-icon--gold{ background: var(--accent-gold-10); }
 
 .mk-item-body{ display:flex; flex-direction:column; align-items:flex-start; }
 .mk-item-category{ margin:0; font-size:0.72rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; }
 .mk-item-value{ margin:0; font-weight:800; color:#0f1724; font-size:1.0625rem; }
-html.dark .mk-item-value{ color:#fff; }
+/* Dark mode rules removed */
 
 .mk-status-badge{ background:#dcfce7; color:#065f46; width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; margin-left:auto; margin-right:12px; z-index:2; }
-html.dark .mk-status-badge{ background: rgba(16,185,129,0.12); color: #86efac; }
+/* Dark mode rules removed */
 
 /* Badge variant when member is absent (red cross) */
 .mk-status-badge.mk-badge-no{ background:#fee2e2; color:#991b1b; }
-html.dark .mk-status-badge.mk-badge-no{ background: rgba(220,38,38,0.12); color: #fda4af; }
+/* Dark mode rules removed */
 
 /* Badge variant when member is present (green check) */
 .mk-status-badge.mk-badge-yes{ background:#dcfce7; color:#065f46; }
-html.dark .mk-status-badge.mk-badge-yes{ background: rgba(16,185,129,0.12); color: #86efac; }
+/* Dark mode rules removed */
 
 /* Subtle pulse for absent to draw attention */
 .mk-status-badge.mk-badge-no{ box-shadow: 0 4px 14px rgba(220,38,38,0.08); }
@@ -523,8 +590,7 @@ html.dark .mk-status-badge.mk-badge-yes{ background: rgba(16,185,129,0.12); colo
 }
 .suggestion-item{ padding:10px 12px; cursor:pointer; color:#0f1724; font-weight:500; }
 .suggestion-item:hover{ background: rgba(22,62,141,0.04); }
-html.dark .suggestions{ background: var(--bg-dark); border-color: rgba(55,65,81,1); }
-html.dark .suggestion-item{ color: var(--text-light); }
+/* Dark mode rules removed */
 
 
 /* Footer component (semantic, no Tailwind) */
@@ -657,6 +723,14 @@ html.dark .suggestion-item{ color: var(--text-light); }
 .choice-card__body{ flex:1; padding-left:8px; display:flex; align-items:center; }
 .choice-card__title{ margin:0; font-weight:700; font-size:1rem; }
 
+/* Ensure the check icon stays white when a choice is selected.
+  Some earlier rules set icon color to dark; this selector is specific
+  and uses !important to guarantee visibility when checked. */
+.choice-card-input:checked + .choice-card .material-symbols-outlined { color: #ffffff !important; opacity: 1 !important; }
+
+/* Remove margin for choice-title only inside the keuze eten buttons area */
+#keuzeEtenButtons .choice-title{ margin:0 !important; }
+
 /* Muted state for sections when participation = no */
 .muted-section{ opacity:0.55; filter:grayscale(20%); }
 .muted-section .choice-card{ opacity:0.75; }
@@ -669,3 +743,14 @@ html.dark .suggestion-item{ color: var(--text-light); }
   opacity: 0.6;
   color: rgba(15,23,36,0.45);
 }
+
+/* Disabled choice label: prevent any pointer interaction and dim visuals */
+.choice-card-label.choice-disabled{
+  pointer-events: none;
+  opacity: 0.6;
+}
+.choice-card-label.choice-disabled .choice-card{
+  box-shadow: none;
+  transform: none;
+}
+.choice-card-label.choice-disabled .check-circle{ display:none; }
