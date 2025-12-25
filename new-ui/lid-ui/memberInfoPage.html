@@ -52,26 +52,28 @@
     </div>
   </section>
 
-  <section class="choice-list">
-    <h3 class="section-title">Mijn Keuzes</h3>
-    <div class="choice-item">
-      <div class="left-icon"><span class="material-symbols-outlined">restaurant</span></div>
-      <div class="choice-body">
-        <p class="choice-category">Lunch</p>
-        <p class="choice-value"></p>
+  <section class="mk-section">
+    <h3 class="mk-title">Mijn Keuzes</h3>
+    <div class="mk-grid">
+      <div class="mk-item mk-item--lunch" tabindex="0">
+        <div class="mk-item-icon" aria-hidden="true"><span class="material-symbols-outlined" aria-hidden="true">restaurant</span></div>
+        <div class="mk-item-body">
+          <p class="mk-item-category">Lunch</p>
+          <p class="mk-item-value">Vegetarisch Broodje</p>
+        </div>
+        <div class="mk-status-badge" aria-hidden="true"><span class="material-symbols-outlined" style="font-size:18px">check</span></div>
+        <span class="mk-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
       </div>
-      <div class="status-badge"><span class="material-symbols-outlined">check</span></div>
-      <span class="choice-action-icon" aria-hidden="true"><span class="material-symbols-outlined">touch_app</span></span>
-    </div>
 
-    <div class="choice-item gold">
-      <div class="left-icon"><span class="material-symbols-outlined">local_activity</span></div>
-      <div class="choice-body">
-        <p class="choice-category">Jaarhanger</p>
-        <p class="choice-value"></p>
+      <div class="mk-item mk-item--jaar mk-accent-gold" tabindex="0">
+        <div class="mk-item-icon mk-item-icon--gold" aria-hidden="true"><span class="material-symbols-outlined" aria-hidden="true">local_activity</span></div>
+        <div class="mk-item-body">
+          <p class="mk-item-category">Jaarhanger</p>
+          <p class="mk-item-value">2024 Editie</p>
+        </div>
+        <div class="mk-status-badge" aria-hidden="true"><span class="material-symbols-outlined" style="font-size:18px">check</span></div>
+        <span class="mk-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
       </div>
-      <div class="status-badge"><span class="material-symbols-outlined">check</span></div>
-      <span class="choice-action-icon" aria-hidden="true"><span class="material-symbols-outlined">touch_app</span></span>
     </div>
   </section>
 
@@ -81,8 +83,13 @@
         <h4 class="section-title">Check-in</h4>
         <p class="muted-text">Scan deze code bij aankomst</p>
       </div>
+      <div style="text-align:center; margin-top:8px;">
+        <button id="save-qr-btn" class="save-qr-btn" type="button" style="display:none">Sla QR op</button>
+      </div>
       <div id="memberInfoQRWrap" class="qr-box" aria-hidden="false">
-        <img id="memberInfoQRImg" alt="QR Code for member check-in" src="" />
+        <div class="qr-inner">
+          <img id="memberInfoQRImg" alt="QR Code for member check-in" src="" />
+        </div>
       </div>
     </div>
   </section>

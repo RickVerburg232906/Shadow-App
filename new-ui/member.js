@@ -1,3 +1,310 @@
+// --- Section-specific population helpers for Member Info page ---
+// Debugging helper for populate functions — reads flag dynamically
+function memberDebugLog(...args) { if (!window.MEMBER_POPULATE_DEBUG) return; try { console.debug('[member.populate]', ...args); } catch(_) {} }
+
+// Reset stored choices for a member (clear sessionStorage key)
+function resetMemberChoices(memberId) {
+	try {
+		if (!memberId) return;
+		const key = `shadow_ui_member_choices_${String(memberId)}`;
+		try { sessionStorage.removeItem(key); } catch(_) {}
+		memberDebugLog('resetMemberChoices', { key });
+	} catch(_) {}
+}
+
+// Download the currently shown QR image (or generate then download)
+async function downloadMemberQR() {
+	try {
+		const img = document.getElementById('memberInfoQRImg');
+		if (!img) return;
+		let src = img.src || '';
+		if (!src) {
+			try { await renderMemberInfoQR(window.SELECTED_MEMBER || null); } catch(_){}
+			src = img.src || '';
+		}
+		if (!src) return;
+		// fetch the image (works for data: and http(s:))
+		try {
+			const resp = await fetch(src);
+			const blob = await resp.blob();
+			const lid = (window.SELECTED_MEMBER && (window.SELECTED_MEMBER.LidNr || window.SELECTED_MEMBER.id)) || 'member';
+			const a = document.createElement('a');
+			const url = URL.createObjectURL(blob);
+			a.href = url;
+			a.download = `qr_lid_${String(lid)}.png`;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			setTimeout(()=> URL.revokeObjectURL(url), 1500);
+			return;
+		} catch (e) { console.warn('downloadMemberQR failed', e); }
+	} catch (e) { console.warn('downloadMemberQR outer failed', e); }
+}
+
+try { window.downloadMemberQR = downloadMemberQR; } catch(_){}
+
+function setupDownloadQRButton() {
+	try {
+		const btn = document.getElementById('save-qr-btn');
+		if (!btn) return;
+		if (btn.dataset && btn.dataset._qrBound) return;
+		btn.addEventListener('click', (ev) => { ev.preventDefault(); try { downloadMemberQR(); } catch(e){ console.warn(e); } });
+		btn.dataset._qrBound = '1';
+	} catch(e) { console.warn('setupDownloadQRButton failed', e); }
+}
+
+
+function populateMemberHeader() {
+	try {
+		const member = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+		memberDebugLog('populateMemberHeader:start', { member });
+		const els = Array.from(document.querySelectorAll('.member-name'));
+		if (!els || els.length === 0) return;
+		let name = '';
+		if (member) {
+			const voor = (member.voor || member.Voor || member.voornaam || member.Voornaam || member['Voor naam'] || member.voorletters || member['Voor letters'] || '').trim();
+			const ach = (member.naam || member.Naam || '').trim();
+			if (voor && ach) name = `${voor} ${ach}`;
+			else if (ach) name = ach;
+			else if (voor) name = voor;
+			else name = String(member.displayName || member.name || member.Naam || member.naam || member.id || member.LidNr || '');
+		}
+		els.forEach(el => { try { el.textContent = name || ''; } catch(_) {} });
+	} catch (e) { console.warn('populateMemberHeader failed', e); }
+}
+
+function populateMemberBadges() {
+	try {
+		const member = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+		memberDebugLog('populateMemberBadges:start', { member });
+		const badges = document.querySelectorAll('.meta-badges .info-chip');
+		if (!badges || badges.length === 0) return;
+		try {
+			const first = badges[0];
+			const lid = (member && (member.LidNr || member.lidnr || member.id || member.Lid || '')) || '';
+			const lidText = lid ? String(lid) : '';
+			const icon = first.querySelector('.material-symbols-outlined');
+			first.innerHTML = '';
+			if (icon) first.appendChild(icon);
+			if (lidText) {
+				const span = document.createElement('span');
+				span.className = 'member-id';
+				span.style.marginLeft = '8px';
+				span.textContent = lidText;
+				first.appendChild(span);
+			}
+		} catch(_) {}
+		try {
+			if (badges.length > 1) {
+				const second = badges[1];
+				const region = (member && (
+					member.RegioOmschrijving || member.regioOmschrijving || member.Regio || member.regio || member['Regio Omschrijving'] || member.regio_omschrijving || member.region || member.Region || ''
+				)) || '';
+				const regionText = region ? String(region).trim() : '';
+				const icon = second.querySelector('.material-symbols-outlined');
+				second.innerHTML = '';
+				if (icon) second.appendChild(icon);
+				if (regionText) {
+					const span = document.createElement('span');
+					span.className = 'member-region';
+					span.style.marginLeft = '8px';
+					span.textContent = regionText;
+					second.appendChild(span);
+				}
+			}
+		} catch(_) {}
+	} catch (e) { console.warn('populateMemberBadges failed', e); }
+}
+
+/* Mijn Keuzes population helpers removed per request */
+
+function populateMemberRidesSection() {
+	try {
+		memberDebugLog('populateMemberRidesSection:start', { SELECTED_MEMBER: SELECTED_MEMBER || window.SELECTED_MEMBER });
+		if (typeof renderRideStars === 'function') renderRideStars();
+	} catch(e) { console.warn('populateMemberRidesSection failed', e); }
+}
+
+// Populate the Mijn Keuzes (Lunch) display from sessionStorage / SELECTED_MEMBER / Firestore
+function populateMemberLunchChoice() {
+	try {
+		const target = document.querySelector('.mk-item--lunch .mk-item-value');
+		const badge = document.querySelector('.mk-item--lunch .mk-status-badge');
+		if (!target) return;
+		const memberId = (SELECTED_MEMBER && (SELECTED_MEMBER.id || SELECTED_MEMBER.LidNr || SELECTED_MEMBER.memberId)) || window._selectedMemberId || null;
+		const itemEl = document.querySelector('.mk-item--lunch');
+		const setVal = (v) => {
+			memberDebugLog('populateMemberLunchChoice:setVal', { value: v });
+			try { target.textContent = v || ''; } catch(_){ }
+			try {
+				if (!badge) return;
+				const isAbsent = (v && String(v).toLowerCase().startsWith('a')) || (v === 'Afwezig');
+				if (isAbsent) {
+					badge.style.display = 'inline-flex';
+					badge.classList.add('mk-badge-no');
+					badge.classList.remove('mk-badge-yes');
+					badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">close</span>';
+					try { if (itemEl) itemEl.classList.add('mk-no'); } catch(_) {}
+				} else if (v && String(v).trim()) {
+					badge.style.display = 'inline-flex';
+					badge.classList.remove('mk-badge-no');
+					badge.classList.add('mk-badge-yes');
+					badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">check</span>';
+					try { if (itemEl) itemEl.classList.remove('mk-no'); } catch(_) {}
+				} else {
+					badge.style.display = 'none';
+					badge.classList.remove('mk-badge-no');
+					badge.classList.remove('mk-badge-yes');
+					badge.innerHTML = '';
+					try { if (itemEl) itemEl.classList.remove('mk-no'); } catch(_) {}
+				}
+			} catch(_){ }
+		};
+
+		// 1) sessionStorage (recent local choices)
+		if (memberId) {
+			try {
+				const key = `shadow_ui_member_choices_${String(memberId)}`;
+				const raw = sessionStorage.getItem(key);
+				if (raw) {
+					try {
+						const parsed = JSON.parse(raw || '{}');
+						memberDebugLog('populateMemberLunchChoice:sessionStorage', { key, raw, parsed });
+						const deel = parsed.lunchDeelname || parsed.lunchDeelname === '' ? parsed.lunchDeelname : null;
+						const keuze = parsed.lunchKeuze || null;
+						if (deel) {
+							const d = String(deel).toLowerCase();
+							if (d.startsWith('n')) { memberDebugLog('populateMemberLunchChoice:fromSession', { resolved: 'Afwezig' }); setVal('Afwezig'); return; }
+							else { memberDebugLog('populateMemberLunchChoice:fromSession', { resolved: keuze ? String(keuze) : 'Aanwezig' }); setVal(keuze ? String(keuze) : 'Aanwezig'); return; }
+						} else if (keuze) { memberDebugLog('populateMemberLunchChoice:fromSession', { resolved: String(keuze) }); setVal(String(keuze)); return; }
+					} catch(_){ }
+				}
+			} catch(_){}
+		}
+
+		// 2) SELECTED_MEMBER in-memory
+		try {
+			const m = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+			memberDebugLog('populateMemberLunchChoice:inMemoryCandidate', { m });
+			if (m) {
+				const deel = m.lunchDeelname || m.LunchDeelname || m.lunch || m.Lunch || null;
+				const keuze = m.lunchKeuze || m.LunchKeuze || m.keuze || null;
+				if (deel) {
+					const d = String(deel).toLowerCase();
+					if (d.startsWith('n')) { memberDebugLog('populateMemberLunchChoice:fromSELECTED_MEMBER', { resolved: 'Afwezig' }); setVal('Afwezig'); return; }
+					else { memberDebugLog('populateMemberLunchChoice:fromSELECTED_MEMBER', { resolved: keuze ? String(keuze) : 'Aanwezig' }); setVal(keuze ? String(keuze) : 'Aanwezig'); return; }
+				} else if (keuze) { setVal(String(keuze)); return; }
+			}
+		} catch(_){}
+
+		// 3) Fetch member from Firestore as fallback
+		if (memberId) {
+			(async () => {
+				try {
+					const full = await getMemberById(String(memberId));
+					memberDebugLog('populateMemberLunchChoice:fetched', { full });
+					if (!full) return;
+					const deel = full.lunchDeelname || full.LunchDeelname || full.lunch || full.Lunch || null;
+					const keuze = full.lunchKeuze || full.LunchKeuze || full.keuze || null;
+					if (deel) {
+						const d = String(deel).toLowerCase();
+						if (d.startsWith('n')) { memberDebugLog('populateMemberLunchChoice:fromFetch', { resolved: 'Afwezig' }); setVal('Afwezig'); }
+						else { memberDebugLog('populateMemberLunchChoice:fromFetch', { resolved: keuze ? String(keuze) : 'Aanwezig' }); setVal(keuze ? String(keuze) : 'Aanwezig'); }
+					} else if (keuze) setVal(String(keuze));
+				} catch (e) { console.warn('populateMemberLunchChoice: fetch failed', e); }
+			})();
+		}
+	} catch (e) { console.warn('populateMemberLunchChoice failed', e); }
+}
+
+// Populate the Mijn Keuzes (Jaarhanger) display from sessionStorage / SELECTED_MEMBER / Firestore
+function populateMemberJaarhangerChoice() {
+	try {
+		const target = document.querySelector('.mk-item--jaar .mk-item-value');
+		const badge = document.querySelector('.mk-item--jaar .mk-status-badge');
+		const itemEl = document.querySelector('.mk-item--jaar');
+		if (!target) return;
+		const memberId = (SELECTED_MEMBER && (SELECTED_MEMBER.id || SELECTED_MEMBER.LidNr || SELECTED_MEMBER.memberId)) || window._selectedMemberId || null;
+		const setVal = (v) => {
+			memberDebugLog('populateMemberJaarhangerChoice:setVal', { value: v });
+			try {
+				const huidig = (new Date()).getFullYear();
+				target.textContent = `${huidig} Editie `;
+			} catch(_){}
+			try {
+				if (!badge) return;
+				const isAbsent = (v && String(v).toLowerCase().startsWith('n')) || (v === 'Nee');
+				if (isAbsent) {
+					badge.style.display = 'inline-flex';
+					badge.classList.add('mk-badge-no');
+					badge.classList.remove('mk-badge-yes');
+					badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">close</span>';
+					try { if (itemEl) itemEl.classList.add('mk-no'); } catch(_) {}
+				} else if (v && String(v).trim()) {
+					badge.style.display = 'inline-flex';
+					badge.classList.remove('mk-badge-no');
+					badge.classList.add('mk-badge-yes');
+					badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">check</span>';
+					try { if (itemEl) itemEl.classList.remove('mk-no'); } catch(_) {}
+				} else {
+					badge.style.display = 'none';
+					badge.classList.remove('mk-badge-no');
+					badge.classList.remove('mk-badge-yes');
+					badge.innerHTML = '';
+					try { if (itemEl) itemEl.classList.remove('mk-no'); } catch(_) {}
+				}
+			} catch(_){}
+		};
+
+		// 1) sessionStorage
+		if (memberId) {
+			try {
+				const key = `shadow_ui_member_choices_${String(memberId)}`;
+				const raw = sessionStorage.getItem(key);
+				if (raw) {
+					try {
+						const parsed = JSON.parse(raw || '{}');
+						memberDebugLog('populateMemberJaarhangerChoice:sessionStorage', { key, raw, parsed });
+						const jaar = parsed.Jaarhanger || parsed.jaarhanger || null;
+						if (jaar !== undefined && jaar !== null) {
+							setVal(String(jaar)); return;
+						}
+					} catch(_){}
+				}
+			} catch(_){}
+		}
+
+		// 2) SELECTED_MEMBER
+		try {
+			const m = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+			memberDebugLog('populateMemberJaarhangerChoice:inMemoryCandidate', { m });
+			if (m) {
+				const jaar = m.Jaarhanger || m.jaarhanger || null;
+				if (jaar !== undefined && jaar !== null) { setVal(String(jaar)); return; }
+			}
+		} catch(_){}
+
+		// 3) fetch fallback
+		if (memberId) {
+			(async () => {
+				try {
+					const full = await getMemberById(String(memberId));
+					memberDebugLog('populateMemberJaarhangerChoice:fetched', { full });
+					if (!full) return;
+					const jaar = full.Jaarhanger || full.jaarhanger || null;
+					if (jaar !== undefined && jaar !== null) setVal(String(jaar));
+				} catch(e) { console.warn('populateMemberJaarhangerChoice: fetch failed', e); }
+			})();
+		}
+
+	} catch(e) { console.warn('populateMemberJaarhangerChoice failed', e); }
+}
+
+// update when other flows complete lunch selection
+try { document.addEventListener('lunch:completed', () => { try { populateMemberLunchChoice(); } catch(_){} }); } catch(_){ }
+try { document.addEventListener('yearhanger:changed', () => { try { populateMemberJaarhangerChoice(); } catch(_){} }); } catch(_){ }
+// update when jaarhanger selection changes
+try { document.addEventListener('yearhanger:changed', () => { try { populateMemberJaarhangerChoice(); } catch(_){} }); } catch(_){ }
 // module: member.js — main page behaviors for lunch and signup
 import { getPlannedDates, searchMembers, getMemberById, getLunchOptions } from './firestore.js';
 import { db, doc, onSnapshot } from '../src/firebase.js';
@@ -13,7 +320,39 @@ const lidFragments = {
 let lidFragmentsLoaded = false;
 const navStack = [];
 // Page order for footer-driven linear navigation
-const PAGE_ORDER = ['original','signup','lunch','jaarhanger','member'];
+const BASE_PAGE_ORDER = ['original','signup','lunch','jaarhanger','member'];
+let PAGE_ORDER = Array.from(BASE_PAGE_ORDER);
+
+// Update PAGE_ORDER based on selected member (remove jaarhanger if member already has Jaarhanger)
+function updatePageOrderForMember(member) {
+	try {
+		if (!member) { PAGE_ORDER = Array.from(BASE_PAGE_ORDER); return; }
+		const hasJ = Boolean(member.Jaarhanger || member.jaarhanger || member.JaarHanger || member.JaarhangerAfgekort);
+		// detect if member already scanned today (ScanDatums contains today's YYYY-MM-DD)
+		const todayYMD = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+		let scannedToday = false;
+		try {
+			const scans = member.ScanDatums || member.ScanDatum || member.scandatums || member.ScanDates || null;
+			if (Array.isArray(scans)) {
+				for (const s of scans) {
+					try {
+						const v = String(s || '').slice(0,10);
+						if (v === todayYMD) { scannedToday = true; break; }
+					} catch(_){}
+				}
+			}
+		} catch(_){}
+
+		if (scannedToday) {
+			// skip both lunch and jaarhanger if already scanned today
+			PAGE_ORDER = BASE_PAGE_ORDER.filter(p => (p !== 'jaarhanger' && p !== 'lunch'));
+		} else if (hasJ) {
+			PAGE_ORDER = BASE_PAGE_ORDER.filter(p => p !== 'jaarhanger');
+		} else {
+			PAGE_ORDER = Array.from(BASE_PAGE_ORDER);
+		}
+	} catch (e) { console.warn('updatePageOrderForMember failed', e); }
+}
 let currentFragment = 'original';
 
 function normalizeFragmentName(name){
@@ -173,9 +512,20 @@ async function renderFragment(name) {
 		try { setupMemberSuggestions(); } catch (_) {}
 		try { setupLunchOptions(); } catch (_) {}
 		try { setupParticipationToggle(); } catch (_) {}
-		try { populateLunchFromStoredMember(); } catch (_) {}
-		try { populateJaarhangerFromStoredMember(); } catch (_) {}
-		try { populateMemberInfo(); } catch (_) {}
+		try {
+			if (currentFragment === 'member') {
+				try { populateMemberHeader(); } catch(_) {}
+				try { populateMemberBadges(); } catch(_) {}
+						try { populateMemberRidesSection(); } catch(_) {}
+						try { populateMemberLunchChoice(); } catch(_) {}
+						try { populateMemberJaarhangerChoice(); } catch(_) {}
+						try { renderMemberInfoQR(SELECTED_MEMBER); } catch(_) {}
+						try { populateMemberJaarhangerChoice(); } catch(_) {}
+			} else {
+				try { populateMemberHeader(); } catch(_) {}
+				try { populateMemberBadges(); } catch(_) {}
+			}
+		} catch(_) {}
 		try { setupAgreeLunchButton(); } catch (_) {}
 		try { setupAgreeJaarhanger(); } catch (_) {}
 		try { setupSignupFooterNavigation(); } catch (_) {}
@@ -245,7 +595,16 @@ function popFragment() {
 		try { setupMemberSuggestions(); } catch (_) {}
 		try { setupLunchOptions(); } catch (_) {}
 		try { setupParticipationToggle(); } catch (_) {}
-		try { populateMemberInfo(); } catch (_) {}
+		try {
+			try { populateMemberHeader(); } catch(_) {}
+			try { populateMemberBadges(); } catch(_) {}
+				if (currentFragment === 'member') {
+					try { populateMemberRidesSection(); } catch(_) {}
+					try { populateMemberLunchChoice(); } catch(_) {}
+					try { populateMemberJaarhangerChoice(); } catch(_) {}
+						try { renderMemberInfoQR(SELECTED_MEMBER); } catch(_) {}
+				}
+		} catch(_) {}
 		try { setupBackButton(); } catch (_) {}
 		try { setupAgreeButton(); } catch (_) {}
 	} catch (e) { console.warn('popFragment failed', e); }
@@ -276,17 +635,18 @@ async function renderMemberInfoQR(member){
 		const img = document.getElementById('memberInfoQRImg');
 		if(!wrap || !img) return;
 		// Build payload with requested fields
-		const lid = getMemberId(member) || (member && (member.id || member.uid || member.LidNr)) || '';
+		const lid = (member && (member.LidNr || member.id || member.uid || member.memberId)) || '';
 		const jaar = member?.Jaarhanger ?? member?.jaarhanger ?? null;
 		const lunchDeel = member?.lunchDeelname ?? member?.LunchDeelname ?? member?.lunch ?? member?.Lunch ?? null;
 		const lunchKeuze = member?.lunchKeuze ?? member?.LunchKeuze ?? member?.lunchKeuze ?? null;
-		const payload = {};
-		if(lid) payload.LidNr = String(lid);
-		if(jaar) payload.Jaarhanger = jaar;
-		if(lunchDeel) payload.lunchDeelname = lunchDeel;
-		if(lunchKeuze) payload.lunchKeuze = lunchKeuze;
-
-		const payloadStr = JSON.stringify(payload);
+		// Build JSON payload with requested fields
+		const payloadObj = {
+			Jaarhanger: (jaar === undefined ? null : jaar),
+			LidNr: (lid ? String(lid) : null),
+			lunchDeelname: (lunchDeel === undefined ? null : lunchDeel),
+			lunchKeuze: (lunchKeuze === undefined ? null : lunchKeuze)
+		};
+		const payloadStr = JSON.stringify(payloadObj);
 
 		// Try using QR lib, fallback to Google Chart static image
 		try{
@@ -294,29 +654,34 @@ async function renderMemberInfoQR(member){
 			const container = img.parentElement;
 			const measured = (container && container.clientWidth) || img.getBoundingClientRect().width || 300;
 			const base = Math.floor(measured);
-			const drawSize = Math.min(Math.max(320, base * 2), 2048); // 2x size, clamped
+			// Use 80% of the container width for the QR size, clamp to reasonable range
+			const drawSize = Math.min(Math.max(120, Math.floor(base * 0.8)), 2048);
 			const internalSize = Math.floor(drawSize * (window.devicePixelRatio || 1));
 			const dataUrl = await new Promise((resolve, reject) => {
 				try{ window.QRCode.toDataURL(payloadStr, { width: internalSize }, (err, url) => err ? reject(err) : resolve(url)); }catch(e){ reject(e); }
 			});
 			img.src = dataUrl;
-			img.width = drawSize;
-			img.height = drawSize;
+			try { img.removeAttribute('width'); img.removeAttribute('height'); } catch(_){}
+			img.style.width = '100%';
+			img.style.height = '100%';
 			img.style.display = 'block';
 			wrap.style.display = 'inline-block';
+			try { const btn = document.getElementById('save-qr-btn'); if (btn) btn.style.display = 'inline-block'; } catch(_) {}
 			return;
 		}catch(e){
 			// fallback
 			const container = img.parentElement;
 			const measured = (container && container.clientWidth) || img.getBoundingClientRect().width || 300;
 			const base = Math.floor(measured);
-			const drawSize = Math.min(Math.max(320, base * 2), 2048); // doubled fallback size
+			const drawSize = Math.min(Math.max(120, Math.floor(base * 0.8)), 2048);
 			const encoded = encodeURIComponent(payloadStr);
 			img.src = `https://chart.googleapis.com/chart?cht=qr&chs=${drawSize}x${drawSize}&chl=${encoded}&choe=UTF-8`;
-			img.width = drawSize;
-			img.height = drawSize;
+			try { img.removeAttribute('width'); img.removeAttribute('height'); } catch(_){}
+			img.style.width = '100%';
+			img.style.height = '100%';
 			img.style.display = 'block';
 			wrap.style.display = 'inline-block';
+			try { const btn = document.getElementById('save-qr-btn'); if (btn) btn.style.display = 'inline-block'; } catch(_) {}
 			return;
 		}
 	}catch(e){ console.warn('renderMemberInfoQR failed', e); }
@@ -536,8 +901,36 @@ function setupMemberSuggestions() {
 								if (el.dataset) el.dataset.selectedMember = item.dataset.memberId || '';
 								try { window._selectedMemberId = item.dataset.memberId || ''; } catch(_) {}
 								closeList();
-								el.focus();
+								// On touch devices blur to hide on-screen keyboard, otherwise keep focus
+								try {
+									const isTouch = (('ontouchstart' in window) || (navigator && navigator.maxTouchPoints && navigator.maxTouchPoints > 0));
+									if (isTouch) el.blur(); else el.focus();
+								} catch (_) { try { el.blur(); } catch(_) {} }
 								try { updateSignupFooterState(); } catch(_) {}
+								// Fetch full member to update page order immediately (non-blocking)
+								(async () => {
+									try {
+										const id = item.dataset.memberId || '';
+										if (!id) { updatePageOrderForMember(null); return; }
+										const full = await getMemberById(String(id));
+										if (full) {
+											// reset any local stored choices for this member when re-selecting
+											try { resetMemberChoices(full && (full.id || full.LidNr || full.memberId)); } catch(_) {}
+											SELECTED_MEMBER = full;
+											try { window.SELECTED_MEMBER = full; } catch(_) {}
+											try { updatePageOrderForMember(full); } catch(_) {}
+											try {
+												try { populateMemberHeader(); } catch(_) {}
+												try { populateMemberBadges(); } catch(_) {}
+												if (currentFragment === 'member') {
+													try { populateMemberRidesSection(); } catch(_) {}
+													try { populateMemberLunchChoice(); } catch(_) {}
+													try { renderMemberInfoQR(full); } catch(_) {}
+												}
+											} catch(_) {}
+										}
+									} catch (e) { console.warn('suggestion click: getMemberById failed', e); }
+								})();
 							});
 							listEl.appendChild(item);
 						});
@@ -554,7 +947,15 @@ function setupMemberSuggestions() {
 				el.addEventListener('compositionstart', () => { try { el.dataset._composing = '1'; } catch(_) {} }, { passive: true });
 				el.addEventListener('compositionend', (ev) => { try { delete el.dataset._composing; schedule(el.value || ''); } catch(_) {} });
 				el.addEventListener('input', (ev) => {
-					try { if (el.dataset && el.dataset._composing) return; if (el.dataset) { delete el.dataset.selectedMember; } try { window._selectedMemberId = ''; } catch(_) {} schedule(el.value || ''); try { updateSignupFooterState(); } catch(_) {} } catch(_) {}
+					try {
+						if (el.dataset && el.dataset._composing) return;
+						if (el.dataset) { delete el.dataset.selectedMember; }
+						try { window._selectedMemberId = ''; } catch(_) {}
+						// reset page order when input changes (member no longer selected)
+						try { updatePageOrderForMember(null); } catch(_) {}
+						schedule(el.value || '');
+						try { updateSignupFooterState(); } catch(_) {}
+					} catch(_) {}
 				});
 				el.addEventListener('keydown', (ev) => {
 					try {
@@ -616,6 +1017,56 @@ try { setupFooterDelegation(); } catch(_) {}
 // Store selected member data for other flows
 let SELECTED_MEMBER = null;
 
+// Populate member-related UI spots (e.g. .member-name) from SELECTED_MEMBER or window.SELECTED_MEMBER
+
+// Render stars based on planned ride dates from globals/rideConfig
+async function renderRideStars() {
+	try {
+		const container = document.querySelector('.stats-stars');
+		if (!container) return;
+		container.innerHTML = '';
+		const dates = await getPlannedDates(); // array of YYYY-MM-DD
+		if (!Array.isArray(dates) || dates.length === 0) return;
+		// limit to 5 stars max (show up to 5 planned rides)
+		const maxStars = 5;
+		const max = Math.min(maxStars, dates.length);
+		const use = dates.slice(0, max);
+		// build set of member scan dates for quick lookup
+		const member = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+		const scans = new Set();
+		try {
+			const arr = member && (member.ScanDatums || member.ScanDatum || member.scandatums || member.ScanDates) ? (member.ScanDatums || member.ScanDatum || member.scandatums || member.ScanDates) : [];
+			if (Array.isArray(arr)) {
+				for (const s of arr) {
+					try { const v = String(s || '').slice(0,10); if (v) scans.add(v); } catch(_) {}
+				}
+			}
+		} catch(_) {}
+
+		const fmt = new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short' });
+		let filledCount = 0;
+		for (let i = 0; i < use.length; i++) {
+			const ymd = use[i];
+			const d = new Date(ymd + 'T00:00:00');
+			const isScanned = scans.has(String(ymd));
+			if (isScanned) filledCount += 1;
+			const span = document.createElement('span');
+			span.className = `material-symbols-outlined star ${isScanned ? 'filled' : 'empty'}`;
+			span.setAttribute('data-ride-date', ymd);
+			span.setAttribute('role', 'img');
+			span.setAttribute('aria-label', `${isScanned ? 'Bezocht' : 'Niet bezocht'} ${ymd}`);
+			try { span.title = `${fmt.format(d)} — ${ymd}`; } catch(_) { span.title = ymd; }
+			span.textContent = 'star';
+			container.appendChild(span);
+		}
+		// update stat-count if present
+		try {
+			const sc = document.querySelector('.stat-count');
+			if (sc) sc.textContent = `${filledCount} / ${use.length}`;
+		} catch(_) {}
+	} catch (e) { console.warn('renderRideStars failed', e); }
+}
+
 // Bind the signup footer button to load full member data from Firestore
 function setupSignupFooterNavigation() {
 	try {
@@ -654,8 +1105,15 @@ function setupSignupFooterNavigation() {
 				SELECTED_MEMBER = full || null;
 				// expose globally for other scripts if needed
 				try { window.SELECTED_MEMBER = SELECTED_MEMBER; } catch(_) {}
-				// call populate if exists
-				try { if (typeof populateMemberInfo === 'function') populateMemberInfo(); } catch(_) {}
+				// reset any stored choices for this member when selecting via signup flow
+				try { resetMemberChoices(memberId); } catch(_) {}
+				try { renderMemberInfoQR(SELECTED_MEMBER); } catch(_) {}
+				// adjust page order depending on whether this member already has a Jaarhanger
+				try { updatePageOrderForMember(SELECTED_MEMBER); } catch(_) {}
+				// update header/badges immediately; only populate full member-info sections when on member page
+				try { populateMemberHeader(); } catch(_) {}
+				try { populateMemberBadges(); } catch(_) {}
+				try { if (currentFragment === 'member') { populateMemberRidesSection(); } } catch(_) {}
 				// navigate to next page in order (signup -> lunch)
 				try {
 					const idx = PAGE_ORDER.indexOf('signup');
@@ -900,6 +1358,7 @@ function setupParticipationToggle() {
 			} catch (e) { console.warn('applyYesState failed', e); }
 		}
 
+				try { setupDownloadQRButton(); } catch(_){}
 		function onChange(ev) {
 			try {
 				const val = (ev && ev.target && ev.target.value) ? String(ev.target.value) : '';
@@ -1001,3 +1460,100 @@ function updateJaarhangerFooterState() {
 		else { btn.removeAttribute('aria-disabled'); btn.classList && btn.classList.remove('disabled'); }
 	} catch (e) { console.warn('updateJaarhangerFooterState failed', e); }
 }
+
+// Bind and handle the Lunch confirm button — store selection locally and emit event (no Firestore)
+function setupAgreeLunchButton() {
+	try {
+		const btn = document.getElementById('agree-lunch');
+		if (!btn) return;
+		if (btn.dataset && btn.dataset._boundAgreeLunch) return;
+		btn.addEventListener('click', (ev) => {
+			try {
+				ev.preventDefault();
+				// determine member id
+				const memberId = (SELECTED_MEMBER && (SELECTED_MEMBER.id || SELECTED_MEMBER.LidNr || SELECTED_MEMBER.memberId)) || window._selectedMemberId || null;
+				const participation = getParticipationValue();
+				const keuze = (participation === 'yes') ? (document.querySelector('input.lunch-choice-input:checked') ? document.querySelector('input.lunch-choice-input:checked').value : (window._lunchChoice || '')) : '';
+				// update in-memory SELECTED_MEMBER
+				try {
+					if (!window.SELECTED_MEMBER) window.SELECTED_MEMBER = SELECTED_MEMBER || {};
+					window.SELECTED_MEMBER.lunchDeelname = (participation === 'yes') ? 'Ja' : 'Nee';
+					window.SELECTED_MEMBER.lunchKeuze = keuze || null;
+					SELECTED_MEMBER = window.SELECTED_MEMBER;
+				} catch (_) {}
+				// persist to sessionStorage for cross-fragment access
+				try {
+					if (memberId) {
+						const key = `shadow_ui_member_choices_${String(memberId)}`;
+						const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
+						existing.lunchDeelname = window.SELECTED_MEMBER.lunchDeelname;
+						existing.lunchKeuze = window.SELECTED_MEMBER.lunchKeuze;
+						sessionStorage.setItem(key, JSON.stringify(existing));
+					}
+				} catch (e) { console.warn('setupAgreeLunchButton: sessionStorage failed', e); }
+
+				// dispatch a DOM event so other parts (member-info) can react
+				try {
+					const detail = { memberId: memberId || null, participation: participation || null, keuze: keuze || null };
+					document.dispatchEvent(new CustomEvent('lunch:completed', { detail }));
+					console.log('lunch:completed dispatched', detail);
+				} catch (e) { console.warn('lunch dispatch failed', e); }
+
+			} catch (err) { console.warn('agree-lunch handler failed', err); }
+		});
+		if (btn.dataset) btn.dataset._boundAgreeLunch = '1';
+	} catch (e) { console.warn('setupAgreeLunchButton failed', e); }
+}
+
+// Bind and handle the Jaarhanger confirm button — store selection locally and emit event (no Firestore)
+function setupAgreeJaarhanger() {
+	try {
+		const btn = document.getElementById('agree-jaarhanger');
+		if (!btn) return;
+		if (btn.dataset && btn.dataset._boundAgreeJaar) return;
+		btn.addEventListener('click', (ev) => {
+			try {
+				ev.preventDefault();
+				const memberId = (SELECTED_MEMBER && (SELECTED_MEMBER.id || SELECTED_MEMBER.LidNr || SELECTED_MEMBER.memberId)) || window._selectedMemberId || null;
+				const name = `participation-${currentFragment || 'original'}`;
+				const sel = document.querySelector(`input[type="radio"][name="${name}"]:checked`);
+				const val = sel ? (sel.value || '') : '';
+				const jaarVal = (val === 'yes') ? 'Ja' : (val === 'no' ? 'Nee' : null);
+				try {
+					if (!window.SELECTED_MEMBER) window.SELECTED_MEMBER = SELECTED_MEMBER || {};
+					if (jaarVal !== null) window.SELECTED_MEMBER.Jaarhanger = jaarVal;
+					SELECTED_MEMBER = window.SELECTED_MEMBER;
+				} catch (_) {}
+				try {
+					if (memberId) {
+						const key = `shadow_ui_member_choices_${String(memberId)}`;
+						const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
+						existing.Jaarhanger = window.SELECTED_MEMBER.Jaarhanger;
+						sessionStorage.setItem(key, JSON.stringify(existing));
+					}
+				} catch (e) { console.warn('setupAgreeJaarhanger: sessionStorage failed', e); }
+				try {
+					const detail = { memberId: memberId || null, value: window.SELECTED_MEMBER.Jaarhanger || null };
+					document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail }));
+					console.log('yearhanger:changed dispatched', detail);
+				} catch (e) { console.warn('yearhanger dispatch failed', e); }
+			} catch (err) { console.warn('agree-jaarhanger handler failed', err); }
+		});
+		if (btn.dataset) btn.dataset._boundAgreeJaar = '1';
+	} catch (e) { console.warn('setupAgreeJaarhanger failed', e); }
+}
+
+// Expose debug helpers to the window for interactive console debugging
+try {
+	try { window.__memberPopulateDebug = window.__memberPopulateDebug || {}; } catch(_) { window.__memberPopulateDebug = {}; }
+	try { window.__memberPopulateDebug.populateMemberHeader = populateMemberHeader; } catch(_) {}
+	try { window.__memberPopulateDebug.populateMemberBadges = populateMemberBadges; } catch(_) {}
+	try { window.__memberPopulateDebug.populateMemberRidesSection = populateMemberRidesSection; } catch(_) {}
+	try { window.__memberPopulateDebug.populateMemberLunchChoice = populateMemberLunchChoice; } catch(_) {}
+	try { window.__memberPopulateDebug.populateMemberJaarhangerChoice = populateMemberJaarhangerChoice; } catch(_) {}
+	try { window.populateMemberHeader = populateMemberHeader; } catch(_) {}
+	try { window.populateMemberBadges = populateMemberBadges; } catch(_) {}
+	try { window.populateMemberRidesSection = populateMemberRidesSection; } catch(_) {}
+	try { window.populateMemberLunchChoice = populateMemberLunchChoice; } catch(_) {}
+	try { window.populateMemberJaarhangerChoice = populateMemberJaarhangerChoice; } catch(_) {}
+} catch(_) {}
