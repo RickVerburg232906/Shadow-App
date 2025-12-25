@@ -108,18 +108,35 @@ function updateLunchFooterState() {
 		try { lunchCfg = lunchRaw ? JSON.parse(lunchRaw) : null; } catch(_) { lunchCfg = null; }
 		const keuzeList = Array.isArray(lunchCfg?.keuzeEten) ? lunchCfg.keuzeEten.map(String) : [];
 
-		// read stored values (member-scoped preferred)
+		// Prefer current DOM state: see if participation radio is selected
 		let deel = null;
-		try { deel = getMemberSessionField('lunchDeelname'); } catch(_) { deel = null; }
-		if (typeof deel === 'string') deel = deel.toLowerCase();
+		try {
+			const sel = document.querySelector('input[name="participation-lunch"]:checked');
+			if (sel) {
+				const v = (sel.value || '').toString().toLowerCase();
+				if (v === 'no' || v.indexOf('nee') !== -1 || v.indexOf('sla') !== -1) deel = 'nee';
+				else deel = 'ja';
+			}
+		} catch(_) { deel = null; }
+
+		// Fallback to stored value if no current selection
+		if (!deel) {
+			try { deel = getMemberSessionField('lunchDeelname'); } catch(_) { deel = null; }
+			if (typeof deel === 'string') deel = deel.toLowerCase();
+			if (!deel) try { deel = (sessionStorage.getItem('lunchDeelname')||'').toString().toLowerCase(); } catch(_) { }
+		}
 
 		// If deel is 'nee', enable
 		if (deel === 'nee') enabled = true;
 		else if (deel === 'ja') {
 			if (Array.isArray(keuzeList) && keuzeList.length > 0) {
-				// need lunchKeuze to be a non-empty value that matches lijst
+				// prefer DOM checked keuze
 				let keuze = null;
-				try { keuze = getMemberSessionField('lunchKeuze'); } catch(_) { keuze = null; }
+				try { const chosen = document.querySelector('input[name="keuzeEten"]:checked'); if (chosen && chosen.value) keuze = chosen.value; } catch(_) { keuze = null; }
+				if (!keuze) {
+					try { keuze = getMemberSessionField('lunchKeuze'); } catch(_) { keuze = null; }
+					if (!keuze) try { keuze = sessionStorage.getItem('lunchKeuze'); } catch(_) { }
+				}
 				if (keuze && keuzeList.indexOf(String(keuze)) !== -1) enabled = true;
 			} else {
 				// no keuze options: yes alone is enough
@@ -204,6 +221,132 @@ function setupMemberSuggestions() {
 							listEl.appendChild(item);
 						});
 						document.body.appendChild(listEl);
+// Realtime listener: attach a Firestore onSnapshot listener to update only ScanDatums
+function setupMemberScanListener() {
+	try {
+		// dynamically import Firebase SDK modules from CDN
+		(async () => {
+			try {
+				const firebaseAppMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js');
+				const firebaseFirestoreMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
+				const { initializeApp } = firebaseAppMod;
+				const { getFirestore, doc, onSnapshot, getDoc } = firebaseFirestoreMod;
+
+				// Firebase config (matches new-ui/firestore.js)
+				const firebaseConfig = { apiKey: 'AIzaSyCwHJ1VIqM9s4tfh2hn8KxqunuYySzuwQ', projectId: 'shadow-app-b3fb3' };
+				let app = null;
+				try { app = initializeApp(firebaseConfig); } catch(_) { /* already initialized? ignore */ }
+				const db = getFirestore(app);
+
+				let memberId = window._selectedMemberId || '';
+				if (!memberId) {
+					try {
+						for (const k of Object.keys(sessionStorage || {})) {
+							if (String(k).indexOf('shadow_ui_member_') === 0) { memberId = String(k).slice('shadow_ui_member_'.length); break; }
+						}
+					} catch(_) { memberId = '' }
+				}
+				if (!memberId) return;
+
+				const ref = doc(db, 'members', String(memberId));
+				// One-time check: fetch current document to verify read access and data shape
+				try {
+					try {
+						const snapOnce = await getDoc(ref);
+						try { console.debug('setupMemberScanListener: getDoc.exists', snapOnce && (typeof snapOnce.exists === 'function' ? snapOnce.exists() : !!snapOnce.exists)); } catch(_) {}
+						try { console.debug('setupMemberScanListener: getDoc.data', (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : snapOnce)); } catch(_) {}
+						// Normalize same as onSnapshot
+						try {
+							const dd = (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : null);
+							const rawArr = dd ? (dd.ScanDatums || dd.scandatums || dd.scans || null) : null;
+							const values = [];
+							if (Array.isArray(rawArr)) values.push(...rawArr);
+							else if (rawArr && Array.isArray(rawArr.arrayValue && rawArr.arrayValue.values ? rawArr.arrayValue.values : null)) values.push(...(rawArr.arrayValue.values || []));
+							const tmp = [];
+							for (const it of values) {
+								try {
+									if (!it) continue;
+									if (typeof it.toDate === 'function') { tmp.push(toYMDString(it.toDate())); continue; }
+									if (it && typeof it === 'object') { const maybe = it.stringValue || it.timestampValue || it.value || (it.seconds ? (it.seconds + '') : ''); if (maybe) { const y = toYMDString(maybe); if (y) tmp.push(y); continue; } }
+									if (typeof it === 'string' || it instanceof String) { const y = toYMDString(String(it)); if (y) tmp.push(y); continue; }
+									if (it instanceof Date) { const y = toYMDString(it); if (y) tmp.push(y); continue; }
+								} catch(_) { continue; }
+							}
+							const normalized = Array.from(new Set(tmp)).sort();
+							try { console.debug('setupMemberScanListener: getDoc.normalizedScanDatums', normalized); } catch(_) {}
+						} catch(_) {}
+					} catch(e) { console.warn('setupMemberScanListener getDoc failed', e); }
+				} catch(_) {}
+
+				const unsub = onSnapshot(ref, (snap) => {
+					try {
+						if (!snap.exists || (typeof snap.exists === 'function' && !snap.exists())) return;
+						const data = (typeof snap.data === 'function') ? snap.data() : (snap._document ? snap._document.data.value.mapValue.fields : null);
+						if (!data) return;
+						// Normalize ScanDatums from multiple possible shapes (Firestore Timestamp, string, Date)
+						let newScans = [];
+						try {
+							const rawArr = data.ScanDatums || data.scandatums || data.scans || null;
+							const values = [];
+							if (Array.isArray(rawArr)) {
+								values.push(...rawArr);
+							} else if (rawArr && Array.isArray(rawArr.arrayValue && rawArr.arrayValue.values ? rawArr.arrayValue.values : null)) {
+								values.push(...(rawArr.arrayValue.values || []));
+							}
+							for (const item of values) {
+								try {
+									if (!item) continue;
+									// Firestore client SDK returns Timestamp objects (has toDate)
+									if (typeof item.toDate === 'function') {
+										const d = item.toDate();
+										const y = toYMDString(d);
+										if (y) newScans.push(y);
+										continue;
+									}
+									// When using REST-like fields, item may be { stringValue: '...' } or { timestampValue: '...' }
+									if (item && typeof item === 'object') {
+										const maybe = item.stringValue || item.timestampValue || item.value || item.seconds ? (item.stringValue || item.timestampValue || '') : '';
+										if (maybe) {
+											const y = toYMDString(maybe);
+											if (y) newScans.push(y);
+											continue;
+										}
+									}
+									// Plain string or Date
+									if (typeof item === 'string' || item instanceof String) {
+										const y = toYMDString(String(item));
+										if (y) newScans.push(y);
+										continue;
+									}
+									if (item instanceof Date) {
+										const y = toYMDString(item);
+										if (y) newScans.push(y);
+										continue;
+									}
+								} catch(_) { continue; }
+							}
+							// unique and sorted
+							newScans = Array.from(new Set(newScans)).sort();
+						} catch(_) { newScans = []; }
+
+						const key = `shadow_ui_member_${String(memberId)}`;
+						let obj = null;
+						try { const raw = sessionStorage.getItem(key); obj = raw ? JSON.parse(raw) : {}; } catch(_) { obj = {}; }
+						// Update only ScanDatums field
+						try { obj.ScanDatums = newScans; sessionStorage.setItem(key, JSON.stringify(obj)); } catch(_) {}
+						try { document.dispatchEvent(new CustomEvent('shadow:member-updated', { detail: { memberId, full: obj } })); } catch(_) {}
+						try { renderMemberInfoChoices(); } catch(_) {}
+					} catch (e) { console.warn('member onSnapshot handler failed', e); }
+				}, (err) => { console.warn('member onSnapshot error', err); });
+
+				// Unsubscribe on unload
+				try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
+			} catch (e) { console.warn('setupMemberScanListener import/init failed', e); }
+		})();
+	} catch (e) { console.warn('setupMemberScanListener failed', e); }
+}
+
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setupMemberScanListener()); else setupMemberScanListener(); document.addEventListener('shadow:config-ready', () => setupMemberScanListener()); } catch(_) {}
 					} catch (e) { console.warn('showSuggestions failed', e); }
 				}
 				function schedule(prefix) { if (timer) clearTimeout(timer); timer = setTimeout(() => { showSuggestions(prefix); }, 300); }
@@ -304,18 +447,58 @@ function setupSignupFooterNavigation() {
 // Bind index footer button to navigate to the signup page
 function setupIndexFooterNavigation() {
 	try {
-		const btn = document.getElementById('agree-index');
-		if (!btn) return;
-		if (btn.dataset && btn.dataset._indexBound) return;
-		btn.addEventListener('click', (e) => {
+		// dynamically import Firebase SDK modules from CDN
+		(async () => {
 			try {
-				// navigate to the signup page (sibling folder `lid-ui`)
-				e.preventDefault();
-				window.location.href = '../lid-ui/signupPage.html';
-			} catch (err) { console.warn('agree-index handler failed', err); }
-		});
-		if (btn.dataset) btn.dataset._indexBound = '1';
-	} catch (e) { console.warn('setupIndexFooterNavigation failed', e); }
+				const firebaseAppMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js');
+				const firebaseFirestoreMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
+				const { initializeApp } = firebaseAppMod;
+				const { getFirestore, doc, onSnapshot, getDoc } = firebaseFirestoreMod;
+
+				// Firebase config (matches new-ui/firestore.js)
+				const firebaseConfig = { apiKey: 'AIzaSyCwHJ1VIqM9s4tfh2hn8KxqunuYySzuwQ', projectId: 'shadow-app-b3fb3' };
+				let app = null;
+				try { app = initializeApp(firebaseConfig); } catch(_) { /* already initialized? ignore */ }
+				const db = getFirestore(app);
+
+				let memberId = window._selectedMemberId || '';
+				if (!memberId) {
+					try {
+						for (const k of Object.keys(sessionStorage || {})) {
+							if (String(k).indexOf('shadow_ui_member_') === 0) { memberId = String(k).slice('shadow_ui_member_'.length); break; }
+						}
+					} catch(_) { memberId = '' }
+				}
+				if (!memberId) return;
+
+				const ref = doc(db, 'members', String(memberId));
+
+				// optional one-time read to surface shapes in the console
+				try {
+					const snapOnce = await getDoc(ref).catch(()=>null);
+					try { console.debug('setupMemberScanListener: getDoc present', !!(snapOnce && (typeof snapOnce.exists === 'function' ? snapOnce.exists() : snapOnce.exists))); } catch(_) {}
+					try { const dd = (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : snapOnce); console.debug('setupMemberScanListener: getDoc.raw', dd); } catch(_) {}
+				} catch(_) {}
+
+				const unsub = onSnapshot(ref, (snap) => {
+					try {
+						const data = (snap && typeof snap.data === 'function') ? snap.data() : (snap && snap._document ? snap._document.data.value.mapValue.fields : null);
+						const normalized = getMemberScanYMDs(data || {});
+						const key = `shadow_ui_member_${String(memberId)}`;
+						let obj = {};
+						try { const raw = sessionStorage.getItem(key); obj = raw ? JSON.parse(raw) : {}; } catch(_) { obj = {}; }
+						try { obj.ScanDatums = normalized; sessionStorage.setItem(key, JSON.stringify(obj)); } catch(_) {}
+						try { document.dispatchEvent(new CustomEvent('shadow:member-updated', { detail: { memberId, full: obj } })); } catch(_) {}
+						try { renderMemberInfoChoices(); } catch(_) {}
+					} catch (e) { console.warn('member onSnapshot handler failed', e); }
+				}, (err) => { console.warn('member onSnapshot error', err); });
+
+				// Unsubscribe on unload
+				try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
+			} catch (e) { console.warn('setupMemberScanListener import/init failed', e); }
+		})();
+	} catch (e) { console.warn('setupMemberScanListener failed', e); }
+
 }
 
 // Simple footer delegation to ensure footer buttons are wired in static pages
@@ -324,9 +507,11 @@ function setupFooterDelegation() {
 		// provide a lightweight binding for agree-signup enablement
 		try { setupMemberSuggestions(); } catch(_) {}
 		try { setupSignupFooterNavigation(); } catch(_) {}
+		try { setupLunchFooterNavigation(); } catch(_) {}
 	try { setupIndexFooterNavigation(); } catch(_) {}
 	try { setupHeaderBackButtons(); } catch(_) {}
 	try { setupSignupInputClear(); } catch(_) {}
+		try { setupJaarhangerFooterNavigation(); } catch(_) {}
 		// ensure initial state
 		try { updateSignupFooterState(); } catch(_) {}
 		// expose helpers for console
@@ -334,6 +519,264 @@ function setupFooterDelegation() {
 		try { window.clearAllMemberSessionData = clearAllMemberSessionData; } catch(_) {}
 	} catch (e) { console.warn('setupFooterDelegation failed', e); }
 }
+
+// Render member info choices (Lunch / Jaarhanger) on the memberInfoPage
+function renderMemberInfoChoices() {
+	try {
+		// Render member header (name + LidNr) when available in session
+		try {
+			const nameEl = document.querySelector('.member-name');
+			const metaBadges = document.querySelector('.meta-badges');
+			// try to obtain the full stored member object from sessionStorage
+			let memberObj = null;
+			try {
+				for (const k of Object.keys(sessionStorage || {})) {
+					try {
+						if (String(k).indexOf('shadow_ui_member_') === 0) {
+							const raw = sessionStorage.getItem(k);
+							if (raw) {
+								try { memberObj = JSON.parse(raw); break; } catch(_) { continue; }
+							}
+						}
+					} catch(_) {}
+				}
+			} catch(_) { memberObj = null; }
+
+			// Fallback: window._selectedMemberId -> shadow object
+			if (!memberObj) {
+				try {
+					const mid = window._selectedMemberId || '';
+					if (mid) {
+						const raw = sessionStorage.getItem(`shadow_ui_member_${String(mid)}`);
+						if (raw) memberObj = JSON.parse(raw);
+					}
+				} catch(_) { memberObj = memberObj || null; }
+			}
+
+			// Extract LidNr and name with some common fallbacks
+			let lid = '';
+			let displayName = '';
+			if (memberObj) {
+				lid = String(memberObj.id || memberObj.LidNr || memberObj.lidNr || memberObj.lid || memberObj.memberNo || memberObj.MemberNo || '').trim();
+				// Prefer composed name fields if present
+				const voor = (memberObj['Voor naam'] || memberObj.voor || memberObj.Voor || memberObj.firstName || memberObj.voornaam || '') || '';
+				const naam = (memberObj.Naam || memberObj.naam || memberObj.lastName || memberObj.Naam || '') || '';
+				displayName = `${String(voor).trim()} ${String(naam).trim()}`.replace(/\s+/g,' ').trim();
+			}
+			if (nameEl) {
+				try { nameEl.textContent = displayName || (memberObj && (memberObj.Naam || memberObj.naam || memberObj.id) ) || '' ; } catch(_) {}
+			}
+			if (metaBadges) {
+				try {
+					// Render a LidNr chip first, then preserve any existing second chip (region/icon)
+					const chips = [];
+					const lidChip = document.createElement('span');
+					lidChip.className = 'info-chip';
+					const icon = document.createElement('span');
+					icon.className = 'material-symbols-outlined';
+					icon.setAttribute('aria-hidden','true');
+					icon.textContent = 'badge';
+					lidChip.appendChild(icon);
+					const txt = document.createElement('span');
+					txt.style.marginLeft = '8px';
+					txt.textContent = lid ? String(lid) : '—';
+					lidChip.appendChild(txt);
+					chips.push(lidChip);
+
+					// Build a region chip from the stored member object (Regio Omschrijving)
+					const regionText = memberObj ? String(memberObj['Regio Omschrijving'] || memberObj.Regio || memberObj.regio || memberObj.region || '').trim() : '';
+					const regionChip = document.createElement('span');
+					regionChip.className = 'info-chip';
+					const locIcon = document.createElement('span');
+					locIcon.className = 'material-symbols-outlined';
+					locIcon.setAttribute('aria-hidden','true');
+					locIcon.textContent = 'location_on';
+					regionChip.appendChild(locIcon);
+					const regionTxt = document.createElement('span');
+					regionTxt.style.marginLeft = '8px';
+					regionTxt.textContent = regionText || '—';
+					regionChip.appendChild(regionTxt);
+					chips.push(regionChip);
+
+					// replace contents
+					metaBadges.innerHTML = '';
+					for (const c of chips) metaBadges.appendChild(c);
+				} catch(_) {}
+			}
+		} catch(e) { console.warn('renderMemberInfoChoices.header failed', e); }
+
+		// Render ride attendance stats (Gereden Ritten)
+		try {
+			const statCountEl = document.querySelector('.stat-count');
+			const starsContainer = document.querySelector('.stats-stars');
+			// read planned dates
+			let planned = [];
+			try {
+				const rc = sessionStorage.getItem('rideConfig');
+				if (rc) {
+					try { const obj = JSON.parse(rc); if (obj && Array.isArray(obj.plannedDates)) planned = obj.plannedDates.map(d=>toYMDString(d)).filter(Boolean); } catch(_) { planned = []; }
+				}
+			} catch(_) { planned = []; }
+
+			// read member scan dates from stored shadow object
+			let scans = [];
+			try {
+				let memberObj = null;
+				for (const k of Object.keys(sessionStorage || {})) {
+					try {
+						if (String(k).indexOf('shadow_ui_member_') === 0) {
+							const raw = sessionStorage.getItem(k);
+							if (raw) { try { memberObj = JSON.parse(raw); break; } catch(_) { continue; } }
+						}
+					} catch(_) {}
+				}
+				if (!memberObj) {
+					try { const mid = window._selectedMemberId || ''; if (mid) { const raw = sessionStorage.getItem(`shadow_ui_member_${String(mid)}`); if (raw) memberObj = JSON.parse(raw); } } catch(_) {}
+				}
+				if (memberObj) {
+					const s = Array.isArray(memberObj.ScanDatums) ? memberObj.ScanDatums : (Array.isArray(memberObj.scandatums) ? memberObj.scandatums : (Array.isArray(memberObj.scans) ? memberObj.scans : []));
+					if (Array.isArray(s)) scans = s.map(d=>toYMDString(d)).filter(Boolean);
+				}
+			} catch(_) { scans = []; }
+
+			const plannedSet = new Set((planned||[]));
+			const scanSet = new Set((scans||[]));
+			// Debug: log planned vs scanned dates to help troubleshooting why stars don't light
+			try {
+				if (window && window.location && window.location.hostname) {
+					console.debug('renderMemberInfoChoices: planned', planned);
+					console.debug('renderMemberInfoChoices: scans', scans);
+					console.debug('renderMemberInfoChoices: plannedSet', Array.from(plannedSet));
+					console.debug('renderMemberInfoChoices: scanSet', Array.from(scanSet));
+				}
+			} catch(_) {}
+			let attended = 0;
+			if (planned && planned.length > 0) {
+				for (const p of planned) if (scanSet.has(p)) attended++;
+			}
+			const total = planned ? planned.length : 0;
+			if (statCountEl) {
+				try { statCountEl.textContent = `${attended} / ${total}`; } catch(_) {}
+			}
+			if (starsContainer) {
+				try {
+					// Decide whether to show 5 or 6 stars based on ride data
+					const numStars = (Array.isArray(planned) && planned.length >= 6) ? 6 : 5;
+					// choose dates for each star (take earliest planned dates)
+					const sortedPlanned = Array.isArray(planned) ? (planned.slice().sort()) : [];
+					const starDates = [];
+					for (let i=0;i<numStars;i++) {
+						starDates.push(sortedPlanned[i] || '');
+					}
+					// rebuild stars with date metadata; mark filled if member scanned on that date
+					starsContainer.innerHTML = '';
+					let filledCount = 0;
+					for (let i=0;i<numStars;i++) {
+						const date = starDates[i] || '';
+						const sp = document.createElement('span');
+						sp.className = 'material-symbols-outlined star';
+						sp.textContent = 'star';
+						if (date) {
+							sp.dataset.date = String(date);
+							try { sp.title = formatDateLocal(date); } catch(_) {}
+							if (scanSet.has(String(date))) {
+								try { console.debug('renderMemberInfoChoices: filling star for', String(date)); } catch(_) {}
+								sp.classList.add('filled'); filledCount++;
+							}
+						} else {
+							sp.classList.add('empty');
+						}
+						starsContainer.appendChild(sp);
+					}
+					// accessible label
+					try { starsContainer.setAttribute('aria-label', filledCount ? `Sterren: ${filledCount}` : 'Geen sterren'); } catch(_) {}
+				} catch(_) {}
+			}
+		} catch(e) { console.warn('renderMemberInfoChoices.stats failed', e); }
+		const lunchItem = document.querySelector('.mk-item--lunch');
+		if (lunchItem) {
+			try {
+				let deel = null;
+				try { deel = getMemberSessionField('lunchDeelname'); } catch(_) { deel = null; }
+				if (!deel) try { deel = sessionStorage.getItem('lunchDeelname'); } catch(_) { }
+				deel = (deel || '').toString().toLowerCase();
+
+				const valueEl = lunchItem.querySelector('.mk-item-value');
+				const badge = lunchItem.querySelector('.mk-status-badge');
+				const icon = badge && badge.querySelector('.material-symbols-outlined');
+
+				if (deel === 'ja') {
+					// show check and the chosen meal
+					let keuze = null;
+					try { keuze = getMemberSessionField('lunchKeuze'); } catch(_) { keuze = null; }
+					if (!keuze) try { keuze = sessionStorage.getItem('lunchKeuze'); } catch(_) { }
+					if (valueEl) valueEl.textContent = keuze && String(keuze).trim() ? String(keuze) : (valueEl.textContent || '');
+					if (icon) icon.textContent = 'check';
+					if (badge) { badge.classList.remove('mk-badge-no'); badge.classList.add('mk-badge-yes'); }
+					try { lunchItem.classList.remove('mk-no'); } catch(_) {}
+				} else if (deel === 'nee') {
+					// show cross and Afwezig
+					if (valueEl) valueEl.textContent = 'Afwezig';
+					if (icon) icon.textContent = 'close';
+					if (badge) { badge.classList.remove('mk-badge-yes'); badge.classList.add('mk-badge-no'); }
+					try { lunchItem.classList.add('mk-no'); } catch(_) {}
+				} else {
+					// no selection: leave as-is or show placeholder
+				}
+			} catch (e) { console.warn('renderMemberInfoChoices.lunch failed', e); }
+		}
+
+		// Jaarhanger (optional): reflect simple yes/no visual if present
+		try {
+			const jaarItem = document.querySelector('.mk-item--jaar');
+			if (jaarItem) {
+				let jah = null;
+				try { jah = getMemberSessionField('Jaarhanger'); } catch(_) { jah = null; }
+				if (!jah) try { jah = sessionStorage.getItem('Jaarhanger'); } catch(_) { }
+				jah = (jah || '').toString().toLowerCase();
+				const valueEl = jaarItem.querySelector('.mk-item-value');
+				// Always show the current year edition as subtitle
+				try { if (valueEl) valueEl.textContent = String(new Date().getFullYear()) + ' Editie'; } catch(_) {}
+				const badge = jaarItem.querySelector('.mk-status-badge');
+				const icon = badge && badge.querySelector('.material-symbols-outlined');
+				if (jah === 'ja') {
+					if (icon) icon.textContent = 'check';
+					if (badge) { badge.classList.remove('mk-badge-no'); badge.classList.add('mk-badge-yes'); }
+					try { jaarItem.classList.remove('mk-no'); } catch(_) {}
+				} else if (jah === 'nee') {
+					if (icon) icon.textContent = 'close';
+					if (badge) { badge.classList.remove('mk-badge-yes'); badge.classList.add('mk-badge-no'); }
+					try { jaarItem.classList.add('mk-no'); } catch(_) {}
+				}
+			}
+		} catch(_) {}
+	} catch (e) { console.warn('renderMemberInfoChoices failed', e); }
+}
+
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderMemberInfoChoices); else renderMemberInfoChoices(); document.addEventListener('shadow:config-ready', renderMemberInfoChoices); } catch(_) {}
+
+// Allow clicking the member-info cards to navigate to the related pages
+function setupMemberInfoCardNavigation() {
+	try {
+		const lunchItem = document.querySelector('.mk-item--lunch');
+		if (lunchItem && !(lunchItem.dataset && lunchItem.dataset._navBound)) {
+			lunchItem.addEventListener('click', (ev) => {
+				try { ev.preventDefault(); window.location.href = '../lid-ui/lunchPage.html'; } catch(_) { try { window.location.href = '/lid-ui/lunchPage.html'; } catch(_) {} }
+			});
+			if (lunchItem.dataset) lunchItem.dataset._navBound = '1';
+		}
+
+		const jaarItem = document.querySelector('.mk-item--jaar');
+		if (jaarItem && !(jaarItem.dataset && jaarItem.dataset._navBound)) {
+			jaarItem.addEventListener('click', (ev) => {
+				try { ev.preventDefault(); window.location.href = '../lid-ui/jaarhangerPage.html'; } catch(_) { try { window.location.href = '/lid-ui/jaarhangerPage.html'; } catch(_) {} }
+			});
+			if (jaarItem.dataset) jaarItem.dataset._navBound = '1';
+		}
+	} catch (e) { console.warn('setupMemberInfoCardNavigation failed', e); }
+}
+
+try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupMemberInfoCardNavigation); else setupMemberInfoCardNavigation(); document.addEventListener('shadow:config-ready', setupMemberInfoCardNavigation); } catch(_) {}
 
 // When the signup input is focused/clicked, clear its contents and any selected-member metadata
 function setupSignupInputClear() {
@@ -462,6 +905,7 @@ function daysUntil(iso) {
 }
 
 function toYMDString(val) {
+
 	try {
 		if (!val) return '';
 		if (typeof val === 'string') {
@@ -478,6 +922,66 @@ function toYMDString(val) {
 		}
 		return '';
 	} catch(_) { return ''; }
+}
+
+// Return array of YMD scan dates from member object. Accepts several shapes.
+function getMemberScanYMDs(member) {
+	try {
+		if (!member) return [];
+		// try common field names
+		const candidates = [member.ScanDatums, member.scanDatums, member.ScanDatum, member.scanDatum, member.scanDates, member.ScanDates, member.ScanDatumList, member.scanDatumList];
+		let raw = null;
+		for (const c of candidates) { if (typeof c !== 'undefined' && c !== null) { raw = c; break; } }
+		// fallback: look for any key that contains 'scan' in the member object
+		if (!raw) {
+			for (const k of Object.keys(member || {})) {
+				if (k.toLowerCase().includes('scan')) {
+					raw = member[k];
+					break;
+				}
+			}
+		}
+		if (!raw) return [];
+		const result = [];
+		// If array
+		if (Array.isArray(raw)) {
+			for (const it of raw) {
+				if (!it) continue;
+				if (typeof it === 'string') { result.push(String(it).slice(0,10)); continue; }
+				if (typeof it === 'object') {
+					// Firestore timestamp object? (seconds/nanoseconds)
+					if (typeof it.seconds === 'number') {
+						try { result.push(new Date(it.seconds * 1000).toISOString().slice(0,10)); continue; } catch(_){ }
+					}
+					// nested value property
+					if (it.value && typeof it.value === 'string') { result.push(String(it.value).slice(0,10)); continue; }
+					// if it has a date-like prop
+					for (const pk of ['date','datum','scanDate','ScanDatum']) {
+						if (it[pk]) { result.push(String(it[pk]).slice(0,10)); break; }
+					}
+				}
+			}
+			return Array.from(new Set(result)).filter(Boolean);
+		}
+		// If object/map: keys may be date strings or values may be timestamps
+		if (typeof raw === 'object') {
+			for (const [k,v] of Object.entries(raw)) {
+				// if key looks like a date
+				if (typeof k === 'string' && /^\d{4}-\d{2}-\d{2}/.test(k)) result.push(k.slice(0,10));
+				// if value is timestamp-like
+				if (v) {
+					if (typeof v === 'string') result.push(v.slice(0,10));
+					else if (typeof v === 'object' && typeof v.seconds === 'number') result.push(new Date(v.seconds * 1000).toISOString().slice(0,10));
+				}
+			}
+			return Array.from(new Set(result)).filter(Boolean);
+		}
+		// If string
+		if (typeof raw === 'string') {
+			return [raw.slice(0,10)];
+		}
+		return [];
+	} catch (e) { return []; }
 }
 
 function todayYMD() { try { return new Date().toISOString().slice(0,10); } catch(_) { return ''; } }
@@ -584,6 +1088,66 @@ try {
 	document.addEventListener('shadow:config-ready', renderPlannedRides);
 } catch(_) {}
 
+		// Generate QR for check-in with requested columns
+		try {
+			const qrImg = document.getElementById('memberInfoQRImg');
+			const saveBtn = document.getElementById('save-qr-btn');
+			// resolve member object again
+			let memberObj2 = null;
+			try {
+				for (const k of Object.keys(sessionStorage || {})) {
+					try {
+						if (String(k).indexOf('shadow_ui_member_') === 0) {
+							const raw = sessionStorage.getItem(k);
+							if (raw) { try { memberObj2 = JSON.parse(raw); break; } catch(_) { continue; } }
+						}
+					} catch(_) {}
+				}
+			} catch(_) { memberObj2 = null; }
+			// fallbacks
+			const lidNr = (memberObj2 && (memberObj2.LidNr || memberObj2.lidnummer || memberObj2.id || memberObj2.lid)) ? (memberObj2.LidNr || memberObj2.lidnummer || memberObj2.id || memberObj2.lid) : '';
+			let jah = null;
+			try { jah = getMemberSessionField('Jaarhanger'); } catch(_) { jah = null; }
+			if (!jah) try { jah = sessionStorage.getItem('Jaarhanger'); } catch(_) {}
+			let lunchDel = null;
+			try { lunchDel = getMemberSessionField('lunchDeelname'); } catch(_) { lunchDel = null; }
+			if (!lunchDel) try { lunchDel = sessionStorage.getItem('lunchDeelname'); } catch(_) {}
+			let lunchKeuze = null;
+			try { lunchKeuze = getMemberSessionField('lunchKeuze'); } catch(_) { lunchKeuze = null; }
+			if (!lunchKeuze) try { lunchKeuze = sessionStorage.getItem('lunchKeuze'); } catch(_) {}
+			const payload = {
+				LidNr: String(lidNr || ''),
+				Jaarhanger: (jah || '').toString(),
+				lunchDeelname: (lunchDel || '').toString(),
+				lunchKeuze: (lunchKeuze || '').toString()
+			};
+			try {
+				const dataStr = JSON.stringify(payload);
+				if (qrImg) {
+					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(dataStr);
+					qrImg.alt = `QR: ${dataStr}`;
+					qrImg.setAttribute('data-qrcode-payload', dataStr);
+				}
+				if (saveBtn) {
+					saveBtn.style.display = '';
+					if (!saveBtn.dataset._bound) {
+						saveBtn.addEventListener('click', async () => {
+							try {
+								if (!qrImg || !qrImg.src) return;
+								const res = await fetch(qrImg.src, { mode: 'cors' });
+								const blob = await res.blob();
+								const filename = `QR_${String(payload.LidNr||'member')}.png`;
+								const url = URL.createObjectURL(blob);
+								const a = document.createElement('a');
+								a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+								setTimeout(() => URL.revokeObjectURL(url), 1500);
+							} catch (e) { console.warn('save-qr failed', e); }
+						});
+						if (saveBtn.dataset) saveBtn.dataset._bound = '1';
+					}
+				}
+			} catch (e) { console.warn('generate QR failed', e); }
+		} catch(_) {}
 // Render lunch preview area (vastEten / keuzeEten) from sessionStorage 'lunch'
 function renderLunchPreview() {
 	try {
@@ -644,7 +1208,6 @@ function renderLunchPreview() {
 							input.addEventListener('change', (ev) => {
 								try {
 									if (input.checked) {
-										setMemberSessionField('lunchKeuze', input.value);
 										try { updateLunchFooterState(); } catch(_) {}
 									}
 								} catch(_) {}
@@ -725,8 +1288,8 @@ function setupLunchParticipationHandlers() {
 						} catch(_) {}
 					}
 				} catch(_) {}
-				// clear member's gekozen lunch keuze
-				try { setMemberSessionField('lunchKeuze', null); } catch(_) {}
+				// clear member's gekozen lunch keuze (persist on footer click instead)
+				try { /* delayed persist: clear on footer click */ } catch(_) {}
 				// fade sections
 				try { const v = document.getElementById('vastEtenSection'); if (v) v.classList.add('muted-section'); } catch(_) {}
 				try { const k = document.getElementById('keuzeEtenSection'); if (k) k.classList.add('muted-section'); } catch(_) {}
@@ -742,8 +1305,8 @@ function setupLunchParticipationHandlers() {
 						} catch(_) {}
 					}
 				} catch(_) {}
-				// sessionStorage flag
-				try { setMemberSessionLunch('nee'); } catch(_) {}
+				// sessionStorage flag (persist on footer click instead)
+				try { /* delayed persist */ } catch(_) {}
 			} catch(_) {}
 		}
 
@@ -779,7 +1342,7 @@ function setupLunchParticipationHandlers() {
 						} catch(_) {}
 					}
 				} catch(_) {}
-				try { setMemberSessionLunch('ja'); } catch(_) {}
+				try { /* delayed persist */ } catch(_) {}
 			} catch(_) {}
 		}
 
@@ -844,29 +1407,95 @@ function setupJaarhangerHandlers() {
 				for (const r of radios) {
 					try { r.checked = (r.value || '').toString().toLowerCase() === (v === 'yes' || v === 'ja' ? 'yes' : (v === 'no' || v === 'nee' ? 'no' : r.value)); } catch(_) {}
 				}
-				// enable footer when a selection exists
-				try { const btn = document.getElementById('agree-jaarhanger'); if (btn) { const any = radios.some(rr => rr.checked); btn.disabled = !any; if (btn.disabled) { btn.classList && btn.classList.add('disabled'); btn.setAttribute('aria-disabled','true'); } else { btn.classList && btn.classList.remove('disabled'); btn.removeAttribute('aria-disabled'); } } } catch(_) {}
+				// update footer state
+				try { updateJaarhangerFooterState(); } catch(_) {}
 			} catch(_) {}
 		}
 
 		// try to read member session fields for jaarhanger choice
 		let val = null;
-		try { val = getMemberSessionField('jaarhanger'); } catch(_) { val = null; }
+		try { val = getMemberSessionField('Jaarhanger'); } catch(_) { val = null; }
 		if (!val) {
-			// try other common keys
-			try { val = getMemberSessionField('Jaarhanger'); } catch(_) { val = null; }
-		}
-		if (!val) {
-			try { val = sessionStorage.getItem('jaarhanger'); } catch(_) { val = null; }
+			try { val = sessionStorage.getItem('Jaarhanger'); } catch(_) { val = null; }
 		}
 		if (val) applySelection(val);
 
 		// wire change to update footer state
 		for (const r of radios) {
-			try { r.addEventListener('change', () => { try { const btn = document.getElementById('agree-jaarhanger'); if (btn) { const any = radios.some(rr => rr.checked); btn.disabled = !any; if (btn.disabled) { btn.classList && btn.classList.add('disabled'); btn.setAttribute('aria-disabled','true'); } else { btn.classList && btn.classList.remove('disabled'); btn.removeAttribute('aria-disabled'); } } } catch(_) {} }); } catch(_) {}
+			try {
+				r.addEventListener('change', () => {
+					try {
+						// update footer state; do not persist here (footer click will persist)
+						try { updateJaarhangerFooterState(); } catch(_) {}
+					} catch(_) {}
+				});
+			} catch(_) {}
 		}
+
+		// ensure initial footer state reflects DOM/session
+		try { updateJaarhangerFooterState(); } catch(_) {}
 	} catch (e) { console.warn('setupJaarhangerHandlers failed', e); }
 }
 
 try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupJaarhangerHandlers); else setupJaarhangerHandlers(); document.addEventListener('shadow:config-ready', setupJaarhangerHandlers); } catch(_) {}
+
+// Enable/disable jaarhanger footer button based on current selection (DOM first, then session)
+function updateJaarhangerFooterState() {
+	try {
+		const btn = document.getElementById('agree-jaarhanger');
+		if (!btn) return;
+		let enabled = false;
+		try {
+			const sel = document.querySelector('input[name="participation-jaarhanger"]:checked');
+			if (sel) enabled = true;
+		} catch(_) { enabled = false; }
+		if (!enabled) {
+			try {
+				let val = getMemberSessionField('Jaarhanger');
+				if (!val) val = sessionStorage.getItem('Jaarhanger');
+				if (val && String(val).trim() !== '') enabled = true;
+			} catch(_) {}
+		}
+		// toggle disabled state
+		btn.disabled = !enabled;
+		if (btn.disabled) { btn.classList && btn.classList.add('disabled'); btn.setAttribute('aria-disabled','true'); }
+		else { btn.classList && btn.classList.remove('disabled'); btn.removeAttribute('aria-disabled'); }
+
+		// If the selected option is explicitly 'nee', show a danger (red) footer button
+		try {
+			const sel = document.querySelector('input[name="participation-jaarhanger"]:checked');
+			const isNee = sel ? ((sel.value||'').toString().toLowerCase().indexOf('nee') !== -1 || (sel.value||'').toString().toLowerCase().indexOf('sla') !== -1 || (sel.value||'').toString().toLowerCase() === 'no') : false;
+			if (isNee) btn.classList.add('app-footer__button--danger'); else btn.classList.remove('app-footer__button--danger');
+		} catch(_) {}
+	} catch (e) { console.warn('updateJaarhangerFooterState failed', e); }
+}
+
+// Persist jaarhanger choice when the jaarhanger page footer is clicked
+function setupJaarhangerFooterNavigation() {
+	try {
+		const btn = document.getElementById('agree-jaarhanger');
+		if (!btn) return;
+		if (btn.dataset && btn.dataset._jaarBound) return;
+		btn.addEventListener('click', (e) => {
+			try {
+				e.preventDefault();
+				// find selected radio
+				const sel = document.querySelector('input[name="participation-jaarhanger"]:checked');
+				let toSave = '';
+				if (sel) {
+					const v = (sel.value || '').toString().toLowerCase();
+					if (v === 'yes' || v.indexOf('ja') !== -1) toSave = 'ja';
+					else if (v === 'no' || v.indexOf('nee') !== -1) toSave = 'nee';
+					else toSave = v || '';
+				}
+							if (toSave) {
+								try { setMemberSessionField('Jaarhanger', toSave); } catch(_) { try { sessionStorage.setItem('Jaarhanger', toSave); } catch(_) {} }
+							}
+				// After saving, navigate to member info
+				try { window.location.href = '../lid-ui/memberInfoPage.html'; } catch(_) { window.location.href = '/lid-ui/memberInfoPage.html'; }
+			} catch(_) {}
+		});
+		if (btn.dataset) btn.dataset._jaarBound = '1';
+	} catch (e) { console.warn('setupJaarhangerFooterNavigation failed', e); }
+}
 

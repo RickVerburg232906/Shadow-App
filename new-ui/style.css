@@ -327,17 +327,22 @@ body.app{
 .stat-count{ color:#6b7280; font-weight:600; }
 .stats-stars{ display:flex; gap:12px; justify-content:center; padding:12px; background:transparent; border-radius:10px; }
 .star{ font-size:32px; }
+/* Default star: outlined variant and dark grey color */
+.material-symbols-outlined.star{
+  font-variation-settings: 'FILL' 0, 'wght' 400;
+  -webkit-font-variation-settings: 'FILL' 0, 'wght' 400;
+  color: #6b7280; /* default dark grey */
+}
 /* Use Material Symbols filled glyph when `.filled` present */
 .material-symbols-outlined.star.filled{
   /* enable filled glyph (1 = filled) and set weight */
   font-variation-settings: 'FILL' 1, 'wght' 400;
   -webkit-font-variation-settings: 'FILL' 1, 'wght' 400;
-  color: #F2C438;
+  color: #F2C438 !important;
 }
 .material-symbols-outlined.star.empty{
-  font-variation-settings: 'FILL' 0, 'wght' 400;
-  -webkit-font-variation-settings: 'FILL' 0, 'wght' 400;
-  color: #e5e7eb;
+  /* ensure empty stars render in dark grey */
+  color: #6b7280 !important;
 }
 
 /* Updated Gereden Ritten visual style to match design */
@@ -348,7 +353,7 @@ body.app{
 .stats-stars{ display:flex; gap:18px; justify-content:center; align-items:center; padding:14px; background:#f3f4f6; border-radius:10px; max-width:420px; margin:8px auto 0; }
 .stats-stars .star{ font-size:28px; line-height:1; }
 .stats-stars .star.filled{ color: #F2C438; }
-.stats-stars .star.empty{ color: #e5e7eb; }
+.stats-stars .star.empty{ color: #6b7280; }
 
 /* Ensure the stars container is horizontally centered inside the card */
 .stats-card .stats-stars{ margin-left: auto; margin-right: auto; }
@@ -636,6 +641,8 @@ div[role="button"] > .vast-item.selected,
 .app-footer__button--danger{ background: #8C2B07; color: #fff; box-shadow: 0 10px 20px rgba(140,43,7,0.18); }
 .app-footer__button--danger:hover{ background:#7a2605; }
 .app-footer__button--danger:active{ transform: scale(0.98); }
+
+/* Jaarhanger-specific danger variant removed; danger styling is used only for lunch footer */
 
 /* Page loader removed; spinner rules deleted */
 
