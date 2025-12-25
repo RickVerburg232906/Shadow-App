@@ -68,5 +68,22 @@
     </div>
   </footer>
   <script type="module" src="member.js"></script>
+  <script>
+    // Dump sessionStorage on every page load for debugging
+    (function dumpSessionOnLoad(){
+      try{
+        function snapshot(){
+          const out = {};
+          for(let i=0;i<sessionStorage.length;i++){
+            const k = sessionStorage.key(i);
+            try{ out[k] = JSON.parse(sessionStorage.getItem(k)); }catch(_){ out[k] = sessionStorage.getItem(k); }
+          }
+          return out;
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=> console.debug('sessionStorage snapshot on load', snapshot()));
+        else console.debug('sessionStorage snapshot on load', snapshot());
+      }catch(e){ console.warn('dumpSessionOnLoad failed', e); }
+    })();
+  </script>
 </body>
 </html>

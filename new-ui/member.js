@@ -6,9 +6,41 @@ function memberDebugLog(...args) { if (!window.MEMBER_POPULATE_DEBUG) return; tr
 function resetMemberChoices(memberId) {
 	try {
 		if (!memberId) return;
-		const key = `shadow_ui_member_choices_${String(memberId)}`;
-		try { sessionStorage.removeItem(key); } catch(_) {}
+		const key = `shadow_ui_member_${String(memberId)}`;
+		try {
+			const raw = sessionStorage.getItem(key);
+			if (raw) {
+				try {
+					const parsed = JSON.parse(raw || '{}');
+					// remove transient choice fields but keep the stored member record
+					try { delete parsed.lunchDeelname; } catch(_) {}
+					try { delete parsed.lunchKeuze; } catch(_) {}
+					try { delete parsed.LunchDeelname; } catch(_) {}
+					try { delete parsed.LunchKeuze; } catch(_) {}
+					try { delete parsed.Jaarhanger; } catch(_) {}
+					// if object now empty, remove key; else write back
+					const hasKeys = Object.keys(parsed || {}).length > 0;
+					if (hasKeys) setSessionAndDump(key, JSON.stringify(parsed)); else sessionStorage.removeItem(key);
+				} catch(_) { try { sessionStorage.removeItem(key); } catch(_) {} }
+			}
+		} catch(_) {}
 		memberDebugLog('resetMemberChoices', { key });
+	} catch(_) {}
+}
+
+// Clear all member-related sessionStorage keys (used when selecting a different member)
+function clearAllMemberSessionData() {
+	try {
+		const keys = Object.keys(sessionStorage || {});
+		for (const k of keys) {
+			try {
+				if (!k) continue;
+				if (k.startsWith('shadow_ui_member_') || k.startsWith('shadow_ui_member_choices_') || k === 'shadow_ui_current_member') {
+					try { sessionStorage.removeItem(k); } catch(_) {}
+				}
+			} catch(_) {}
+		}
+		try { dumpSessionStorage(); } catch(_) {}
 	} catch(_) {}
 }
 
@@ -18,8 +50,8 @@ async function downloadMemberQR() {
 		const img = document.getElementById('memberInfoQRImg');
 		if (!img) return;
 		let src = img.src || '';
-		if (!src) {
-			try { await renderMemberInfoQR(window.SELECTED_MEMBER || null); } catch(_){}
+			if (!src) {
+			try { await renderMemberInfoQR(null); } catch(_){ }
 			src = img.src || '';
 		}
 		if (!src) return;
@@ -27,7 +59,7 @@ async function downloadMemberQR() {
 		try {
 			const resp = await fetch(src);
 			const blob = await resp.blob();
-			const lid = (window.SELECTED_MEMBER && (window.SELECTED_MEMBER.LidNr || window.SELECTED_MEMBER.id)) || 'member';
+			const lid = 'member';
 			const a = document.createElement('a');
 			const url = URL.createObjectURL(blob);
 			a.href = url;
@@ -56,7 +88,7 @@ function setupDownloadQRButton() {
 
 function populateMemberHeader() {
 	try {
-		const member = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+		const member = null;
 		memberDebugLog('populateMemberHeader:start', { member });
 		const els = Array.from(document.querySelectorAll('.member-name'));
 		if (!els || els.length === 0) return;
@@ -75,7 +107,7 @@ function populateMemberHeader() {
 
 function populateMemberBadges() {
 	try {
-		const member = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+		const member = null;
 		memberDebugLog('populateMemberBadges:start', { member });
 		const badges = document.querySelectorAll('.meta-badges .info-chip');
 		if (!badges || badges.length === 0) return;
@@ -120,7 +152,7 @@ function populateMemberBadges() {
 
 function populateMemberRidesSection() {
 	try {
-		memberDebugLog('populateMemberRidesSection:start', { SELECTED_MEMBER: SELECTED_MEMBER || window.SELECTED_MEMBER });
+		memberDebugLog('populateMemberRidesSection:start', { _selectedMemberId: (window && window._selectedMemberId) ? window._selectedMemberId : null });
 		if (typeof renderRideStars === 'function') renderRideStars();
 	} catch(e) { console.warn('populateMemberRidesSection failed', e); }
 }
@@ -131,7 +163,7 @@ function populateMemberLunchChoice() {
 		const target = document.querySelector('.mk-item--lunch .mk-item-value');
 		const badge = document.querySelector('.mk-item--lunch .mk-status-badge');
 		if (!target) return;
-		const memberId = (SELECTED_MEMBER && (SELECTED_MEMBER.id || SELECTED_MEMBER.LidNr || SELECTED_MEMBER.memberId)) || window._selectedMemberId || null;
+		const memberId = window._selectedMemberId || null;
 		const itemEl = document.querySelector('.mk-item--lunch');
 		const setVal = (v) => {
 			memberDebugLog('populateMemberLunchChoice:setVal', { value: v });
@@ -164,7 +196,7 @@ function populateMemberLunchChoice() {
 		// 1) sessionStorage (recent local choices)
 		if (memberId) {
 			try {
-				const key = `shadow_ui_member_choices_${String(memberId)}`;
+				const key = `shadow_ui_member_${String(memberId)}`;
 				const raw = sessionStorage.getItem(key);
 				if (raw) {
 					try {
@@ -184,7 +216,7 @@ function populateMemberLunchChoice() {
 
 		// 2) SELECTED_MEMBER in-memory
 		try {
-			const m = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+			const m = null;
 			memberDebugLog('populateMemberLunchChoice:inMemoryCandidate', { m });
 			if (m) {
 				const deel = m.lunchDeelname || m.LunchDeelname || m.lunch || m.Lunch || null;
@@ -213,6 +245,8 @@ function populateMemberLunchChoice() {
 					} else if (keuze) setVal(String(keuze));
 				} catch (e) { console.warn('populateMemberLunchChoice: fetch failed', e); }
 			})();
+			// Kick off caching of Firestore seed data on initial load
+			try { loadAndCacheFirestoreSeedData().catch(e => console.warn('initial cache load failed', e)); } catch(_) {}
 		}
 	} catch (e) { console.warn('populateMemberLunchChoice failed', e); }
 }
@@ -224,7 +258,7 @@ function populateMemberJaarhangerChoice() {
 		const badge = document.querySelector('.mk-item--jaar .mk-status-badge');
 		const itemEl = document.querySelector('.mk-item--jaar');
 		if (!target) return;
-		const memberId = (SELECTED_MEMBER && (SELECTED_MEMBER.id || SELECTED_MEMBER.LidNr || SELECTED_MEMBER.memberId)) || window._selectedMemberId || null;
+		const memberId = window._selectedMemberId || null;
 		const setVal = (v) => {
 			memberDebugLog('populateMemberJaarhangerChoice:setVal', { value: v });
 			try {
@@ -259,7 +293,7 @@ function populateMemberJaarhangerChoice() {
 		// 1) sessionStorage
 		if (memberId) {
 			try {
-				const key = `shadow_ui_member_choices_${String(memberId)}`;
+				const key = `shadow_ui_member_${String(memberId)}`;
 				const raw = sessionStorage.getItem(key);
 				if (raw) {
 					try {
@@ -276,7 +310,7 @@ function populateMemberJaarhangerChoice() {
 
 		// 2) SELECTED_MEMBER
 		try {
-			const m = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+			const m = null;
 			memberDebugLog('populateMemberJaarhangerChoice:inMemoryCandidate', { m });
 			if (m) {
 				const jaar = m.Jaarhanger || m.jaarhanger || null;
@@ -309,6 +343,87 @@ try { document.addEventListener('yearhanger:changed', () => { try { populateMemb
 import { getPlannedDates, searchMembers, getMemberById, getLunchOptions } from './firestore.js';
 import { db, doc, onSnapshot } from '../src/firebase.js';
 
+// --- Caching helpers: fetch once on startup and store in sessionStorage to reduce reads ---
+const SESSION_KEY_PLANNED = 'shadow_ui_planned_dates';
+const SESSION_KEY_LUNCH = 'shadow_ui_lunch_options';
+
+async function cachedGetPlannedDates(force = false) {
+	try {
+		if (!force) {
+			const raw = sessionStorage.getItem(SESSION_KEY_PLANNED);
+			if (raw) {
+				try { const parsed = JSON.parse(raw); console.debug('cachedGetPlannedDates: using cached plannedDates', parsed); return parsed; } catch(_) { /* fallthrough */ }
+			}
+		}
+			console.debug('cachedGetPlannedDates: fetching from Firestore');
+			const dates = await getPlannedDates();
+			try { setSessionAndDump(SESSION_KEY_PLANNED, JSON.stringify(dates || [])); console.debug('cachedGetPlannedDates: stored plannedDates in sessionStorage'); } catch (e) { console.warn('cachedGetPlannedDates: failed to store session', e); }
+			return dates || [];
+	} catch (e) { console.warn('cachedGetPlannedDates failed', e); return []; }
+}
+
+async function cachedGetLunchOptions(force = false) {
+	try {
+		if (!force) {
+			const raw = sessionStorage.getItem(SESSION_KEY_LUNCH);
+			if (raw) {
+				try { const parsed = JSON.parse(raw); console.debug('cachedGetLunchOptions: using cached lunchOptions', parsed); return parsed; } catch(_) { /* fallthrough */ }
+			}
+		}
+		console.debug('cachedGetLunchOptions: fetching from Firestore');
+		const opts = await getLunchOptions();
+		try { setSessionAndDump(SESSION_KEY_LUNCH, JSON.stringify(opts || {})); console.debug('cachedGetLunchOptions: stored lunchOptions in sessionStorage'); } catch (e) { console.warn('cachedGetLunchOptions: failed to store session', e); }
+		return opts || {};
+	} catch (e) { console.warn('cachedGetLunchOptions failed', e); return { vastEten: [], keuzeEten: [] }; }
+}
+
+// Load and cache both datasets on startup (non-blocking)
+async function loadAndCacheFirestoreSeedData() {
+	try {
+		console.debug('loadAndCacheFirestoreSeedData: starting');
+		try { dumpSessionStorage(); } catch(_) {}
+		// trigger both in parallel
+		const [dates, lunch] = await Promise.all([cachedGetPlannedDates(false), cachedGetLunchOptions(false)]);
+		console.debug('loadAndCacheFirestoreSeedData: completed', { dates, lunch });
+	} catch (e) { console.warn('loadAndCacheFirestoreSeedData failed', e); }
+}
+
+// Debug helper: dump sessionStorage contents (parse JSON when possible)
+function dumpSessionStorage() {
+	try {
+		const keys = Object.keys(sessionStorage || {});
+		if (!keys || keys.length === 0) { console.debug('dumpSessionStorage: sessionStorage is empty'); return; }
+		const snapshot = {};
+		for (const k of keys) {
+			try {
+				const raw = sessionStorage.getItem(k);
+				try { snapshot[k] = JSON.parse(raw); } catch(_) { snapshot[k] = raw; }
+			} catch (e) { snapshot[k] = `__error__: ${String(e)}`; }
+		}
+		console.debug('dumpSessionStorage: snapshot keys=' + keys.length, snapshot);
+	} catch (e) { console.warn('dumpSessionStorage failed', e); }
+}
+
+// Helper to set sessionStorage and then dump the full contents for debugging
+function setSessionAndDump(key, value) {
+	try {
+		sessionStorage.setItem(key, value);
+		console.debug('setSessionAndDump: wrote key=', key);
+		// extra debug for member keys: log parsed content and stack
+		try {
+			if (typeof key === 'string' && key.indexOf('shadow_ui_member_') === 0) {
+				let parsed = null;
+				try { parsed = JSON.parse(value); } catch(_) { parsed = value; }
+				console.debug('setSessionAndDump: member payload for', key, parsed);
+				try { console.debug(new Error('stack').stack); } catch(_) {}
+			}
+		} catch(_) {}
+	} catch (e) {
+		console.warn('setSessionAndDump: failed to set', key, e);
+	}
+	try { dumpSessionStorage(); } catch (_) {}
+}
+
 // --- Fragment loader & inline navigation for lid-ui pages ---
 const lidFragments = {
 	originalPage: null,
@@ -322,6 +437,28 @@ const navStack = [];
 // Page order for footer-driven linear navigation
 const BASE_PAGE_ORDER = ['original','signup','lunch','jaarhanger','member'];
 let PAGE_ORDER = Array.from(BASE_PAGE_ORDER);
+
+// Trigger initial cache load on module import so sessionStorage is populated
+try {
+	if (typeof loadAndCacheFirestoreSeedData === 'function') {
+		loadAndCacheFirestoreSeedData().catch(e => console.warn('initial cache load failed', e));
+	}
+} catch (e) { /* ignore */ }
+
+// Diagnostic helper: force-fetch parsed Firestore documents and log results
+try {
+	(async () => {
+		try {
+			console.debug('diagnostic: forcing Firestore fetch for plannedDates and lunchOptions');
+			const forceDates = await getPlannedDates(true);
+			console.debug('diagnostic:getPlannedDates(force) =>', forceDates);
+			const forceLunch = await getLunchOptions();
+			console.debug('diagnostic:getLunchOptions =>', forceLunch);
+			try { setSessionAndDump(SESSION_KEY_PLANNED, JSON.stringify(forceDates || [])); } catch(_){}
+			try { setSessionAndDump(SESSION_KEY_LUNCH, JSON.stringify(forceLunch || {})); } catch(_){}
+		} catch (e) { console.warn('diagnostic fetch failed', e); }
+	})();
+} catch (_) {}
 
 // Update PAGE_ORDER based on selected member (remove jaarhanger if member already has Jaarhanger)
 function updatePageOrderForMember(member) {
@@ -519,7 +656,7 @@ async function renderFragment(name) {
 						try { populateMemberRidesSection(); } catch(_) {}
 						try { populateMemberLunchChoice(); } catch(_) {}
 						try { populateMemberJaarhangerChoice(); } catch(_) {}
-						try { renderMemberInfoQR(SELECTED_MEMBER); } catch(_) {}
+						try { renderMemberInfoQR(null); } catch(_) {}
 						try { populateMemberJaarhangerChoice(); } catch(_) {}
 			} else {
 				try { populateMemberHeader(); } catch(_) {}
@@ -602,7 +739,7 @@ function popFragment() {
 					try { populateMemberRidesSection(); } catch(_) {}
 					try { populateMemberLunchChoice(); } catch(_) {}
 					try { populateMemberJaarhangerChoice(); } catch(_) {}
-						try { renderMemberInfoQR(SELECTED_MEMBER); } catch(_) {}
+						try { renderMemberInfoQR(null); } catch(_) {}
 				}
 		} catch(_) {}
 		try { setupBackButton(); } catch (_) {}
@@ -898,8 +1035,12 @@ function setupMemberSuggestions() {
 							item.addEventListener('click', (ev) => {
 								ev.preventDefault();
 								el.value = item.textContent;
-								if (el.dataset) el.dataset.selectedMember = item.dataset.memberId || '';
-								try { window._selectedMemberId = item.dataset.memberId || ''; } catch(_) {}
+								const pickedId = item.dataset.memberId || '';
+								// clear any existing member-related sessionStorage data when selecting a (new) member
+								try { clearAllMemberSessionData(); } catch(_) {}
+								// mark explicit selection on the input so footer enablement is only on explicit picks
+								try { if (el.dataset) el.dataset.selectedMember = pickedId; } catch(_) {}
+								try { window._selectedMemberId = pickedId || ''; } catch(_) {}
 								closeList();
 								// On touch devices blur to hide on-screen keyboard, otherwise keep focus
 								try {
@@ -910,24 +1051,12 @@ function setupMemberSuggestions() {
 								// Fetch full member to update page order immediately (non-blocking)
 								(async () => {
 									try {
-										const id = item.dataset.memberId || '';
+										const id = pickedId || '';
 										if (!id) { updatePageOrderForMember(null); return; }
 										const full = await getMemberById(String(id));
 										if (full) {
-											// reset any local stored choices for this member when re-selecting
-											try { resetMemberChoices(full && (full.id || full.LidNr || full.memberId)); } catch(_) {}
-											SELECTED_MEMBER = full;
-											try { window.SELECTED_MEMBER = full; } catch(_) {}
 											try { updatePageOrderForMember(full); } catch(_) {}
-											try {
-												try { populateMemberHeader(); } catch(_) {}
-												try { populateMemberBadges(); } catch(_) {}
-												if (currentFragment === 'member') {
-													try { populateMemberRidesSection(); } catch(_) {}
-													try { populateMemberLunchChoice(); } catch(_) {}
-													try { renderMemberInfoQR(full); } catch(_) {}
-												}
-											} catch(_) {}
+											try { renderMemberInfoQR(full); } catch(_) {}
 										}
 									} catch (e) { console.warn('suggestion click: getMemberById failed', e); }
 								})();
@@ -949,6 +1078,7 @@ function setupMemberSuggestions() {
 				el.addEventListener('input', (ev) => {
 					try {
 						if (el.dataset && el.dataset._composing) return;
+						// clear any transient selection markers
 						if (el.dataset) { delete el.dataset.selectedMember; }
 						try { window._selectedMemberId = ''; } catch(_) {}
 						// reset page order when input changes (member no longer selected)
@@ -1015,7 +1145,8 @@ function setupFooterDelegation() {
 try { setupFooterDelegation(); } catch(_) {}
 
 // Store selected member data for other flows
-let SELECTED_MEMBER = null;
+/* SELECTED_MEMBER global removed — feature disabled */
+const SELECTED_MEMBER = null;
 
 // Populate member-related UI spots (e.g. .member-name) from SELECTED_MEMBER or window.SELECTED_MEMBER
 
@@ -1032,7 +1163,7 @@ async function renderRideStars() {
 		const max = Math.min(maxStars, dates.length);
 		const use = dates.slice(0, max);
 		// build set of member scan dates for quick lookup
-		const member = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
+		const member = null;
 		const scans = new Set();
 		try {
 			const arr = member && (member.ScanDatums || member.ScanDatum || member.scandatums || member.ScanDates) ? (member.ScanDatums || member.ScanDatum || member.scandatums || member.ScanDates) : [];
@@ -1102,18 +1233,20 @@ function setupSignupFooterNavigation() {
 				// fetch full member
 				let full = null;
 				try { full = await getMemberById(String(memberId)); } catch (err) { console.warn('getMemberById failed', err); }
-				SELECTED_MEMBER = full || null;
-				// expose globally for other scripts if needed
-				try { window.SELECTED_MEMBER = SELECTED_MEMBER; } catch(_) {}
+				// store full member in sessionStorage for downstream flows
+				try {
+					if (full) {
+						const key = `shadow_ui_member_${String(memberId)}`;
+						try { setSessionAndDump(key, JSON.stringify(full)); } catch(_){}
+						try { setSessionAndDump('shadow_ui_current_member', JSON.stringify({ id: String(memberId), loadedAt: (new Date()).toISOString() })); } catch(_){}
+						console.debug('signup: stored full member in sessionStorage', { key });
+					}
+				} catch (_) {}
 				// reset any stored choices for this member when selecting via signup flow
 				try { resetMemberChoices(memberId); } catch(_) {}
-				try { renderMemberInfoQR(SELECTED_MEMBER); } catch(_) {}
+				try { renderMemberInfoQR(full); } catch(_) {}
 				// adjust page order depending on whether this member already has a Jaarhanger
-				try { updatePageOrderForMember(SELECTED_MEMBER); } catch(_) {}
-				// update header/badges immediately; only populate full member-info sections when on member page
-				try { populateMemberHeader(); } catch(_) {}
-				try { populateMemberBadges(); } catch(_) {}
-				try { if (currentFragment === 'member') { populateMemberRidesSection(); } } catch(_) {}
+				try { updatePageOrderForMember(full); } catch(_) {}
 				// navigate to next page in order (signup -> lunch)
 				try {
 					const idx = PAGE_ORDER.indexOf('signup');
@@ -1133,7 +1266,11 @@ function updateSignupFooterState() {
 		const btn = document.getElementById('agree-signup');
 		if (!btn) return;
 		const input = (document.querySelector('.main-content') || document.body).querySelector('input.form-input');
-		const hasSel = Boolean((window._selectedMemberId && String(window._selectedMemberId).trim()) || (input && input.dataset && input.dataset.selectedMember));
+		const hasSel = Boolean(
+			// only allow when an explicit id marker exists from the suggestions (no global selected state)
+			(window._selectedMemberId && String(window._selectedMemberId).trim()) ||
+			(input && input.dataset && input.dataset.selectedMember)
+		);
 		btn.disabled = !hasSel;
 		if (btn.disabled) {
 			btn.setAttribute('aria-disabled', 'true');
@@ -1155,7 +1292,7 @@ async function setupLunchOptions() {
 		if (display) display.textContent = 'Laden...';
 		if (buttonsWrap) buttonsWrap.innerHTML = '';
 
-		const opts = await getLunchOptions();
+		const opts = await cachedGetLunchOptions();
 		const vast = Array.isArray(opts && opts.vastEten) ? opts.vastEten : [];
 		const keuze = Array.isArray(opts && opts.keuzeEten) ? opts.keuzeEten : [];
 
@@ -1210,12 +1347,43 @@ async function setupLunchOptions() {
 							window._lunchChoice = val;
 							if (input.dataset) input.dataset._checked = '1';
 							try { updateLunchFooterState(); } catch(_) {}
+							// persist this meal choice immediately for the selected member
+							try {
+								const memberId = window._selectedMemberId || null;
+								if (memberId) {
+									const key = `shadow_ui_member_${String(memberId)}`;
+									const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
+									existing.lunchKeuze = val || null;
+									existing.lunchDeelname = 'Ja';
+									try { setSessionAndDump(key, JSON.stringify(existing)); } catch (e) { console.warn('persist lunchKeuze failed', e); }
+									try { document.dispatchEvent(new CustomEvent('lunch:completed', { detail: { memberId: memberId, participation: 'yes', keuze: val } })); } catch(_){}
+								}
+							} catch (e) { console.warn('persist choice click error', e); }
 						} catch(_){ }
 					});
 
 					// ensure change events update footer state
 					input.addEventListener('change', (e) => {
-						try { if (input.checked) { window._lunchChoice = val; } else { window._lunchChoice = window._lunchChoice || ''; } updateLunchFooterState(); } catch(_) {}
+						try {
+							if (input.checked) {
+								window._lunchChoice = val;
+								// persist selection
+								try {
+									const memberId = window._selectedMemberId || null;
+									if (memberId) {
+										const key = `shadow_ui_member_${String(memberId)}`;
+										const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
+										existing.lunchKeuze = val || null;
+										existing.lunchDeelname = 'Ja';
+										try { setSessionAndDump(key, JSON.stringify(existing)); } catch (e) { console.warn('persist lunchKeuze failed', e); }
+										try { document.dispatchEvent(new CustomEvent('lunch:completed', { detail: { memberId: memberId, participation: 'yes', keuze: val } })); } catch(_){}
+									}
+								} catch (e) { console.warn('persist choice change error', e); }
+							} else {
+								window._lunchChoice = window._lunchChoice || '';
+							}
+							updateLunchFooterState();
+						} catch(_) {}
 					});
 					frag.appendChild(label);
 				});
@@ -1223,17 +1391,17 @@ async function setupLunchOptions() {
 			}
 		}
 
-		// If SELECTED_MEMBER present, pre-select stored choice
+		// Attempt to pre-select stored choice from sessionStorage for transient member id
 		try {
-			const stored = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
-			if (stored) {
-				const deel = (stored.lunchDeelname || stored.LunchDeelname || stored.lunch || stored.Lunch || null);
-				const keuzeVal = (stored.lunchKeuze || stored.LunchKeuze || stored.keuze || null);
+			const mid = (window && window._selectedMemberId) ? String(window._selectedMemberId) : null;
+				if (mid) {
+					const key = `shadow_ui_member_${String(mid)}`;
+					const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
+				const deel = existing.lunchDeelname || existing.LunchDeelname || existing.lunch || existing.Lunch || null;
+				const keuzeVal = existing.lunchKeuze || existing.LunchKeuze || existing.keuze || null;
 				if (typeof deel === 'string' && deel.toLowerCase().startsWith('y')) {
-					// select yes participation and maybe preselect choice
 					try { window._lunchChoice = keuzeVal || window._lunchChoice || ''; } catch(_){}
 				}
-				// apply preselection in DOM
 				if (window._lunchChoice) {
 					const radios = document.querySelectorAll('input.lunch-choice-input');
 					radios.forEach(r => { if (r.value === String(window._lunchChoice)) { r.checked = true; r.dataset._checked = '1'; } });
@@ -1368,6 +1536,39 @@ function setupParticipationToggle() {
 				else applyYesState();
 				try { updateLunchFooterState(); } catch(_) {}
 				try { updateJaarhangerFooterState(); } catch(_) {}
+
+				// Persist participation immediately for the selected member (write to sessionStorage)
+				// Only persist lunch-specific fields when the active fragment is the lunch page
+				try {
+					if (currentFragment === 'lunch') {
+						const participation = val === 'yes' ? 'Ja' : (val === 'no' ? 'Nee' : null);
+						const memberId = window._selectedMemberId || null;
+						if (memberId) {
+							const keuze = (val === 'yes') ? (document.querySelector('input.lunch-choice-input:checked') ? document.querySelector('input.lunch-choice-input:checked').value : (window._lunchChoice || '')) : '';
+							const key = `shadow_ui_member_${String(memberId)}`;
+							const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
+							existing.lunchDeelname = participation;
+							existing.lunchKeuze = keuze || null;
+							try { setSessionAndDump(key, JSON.stringify(existing)); } catch(e){ console.warn('persist participation failed', e); }
+							// dispatch event so other parts update immediately
+							try { document.dispatchEvent(new CustomEvent('lunch:completed', { detail: { memberId: memberId, participation: (val === 'yes' ? 'yes' : 'no'), keuze } })); } catch(_){ }
+						}
+					}
+				} catch (e) { console.warn('persist participation error', e); }
+
+				// Also persist jaarhanger choice when on the jaarhanger fragment
+				try {
+					if (currentFragment === 'jaarhanger') {
+						const memberId = window._selectedMemberId || null;
+						if (memberId) {
+							const key = `shadow_ui_member_${String(memberId)}`;
+							const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
+							existing.Jaarhanger = (val === 'yes') ? 'Ja' : (val === 'no' ? 'Nee' : existing.Jaarhanger);
+							try { setSessionAndDump(key, JSON.stringify(existing)); } catch (e) { console.warn('persist jaarhanger failed', e); }
+							try { document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail: { memberId: memberId, value: existing.Jaarhanger || null } })); } catch(_){}
+						}
+					}
+				} catch (e) { console.warn('persist jaarhanger error', e); }
 			} catch (err) { console.warn('onChange error', err); }
 		}
 
@@ -1408,10 +1609,11 @@ function setupParticipationToggle() {
 
 		// If no radios/labels were bound (fragment timing issues), add a delegated click handler as fallback
 		try {
-				if ((boundCount === 0) && !document._participationDelegationBound) {
-				console.log('[participation] no direct binds — adding delegated click fallback');
-				document.addEventListener('click', function delegatedParticipationClick(ev) {
-					try {
+				if ((boundCount === 0) && !(root && root._participationDelegationBound)) {
+				console.log('[participation] no direct binds — adding delegated click fallback on fragment root');
+				try {
+					root.addEventListener('click', function delegatedParticipationClick(ev) {
+						try {
 							const lb = ev.target && ev.target.closest ? ev.target.closest('.choice-option') : null;
 							if (!lb) return;
 							// find any radio input inside the label to avoid stale partName closures
@@ -1419,9 +1621,10 @@ function setupParticipationToggle() {
 							if (!inp) return;
 							inp.checked = true;
 							onChange({ target: inp });
-					} catch (e) { /* ignore per-click errors */ }
-				}, true);
-				document._participationDelegationBound = true;
+						} catch (e) { /* ignore per-click errors */ }
+					}, true);
+					root._participationDelegationBound = true;
+				} catch (_) {}
 			}
 		} catch (_) {}
 
@@ -1431,12 +1634,16 @@ function setupParticipationToggle() {
 			if (checked) {
 				if (checked.value === 'no') applyNoState(); else applyYesState();
 			} else {
-				// if SELECTED_MEMBER indicates non-participation, apply that
-				const stored = SELECTED_MEMBER || (window.SELECTED_MEMBER || null);
-				if (stored) {
-					const deel = (stored.lunchDeelname || stored.LunchDeelname || stored.lunch || stored.Lunch || null);
-					if (typeof deel === 'string' && deel.toLowerCase().startsWith('n')) applyNoState();
-				}
+				// attempt to read persisted choices from sessionStorage for transient member id
+				try {
+					const mid = (window && window._selectedMemberId) ? String(window._selectedMemberId) : null;
+					if (mid) {
+						const key = `shadow_ui_member_${String(mid)}`;
+						const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
+						const deel = existing.lunchDeelname || existing.LunchDeelname || existing.lunch || null;
+						if (typeof deel === 'string' && deel.toLowerCase().startsWith('n')) applyNoState();
+					}
+				} catch(_) {}
 			}
 		} catch (_) {}
 		if (boundCount > 0) document._participationBound = true;
@@ -1470,25 +1677,23 @@ function setupAgreeLunchButton() {
 		btn.addEventListener('click', (ev) => {
 			try {
 				ev.preventDefault();
+				// Safety: only proceed when the active fragment is the lunch page
+				if (typeof currentFragment !== 'undefined' && currentFragment !== 'lunch') {
+					console.debug('agree-lunch clicked but currentFragment=' + String(currentFragment) + ' — ignoring');
+					return;
+				}
 				// determine member id
-				const memberId = (SELECTED_MEMBER && (SELECTED_MEMBER.id || SELECTED_MEMBER.LidNr || SELECTED_MEMBER.memberId)) || window._selectedMemberId || null;
+				const memberId = window._selectedMemberId || null;
 				const participation = getParticipationValue();
 				const keuze = (participation === 'yes') ? (document.querySelector('input.lunch-choice-input:checked') ? document.querySelector('input.lunch-choice-input:checked').value : (window._lunchChoice || '')) : '';
-				// update in-memory SELECTED_MEMBER
-				try {
-					if (!window.SELECTED_MEMBER) window.SELECTED_MEMBER = SELECTED_MEMBER || {};
-					window.SELECTED_MEMBER.lunchDeelname = (participation === 'yes') ? 'Ja' : 'Nee';
-					window.SELECTED_MEMBER.lunchKeuze = keuze || null;
-					SELECTED_MEMBER = window.SELECTED_MEMBER;
-				} catch (_) {}
-				// persist to sessionStorage for cross-fragment access
+				// persist choices to sessionStorage keyed by memberId (no global selected-member)
 				try {
 					if (memberId) {
-						const key = `shadow_ui_member_choices_${String(memberId)}`;
+						const key = `shadow_ui_member_${String(memberId)}`;
 						const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
-						existing.lunchDeelname = window.SELECTED_MEMBER.lunchDeelname;
-						existing.lunchKeuze = window.SELECTED_MEMBER.lunchKeuze;
-						sessionStorage.setItem(key, JSON.stringify(existing));
+						existing.lunchDeelname = (participation === 'yes') ? 'Ja' : 'Nee';
+						existing.lunchKeuze = keuze || null;
+						setSessionAndDump(key, JSON.stringify(existing));
 					}
 				} catch (e) { console.warn('setupAgreeLunchButton: sessionStorage failed', e); }
 
@@ -1514,29 +1719,36 @@ function setupAgreeJaarhanger() {
 		btn.addEventListener('click', (ev) => {
 			try {
 				ev.preventDefault();
-				const memberId = (SELECTED_MEMBER && (SELECTED_MEMBER.id || SELECTED_MEMBER.LidNr || SELECTED_MEMBER.memberId)) || window._selectedMemberId || null;
+				// Safety: only persist jaarhanger when the active fragment is the jaarhanger page
+				if (typeof currentFragment !== 'undefined' && currentFragment !== 'jaarhanger') {
+					console.debug('agree-jaarhanger clicked but currentFragment=' + String(currentFragment) + ' — ignoring');
+					return;
+				}
+				const memberId = window._selectedMemberId || null;
 				const name = `participation-${currentFragment || 'original'}`;
 				const sel = document.querySelector(`input[type="radio"][name="${name}"]:checked`);
 				const val = sel ? (sel.value || '') : '';
 				const jaarVal = (val === 'yes') ? 'Ja' : (val === 'no' ? 'Nee' : null);
 				try {
-					if (!window.SELECTED_MEMBER) window.SELECTED_MEMBER = SELECTED_MEMBER || {};
-					if (jaarVal !== null) window.SELECTED_MEMBER.Jaarhanger = jaarVal;
-					SELECTED_MEMBER = window.SELECTED_MEMBER;
-				} catch (_) {}
-				try {
 					if (memberId) {
-						const key = `shadow_ui_member_choices_${String(memberId)}`;
+						const key = `shadow_ui_member_${String(memberId)}`;
 						const existing = JSON.parse(sessionStorage.getItem(key) || '{}');
-						existing.Jaarhanger = window.SELECTED_MEMBER.Jaarhanger;
-						sessionStorage.setItem(key, JSON.stringify(existing));
+						existing.Jaarhanger = jaarVal !== null ? jaarVal : existing.Jaarhanger;
+						setSessionAndDump(key, JSON.stringify(existing));
+						try {
+							const detail = { memberId: memberId || null, value: existing.Jaarhanger || null };
+							document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail }));
+							console.log('yearhanger:changed dispatched', detail);
+						} catch (e) { console.warn('yearhanger dispatch failed', e); }
+					} else {
+						// dispatch without member id
+						try {
+							const detail = { memberId: null, value: jaarVal || null };
+							document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail }));
+							console.log('yearhanger:changed dispatched', detail);
+						} catch (e) { console.warn('yearhanger dispatch failed', e); }
 					}
 				} catch (e) { console.warn('setupAgreeJaarhanger: sessionStorage failed', e); }
-				try {
-					const detail = { memberId: memberId || null, value: window.SELECTED_MEMBER.Jaarhanger || null };
-					document.dispatchEvent(new CustomEvent('yearhanger:changed', { detail }));
-					console.log('yearhanger:changed dispatched', detail);
-				} catch (e) { console.warn('yearhanger dispatch failed', e); }
 			} catch (err) { console.warn('agree-jaarhanger handler failed', err); }
 		});
 		if (btn.dataset) btn.dataset._boundAgreeJaar = '1';
