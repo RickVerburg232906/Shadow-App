@@ -1,6 +1,35 @@
-// Firebase modular SDK initialization + lightweight Firestore REST helpers
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection as fbCollection, onSnapshot as fbOnSnapshot, doc as fbDoc, getDoc as fbGetDoc } from "firebase/firestore";
+// Lightweight Firestore REST helpers with optional lazy SDK init for pages that need it.
+// We avoid static `import 'firebase/app'` here so static HTML pages can load this module
+// without requiring bare-module resolution in the browser. When SDK features are needed
+// we dynamically import the modular SDK from the Google CDN.
+
+let _sdkInitialized = false;
+let _db = null;
+let _sdkHelpers = {};
+
+async function ensureFirebaseSdk() {
+  if (_sdkInitialized) return { db: _db, helpers: _sdkHelpers };
+  try {
+    const appMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js');
+    const fsMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
+    const app = appMod.initializeApp(firebaseConfig);
+    const db = fsMod.getFirestore(app);
+    _db = db;
+    _sdkHelpers = {
+      collection: fsMod.collection,
+      onSnapshot: fsMod.onSnapshot,
+      doc: fsMod.doc,
+      getDoc: fsMod.getDoc
+    };
+    // expose globals for legacy scripts
+    try { window.db = _db; window.firebaseFirestore = _sdkHelpers; } catch(_) {}
+    _sdkInitialized = true;
+    return { db: _db, helpers: _sdkHelpers };
+  } catch (e) {
+    console.warn('ensureFirebaseSdk failed', e);
+    throw e;
+  }
+}
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -12,15 +41,20 @@ const firebaseConfig = {
   appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
 };
 
-// Initialize Firebase SDK (browser-modular)
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
 // Backwards-compat alias used in older scripts
 const firebaseConfigDev = firebaseConfig;
 
-// Re-export commonly used Firestore SDK helpers for existing codepaths
-export { db, fbCollection as collection, fbOnSnapshot as onSnapshot, fbDoc as doc, fbGetDoc as getDoc };
+// Export a helper to initialize SDK when callers need db/helpers.
+export async function initFirebase() { return ensureFirebaseSdk(); }
+
+// Also export placeholders (some built code may import these names). Callers that need
+// immediate SDK access should call `initFirebase()` first; legacy pages that only use
+// the REST helpers won't need to call it.
+export const db = _db;
+export const collection = (...args) => { throw new Error('collection: call initFirebase() first'); };
+export const onSnapshot = (...args) => { throw new Error('onSnapshot: call initFirebase() first'); };
+export const doc = (...args) => { throw new Error('doc: call initFirebase() first'); };
+export const getDoc = (...args) => { throw new Error('getDoc: call initFirebase() first'); };
 
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
 
