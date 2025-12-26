@@ -149,7 +149,12 @@ export async function initInschrijftafel() {
         const keuze = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
         if (keuze.length === 0) { container.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>'; }
         else {
-          container.innerHTML = keuze.map((item, idx) => `<div class="flex items-center justify-between border-b border-secondary/20 pb-2 last:border-0 last:pb-0"><span class="text-text-main font-medium text-sm">${String(item)}</span><span id="choice-count-${idx}" class="text-danger font-extrabold text-lg">…</span></div>`).join('');
+          container.innerHTML = keuze.map((item, idx) => `
+            <div class="keuze-item">
+              <div class="keuze-name">${String(item)}</div>
+              <div id="choice-count-${idx}" class="keuze-count">…</div>
+            </div>
+          `).join('');
           keuze.forEach((item, idx) => (async () => {
             const el = document.getElementById('choice-count-' + idx);
             try { const cnt = await getLunchChoiceCount(item); if (el) el.textContent = String((typeof cnt === 'number' && isFinite(cnt)) ? cnt : 0); } catch (e) { if (el) el.textContent = 'ERROR'; }

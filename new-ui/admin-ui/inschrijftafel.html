@@ -1,90 +1,17 @@
 <!DOCTYPE html>
-<html class="light" lang="en"><head>
+
+<html class="" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Inschrijftafel</title>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#163E8C", // User requested Blue
-                        "secondary": "#F2C438", // User requested Yellow
-                        "danger": "#8C2B07", // User requested Red
-                        "background-light": "#F2F2F2", // User requested Light Grey
-                        "background-dark": "#0D0D0D", // User requested Dark
-                        "surface": "#FFFFFF",
-                        "text-main": "#0D0D0D",
-                        "text-sub": "#686868"
-                    },
-                    fontFamily: {
-                        "display": ["Plus Jakarta Sans", "sans-serif"],
-                        "body": ["Noto Sans", "sans-serif"]
-                    },
-                    borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px"},
-                },
-            },
-        }
-    </script>
-<style>
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-    </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-  </head>
-  <link rel="stylesheet" href="../style.css"/>
-
-<body class="bg-background-light dark:bg-background-dark text-text-main">
-<div class="relative flex h-full min-h-screen w-screen flex-col overflow-x-hidden shadow-xl bg-background-light">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../style.css"/>
+</head>
+<body class="app light">
 <header class="nav-header">
     <div class="nav-inner">
     
@@ -98,94 +25,100 @@
       <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
     </div>
 </header>
-<main class="pt-20">
-<div class="flex-1 flex flex-col gap-5 p-4 pb-4">
-<div>
-<h3 class="text-text-main text-lg font-bold mb-3 px-1">Lunch Statistieken</h3>
-<div class="grid grid-cols-2 gap-3 mb-3">
-<div class="flex flex-col gap-1 rounded-xl p-3 bg-white shadow-sm border border-slate-100">
-<p class="text-text-sub text-xs font-medium uppercase tracking-wider">Mee-eten</p>
-<p id="count-yes" class="text-primary tracking-tight text-3xl font-extrabold leading-tight">…</p>
- </div>
- <div class="flex flex-col gap-1 rounded-xl p-3 bg-white shadow-sm border border-slate-100 relative overflow-hidden">
- <div class="absolute right-0 top-0 p-2 opacity-10">
- <span class="material-symbols-outlined text-primary text-4xl">no_meals</span>
- </div>
- <p class="text-text-sub text-xs font-medium uppercase tracking-wider">Niet mee</p>
- <p id="count-no" class="text-text-sub tracking-tight text-3xl font-extrabold leading-tight">…</p>
- </div>
-</div>
-<div class="flex flex-col gap-2 bg-secondary/10 rounded-xl p-4 shadow-sm border border-secondary/20">
-  <p class="text-danger text-xs font-bold uppercase tracking-wider mb-1">Keuze maaltijden</p>
-  <div id="keuze-maaltijden-list">
-    <div class="text-text-sub text-sm">Laden...</div>
-  </div>
-</div>
-</div>
-<div class="flex flex-col items-stretch justify-start rounded-2xl shadow-sm bg-surface overflow-hidden border border-slate-100">
-<div class="w-full h-48 bg-slate-200 relative" data-alt="Abstract view of a camera viewfinder ready to scan a QR code">
-  <div id="adminQRReader" class="absolute inset-0 flex items-center justify-center"></div>
-  <div id="adminQRPlaceholder" class="absolute inset-0 bg-primary/40 flex items-center justify-center backdrop-blur-[2px]">
-    <div class="size-20 rounded-xl border-4 border-white/80 flex items-center justify-center">
-      <span class="material-symbols-outlined text-white text-5xl">qr_code_scanner</span>
-    </div>
-  </div>
-</div>
-<div class="flex w-full grow flex-col items-stretch justify-center gap-3 p-5">
-<div>
-<p class="text-text-main text-lg font-bold leading-tight">QR-code Scanner</p>
-<p class="text-text-sub text-sm font-normal leading-normal mt-1">Start de camera om leden direct in te checken voor lunch en ritten.</p>
-</div>
-<button class="flex w-full cursor-pointer items-center justify-center rounded-xl h-12 px-6 bg-primary text-white text-base font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors gap-2">
-<span class="material-symbols-outlined">photo_camera</span>
-<span>Start Scanner</span>
-</button>
-</div>
-</div>
-<div>
-<h3 class="text-text-main text-lg font-bold mb-3 px-1">Handmatig Inschrijven</h3>
-<div class="flex flex-col items-start justify-between gap-4 rounded-xl border border-slate-200 bg-surface p-5 shadow-sm">
-<div class="flex items-start gap-4">
-<div class="size-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-primary">search</span>
-</div>
-<div class="flex flex-col gap-1">
-<p class="text-text-main text-base font-bold leading-tight">Zoek Deelnemer</p>
-<p class="text-text-sub text-sm font-normal leading-normal">Gebruik deze optie als de QR-code niet werkt of vergeten is.</p>
-</div>
-</div>
-<button id="goto-manual-choices" onclick="window.location.href='../admin-ui/handmatige-keuzes.html'" class="flex w-full cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors">
-            Zoek op naam
-          </button>
-</div>
-</div>
-<div>
-<h3 class="text-text-main text-lg font-bold mb-3 px-1">Laatste Activiteit</h3>
-<div id="recent-activity-list" class="flex flex-col gap-2 max-h-48 overflow-y-auto">
-  <!-- Recent scans by this device will be appended here by admin.js -->
-</div>
-</div>
-<div id="historie-section">
-<h3 class="text-text-main text-lg font-bold mb-3 px-1">Eerdere Ritten Registreren</h3>
-<div class="flex flex-col items-start justify-between gap-4 rounded-xl border border-slate-200 bg-surface p-5 shadow-sm">
-<div class="flex items-start gap-4">
-<div class="size-10 rounded-full bg-secondary/20 flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-secondary text-2xl">history</span>
-</div>
-<div class="flex flex-col gap-1">
-<p class="text-text-main text-base font-bold leading-tight">Rit Historie Toevoegen</p>
-<p class="text-text-sub text-sm font-normal leading-normal">Registreer handmatig ritten die al hebben plaatsgevonden voor de administratie.</p>
-</div>
-</div>
-<div id="history-input-host" class="w-full">
-  <div class="mt-2">
-    <div class="relative">
-      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-sub">person</span>
-      <input id="participant-name-input-history" class="participant-name-input form-input w-full rounded-lg border border-gray-300 bg-gray-50 text-text-main h-14 pl-12 pr-4 text-base placeholder:text-text-sub/70" placeholder="Bijv. Jan Jansen" type="text" autocomplete="off" />
-      <div id="name-suggestions-history" class="absolute left-0 right-0 top-full mt-2 z-50 bg-surface rounded-md shadow-lg hidden max-h-56 overflow-auto"></div>
-    </div>
-    <div id="manual-search-hint-history" class="text-xs text-text-sub mt-2">Kies een naam uit de lijst om een eerdere rit te registreren.</div>
-    <div id="history-member-stars" class="mt-3"></div>
+
+<main class="main-content">
+        <section class="lunch-stats">
+          <h3 class="lunch-stats__title">Lunch Statistieken</h3>
+          <div class="lunch-stats__grid">
+            <div class="stat-card stat-card--yes">
+              <div class="stat-card__label">MEE-ETEN</div>
+              <div id="count-yes" class="stat-card__value">…</div>
+            </div>
+            <div class="stat-card stat-card--no">
+              <div class="stat-card__label">EET NIET MEE</div>
+              <div id="count-no" class="stat-card__value">…</div>
+              <span class="material-symbols-outlined">no_meals</span>
+            </div>
+          </div>
+
+          <div class="keuze-card">
+            <div class="keuze-card__header">KEUZE MAALTIJDEN</div>
+            <div id="keuze-maaltijden-list" class="keuze-list">
+              <div class="keuze-loading">Laden...</div>
+            </div>
+          </div>
+        </section>
+        <div>
+        <div data-alt="Abstract view of a camera viewfinder ready to scan a QR code">
+          <div id="adminQRReader"></div>
+          <div id="adminQRPlaceholder">
+            <div>
+              <span class="material-symbols-outlined">qr_code_scanner</span>
+            </div>
+          </div>
+        </div>
+        <div>
+        <div>
+        <p>QR-code Scanner</p>
+        <p>Start de camera om leden direct in te checken voor lunch en ritten.</p>
+        </div>
+        <button>
+        <span class="material-symbols-outlined">photo_camera</span>
+        <span>Start Scanner</span>
+        </button>
+        </div>
+        </div>
+        <div>
+        <h3>Handmatig Inschrijven</h3>
+        <div>
+        <div>
+        <div>
+        <span class="material-symbols-outlined">search</span>
+        </div>
+        <div>
+        <p>Zoek Deelnemer</p>
+        <p>Gebruik deze optie als de QR-code niet werkt of vergeten is.</p>
+        </div>
+        </div>
+        <button id="goto-manual-choices" onclick="window.location.href='../admin-ui/handmatige-keuzes.html'">
+                    Zoek op naam
+                  </button>
+        </div>
+        </div>
+        <div>
+        <h3>Laatste Activiteit</h3>
+        <div id="recent-activity-list">
+          <!-- Recent scans by this device will be appended here by admin.js -->
+        </div>
+        </div>
+        <div id="historie-section">
+        <h3>Eerdere Ritten Registreren</h3>
+        <div>
+        <div>
+        <div>
+        <span class="material-symbols-outlined">history</span>
+        </div>
+        <div>
+        <p>Rit Historie Toevoegen</p>
+        <p>Registreer handmatig ritten die al hebben plaatsgevonden voor de administratie.</p>
+        </div>
+        </div>
+        <div id="history-input-host">
+          <div>
+            <div>
+              <span class="material-symbols-outlined">person</span>
+              <input id="participant-name-input-history" class="participant-name-input form-input" placeholder="Bijv. Jan Jansen" type="text" autocomplete="off" />
+              <div id="name-suggestions-history"></div>
+            </div>
+            <div id="manual-search-hint-history">Kies een naam uit de lijst om een eerdere rit te registreren.</div>
+            <div id="history-member-stars"></div>
+          </div>
+        </div>
+        </div>
+        </div>
+        </div>
+        </div>
+        </main>
   </div>
 </div>
 </div>

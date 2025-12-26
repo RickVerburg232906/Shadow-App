@@ -494,6 +494,29 @@ body.app{
   box-sizing: border-box;
 }
 
+/* Lunch statistics styles (inschrijftafel) */
+.lunch-stats{ width: 100%;; padding: 0 12px; box-sizing:border-box; }
+.lunch-stats__title{ font-size:20px; font-weight:800; color:#0f1724; margin:0 0 12px; }
+.lunch-stats__grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+.stat-card{ background: #ffffff; border-radius: 12px; padding: 14px; box-shadow: 0 6px 18px rgba(16,24,40,0.04); border: 1px solid rgba(243,244,246,1); display:flex; flex-direction:column; align-items:flex-start; justify-content:center; }
+.stat-card__label{ font-size:11px; color:#6b7280; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px; }
+.stat-card__value{ font-size:36px; font-weight:900; color:var(--blue); line-height:1; }
+.stat-card--no .stat-card__value{ color:#6b7280; }
+.stat-card--no{ position:relative; }
+.stat-card--no .material-symbols-outlined{ position:absolute; right:10px; top:8px; opacity:0.12; font-size:44px; }
+
+.keuze-card{ background: #FFF6EA; border-radius: 12px; padding: 12px; border: 1px solid rgba(242,196,96,0.25); box-sizing:border-box; text-align:left; }
+.keuze-card__header{ font-size:13px; font-weight:800; color:#7b2f00; margin-bottom:8px; display:block; text-align:left; }
+.keuze-list{ display:flex; flex-direction:column; gap:0; }
+.keuze-list .keuze-loading{ color:#6b7280; padding:8px 6px; }
+.keuze-item{ display:flex; align-items:center; justify-content:space-between; padding:12px 8px; border-top:1px solid rgba(230,232,235,1); background:transparent; }
+.keuze-item:first-child{ border-top: none; }
+.keuze-name{ color:#0f1724; font-weight:600; }
+.keuze-count{ color:#7b2f00; font-weight:800; }
+
+/* Keep stat cards side-by-side on all screen sizes */
+.lunch-stats__grid{ grid-auto-flow: column; }
+
 /* Style 'Nee' radio when checked to appear red (scoped to manual hosts) */
 #lunch-choices-host input[type="radio"][value="nee"]:checked + .choice-card,
 #jaarhanger-host input[type="radio"][value="nee"]:checked + .choice-card {
