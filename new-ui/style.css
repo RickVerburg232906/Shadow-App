@@ -137,6 +137,13 @@ body.app{
 /* page-container uses .form-input rules already defined; ensure .form-label stacks vertically */
 .form-label{ display:flex; flex-direction:column; gap:8px; text-align:left; }
 
+/* Small helpers moved from admin handmatige-keuzes inline styles */
+.radio-card{ transition: all 0.2s ease-in-out; }
+.radio-card:active{ transform: scale(0.98); }
+
+/* Card body padding used by surface-card children */
+.card-body{ padding: 20px; }
+
 /* Loading-overlay removed — pages now render immediately */
 /* Smooth fade when showing page */
 .main-content, .app-footer{ transition: opacity 220ms ease, visibility 0ms linear 220ms; }
@@ -392,13 +399,168 @@ body.app{
   overflow:visible;
   box-shadow: 0 4px 12px rgba(16,24,40,0.04);
 }
+
+/* When the lunch choices container is disabled (nee selected) */
+.lunch-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  filter: grayscale(40%);
+  transition: opacity 180ms ease, filter 180ms ease;
+}
+
+/* 'Inclusief' badge styling inside the manual lunch host */
+/* 'Inclusief' info bar styling (rounded yellow/info box like the example) */
+#lunch-choices-host .section-header {
+  width: 100%;
+  box-sizing: border-box;
+  background: #FFF6EA; /* very light warm yellow */
+  border: 1px solid rgba(242,196,96,0.25);
+  padding: 10px 12px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#lunch-choices-host .section-header .material-symbols-outlined {
+  color: #7b2f00; /* dark warm brown */
+  background: rgba(123,47,0,0.06);
+  border-radius: 999px;
+  padding: 6px;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#lunch-choices-host .section-header .muted-text {
+  margin: 0;
+  color: #7b2f00;
+  font-weight: 600;
+}
+
+/* Ensure the inner #inclusief-list looks like plain text inside the bar */
+#lunch-choices-host #inclusief-list {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: inline;
+}
+
+/* Compact button styles only for the manual choices sections */
+#lunch-choices-host .choice-grid,
+#jaarhanger-host .choice-grid {
+  gap: 8px;
+}
+
+#lunch-choices-host .choice-option,
+#jaarhanger-host .choice-option {
+  display: block;
+}
+
+#lunch-choices-host .choice-option .choice-card,
+#jaarhanger-host .choice-option .choice-card {
+  padding: 10px 12px; /* smaller vertical padding */
+  font-size: 14px; /* slightly smaller text */
+  border-radius: 10px;
+  min-height: 40px;
+  box-shadow: 0 4px 10px rgba(16,24,40,0.03);
+}
+
+/* Make choice elements span full width inside the manual hosts */
+#lunch-choices-host .choice-list,
+#jaarhanger-host .choice-list,
+#lunch-choices-host .choice-grid,
+#jaarhanger-host .choice-grid {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+#lunch-choices-host .choice-option,
+#jaarhanger-host .choice-option {
+  width: 100%;
+}
+
+#lunch-choices-host .choice-option .choice-card,
+#jaarhanger-host .choice-option .choice-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* Style 'Nee' radio when checked to appear red (scoped to manual hosts) */
+#lunch-choices-host input[type="radio"][value="nee"]:checked + .choice-card,
+#jaarhanger-host input[type="radio"][value="nee"]:checked + .choice-card {
+  background: #7b2f00; /* red-700 */
+  color: #fff;
+}
+
+/* Provide focus-visible state for keyboard users */
+#lunch-choices-host input[type="radio"]:focus + .choice-card,
+#jaarhanger-host input[type="radio"]:focus + .choice-card {
+  outline: 3px solid rgba(18,50,115,0.08);
+  outline-offset: 2px;
+}
+
+/* Ensure the entire host containers and their cards take full available width */
+#lunch-choices-host,
+#jaarhanger-host {
+  width: 100%;
+  max-width: none;
+}
+
+#lunch-choices-host .surface-card,
+#jaarhanger-host .surface-card {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 8px; /* slightly reduced card padding for denser layout */
+}
+
+/* Remove double border appearance: disable inner card border inside manual hosts */
+#lunch-choices-host .choice-card,
+#jaarhanger-host .choice-card {
+  border: none !important;
+  box-shadow: 0 6px 18px rgba(16,24,40,0.04);
+}
+
+#lunch-choices-host .card-body,
+#jaarhanger-host .card-body {
+  padding: 12px;
+}
+
+#lunch-choices-host .choice-card.choice-card--danger,
+#jaarhanger-host .choice-card.choice-card--danger {
+  padding: 10px 12px;
+}
+
+/* Tighten the vaste-eten items in the manual page */
+#lunch-choices-host .vast-item,
+#jaarhanger-host .vast-item {
+  padding: 10px 8px;
+  font-size: 14px;
+}
+
+/* Reduce spacing around the info row inside these hosts */
+#lunch-choices-host .section-header,
+#jaarhanger-host .section-header {
+  margin-top:8px;
+  margin-bottom:6px;
+}
 .choice-item::before{
   content: "";
   position:absolute;
-  left:10px;
+  left: 0;
   top:10px;
   bottom:10px;
-  width:8px;
+  width:10px;
   background: var(--blue);
   border-radius:8px;
 }
@@ -586,7 +748,7 @@ div[role="button"] > .vast-item.selected,
 .surface-card{ box-sizing:border-box; width:100%; border-radius:14px; background:var(--bg-light); border:1px solid rgba(243,244,246,0.9); box-shadow: 0 8px 20px rgba(16,24,40,0.04); }
 
 /* Form label (vertical stack) */
-.form-label{ display:flex; flex-direction:column; gap:8px; text-align:left; }
+.form-label{ display:flex; flex-direction:column; gap:8px; text-align:left; padding: 12px;}
 .form-label__title{ font-size:0.75rem; font-weight:700; letter-spacing:0.08em; color:#0f1724; margin-left:4px; text-transform:uppercase; }
 
 /* Icon + input wrapper */
@@ -628,6 +790,11 @@ div[role="button"] > .vast-item.selected,
 .suggestion-item{ padding:10px 12px; cursor:pointer; color:#0f1724; font-weight:500; }
 .suggestion-item:hover{ background: rgba(22,62,141,0.04); }
 /* Dark mode rules removed */
+
+/* Alias styles for member-suggestions used in handmatige-keuzes.html */
+.member-suggestions{ position:absolute; left:0; top: calc(100% + 6px); min-width:100%; box-sizing:border-box; background: var(--bg-light); border: 1px solid rgba(243,244,246,1); border-radius: 10px; box-shadow: 0 10px 30px rgba(16,24,40,0.08); z-index:12000; max-height:260px; overflow:auto; }
+.member-suggestion-item{ padding:8px 12px; cursor:pointer; color:#0f1724; font-weight:500; }
+.member-suggestion-item:hover{ background: #f3f4f6; }
 
 
 /* Footer component (semantic, no Tailwind) */
@@ -693,6 +860,24 @@ div[role="button"] > .vast-item.selected,
 /* Checked state via adjacent selector */
 .choice-option input[type="radio"]:checked + .choice-card{ background: var(--blue); color: #ffffff; transform: translateY(-6px);}
 .choice-option input[type="radio"]:checked + .choice-card .material-symbols-outlined{ transform: scale(1.08); color: #ffffff; }
+
+/* Remove any visible border on selected choice cards (avoid gray outline) */
+.choice-option input[type="radio"]:checked + .choice-card,
+.choice-card-input:checked + .choice-card,
+.choice-option input[type="radio"]:checked + .choice-card * {
+  border: none !important;
+  border-color: transparent !important;
+}
+
+/* For manual hosts: also remove focus outlines and soften box-shadow on checked state */
+#lunch-choices-host .choice-option input[type="radio"]:focus + .choice-card,
+#lunch-choices-host .choice-option input[type="radio"]:checked + .choice-card,
+#jaarhanger-host .choice-option input[type="radio"]:focus + .choice-card,
+#jaarhanger-host .choice-option input[type="radio"]:checked + .choice-card {
+  outline: none !important;
+  outline-color: transparent !important;
+  box-shadow: 0 6px 18px rgba(16,24,40,0.04) !important;
+}
 
 /* alternative color for 'no' option when checked */
 .choice-card--danger{ }

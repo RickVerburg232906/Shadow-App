@@ -5,153 +5,85 @@
 <title>Handmatige Keuzes</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#163e8d",
-                        "secondary": "#F2C438",
-                        "danger": "#8C2B07",
-                        "background-light": "#F2F2F2",
-                        "background-dark": "#121720",
-                        "text-main": "#0D0D0D",
-                        "text-muted": "#6B7280",
-                    },
-                    fontFamily: {
-                        "display": ["Plus Jakarta Sans", "sans-serif"],
-                        "body": ["Noto Sans", "sans-serif"],
-                    },
-                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-                    boxShadow: {
-                        'card': '0 2px 8px -2px rgba(22, 62, 141, 0.08), 0 1px 4px -1px rgba(0, 0, 0, 0.03)',
-                    }
-                },
-            },
-        }
-    </script>
-<style>.no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }.radio-card {
-            transition: all 0.2s ease-in-out;
-        }
-        .radio-card:active {
-            transform: scale(0.98);
-        }
-    </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
-  </head>
-<body class="bg-background-light dark:bg-background-dark font-display text-text-main h-full min-h-screen relative pb-32">
-<header class="fixed top-0 left-0 right-0 z-50 bg-primary text-white shadow-md">
-    <div class="flex items-end p-4 h-16 justify-between" style="align-items:flex-end;">
-        <button onclick="history.back()" class="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-white/10 transition-colors">
-            <span class="material-symbols-outlined text-white" style="font-size: 24px;">arrow_back</span>
-        </button>
-        <h1 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-4">
-                                Handmatige Keuzes
-                </h1>
-        <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub" class="h-full ml-3 object-contain" style="height:120%; width:auto; display:block; object-fit:contain; object-position:right bottom; transform-origin:right bottom;" />
-</div>
-</header>
-<main class="flex flex-col gap-6 p-4 w-full pt-20">
-<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-5 shadow-sm border border-gray-200/50 dark:border-gray-800 bg-white">
-<label class="flex flex-col gap-2 group">
-<span class="text-text-main dark:text-gray-200 text-sm font-bold uppercase tracking-wider ml-1">
-   Volledige Naam
-  </span>
-<div class="relative flex items-center">
-    <span aria-hidden="true" class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-text-muted z-10 text-2xl">
-    person
-   </span>
-        <div class="relative w-full">
-                <input id="participant-name-input-manual" class="participant-name-input form-input w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-text-main dark:text-white h-14 pl-12 pr-4 text-base font-medium placeholder:text-text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Bijv. Jan Jansen" type="text" autocomplete="off" />
-                <div id="name-suggestions-manual" class="absolute left-0 right-0 top-full mt-2 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg hidden max-h-56 overflow-auto"></div>
-            </div>
+<!-- Tailwind removed; styles use new-ui/style.css -->
+<!-- small helper rules moved to new-ui/style.css -->
+  <link rel="stylesheet" href="../style.css"/>
+</head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+      <button id="back-button" class="back-button" aria-label="Terug">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="title-container">
+        <h1 class="page-title">Handmatig</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
     </div>
-<p class="text-xs text-text-muted dark:text-gray-500 ml-1 mt-1">
-   Deze naam wordt gebruikt voor de deelnemerslijst.
-  </p>
-</label>
-</div>
-<div id="lunch-choices-host" class="hidden" style="display:none" aria-hidden="true">
-    <div class="bg-white dark:bg-[#1a202c] rounded-xl shadow-card overflow-hidden">
-        <div class="px-5 pt-5 pb-2">
-            <h2 class="text-text-main dark:text-white text-xl font-bold leading-tight">Lunch Keuze</h2>
-            <p class="text-gray-500 text-sm mt-1">Selecteer het type lunch voor de deelnemer.</p>
-        </div>
+</header>
+<main class="main-content">
+      <div class="surface-card card-divider">
+        <label class="form-label">
+          <span class="form-label__title">Voor of Achternaam</span>
+          <div class="icon-input" style="position:relative;">
+            <span class="material-symbols-outlined icon-left">person</span>
+            <input id="participant-name-input-manual" class="form-input" placeholder="Bijv. Rick" type="text" value="" autocomplete="off" />
+            <div id="name-suggestions-manual" class="member-suggestions" aria-hidden="true"></div>
+          </div>
+        </label>
+      </div>
+<div id="lunch-choices-host" aria-hidden="true" hidden>
+    <div class="surface-card">
+        <div class="card-body">
+            <h2>Lunch Keuze</h2>
+            <p class="muted-text">Selecteer het type lunch voor de deelnemer.</p>
 
-        <div id="eetmee-host" class="px-5 pb-4">
-            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">Eet mee?</h3>
-            <div class="grid grid-cols-2 gap-3">
-                <label class="cursor-pointer relative">
-                    <input class="peer sr-only" name="eetmee" value="ja" type="radio" />
-                    <div class="h-12 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white shadow-sm hover:bg-gray-50">
-                        Ja
-                    </div>
-                </label>
-                <label class="cursor-pointer relative">
-                    <input class="peer sr-only" name="eetmee" value="nee" type="radio" />
-                    <div class="h-12 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-danger peer-checked:bg-danger peer-checked:text-white shadow-sm hover:bg-gray-50">
-                        Nee
-                    </div>
-                </label>
+            <div id="eetmee-host">
+                <h3 class="choice-title">Eet mee?</h3>
+                <div class="choice-grid">
+                    <label class="choice-option">
+                        <input class="sr-only" name="eetmee" value="ja" type="radio" />
+                        <div class="choice-card">Ja</div>
+                    </label>
+                    <label class="choice-option">
+                        <input class="sr-only" name="eetmee" value="nee" type="radio" />
+                        <div class="choice-card choice-card--danger">Nee</div>
+                    </label>
+                </div>
             </div>
-        </div>
 
-        <div id="lunch-choices-list" class="flex flex-col gap-3 p-5 pt-2">
-                <!-- dynamically populated -->
-        </div>
+            <div id="lunch-choices-list" class="choice-list" aria-hidden="true"></div>
 
-        <div class="bg-gray-50 dark:bg-gray-800/50 px-5 py-4 border-t border-gray-100">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary text-[20px]">info</span>
-                <div class="flex flex-col sm:flex-row sm:gap-2 text-sm">
-                    <span class="text-gray-500 font-medium">Inclusief:</span>
-                    <div id="inclusief-list" class="text-text-main font-medium">Laden…</div>
+            <div class="section-header" style="margin-top:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span class="material-symbols-outlined">info</span>
+                    <div class="muted-text">Inclusief: <span id="inclusief-list" class="font-medium">Laden…</span></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-<div id="jaarhanger-host" class="bg-white dark:bg-[#1a202c] rounded-xl shadow-card p-5" style="display:none" aria-hidden="true">
-<h2 class="text-text-main dark:text-white text-xl font-bold leading-tight mb-4">Jaarhanger Keuze</h2>
-<p class="text-sm text-gray-600 mb-4">Wil de deelnemer een jaarhanger ontvangen?</p>
-<div class="grid grid-cols-2 gap-4">
-<label class="cursor-pointer relative">
-    <input class="peer sr-only" name="jaarhanger" value="ja" type="radio"/>
-  <div class="h-14 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white shadow-sm hover:bg-gray-50">
-                        Ja
-                    </div>
-</label>
-<label class="cursor-pointer relative">
-    <input class="peer sr-only" name="jaarhanger" value="nee" type="radio"/>
-  <div class="h-14 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-600 font-bold transition-all peer-checked:border-danger peer-checked:bg-danger peer-checked:text-white shadow-sm hover:bg-gray-50">
-                        Nee
-                    </div>
-</label>
+<div id="jaarhanger-host" class="surface-card card-divider" style="margin-bottom: 8px;" aria-hidden="true" hidden>
+    <div class="card-body">
+        <h2>Jaarhanger Keuze</h2>
+        <p class="muted-text">Wil de deelnemer een jaarhanger ontvangen?</p>
+        <div class="choice-grid">
+            <label class="choice-option"><input class="sr-only" name="jaarhanger" value="ja" type="radio"/><div class="choice-card">Ja</div></label>
+            <label class="choice-option"><input class="sr-only" name="jaarhanger" value="nee" type="radio"/><div class="choice-card choice-card--danger">Nee</div></label>
+        </div>
+    </div>
 </div>
-</div>
-<script type="module">
-  import { initHandmatigeKeuzes } from '../admin.js';
-  document.addEventListener('DOMContentLoaded', () => { try { initHandmatigeKeuzes(); } catch(e){ console.error(e); } });
-</script>
-</main>
-<div class="fixed left-0 w-full bg-white dark:bg-[#1a202c] border-t border-gray-200 dark:border-gray-800 p-4 z-30" style="bottom: env(safe-area-inset-bottom);">
-<div class="w-full">
-<button id="save-manual-button" class="flex items-center justify-center h-14 w-full rounded-lg bg-primary text-white font-bold text-lg shadow-lg shadow-primary/30 active:scale-[0.99] transition-transform">
-            Opslaan &amp; Verder
-        </button>
-</div>
+<!-- handmatige-keuzes script removed; manual-page logic moved/disabled -->
+    </main>
+
+<div class="form-footer">
+    <div class="container-md">
+        <button id="save-manual-button" class="primary-button">Opslaan &amp; Verder</button>
+    </div>
 </div>
 
 </body></html>
+<script type="module" src="../admin.js"></script>
+<script type="module" src="../member.js"></script>

@@ -215,6 +215,8 @@ function setupMemberSuggestions() {
 									try { window._selectedMemberId = pickedId || ''; } catch(_) {}
 									closeList();
 									try { updateSignupFooterState(); } catch(_) {}
+									// Notify other parts of the app that a member was selected
+									try { document.dispatchEvent(new CustomEvent('member:selected', { detail: { memberId: pickedId, name: item.textContent } })); } catch(_) {}
 									// Do not fetch full member here; fetching happens when the footer button is pressed
 								} catch (e) { console.warn('suggestion click failed', e); }
 							});

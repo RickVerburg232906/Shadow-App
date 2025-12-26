@@ -9,602 +9,7 @@ const firebaseConfigDev = {
 };
 
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
-
-// Small helper to show a success toast that slides up from bottom and fades away after 1s
-function ensureScanToastStyles() {
-  if (document.getElementById('scan-toast-styles')) return;
-  const css = `
-  @keyframes scanToastIn {
-    0% { transform: translateY(24px); opacity: 0; }
-    60% { transform: translateY(-6px); opacity: 1; }
-    100% { transform: translateY(0); opacity: 1; }
-  }
-  @keyframes scanToastOut {
-    0% { opacity: 1; }
-    100% { opacity: 0; transform: translateY(-12px); }
-  }
-  .scan-toast {
-    position: fixed;
-    left: 50%;
-    bottom: 16px;
-    transform: translateX(-50%);
-    background: rgba(16,185,129,0.98); /* emerald-500 */
-    color: white;
-    padding: 10px 16px;
-    border-radius: 999px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    font-weight: 700;
-    z-index: 16000;
-    min-width: 120px;
-    text-align: center;
-    opacity: 0;
-  }
-  .scan-toast.show-in { animation: scanToastIn 360ms cubic-bezier(.2,.9,.3,1) forwards; }
-  .scan-toast.show-out { animation: scanToastOut 420ms ease forwards; animation-delay: 1s; }
-  `;
-  const s = document.createElement('style');
-  s.id = 'scan-toast-styles';
-  s.textContent = css;
-  document.head.appendChild(s);
-}
-
-// Render stars for a member in the history section (shows planned vs scanned)
-async function renderHistoryStars(memberId) {
-  try {
-    if (!memberId) return;
-    const container = document.getElementById('history-member-stars');
-    if (!container) return;
-    container.innerHTML = '<div class="text-text-sub text-sm">Laden…</div>';
-    const planned = await getPlannedDates().catch(() => []);
-    const member = await getMemberById(memberId).catch(() => null);
-    const scans = getMemberScanYMDs_local(member || {});
-    const plannedY = Array.isArray(planned) ? planned.map(d => (typeof d === 'string' ? d.slice(0,10) : '')).filter(Boolean) : [];
-    // Build full-width clickable star buttons
-    const todayY = new Date().toISOString().slice(0,10);
-    const starHtml = plannedY.map(pd => {
-      const isScanned = scans.includes(pd);
-      const isFuture = (pd > todayY);
-      const title = `Rit ${pd}`;
-      // large star inside a full-width flex item
-      if (isScanned) {
-        return `<button data-filled="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white" title="${title}"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1, 'wght' 400; -webkit-font-variation-settings: 'FILL' 1, 'wght' 400; color: #F2C438; font-size:32px;">star</span></button>`;
-      }
-      if (isFuture) {
-        // future event: keep star visible but render a semi-opaque overlay with a centered white lock
-        return `
-          <button data-filled="0" data-future="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white relative" title="${title}" disabled aria-disabled="true" style="pointer-events:none;">
-            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px; z-index:0;">star</span>
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(22,62,141,0.6);border-radius:0.5rem;z-index:40;pointer-events:none;">
-              <div style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;">
-                <span class="material-symbols-outlined" style="font-size:20px;color:#ffffff;">lock</span>
-              </div>
-            </div>
-          </button>
-        `;
-      }
-      return `<button data-filled="0" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white" title="${title}"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; -webkit-font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px;">star</span></button>`;
-    }).join('');
-    container.innerHTML = `<div class="flex gap-2">${starHtml}</div>` || `<div class="text-sm text-gray-500">Geen geplande ritten</div>`;
-
-    // attach live listener to update when member ScanDatums change (best-effort)
-      try {
-        if (container._starsUnsub && typeof container._starsUnsub === 'function') container._starsUnsub();
-        if (doc && onSnapshot && db) {
-          container._starsUnsub = onSnapshot(doc(db, 'members', String(memberId)), snap => {
-            try {
-              const data = (snap && snap.exists && snap.exists()) ? snap.data() : (snap && snap.data ? snap.data() : {});
-              const scans2 = getMemberScanYMDs_local(data || {});
-              const todayY2 = new Date().toISOString().slice(0,10);
-              const starHtml2 = plannedY.map(pd => {
-                const isScanned = scans2.includes(pd);
-                const isFuture2 = (pd > todayY2);
-                const title = `Rit ${pd}`;
-                if (isScanned) return `<button data-filled="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1, 'wght' 400; color: #F2C438; font-size:32px;">star</span></button>`;
-                if (isFuture2) return `
-                  <button data-filled="0" data-future="1" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white relative" title="${title}" disabled aria-disabled="true" style="pointer-events:none;">
-                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px; z-index:0;">star</span>
-                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(22,62,141,0.6);border-radius:0.5rem;z-index:40;pointer-events:none;">
-                      <div style="width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;">
-                        <span class="material-symbols-outlined" style="font-size:20px;color:#ffffff;">lock</span>
-                      </div>
-                    </div>
-                  </button>
-                `;
-                return `<button data-filled="0" data-history-date="${pd}" aria-label="${title}" class="history-star-btn w-full flex-1 h-14 flex items-center justify-center rounded-lg border border-gray-200 bg-white"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400; color: #D1D5DB; font-size:32px;">star</span></button>`;
-              }).join('');
-              container.innerHTML = `<div class="flex gap-2">${starHtml2}</div>`;
-              attachHistoryStarHandlers(container, memberId, plannedY);
-            } catch (e) { console.error('history stars snapshot render failed', e); }
-          });
-        }
-      } catch (e) { console.warn('attach snapshot for history stars failed', e); }
-    // Attach click handlers for stars (register when clicked)
-    try { attachHistoryStarHandlers(container, memberId, plannedY); } catch(_){}
-  } catch (e) { console.error('renderHistoryStars failed', e); }
-}
-
-function attachHistoryStarHandlers(container, memberId, plannedY) {
-  try {
-    if (!container) return;
-    // delegate clicks on buttons
-    const btns = Array.from(container.querySelectorAll('button[data-history-date]'));
-    btns.forEach(b => {
-      // avoid duplicating handlers
-      if (b._historyHandlerAttached) return;
-      b._historyHandlerAttached = true;
-      // skip attaching handler for future (locked) buttons
-      try { if (b.getAttribute('data-future') === '1') return; } catch(_){}
-      b.addEventListener('click', async (ev) => {
-        try {
-          ev.preventDefault();
-          // If the star is already filled, do nothing
-          try { if (b.getAttribute('data-filled') === '1') return; } catch(_){ }
-          const date = b.getAttribute('data-history-date');
-          if (!memberId || !date) return;
-          // Optimistic UI: mark button as filled immediately to avoid re-render flicker
-          try {
-            b.setAttribute('data-filled', '1');
-            b.disabled = true;
-            b.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1, \'wght\' 400; color: #F2C438; font-size:32px;">star</span>';
-          } catch(_){}
-          // register the ride for this member/date
-          try {
-            const res = await manualRegisterRide(String(memberId), String(date));
-            if (res && res.success) {
-              // success: keep optimistic state; don't re-render entire list
-              return;
-            } else {
-              // revert optimistic state on failure
-              try {
-                b.setAttribute('data-filled', '0');
-                b.disabled = false;
-                b.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 0, \'wght\' 400; color: #D1D5DB; font-size:32px;">star</span>';
-              } catch(_){}
-              alert('Kon rit niet registreren');
-            }
-          } catch (e) {
-            try {
-              b.setAttribute('data-filled', '0');
-              b.disabled = false;
-              b.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 0, \'wght\' 400; color: #D1D5DB; font-size:32px;">star</span>';
-            } catch(_){}
-            console.error('history star register failed', e);
-            alert('Fout bij registreren');
-          }
-        } catch (e) { console.error('history star click failed', e); alert('Fout bij registreren'); }
-      });
-    });
-  } catch (e) { console.error('attachHistoryStarHandlers failed', e); }
-}
-
-// Minimal HTML escape used by the manual modal
-function escapeHtml(s) {
-  try {
-    if (s === null || typeof s === 'undefined') return '';
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]);
-  } catch (e) { return String(s || ''); }
-}
-
-// Normalize yes/no-like values (used when prefilling jaarhanger)
-function normalizeYesNo(v) {
-  try {
-    if (v === null || typeof v === 'undefined') return null;
-    if (typeof v === 'boolean') return v ? 'yes' : 'no';
-    const s = String(v).trim().toLowerCase();
-    if (s === '') return null;
-    if (s === 'ja' || s === 'yes' || s === 'true' || s === '1' || s === 'y') return 'yes';
-    if (s === 'nee' || s === 'no' || s === 'false' || s === '0' || s === 'n') return 'no';
-    const num = Number(s);
-    if (!isNaN(num)) return num > 0 ? 'yes' : 'no';
-    return null;
-  } catch (e) { return null; }
-}
-
-// Return array of YMD scan dates from member object. Copied from main.js implementation (scoped helper).
-function getMemberScanYMDs_local(member) {
-  try {
-    if (!member) return [];
-    const candidates = [member.ScanDatums, member.scanDatums, member.ScanDatum, member.scanDatum, member.scanDates, member.ScanDates, member.ScanDatumList, member.scanDatumList];
-    let raw = null;
-    for (const c of candidates) { if (typeof c !== 'undefined' && c !== null) { raw = c; break; } }
-    if (!raw) {
-      for (const k of Object.keys(member || {})) {
-        if (k.toLowerCase().includes('scan')) { raw = member[k]; break; }
-      }
-    }
-    if (!raw) return [];
-    const result = [];
-    if (Array.isArray(raw)) {
-      for (const it of raw) {
-        if (!it) continue;
-        if (typeof it === 'string') { result.push(String(it).slice(0,10)); continue; }
-        if (typeof it === 'object') {
-          if (typeof it.seconds === 'number') { try { result.push(new Date(it.seconds * 1000).toISOString().slice(0,10)); continue; } catch(_){} }
-          if (it.value && typeof it.value === 'string') { result.push(String(it.value).slice(0,10)); continue; }
-          for (const pk of ['date','datum','scanDate','ScanDatum']) { if (it[pk]) { result.push(String(it[pk]).slice(0,10)); break; } }
-        }
-      }
-      return Array.from(new Set(result)).filter(Boolean);
-    }
-    if (typeof raw === 'object') {
-      for (const [k,v] of Object.entries(raw)) {
-        if (typeof k === 'string' && /^\d{4}-\d{2}-\d{2}/.test(k)) result.push(k.slice(0,10));
-        if (v) {
-          if (typeof v === 'string') result.push(v.slice(0,10));
-          else if (typeof v === 'object' && typeof v.seconds === 'number') result.push(new Date(v.seconds * 1000).toISOString().slice(0,10));
-        }
-      }
-      return Array.from(new Set(result)).filter(Boolean);
-    }
-    if (typeof raw === 'string') return [raw.slice(0,10)];
-    return [];
-  } catch (e) { return []; }
-}
-
-// Render lunch choices page elements (used by handmatige-keuzes.html)
-
-export async function renderLunchOptions(hostId = 'lunch-choices-list', inclusiefId = 'inclusief-list', { force = false } = {}) {
-  try {
-    const host = document.getElementById(hostId);
-    const incl = document.getElementById(inclusiefId);
-
-    // If host is not present or intentionally hidden and not forced, skip render
-    if (!force && host && (host.style.display === 'none' || host.classList.contains('hidden') || host.getAttribute('aria-hidden') === 'true')) return;
-
-    // always fetch fresh data (no cache)
-    const res = await getLunchOptions();
-
-    const keuze = Array.isArray(res && res.keuzeEten) ? res.keuzeEten : [];
-    const vast = Array.isArray(res && res.vastEten) ? res.vastEten : [];
-
-    if (incl) {
-      if (!vast || vast.length === 0) incl.textContent = 'Geen vaste gerechten gevonden';
-      else incl.textContent = String(vast.join(', '));
-    }
-    if (!host) return;
-
-    // avoid re-rendering identical choice list
-    try {
-      const hash = JSON.stringify(keuze || []);
-      if (!force && host._lastKeuzeHash && host._lastKeuzeHash === hash) return;
-      host._lastKeuzeHash = hash;
-    } catch(_){}
-
-    if (!keuze || keuze.length === 0) {
-      host.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>';
-      return;
-    }
-
-    // build minimal DOM string — avoid expensive work per item
-    host.innerHTML = keuze.map((k) => {
-      const safe = String(k || '').replace(/"/g, '&quot;');
-      return `
-        <label class="radio-card group relative flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:bg-gray-50">
-          <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-gray-400">lunch_dining</span>
-            <span class="font-semibold text-text-main">${escapeHtml(String(k))}</span>
-          </div>
-          <div class="relative flex items-center justify-center w-5 h-5 rounded-full border border-gray-300 bg-white">
-            <div class="w-2.5 h-2.5 rounded-full bg-primary opacity-0 transition-opacity"></div>
-          </div>
-          <input class="invisible absolute" name="lunch_choice" type="radio" value="${safe}" />
-        </label>
-      `;
-    }).join('\n');
-  } catch (e) { console.error('renderLunchOptions failed', e); }
-}
-
-// Attach handlers to lunch choice radios to update visual state when selected
-export function attachLunchChoiceHandlers(hostId = 'lunch-choices-list') {
-  try {
-    const host = document.getElementById(hostId);
-    if (!host) return;
-    const radios = Array.from(host.querySelectorAll('input[name="lunch_choice"]'));
-    if (!radios || radios.length === 0) return;
-    function applyLunchSelectionState() {
-      try {
-        const rs = Array.from(host.querySelectorAll('input[name="lunch_choice"]'));
-        rs.forEach(rr => {
-          const lab = rr.closest('label') || rr.parentElement;
-          if (!lab) return;
-          const innerText = lab.querySelector('.font-semibold');
-          const icon = lab.querySelector('.material-symbols-outlined');
-          const dot = lab.querySelector('[class~="w-2.5"]');
-          const outerCircle = lab.querySelector('[class~="w-5"]');
-          if (rr.checked) {
-            try {
-              lab.classList.add('border-primary');
-              lab.classList.remove('border-gray-200');
-              lab.style.backgroundColor = '#163e8d';
-              lab.style.borderColor = '#163e8d';
-              lab.style.color = '#ffffff';
-            } catch(_){}
-            if (innerText) { innerText.style.color = '#ffffff'; }
-            if (icon) { icon.style.color = '#ffffff'; }
-            if (outerCircle) {
-              try {
-                outerCircle.style.backgroundColor = '#ffffff';
-                outerCircle.style.borderColor = '#163e8d';
-                outerCircle.style.padding = '4px';
-                outerCircle.style.borderRadius = '9999px';
-                outerCircle.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:#163e8d">check</span>';
-              } catch(_){}
-            }
-          } else {
-            try {
-              lab.classList.remove('border-primary');
-              lab.classList.add('border-gray-200');
-              lab.style.backgroundColor = '';
-              lab.style.borderColor = '';
-              lab.style.color = '';
-            } catch(_){}
-            if (innerText) { innerText.style.color = ''; }
-            if (icon) { icon.style.color = ''; }
-            if (outerCircle) {
-              try {
-                outerCircle.style.backgroundColor = '';
-                outerCircle.style.borderColor = '';
-                outerCircle.style.padding = '';
-                outerCircle.style.borderRadius = '';
-                outerCircle.innerHTML = '<div class="w-2.5 h-2.5 rounded-full" style="background:#ffffff;opacity:0"></div>';
-              } catch(_){}
-            }
-          }
-        });
-      } catch (e) { console.error('applyLunchSelectionState failed', e); }
-    }
-
-    radios.forEach(r => {
-      if (r._lunchHandlerAttached) return;
-      r._lunchHandlerAttached = true;
-      r.addEventListener('change', () => { try { applyLunchSelectionState(); } catch(e){ console.error(e); } });
-    });
-
-    // delegate clicks on host to ensure selection updates even if change doesn't fire immediately
-    if (!host._lunchClickHandlerAttached) {
-      host._lunchClickHandlerAttached = true;
-      host.addEventListener('click', (ev) => {
-        try {
-          const lbl = ev.target.closest('label') || (ev.target.parentElement && ev.target.parentElement.closest && ev.target.parentElement.closest('label'));
-          if (lbl) {
-            const input = lbl.querySelector('input[name="lunch_choice"]');
-            if (input) {
-              // programmatically ensure radio is checked when label area clicked
-              try { input.checked = true; } catch(_){ }
-              try { input.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){ }
-              try { applyLunchSelectionState(); } catch(_){ }
-              try { console.debug('lunch host click -> set checked for', input.value); } catch(_){ }
-              return;
-            }
-          }
-          // fallback: schedule apply to catch native changes
-          setTimeout(() => { try { applyLunchSelectionState(); } catch(_){} }, 0);
-        } catch (e) { console.error('host click handler failed', e); }
-      });
-    }
-    // apply initial state
-    try {
-      const checked = radios.find(r => r.checked);
-      if (checked) checked.dispatchEvent(new Event('change', { bubbles: true }));
-    } catch(_){}
-  } catch (e) { console.error('attachLunchChoiceHandlers failed', e); }
-}
-
-// Initialize the handmatige-keuzes page behavior: reveal hosts on member selection
-export function initHandmatigeKeuzes({ inputId = 'participant-name-input-manual', lunchHostId = 'lunch-choices-host', jaarHostId = 'jaarhanger-host' } = {}) {
-  try {
-    const input = document.getElementById(inputId);
-    const lunchHost = document.getElementById(lunchHostId);
-    const jaarHost = document.getElementById(jaarHostId);
-
-    // keep currently selected member document (if available) so we can read prefills
-    let _currentMember = null;
-
-    function getMemberJaarhanger(member) {
-      try {
-        if (!member) return null;
-        let found = null;
-        for (const k of Object.keys(member)) {
-          const lk = String(k || '').toLowerCase();
-          if (lk.includes('jaarhang') || lk.includes('jaarhanger')) { found = member[k]; break; }
-        }
-        if (found === null) {
-          const keys = ['Jaarhanger','jaarhanger','JaarHanger','JaarhangerKeuze','jaarhangerKeuze','Jaarhanger_keuze'];
-          for (const k of keys) if (member[k] !== undefined) { found = member[k]; break; }
-        }
-        const yn = normalizeYesNo(found);
-        if (yn === 'yes') return 'ja';
-        if (yn === 'no') return 'nee';
-        return null;
-      } catch (e) { return null; }
-    }
-
-    function updateEetMeeState(value) {
-      const eatInputs = Array.from(document.querySelectorAll('input[name="eetmee"]'));
-      eatInputs.forEach(inp => {
-        const visual = inp.nextElementSibling;
-        if (!visual) return;
-        visual.classList.remove('bg-primary','text-white','border-primary','bg-danger','border-danger');
-        visual.classList.add('bg-white','text-gray-600','border-gray-200');
-        if (inp.value === value && inp.checked) {
-          if (value === 'ja') {
-            visual.classList.remove('bg-white','text-gray-600');
-            visual.classList.add('bg-primary','text-white','border-primary');
-          } else {
-            visual.classList.remove('bg-white','text-gray-600');
-            visual.classList.add('bg-danger','text-white','border-danger');
-          }
-        }
-      });
-
-      const lunchList = document.getElementById('lunch-choices-list');
-      if (value === 'nee') {
-        if (lunchList) {
-          const radios = Array.from(lunchList.querySelectorAll('input[type="radio"]'));
-          radios.forEach(r => {
-            try { r.checked = false; } catch(_){}
-            try { r.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){}
-          });
-          lunchList.classList.add('opacity-50','pointer-events-none');
-          try {
-            // also clear any visual selected state on labels
-            const labs = Array.from(lunchList.querySelectorAll('label'));
-            labs.forEach(lab => {
-              try {
-                lab.classList.remove('border-primary','bg-primary');
-                lab.classList.add('bg-white','border-gray-200');
-                lab.style.backgroundColor = '';
-                lab.style.borderColor = '';
-                lab.style.color = '';
-                const innerText = lab.querySelector('.font-semibold'); if (innerText) innerText.style.color = '';
-                const icon = lab.querySelector('.material-symbols-outlined'); if (icon) icon.style.color = '';
-                const dot = lab.querySelector('[class~="w-2.5"]'); if (dot) { dot.style.backgroundColor = ''; dot.style.opacity = '0'; }
-              } catch(_){}
-            });
-          } catch(_){}
-        }
-      } else {
-        if (lunchList) {
-          lunchList.classList.remove('opacity-50','pointer-events-none');
-        }
-      }
-    }
-
-    const eetInputs = Array.from(document.querySelectorAll('input[name="eetmee"]'));
-    eetInputs.forEach(inp => {
-      inp.addEventListener('change', () => {
-        try { updateEetMeeState(inp.value); } catch (e) { console.error(e); }
-      });
-    });
-
-    // Save button validation and handler
-    const saveBtn = document.getElementById('save-manual-button');
-    function setSaveEnabled(enabled) {
-      try {
-        if (!saveBtn) return;
-        saveBtn.disabled = !enabled;
-        if (enabled) { saveBtn.classList.remove('opacity-50'); saveBtn.removeAttribute('aria-disabled'); }
-        else { saveBtn.classList.add('opacity-50'); saveBtn.setAttribute('aria-disabled', 'true'); }
-      } catch(_){}
-    }
-
-    function validateAndToggleSave() {
-      try {
-        if (!saveBtn) return;
-        const memberId = (input && ((input.dataset && input.dataset.memberId) || input.getAttribute('data-member-id'))) || null;
-        const eet = (document.querySelector('input[name="eetmee"]:checked') || {}).value || null;
-        const jaar = (document.querySelector('input[name="jaarhanger"]:checked') || {}).value || null;
-        // if jaarhanger not selected in DOM, check current member object for a prefixed value
-        const jaarFromMember = (!jaar && _currentMember) ? getMemberJaarhanger(_currentMember) : null;
-        let lunchChoice = null;
-        if (eet === 'ja') lunchChoice = (document.querySelector('#lunch-choices-list input[name="lunch_choice"]:checked') || {}).value || null;
-        const jaarPresent = jaar || jaarFromMember || null;
-        const ok = memberId && eet && jaarPresent && (eet !== 'ja' || lunchChoice);
-        setSaveEnabled(Boolean(ok));
-      } catch (e) { console.error('validateAndToggleSave failed', e); }
-    }
-
-    // revalidate on relevant changes
-    document.addEventListener('change', (ev) => {
-      try { if (ev && ev.target) {
-        const name = ev.target.getAttribute && ev.target.getAttribute('name');
-        if (name === 'eetmee' || name === 'jaarhanger' || name === 'lunch_choice') validateAndToggleSave();
-      } } catch(_){}
-    });
-
-    if (saveBtn) {
-      // start disabled
-      setSaveEnabled(false);
-      saveBtn.addEventListener('click', async (ev) => {
-        try {
-          ev.preventDefault();
-          const memberId = (input && ((input.dataset && input.dataset.memberId) || input.getAttribute('data-member-id'))) || null;
-          if (!memberId) { alert('Geen deelnemer geselecteerd'); return; }
-          const eet = (document.querySelector('input[name="eetmee"]:checked') || {}).value || null;
-          const jaar = (document.querySelector('input[name="jaarhanger"]:checked') || {}).value || null;
-          let lunchChoice = null;
-          if (eet === 'ja') lunchChoice = (document.querySelector('#lunch-choices-list input[name="lunch_choice"]:checked') || {}).value || null;
-          setSaveEnabled(false);
-          // prefer DOM jaar selection, fallback to member stored value
-          const jaarFromMember = (!jaar && _currentMember) ? getMemberJaarhanger(_currentMember) : null;
-          const jaarToSave = jaar || jaarFromMember || null;
-          const payload = { lunchDeelname: (eet === 'ja' ? 'ja' : 'nee'), lunchKeuze: lunchChoice || null, Jaarhanger: jaarToSave };
-          try {
-            const res = await checkInMemberById(String(memberId), payload);
-            if (res && res.success) {
-              // also write today's date into ScanDatums for this member
-              try {
-                const today = new Date().toISOString().slice(0,10);
-                await manualRegisterRide(String(memberId), today);
-              } catch (e) { console.warn('write scan date failed', e); }
-              setSaveEnabled(false);
-              try { setTimeout(() => { window.location.href = 'inschrijftafel.html'; }, 700); } catch(_){}
-            } else {
-              alert('Kon niet opslaan');
-              setSaveEnabled(true);
-            }
-          } catch (e) { console.error('save failed', e); alert('Fout bij opslaan'); setSaveEnabled(true); }
-        } catch (e) { console.error('saveBtn handler failed', e); setSaveEnabled(true); }
-      });
-    }
-
-      if (input) {
-      input.addEventListener('member-selected', async (ev) => {
-        try {
-          try { console.debug('initHandmatigeKeuzes member-selected detail:', ev && ev.detail); } catch(_){}
-          if (lunchHost) { lunchHost.style.display = ''; lunchHost.removeAttribute('aria-hidden'); lunchHost.classList.remove('hidden'); }
-          if (jaarHost) { jaarHost.style.display = ''; jaarHost.removeAttribute('aria-hidden'); jaarHost.classList.remove('hidden'); }
-                try { await renderLunchOptions(); } catch(e) { console.error(e); }
-                try { attachLunchChoiceHandlers(); } catch(_){}
-          const selected = document.querySelector('input[name="eetmee"]:checked');
-          if (selected) updateEetMeeState(selected.value);
-          // attempt to prefill Jaarhanger from member record if available
-            try {
-            const memberId = (ev && ev.detail && ev.detail.id) || input.dataset.memberId || input.getAttribute('data-member-id');
-            const memberDetail = (ev && ev.detail && ev.detail.member) ? ev.detail.member : null;
-            let m = null;
-            if (memberDetail) m = memberDetail;
-            else if (memberId) m = await getMemberById(memberId).catch(() => null);
-            // store current member object for validation/save fallback
-            if (m) _currentMember = m;
-            if (m) {
-              // try to find any field that indicates jaarhanger
-              let found = null;
-              for (const k of Object.keys(m)) {
-                const lk = String(k || '').toLowerCase();
-                if (lk.includes('jaarhang') || lk.includes('jaarhanger')) { found = m[k]; break; }
-              }
-              if (found === null) {
-                const keys = ['Jaarhanger','jaarhanger','JaarHanger','JaarhangerKeuze','jaarhangerKeuze','Jaarhanger_keuze'];
-                for (const k of keys) if (m[k] !== undefined) { found = m[k]; break; }
-              }
-              if (found !== null && typeof found !== 'undefined' && String(found || '').trim() !== '') {
-                const yn = normalizeYesNo(found);
-                  if (yn === 'yes') {
-                    const el = document.querySelector('input[name="jaarhanger"][value="ja"]'); if (el) { el.checked = true; try { el.dispatchEvent(new Event('change',{bubbles:true})); } catch(_){} }
-                  } else if (yn === 'no') {
-                    const el = document.querySelector('input[name="jaarhanger"][value="nee"]'); if (el) { el.checked = true; try { el.dispatchEvent(new Event('change',{bubbles:true})); } catch(_){} }
-                  }
-              }
-            }
-          } catch (e) { console.warn('prefill jaarhanger failed', e); }
-        } catch (e) { console.error('member-selected handler failed', e); }
-      });
-      // hide hosts again when input is cleared
-      input.addEventListener('input', (ev) => {
-        try {
-          const v = String(input.value || '').trim();
-          if (!v) {
-            if (lunchHost) { lunchHost.style.display = 'none'; lunchHost.setAttribute('aria-hidden', 'true'); lunchHost.classList.add('hidden'); }
-            if (jaarHost) { jaarHost.style.display = 'none'; jaarHost.setAttribute('aria-hidden', 'true'); jaarHost.classList.add('hidden'); }
-            // clear cached member when input cleared
-            try { _currentMember = null; } catch(_){}
-          }
-        } catch (e) { console.error('input clear handler failed', e); }
-      });
-    }
-  } catch (e) { console.error('initHandmatigeKeuzes failed', e); }
-}
+// handmatige-keuzes code removed per request; manual-page helpers intentionally omitted.
 
 function showScanSuccess(msg) {
   try {
@@ -1087,3 +492,192 @@ function initLiveLunchStats() {
 
 // initialize manual search handlers after DOM loaded
 try { if (typeof window !== 'undefined') window.addEventListener('DOMContentLoaded', () => { try { createManualSearchHandlers(); } catch(_){} }); } catch(_) {}
+
+// Reveal manual choice sections when a member is selected via the shared dropdown
+function revealManualChoiceSections(memberId, name) {
+  try {
+    const lunch = document.getElementById('lunch-choices-host');
+    const jaar = document.getElementById('jaarhanger-host');
+    if (lunch) {
+      lunch.hidden = false;
+      lunch.removeAttribute('aria-hidden');
+    }
+    if (jaar) {
+      jaar.hidden = false;
+      jaar.removeAttribute('aria-hidden');
+    }
+    // optionally focus first interactive element
+    try { const first = (lunch && lunch.querySelector('input')) || (jaar && jaar.querySelector('input')); if (first && typeof first.focus === 'function') first.focus(); } catch(_){}
+  } catch (e) { console.warn('revealManualChoiceSections failed', e); }
+}
+
+function hideManualChoiceSections() {
+  try {
+    const lunch = document.getElementById('lunch-choices-host');
+    const jaar = document.getElementById('jaarhanger-host');
+    if (lunch) {
+      lunch.hidden = true;
+      lunch.setAttribute('aria-hidden', 'true');
+    }
+    if (jaar) {
+      jaar.hidden = true;
+      jaar.setAttribute('aria-hidden', 'true');
+    }
+    // clear selected member id on manual input
+    try {
+      const input = document.getElementById('participant-name-input-manual');
+      if (input) {
+        input.removeAttribute('data-member-id');
+      }
+    } catch(_){}
+    // clear any chosen lunch selections
+    try {
+      const keuzeContainer = document.getElementById('lunch-choices-list');
+      if (keuzeContainer) {
+        const chosen = keuzeContainer.querySelectorAll('input[name="keuzeEten"]:checked');
+        chosen.forEach(c => { try { c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){} });
+        keuzeContainer.classList.remove('lunch-disabled');
+      }
+    } catch(_){}
+  } catch (e) { console.warn('hideManualChoiceSections failed', e); }
+}
+
+try { document.addEventListener('member:selected', (ev) => {
+  try {
+    const hasManualInput = !!document.getElementById('participant-name-input-manual');
+    if (!hasManualInput) return;
+    const detail = ev && ev.detail ? ev.detail : {};
+    revealManualChoiceSections(detail.memberId || '', detail.name || '');
+  } catch (_) {}
+}); } catch(_) {}
+
+// Hide manual sections when the manual name input is cleared
+try {
+  if (typeof window !== 'undefined') {
+    const setupHide = () => {
+      try {
+        const input = document.getElementById('participant-name-input-manual');
+        if (!input) return;
+
+        const checkEmpty = () => {
+          try {
+            const v = String(input.value || '').trim();
+            if (!v) hideManualChoiceSections();
+          } catch (_) {}
+        };
+
+        // Common events that indicate the value changed
+        ['input', 'change', 'keyup'].forEach(evName => {
+          try { input.addEventListener(evName, checkEmpty); } catch(_) {}
+        });
+
+        // On blur also re-check (covers some programmatic changes)
+        try { input.addEventListener('blur', checkEmpty); } catch(_) {}
+
+        // Poll fallback while input is focused (covers programmatic sets that don't fire events)
+        let pollId = null;
+        input.addEventListener('focus', () => {
+          try {
+            if (pollId) return;
+            pollId = setInterval(() => { try { checkEmpty(); } catch(_) {} }, 250);
+          } catch(_){}
+        });
+        input.addEventListener('blur', () => {
+          try { if (pollId) { clearInterval(pollId); pollId = null; } } catch(_){}
+        });
+      } catch (e) { console.warn('setupHide listener failed', e); }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupHide); else setupHide();
+  }
+} catch(_) {}
+
+// Load and render lunch options specifically for the manual choices page
+async function loadManualLunchOptions() {
+  try {
+    const input = document.getElementById('participant-name-input-manual');
+    if (!input) return; // not the manual page
+    const listEl = document.getElementById('lunch-choices-list');
+    const inclusiefEl = document.getElementById('inclusief-list');
+    if (!listEl) return;
+    try { listEl.innerHTML = '<div class="text-text-sub text-sm">Laden...</div>'; } catch(_){}
+    const opts = await getLunchOptions();
+    const keuzes = Array.isArray(opts && opts.keuzeEten) ? opts.keuzeEten : [];
+    if (!keuzes || keuzes.length === 0) {
+      try { listEl.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>'; } catch(_){}
+    } else {
+      const html = keuzes.map((k) => {
+        const safe = String(k).replace(/"/g, '&quot;');
+        return `<label class="choice-option"><input class="sr-only" name="keuzeEten" value="${safe}" type="radio" /><div class="choice-card">${String(k)}</div></label>`;
+      }).join('\n');
+      try { listEl.innerHTML = html; listEl.removeAttribute('aria-hidden'); } catch(_){}
+    }
+    try {
+      if (inclusiefEl) {
+        const vast = Array.isArray(opts && opts.vastEten) ? opts.vastEten : (opts && opts.vastEten) || [];
+        inclusiefEl.textContent = (Array.isArray(vast) && vast.length > 0) ? vast.join(', ') : '—';
+      }
+    } catch(_){}
+  } catch (e) { console.warn('loadManualLunchOptions failed', e); }
+}
+
+try { if (typeof window !== 'undefined') {
+  // Run on DOMContentLoaded and also immediately if DOM already ready
+  const run = () => { try { loadManualLunchOptions(); } catch(_){} };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+  // Also re-run when config is ready if the app emits that
+  document.addEventListener('shadow:config-ready', run);
+} } catch(_) {}
+
+  // Attach handlers so selecting 'nee' for lunch clears keuzeEten and fades the choices area
+  function attachManualLunchHandlers() {
+    try {
+      const input = document.getElementById('participant-name-input-manual');
+      if (!input) return; // not the manual page
+      const eetRadios = Array.from(document.querySelectorAll('#lunch-choices-host input[name="eetmee"]'));
+      const keuzeContainer = document.getElementById('lunch-choices-list');
+      if (!keuzeContainer || !eetRadios) return;
+
+      function setDisabledState(isDisabled) {
+        try {
+          if (isDisabled) {
+            // deselect any chosen keuzeEten radios
+            const chosen = keuzeContainer.querySelectorAll('input[name="keuzeEten"]:checked');
+            chosen.forEach(c => { try { c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){} });
+            keuzeContainer.classList.add('lunch-disabled');
+            keuzeContainer.setAttribute('aria-hidden', 'true');
+          } else {
+            keuzeContainer.classList.remove('lunch-disabled');
+            keuzeContainer.removeAttribute('aria-hidden');
+          }
+        } catch (e) { console.warn('setDisabledState failed', e); }
+      }
+
+      // wire change handlers
+      eetRadios.forEach(r => {
+        try {
+          r.addEventListener('change', (ev) => {
+            try {
+              const v = String(ev.target.value || '').toLowerCase();
+              if (v.indexOf('nee') !== -1) setDisabledState(true);
+              else setDisabledState(false);
+            } catch (_) {}
+          });
+        } catch(_){}
+      });
+
+      // initialize state based on current selection
+      try {
+        const sel = document.querySelector('#lunch-choices-host input[name="eetmee"]:checked');
+        if (sel) {
+          setDisabledState(String(sel.value || '').toLowerCase().indexOf('nee') !== -1);
+        }
+      } catch(_){}
+    } catch (e) { console.warn('attachManualLunchHandlers failed', e); }
+  }
+
+  // Run attach on load too
+  try { if (typeof window !== 'undefined') {
+    const runHandlers = () => { try { attachManualLunchHandlers(); } catch(_){} };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runHandlers); else runHandlers();
+    document.addEventListener('shadow:config-ready', runHandlers);
+  } } catch(_) {}
