@@ -78,6 +78,11 @@ function renderActivityItem(member, whenIso) {
   try {
     const container = document.getElementById('recent-activity-list');
     if (!container) return;
+    // remove placeholder message if present (first real scan)
+    try {
+      const ph = document.getElementById('recent-activity-placeholder');
+      if (ph && ph.parentNode === container) ph.parentNode.removeChild(ph);
+    } catch(_){}
     const time = new Date(whenIso || Date.now());
     const hh = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     // Prefer separate first/last name fields when available (Dutch + English variants)
@@ -91,23 +96,50 @@ function renderActivityItem(member, whenIso) {
     else if (member && (member.Naam || member.name || member.naam || member.fullName)) name = (member.Naam || member.name || member.naam || member.fullName);
     else if (member && (member.lidnummer || member.id)) name = String(member.lidnummer || member.id);
     else name = 'Onbekend';
-    const initials = (first || name).split(' ').map(p => p[0] || '').slice(0,2).join('').toUpperCase();
+    let initials = '';
+    try {
+      const f = String(first || '').trim();
+      const l = String(last || '').trim();
+      if (f && l) {
+        initials = (f[0] || '') + (l[0] || '');
+      } else {
+        const base = String(first || name || '').trim();
+        const parts = base.split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) initials = (parts[0][0] || '') + (parts[1][0] || '');
+        else initials = (base.slice(0,2) || '').toString();
+      }
+      initials = initials.toUpperCase();
+    } catch (_) { initials = (String(name || '').slice(0,2) || '').toUpperCase(); }
     const item = document.createElement('div');
-    item.className = 'flex items-center justify-between p-3 bg-surface rounded-lg shadow-sm border-l-4 border-l-primary';
+    item.className = 'activity-item';
+    item.setAttribute('aria-live','polite');
     item.innerHTML = `
-      <div class="flex items-center gap-3">
-        <div class="size-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">${initials}</div>
-        <div class="flex flex-col">
-          <span class="text-sm font-bold text-text-main">${String(name)}</span>
-          <span class="text-xs text-text-sub">${hh}</span>
+      <div class="activity-item__left">
+        <div class="activity-accent" aria-hidden="true"></div>
+        <div class="activity-avatar" title="${String(name)}">${initials}</div>
+        <div class="activity-content">
+          <div class="activity-name">${String(name)}</div>
+          <div class="activity-meta">${hh}</div>
         </div>
       </div>
-      <span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+      <div class="activity-check" aria-hidden="true"><span class="material-symbols-outlined">check</span></div>
     `;
     container.insertBefore(item, container.firstChild);
-    // limit list length to 20
+    // limit list length to 20 (keep placeholder removed)
     while (container.children.length > 20) container.removeChild(container.lastChild);
+    try { updateActivityScrollState(); } catch(_){}
   } catch (e) { console.warn('renderActivityItem failed', e); }
+}
+
+// Toggle scrollable state for the activity list when it exceeds 3 items
+function updateActivityScrollState() {
+  try {
+    const container = document.getElementById('recent-activity-list');
+    if (!container) return;
+    // count only actual activity items (exclude placeholder if present)
+    const children = Array.from(container.children).filter(c => !(c.id && c.id === 'recent-activity-placeholder'));
+    if (children.length > 3) container.classList.add('scrollable'); else container.classList.remove('scrollable');
+  } catch (e) { /* ignore */ }
 }
 
 // Simple Firestore REST update for a member document. Uses PATCH with updateMask to set specific fields.
@@ -725,6 +757,7 @@ try { if (typeof window !== 'undefined') window.addEventListener('DOMContentLoad
       const manual = document.getElementById('participant-name-input-manual');
       if (manual && typeof manual.addEventListener === 'function') manual.addEventListener('focus', () => { try { clearManualStoredSelections(); } catch(_){} });
     } catch(_){}
+    try { updateActivityScrollState(); } catch(_){}
   }); } catch(_) {}
 
 // Reveal manual choice sections when a member is selected via the shared dropdown

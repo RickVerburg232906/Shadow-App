@@ -62,8 +62,8 @@
               <p class="scanner-title">QR-code Scanner</p>
               <p class="scanner-sub">Start de camera om leden direct in te checken voor lunch en ritten.</p>
             </div>
-            <button class="primary-button scanner-button" id="start-scanner-button">
-              <span class="material-symbols-outlined scanner-button-icon">photo_camera</span>
+            <button class="primary-button" id="start-scanner-button">
+              <span class="material-symbols-outlined scanner-button-icon" style="margin-right: 8px;">photo_camera</span>
               <span>Start Scanner</span>
             </button>
           </div>
@@ -86,31 +86,40 @@
         </section>
         <div style="width: 100%;">
         <h3 style="text-align: left; width: 100%;">Laatste Activiteit</h3>
-        <div id="recent-activity-list">
-          <!-- Recent scans by this device will be appended here by admin.js -->
+        <div id="recent-activity-list" class="activity-list">
+          <div id="recent-activity-placeholder" class="activity-item" aria-hidden="false">
+            <div style="display:flex; align-items:center; gap:12px; width:100%;">
+              <div class="activity-accent" aria-hidden="true"></div>
+              <div style="flex:1 1 auto; text-align:left;">
+                <div class="activity-name">Hier zie je iedereen die is ingescand deze rit.</div>
+              </div>
+            </div>
+          </div>
         </div>
         </div>
         <div id="historie-section">
-          <div class="history-card" style="text-align: left;">
-            <div class="history-card__left">
-              <div class="history-icon-wrap">
+          <section class="manual-card">
+            <div class="manual-card__inner">
+              <div class="manual-card__icon">
                 <span class="material-symbols-outlined">history</span>
               </div>
-            </div>
-              <div class="history-card__title">Rit Historie Toevoegen</div>
-              <div class="history-card__desc">Registreer handmatig ritten die al hebben plaatsgevonden.</div>
-              <div class="history-card__controls">
-                <label class="form-label">
-                  <span class="form-label__title">Voor of Achternaam</span>
-                  <div class="icon-input" style="position:relative;">
-                    <span class="material-symbols-outlined icon-left">person</span>
-                    <input id="participant-name-input-history" class="participant-name-input form-input" placeholder="Bijv. Rick" type="text" value="" autocomplete="off" />
-                    <div id="name-suggestions-history" class="member-suggestions" aria-hidden="true"></div>
-                  </div>
-                </label>
-                <div id="history-member-stars" style="margin-top:8px;"></div>
+              <div class="manual-card__content">
+                <div class="manual-card__title">Rit Historie Toevoegen</div>
+                <div class="manual-card__desc">Registreer handmatig ritten die al hebben plaatsgevonden.</div>
               </div>
-          </div>
+            </div>
+            <div class="manual-card__actions">
+              <label class="form-label" style="width:100%;">
+                <span class="form-label__title">Voor of Achternaam</span>
+                <div class="icon-input" style="position:relative; padding-right: 12px;">
+                  <span class="material-symbols-outlined icon-left">person</span>
+                  <input id="participant-name-input-history" class="participant-name-input form-input" placeholder="Bijv. Rick" type="text" value="" autocomplete="off" />
+                  <div id="name-suggestions-history" class="member-suggestions" aria-hidden="true"></div>
+                </div>
+              </label>
+              <div id="history-member-stars" style="margin-top:8px; width:100%;"></div>
+            </div>
+          </section>
         </div>
         </main>
   </div>
