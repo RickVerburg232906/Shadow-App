@@ -71,3 +71,13 @@ try {
 		copyFileSync(srcFirebase, join(destDir, 'firebase.js'));
 	}
 } catch (e) { console.warn('copy-static: failed to copy src/firebase.js', e && e.message ? e.message : e); }
+
+// Copy `src/inschrijftafel.js` into dist/src so admin-ui pages can import it
+try {
+    const srcIns = 'src/inschrijftafel.js';
+    const destDir2 = join(distDir, 'src');
+    if (existsSync(srcIns)) {
+        if (!existsSync(destDir2)) mkdirSync(destDir2, { recursive: true });
+        copyFileSync(srcIns, join(destDir2, 'inschrijftafel.js'));
+    }
+} catch (e) { console.warn('copy-static: failed to copy src/inschrijftafel.js', e && e.message ? e.message : e); }

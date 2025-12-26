@@ -1,5 +1,5 @@
 // Minimal member-side helpers for signupPage
-import { getPlannedDates, getLunchOptions, searchMembers, getMemberById } from './firestore.js';
+import { getPlannedDates, getLunchOptions, searchMembers, getMemberById } from '../src/firestore.js';
 // Keeps only what `lid-ui/signupPage.html` (and index) require: footer binding, simple suggestions glue,
 // sessionStorage diagnostics and safe helpers. Other features removed.
 
