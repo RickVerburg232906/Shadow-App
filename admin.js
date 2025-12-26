@@ -1,12 +1,15 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
 import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firestore.js';
-import { db, collection, onSnapshot, doc } from './src/firebase.js';
+import { initFirebase, db, collection, onSnapshot, doc } from './src/firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
   apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
   projectId: "shadow-app-b3fb3",
 };
+
+// Initialize the browser Firebase shim so `db` is available for collection()/onSnapshot()
+try { initFirebase(firebaseConfigDev); } catch (e) { console.warn('initFirebase failed', e); }
 
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
 // Timestamp (ms) until which automatic showing of history stars should be suppressed.
