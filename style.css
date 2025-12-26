@@ -427,7 +427,9 @@ body.app{
 #admin-bottom-nav .bottom-nav-item .nav-icon{font-size:18px;line-height:1}
 #admin-bottom-nav .bottom-nav-item .nav-label{margin-top:4px;font-size:11px;display:block}
 #admin-bottom-nav .bottom-nav-item:focus,.admin-bottom-nav .bottom-nav-item:hover{outline:none}
-#admin-bottom-nav .bottom-nav-item.active{color:var(--blue,#1e3a8a);}
+#admin-bottom-nav .bottom-nav-item.active{color:var(--yellow,#ffcc00);}
+#admin-bottom-nav .bottom-nav-item.active .nav-icon{color:var(--yellow,#ffcc00);}
+#admin-bottom-nav .bottom-nav-item.active .nav-label{color:var(--yellow,#ffcc00);font-weight:700}
 
 /* Thin custom scrollbar for modern browsers */
 .activity-list.scrollable::-webkit-scrollbar{ width:8px; }

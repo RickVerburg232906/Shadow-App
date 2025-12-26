@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+
+<html class="" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inschrijftafel</title>
+<script>
+  // Provide a global firebaseConfigDev for legacy/bundled scripts
+  window.firebaseConfigDev = {
+    apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
+    authDomain: "shadow-app-b3fb3.firebaseapp.com",
+    projectId: "shadow-app-b3fb3",
+    storageBucket: "shadow-app-b3fb3.firebasestorage.app",
+    messagingSenderId: "38812973319",
+    appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
+  };
+  var firebaseConfigDev = window.firebaseConfigDev;
+</script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../style.css"/>
+</head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+            <a id="home-button" class="back-button home-button" aria-label="Home" href="../index.html">
+                <span class="material-symbols-outlined">home</span>
+            </a>
+      <div class="title-container">
+        <h1 class="page-title">Beheer</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
+</header>
+
+<main class="main-content">
+
+</main>
+<footer class="app-footer" role="contentinfo">
+        <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">
+  <div class="admin-bottom-inner">
+    <a href="../admin-ui/inschrijftafel.html" class="bottom-nav-item" aria-label="Inschrijftafel">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">qr_code_scanner</span>
+      <span class="nav-label">Inschrijftafel</span>
+    </a>
+    <a href="../admin-ui/beheer.html" class="bottom-nav-item" aria-label="Beheer">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">settings</span>
+      <span class="nav-label">Beheer</span>
+    </a>
+    <a href="../admin-ui/voorbereiding.html" class="bottom-nav-item" aria-label="Voorbereiding">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">build</span>
+      <span class="nav-label">Voorbereiding</span>
+    </a>
+    <a href="../admin-ui/data.html" class="bottom-nav-item" aria-label="Data">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span>
+      <span class="nav-label">Data</span>
+    </a>
+  </div>
+</nav>
+</footer>
+<script type="module" src="../src/member.js"></script>
+<script type="module">
+  import { initInschrijftafel } from '../src/inschrijftafel.js';
+  initInschrijftafel();
+</script>
+<!-- Admin bottom navigation (visible only for admins via JS) -->
+</body></html>

@@ -258,6 +258,7 @@ export async function initInschrijftafel() {
         if (footer) {
           if (role === 'admin') { footer.setAttribute('aria-hidden','false'); }
           else { footer.setAttribute('aria-hidden','true'); }
+          try { markAdminFooterActive(); } catch(_){}
         }
       } catch(_){}
     } catch (e) { console.error('role-visibility', e); }
@@ -1516,6 +1517,29 @@ function attachGotoManualHandler() {
     });
     if (btn.dataset) btn.dataset._gotoBound = '1';
   } catch (e) { console.warn('attachGotoManualHandler failed', e); }
+}
+
+// Mark the current admin footer item active based on URL
+function markAdminFooterActive() {
+  try {
+    const footer = document.getElementById('admin-bottom-nav');
+    if (!footer) return;
+    const items = Array.from(footer.querySelectorAll('.bottom-nav-item'));
+    const cur = (typeof window !== 'undefined' && window.location && window.location.pathname) ? String(window.location.pathname).split('/').pop() : '';
+    items.forEach(a => {
+      try {
+        const href = a.getAttribute('href') || '';
+        const last = String(href).split('/').pop();
+        if (last && cur && String(last) === String(cur)) {
+          a.classList.add('active');
+          a.setAttribute('aria-current','page');
+        } else {
+          a.classList.remove('active');
+          a.removeAttribute('aria-current');
+        }
+      } catch(_){}
+    });
+  } catch (e) { console.warn('markAdminFooterActive failed', e); }
 }
 
 try { if (typeof window !== 'undefined') {
