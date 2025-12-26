@@ -37,3 +37,17 @@ try {
 } catch (e) {
 	console.warn('copy-static: failed to copy new-ui directory or build output', e && e.message ? e.message : e);
 }
+
+// Copy admin-ui and lid-ui static folders into dist so their pages are available on Vercel
+const uiDirs = ['admin-ui', 'lid-ui'];
+for (const d of uiDirs) {
+	try {
+		const src = d;
+		const dest = join(distDir, d);
+		if (existsSync(src)) {
+			cpSync(src, dest, { recursive: true });
+		}
+	} catch (e) {
+		console.warn(`copy-static: failed to copy ${d} directory`, e && e.message ? e.message : e);
+	}
+}
