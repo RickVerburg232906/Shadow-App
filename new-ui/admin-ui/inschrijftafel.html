@@ -92,31 +92,30 @@
         </div>
         </div>
         <div id="historie-section">
-        <h3>Eerdere Ritten Registreren</h3>
-        <div>
-        <div>
-        <div>
-        <span class="material-symbols-outlined">history</span>
-        </div>
-        <div>
-        <p>Rit Historie Toevoegen</p>
-        <p>Registreer handmatig ritten die al hebben plaatsgevonden voor de administratie.</p>
-        </div>
-        </div>
-        <div id="history-input-host">
-          <div>
-            <div>
-              <span class="material-symbols-outlined">person</span>
-              <input id="participant-name-input-history" class="participant-name-input form-input" placeholder="Bijv. Jan Jansen" type="text" autocomplete="off" />
-              <div id="name-suggestions-history"></div>
+          <h3 style="text-align:left; width:100%">Eerdere Ritten Registreren</h3>
+          <div class="history-card">
+            <div class="history-card__left">
+              <div class="history-icon-wrap">
+                <span class="material-symbols-outlined">history</span>
+              </div>
             </div>
-            <div id="manual-search-hint-history">Kies een naam uit de lijst om een eerdere rit te registreren.</div>
-            <div id="history-member-stars"></div>
+            <div class="history-card__body">
+              <div class="history-card__title">Rit Historie Toevoegen</div>
+              <div class="history-card__desc">Registreer handmatig ritten die al hebben plaatsgevonden voor de administratie.</div>
+              <div class="history-card__controls">
+                <label class="form-label">
+                  <span class="form-label__title">Voor of Achternaam</span>
+                  <div class="icon-input" style="position:relative;">
+                    <span class="material-symbols-outlined icon-left">person</span>
+                    <input id="participant-name-input-manual" class="form-input" placeholder="Bijv. Rick" type="text" value="" autocomplete="off" />
+                    <div id="name-suggestions-manual" class="member-suggestions" aria-hidden="true"></div>
+                  </div>
+                </label>
+                <div id="manual-search-hint-history" class="muted-text" style="margin-top:8px;">Kies een naam uit de lijst om een eerdere rit te registreren.</div>
+                <div id="history-member-stars" style="margin-top:8px;"></div>
+              </div>
+            </div>
           </div>
-        </div>
-        </div>
-        </div>
-        </div>
         </div>
         </main>
   </div>
@@ -125,6 +124,7 @@
 </div>
 </div>
 </div>
+<script type="module" src="../member.js"></script>
 <script type="module">
   import { initInschrijftafel } from '../admin.js';
   initInschrijftafel();

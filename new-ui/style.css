@@ -334,6 +334,49 @@ body.app{
   font-size: 14px;
 }
 
+/* History card (Eerdere Ritten Registreren) */
+.history-card{
+  display:flex;
+  gap:16px;
+  align-items:flex-start;
+  background: #ffffff;
+  border: 1px solid rgba(243,244,246,1);
+  border-radius:14px;
+  padding:16px;
+  max-width:640px;
+  margin:12px auto 18px;
+  box-shadow: 0 8px 22px rgba(16,24,40,0.04);
+}
+.history-card__left{ flex:0 0 auto; }
+.history-icon-wrap{ width:48px; height:48px; border-radius:9999px; display:flex; align-items:center; justify-content:center; background: #fff7ed; border:1px solid rgba(243,224,203,1); }
+.history-icon-wrap .material-symbols-outlined{ color:#7b2f00; font-size:22px; }
+.history-card__body{ flex:1 1 auto; }
+.history-card__title{ font-weight:800; font-size:1.05rem; color:#0f1724; }
+.history-card__desc{ color:#6b7280; margin-top:6px; }
+.history-card__controls{ margin-top:12px; }
+
+/* Action button inside history card: light background, blue text + left icon */
+.history-action-button{
+  width:100%;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  background: #f3f6f9;
+  color: var(--blue);
+  border: 1px solid rgba(226,232,240,1);
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-weight:700;
+  font-size:1rem;
+  cursor:pointer;
+}
+.history-action-button .material-symbols-outlined{ color: var(--blue); font-size:20px; }
+
+@media (max-width:520px){
+  .history-card{ flex-direction:column; }
+  .history-card__left{ display:flex; justify-content:flex-start; }
+}
+
 /* Jaarhanger / info helpers used by jaarhangerPage */
 .info-row{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
 .lead-text{ margin:0 0 8px 0; color: #374151; font-weight:500; }
@@ -869,7 +912,7 @@ div[role="button"] > .vast-item.selected,
 /* Dark mode rules removed */
 
 /* Alias styles for member-suggestions used in handmatige-keuzes.html */
-.member-suggestions{ position:absolute; left:0; top: calc(100% + 6px); min-width:100%; box-sizing:border-box; background: var(--bg-light); border: 1px solid rgba(243,244,246,1); border-radius: 10px; box-shadow: 0 10px 30px rgba(16,24,40,0.08); z-index:12000; max-height:260px; overflow:auto; }
+.member-suggestions{ position:absolute; left:0; top: calc(100% + 6px); min-width:100%; box-sizing:border-box; background: var(--bg-light); border: 1px solid rgba(243,244,246,1); border-radius: 10px; box-shadow: 0 10px 30px rgba(16,24,40,0.08); z-index:12000; max-height:260px; overflow:auto; margin-bottom: 12px;}
 .member-suggestions:empty{ display:none; }
 .member-suggestion-item{ padding:8px 12px; cursor:pointer; color:#0f1724; font-weight:500; }
 .member-suggestion-item:hover{ background: #f3f4f6; }
