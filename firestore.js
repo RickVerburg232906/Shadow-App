@@ -16,6 +16,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// Backwards-compat alias used in older scripts
+const firebaseConfigDev = firebaseConfig;
+
 // Re-export commonly used Firestore SDK helpers for existing codepaths
 export { db, fbCollection as collection, fbOnSnapshot as onSnapshot, fbDoc as doc, fbGetDoc as getDoc };
 
@@ -42,7 +45,7 @@ export async function getPlannedDates(forceRefresh = false) {
     }
 
     _plannedDatesCachePromise = (async () => {
-      const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfigDev.apiKey}`;
+      const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfig.apiKey}`;
       const res = await fetch(url, { method: 'GET', credentials: 'omit' });
       if (!res.ok) {
         console.warn('getPlannedDates: fetch failed', res.status, res.statusText);
@@ -87,7 +90,7 @@ export default { getPlannedDates, clearPlannedDatesCache };
 // Fetch admin passwords from globals/passwords document. Returns object { inschrijftafel, hoofdadmin }
 export async function getAdminPasswords() {
   try {
-    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfig.apiKey}`;
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getAdminPasswords: fetch failed', res.status, res.statusText);
@@ -109,8 +112,8 @@ export async function searchMembers(prefix, maxResults = 8) {
   try {
     prefix = (prefix || '').trim();
     if (!prefix) return [];
-    const apiKey = firebaseConfigDev.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfig.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
 
     // Use a single GREATER_THAN_OR_EQUAL query per field and filter <= prefix+\uffff on client side.
     function escapeFieldPath(fieldPath) {
@@ -212,7 +215,7 @@ export async function searchMembers(prefix, maxResults = 8) {
 // Fetch lunch options from `globals/lunch` document. Returns { vastEten: [], keuzeEten: [] }
 export async function getLunchOptions() {
   try {
-    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfig.apiKey}`;
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getLunchOptions: fetch failed', res.status, res.statusText);
@@ -239,7 +242,7 @@ export async function getLunchOptions() {
 // Fetch a full member document by id and return parsed fields object
 export async function getMemberById(id) {
   if (!id) return null;
-  const url = `${BASE_URL}/members/${encodeURIComponent(id)}?key=${firebaseConfigDev.apiKey}`;
+  const url = `${BASE_URL}/members/${encodeURIComponent(id)}?key=${firebaseConfig.apiKey}`;
   const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
         console.warn('getMemberById: fetch failed', res.status, res.statusText);
@@ -264,8 +267,8 @@ export async function getMemberById(id) {
 export async function getLunchChoiceCount(choice) {
   try {
     if (!choice) return 0;
-    const apiKey = firebaseConfigDev.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfig.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
     const nowIso = new Date().toISOString();
     const body = {
       structuredQuery: {
@@ -317,8 +320,8 @@ export async function getLunchChoiceCount(choice) {
 export async function getParticipationCount(choice) {
   try {
     if (!choice) return 0;
-    const apiKey = firebaseConfigDev.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfig.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
 
     const variants = [];
     const c = String(choice || '').toLowerCase();
