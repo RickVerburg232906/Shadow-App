@@ -495,7 +495,7 @@ body.app{
 }
 
 /* Lunch statistics styles (inschrijftafel) */
-.lunch-stats{ width: 100%;; padding: 0 12px; box-sizing:border-box; }
+.lunch-stats{ width: 100%;; box-sizing:border-box; }
 .lunch-stats__title{ font-size:20px; font-weight:800; color:#0f1724; margin:0 0 12px; }
 .lunch-stats__grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; margin-bottom:14px; }
 .stat-card{ background: #ffffff; border-radius: 12px; padding: 14px; box-shadow: 0 6px 18px rgba(16,24,40,0.04); border: 1px solid rgba(243,244,246,1); display:flex; flex-direction:column; align-items:flex-start; justify-content:center; }
@@ -505,7 +505,7 @@ body.app{
 .stat-card--no{ position:relative; }
 .stat-card--no .material-symbols-outlined{ position:absolute; right:10px; top:8px; opacity:0.12; font-size:44px; }
 
-.keuze-card{ background: #FFF6EA; border-radius: 12px; padding: 12px; border: 1px solid rgba(242,196,96,0.25); box-sizing:border-box; text-align:left; }
+.keuze-card{ background: #FFF6EA; border-radius: 12px; padding: 12px; border: 1px solid rgba(242,196,96,0.25); box-sizing:border-box; text-align:left; margin-bottom:8px; overflow:hidden; }
 .keuze-card__header{ font-size:13px; font-weight:800; color:#7b2f00; margin-bottom:8px; display:block; text-align:left; }
 .keuze-list{ display:flex; flex-direction:column; gap:0; }
 .keuze-list .keuze-loading{ color:#6b7280; padding:8px 6px; }
@@ -513,6 +513,38 @@ body.app{
 .keuze-item:first-child{ border-top: none; }
 .keuze-name{ color:#0f1724; font-weight:600; }
 .keuze-count{ color:#7b2f00; font-weight:800; }
+
+/* QR Scanner card styles */
+.scanner-card{ max-width:var(--max-width); margin: 12px auto 18px; border-radius:14px; overflow:visible; background: #ffffff; box-shadow: 0 14px 30px rgba(16,24,40,0.08); border:1px solid rgba(243,244,246,1); display:block; }
+.scanner-preview{ width:100%; min-height:160px; height:auto; background: linear-gradient(180deg, rgba(22,62,141,0.12), rgba(22,62,141,0.06)); position:relative; display:flex; align-items:center; justify-content:center; }
+.scanner-canvas{ position:absolute; inset:0; width:100%; height:100%; }
+.scanner-placeholder{ position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
+.scanner-icon-wrap{ width:84px; height:84px; border-radius:18px; border:4px solid rgba(255,255,255,0.9); background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; box-shadow: 0 8px 20px rgba(16,24,40,0.08); }
+.scanner-icon{ font-size:36px; color: rgba(15,23,36,0.9); }
+.scanner-body{ display:flex; gap:16px; align-items:center; justify-content:space-between; padding:18px; background: #ffffff; }
+.scanner-copy{ flex:1 1 auto; }
+.scanner-title{ margin:0; font-size:18px; font-weight:800; color:#0f1724; }
+.scanner-sub{ margin:6px 0 0 0; color:#6b7280; font-size:14px; }
+.scanner-button{ background: var(--blue); color: #fff; border:0; padding:12px 20px; border-radius:12px; display:inline-flex; align-items:center; gap:10px; font-weight:800; font-size:16px; box-shadow: 0 12px 30px rgba(22,62,141,0.16); cursor:pointer; }
+.scanner-button-icon{ font-size:20px; }
+
+@media (max-width:520px){
+  .scanner-body{ flex-direction:column; align-items:stretch; }
+  .scanner-button{ width:100%; justify-content:center; }
+}
+
+/* Manual signup card (Handmatig Inschrijven) */
+.manual-card{ max-width:var(--max-width); margin: 12px auto 18px; background: #ffffff; border:1px solid rgba(243,244,246,1); border-radius:14px; padding:16px; box-shadow: 0 8px 22px rgba(16,24,40,0.06); box-sizing:border-box; text-align:left; }
+.manual-card__inner{ display:flex; align-items:center; gap:14px; }
+.manual-card__icon{ width:44px; height:44px; border-radius:9999px; background: rgba(22,62,141,0.06); display:flex; align-items:center; justify-content:center; color:var(--blue); }
+.manual-card__icon .material-symbols-outlined{ font-size:20px; }
+.manual-card__content{ flex:1 1 auto; text-align:left; }
+.manual-card__title{ font-size:16px; font-weight:800; color:#0f1724; text-align:left; }
+.manual-card__desc{ margin-top:6px; color:#6b7280; font-size:14px; text-align:left; }
+.manual-card__actions{ margin-top:14px; }
+.manual-button{ width:100%; padding:10px 14px; border-radius:10px; border:2px solid var(--blue); background:transparent; color:var(--blue); font-weight:800; font-size:15px; display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; }
+.manual-button:hover{ background: var(--blue); color:#ffffff; }
+
 
 /* Keep stat cards side-by-side on all screen sizes */
 .lunch-stats__grid{ grid-auto-flow: column; }

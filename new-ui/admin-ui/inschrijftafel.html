@@ -31,7 +31,7 @@
           <h3 class="lunch-stats__title">Lunch Statistieken</h3>
           <div class="lunch-stats__grid">
             <div class="stat-card stat-card--yes">
-              <div class="stat-card__label">MEE-ETEN</div>
+              <div class="stat-card__label">EET MEE</div>
               <div id="count-yes" class="stat-card__value">…</div>
             </div>
             <div class="stat-card stat-card--no">
@@ -48,43 +48,41 @@
             </div>
           </div>
         </section>
-        <div>
-        <div data-alt="Abstract view of a camera viewfinder ready to scan a QR code">
-          <div id="adminQRReader"></div>
-          <div id="adminQRPlaceholder">
-            <div>
-              <span class="material-symbols-outlined">qr_code_scanner</span>
+        <section class="scanner-card">
+          <div class="scanner-preview" data-alt="QR preview">
+            <div id="adminQRReader" class="scanner-canvas"></div>
+            <div id="adminQRPlaceholder" class="scanner-placeholder">
+              <div class="scanner-icon-wrap">
+                <span class="material-symbols-outlined scanner-icon">qr_code_scanner</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div>
-        <div>
-        <p>QR-code Scanner</p>
-        <p>Start de camera om leden direct in te checken voor lunch en ritten.</p>
-        </div>
-        <button>
-        <span class="material-symbols-outlined">photo_camera</span>
-        <span>Start Scanner</span>
-        </button>
-        </div>
-        </div>
-        <div>
-        <h3>Handmatig Inschrijven</h3>
-        <div>
-        <div>
-        <div>
-        <span class="material-symbols-outlined">search</span>
-        </div>
-        <div>
-        <p>Zoek Deelnemer</p>
-        <p>Gebruik deze optie als de QR-code niet werkt of vergeten is.</p>
-        </div>
-        </div>
-        <button id="goto-manual-choices" onclick="window.location.href='../admin-ui/handmatige-keuzes.html'">
-                    Zoek op naam
-                  </button>
-        </div>
-        </div>
+          <div class="scanner-body card-divider">
+            <div class="scanner-copy">
+              <p class="scanner-title">QR-code Scanner</p>
+              <p class="scanner-sub">Start de camera om leden direct in te checken voor lunch en ritten.</p>
+            </div>
+            <button class="scanner-button">
+              <span class="material-symbols-outlined scanner-button-icon">photo_camera</span>
+              <span>Start Scanner</span>
+            </button>
+          </div>
+        </section>
+        <h3 class="section-title card-divider" style="text-align: left; width: 100%;">Handmatig Inschrijven</h3>
+        <section class="manual-card">
+          <div class="manual-card__inner">
+            <div class="manual-card__icon">
+              <span class="material-symbols-outlined">search</span>
+            </div>
+            <div class="manual-card__content">
+              <div class="manual-card__title">Zoek Deelnemer</div>
+              <div class="manual-card__desc">Gebruik deze optie als de QR-code niet werkt of vergeten is.</div>
+            </div>
+          </div>
+          <div class="manual-card__actions">
+            <button id="goto-manual-choices" class="manual-button" onclick="window.location.href='../admin-ui/handmatige-keuzes.html'">Zoek op naam</button>
+          </div>
+        </section>
         <div>
         <h3>Laatste Activiteit</h3>
         <div id="recent-activity-list">
