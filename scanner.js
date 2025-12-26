@@ -25,6 +25,15 @@ export function ensureHtml5Qrcode(timeout = 10000) {
 export async function selectRearCameraDeviceId() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
   try {
+    // helper: call global toast if available, then invoke provided onDecode
+    const wrappedOnDecode = (decoded) => {
+      try {
+        if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') {
+          try { window.showScanSuccess('Gescand'); } catch(_){}
+        }
+      } catch(_){}
+      try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
+    };
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoInputs = devices.filter(d => d.kind === 'videoinput');
     if (!videoInputs.length) return null;
@@ -131,9 +140,19 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
   }
 
   try {
+    // Wrap the provided onDecode so we can show a toast on successful decode
+    const wrappedOnDecode = (decoded) => {
+      try {
+        if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') {
+          try { window.showScanSuccess('Gescand'); } catch(_){}
+        }
+      } catch(_){}
+      try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
+    };
+
     const startWithDevice = async (device) => {
       try {
-        await html5Qr.start(device, { fps: cfg.fps, qrbox: cfg.qrbox }, (decoded) => { try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); } }, (err) => {});
+        await html5Qr.start(device, { fps: cfg.fps, qrbox: cfg.qrbox }, wrappedOnDecode, (err) => {});
         return true;
       } catch (err) {
         console.warn('start attempt failed for device', device, err);
@@ -163,7 +182,7 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
 
     if (!started) {
       try {
-        await html5Qr.start({ facingMode: 'environment' }, { fps: cfg.fps, qrbox: cfg.qrbox }, (decoded) => { try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); } }, (err) => {});
+        await html5Qr.start({ facingMode: 'environment' }, { fps: cfg.fps, qrbox: cfg.qrbox }, wrappedOnDecode, (err) => {});
         started = true;
       } catch (e) {
         console.error('startQrScanner final fallback failed', e);

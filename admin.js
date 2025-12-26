@@ -53,6 +53,23 @@ export function clearManualStoredSelections() {
 }
 // handmatige-keuzes code removed per request; manual-page helpers intentionally omitted.
 
+function ensureScanToastStyles() {
+  try {
+    if (typeof window === 'undefined') return;
+    if (window.__scanToastStylesInjected) return;
+    const css = `
+      .scan-toast{position:fixed;left:50%;transform:translateX(-50%) translateY(-10px);bottom:24px;background:var(--green, #16a34a);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700;box-shadow:0 8px 24px rgba(16,24,40,0.2);z-index:99999;opacity:0;pointer-events:none;transition:transform .22s ease,opacity .18s ease}
+      .scan-toast.show-in{opacity:1;transform:translateX(-50%) translateY(0)}
+      .scan-toast.show-out{opacity:0;transform:translateX(-50%) translateY(-10px)}
+    `;
+    const s = document.createElement('style');
+    s.setAttribute('data-generated','scan-toast-styles');
+    s.appendChild(document.createTextNode(css));
+    (document.head || document.documentElement).appendChild(s);
+    window.__scanToastStylesInjected = true;
+  } catch (e) { /* ignore */ }
+}
+
 function showScanSuccess(msg) {
   try {
     ensureScanToastStyles();
@@ -72,6 +89,9 @@ function showScanSuccess(msg) {
     setTimeout(() => { try { if (el && el.parentNode) el.parentNode.removeChild(el); } catch(_){} }, 1500);
   } catch (e) { console.warn('showScanSuccess failed', e); }
 }
+
+// Expose a global helper so shared scanner module can trigger the same toast
+try { if (typeof window !== 'undefined') window.showScanSuccess = showScanSuccess; } catch(_) {}
 
 // Recent scan guard: map of memberId -> timestamp(ms) to prevent spammy duplicate scans
 const _recentScans = new Map();
