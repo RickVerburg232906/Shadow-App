@@ -1,6 +1,6 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
 import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firestore.js';
-import { initFirebase, db, collection, onSnapshot, doc } from './src/firebase.js';
+import { initFirebase, db, collection, onSnapshot, doc, query, where } from './src/firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
@@ -503,8 +503,117 @@ export async function initInschrijftafel() {
       });
     }
 
+    // Start live activity listener (real-time) and fall back to initial load
+    try { await loadTodayActivity(); } catch(e) { console.warn('loadTodayActivity failed', e); }
+    try { initLiveActivityListener(); } catch(e) { console.warn('initLiveActivityListener failed', e); }
+
     
   } catch (e) { console.error('initInschrijftafel failed', e); }
+}
+
+// Load list of members scanned today across all devices and render into the activity list.
+export async function loadTodayActivity() {
+  try {
+    const container = document.getElementById('recent-activity-list');
+    if (!container) return;
+    // show loading state
+    try { container.innerHTML = '<div id="recent-activity-placeholder" class="activity-placeholder text-text-sub text-sm">Laden…</div>'; } catch(_){}
+    const apiKey = (typeof firebaseConfigDev !== 'undefined' && firebaseConfigDev.apiKey) ? firebaseConfigDev.apiKey : null;
+    if (!apiKey) return;
+    const today = new Date().toISOString().slice(0,10);
+    const runUrl = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const body = {
+      structuredQuery: {
+        from: [{ collectionId: 'members' }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: 'ScanDatums' },
+            op: 'ARRAY_CONTAINS',
+            value: { stringValue: String(today) }
+          }
+        },
+        limit: 5000
+      }
+    };
+    const res = await fetch(runUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      try { container.innerHTML = '<div class="activity-placeholder text-text-sub text-sm">Kon activiteit niet laden</div>'; } catch(_){}
+      console.warn('loadTodayActivity runQuery failed', res.status, res.statusText);
+      return;
+    }
+    const arr = await res.json();
+    const seen = new Set();
+    // clear list
+    try { container.innerHTML = ''; } catch(_){}
+    for (const entry of arr) {
+      if (!entry || !entry.document) continue;
+      try {
+        const doc = entry.document;
+        const id = doc.name ? String(doc.name).split('/').pop() : null;
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        const f = doc.fields || {};
+        const memberObj = {};
+        for (const k of Object.keys(f)) {
+          const v = f[k];
+          if (!v) { memberObj[k] = null; continue; }
+          if (v.arrayValue && Array.isArray(v.arrayValue.values)) {
+            memberObj[k] = v.arrayValue.values.map(x => (x.stringValue !== undefined ? x.stringValue : (x.timestampValue !== undefined ? x.timestampValue : null))).filter(Boolean);
+          } else {
+            memberObj[k] = (v.stringValue !== undefined) ? v.stringValue : (v.timestampValue !== undefined ? v.timestampValue : null);
+          }
+        }
+        // prefer to pass an object with id for renderActivityItem
+        memberObj.id = id;
+        renderActivityItem(memberObj, new Date().toISOString());
+      } catch (e) { console.warn('loadTodayActivity entry parse failed', e); }
+    }
+    if (seen.size === 0) {
+      try { container.innerHTML = '<div id="recent-activity-placeholder" class="activity-placeholder text-text-sub text-sm">Hier zie je iedereen die is ingescand deze rit.</div>'; } catch(_){}
+    }
+    try { updateActivityScrollState(); } catch(_){}
+  } catch (e) { console.error('loadTodayActivity failed', e); }
+}
+
+// Start a real-time listener for members scanned today and update recent activity live.
+export function initLiveActivityListener() {
+  try {
+    if (typeof db === 'undefined' || !db) {
+      try { console.warn('initLiveActivityListener: db not initialized'); } catch(_){}
+      return;
+    }
+    const today = new Date().toISOString().slice(0,10);
+    try {
+      const q = query(collection(db, 'members'), where('ScanDatums', 'array-contains', String(today)));
+      const unsub = onSnapshot(q, snap => {
+        try {
+          const container = document.getElementById('recent-activity-list');
+          if (!container) return;
+          // clear list
+          container.innerHTML = '';
+          const seen = new Set();
+          for (const docSnap of snap.docs) {
+            try {
+              const data = (typeof docSnap.data === 'function') ? docSnap.data() : (docSnap || {});
+              const id = docSnap.id || (docSnap.ref && docSnap.ref.id) || null;
+              if (!id || seen.has(id)) continue;
+              seen.add(id);
+              // normalize a lightweight member object
+              const memberObj = Object.assign({}, data || {});
+              memberObj.id = id;
+              // render with current time as display (server timestamps are not stored per-scan)
+              renderActivityItem(memberObj, new Date().toISOString());
+            } catch (e) { console.warn('live activity per-doc parse failed', e); }
+          }
+          if (seen.size === 0) {
+            try { container.innerHTML = '<div id="recent-activity-placeholder" class="activity-placeholder text-text-sub text-sm">Hier zie je iedereen die is ingescand deze rit.</div>'; } catch(_){}
+          }
+          try { updateActivityScrollState(); } catch(_){}
+        } catch (e) { console.warn('live activity snapshot handler failed', e); }
+      }, err => { console.warn('live activity onSnapshot error', err); });
+      try { if (typeof window !== 'undefined') { window._liveActivityUnsub && window._liveActivityUnsub(); window._liveActivityUnsub = unsub; } } catch(_){}
+    } catch (e) { console.warn('initLiveActivityListener query failed', e); }
+  } catch (e) { console.warn('initLiveActivityListener failed', e); }
 }
 
 // Manual name-search + check-in flow for inschrijftafel page
