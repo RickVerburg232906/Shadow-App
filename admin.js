@@ -97,6 +97,8 @@ try { if (typeof window !== 'undefined') window.showScanSuccess = showScanSucces
 const _recentScans = new Map();
 // Recent activity list (in-memory for this device session)
 const _recentActivity = [];
+// Members registered during this session (to prevent re-processing the same QR)
+const _registeredThisSession = new Set();
 function renderActivityItem(member, whenIso) {
   try {
     const container = document.getElementById('recent-activity-list');
@@ -347,6 +349,12 @@ export async function initInschrijftafel() {
                 alert('Gescand: geen lidnummer gevonden in QR');
                 return;
               }
+              // If this member was already registered in this session, ignore further scans
+              try {
+                if (_registeredThisSession.has(String(memberId))) {
+                  return;
+                }
+              } catch(_){}
               // Prevent the same memberId being processed repeatedly within 2 seconds
               try {
                 const now = Date.now();
@@ -365,6 +373,7 @@ export async function initInschrijftafel() {
                 const r = await checkInMemberById(String(memberId), { lunchDeelname, lunchKeuze, Jaarhanger });
                 if (r && r.success) {
                   try { showScanSuccess('Ingeschreven: ' + (memberId || '')); } catch(_) {}
+                  try { _registeredThisSession.add(String(memberId)); } catch(_){}
                   
                   // Immediately lock member check-in UI if visible so it's clear the member is registered
                   try {
