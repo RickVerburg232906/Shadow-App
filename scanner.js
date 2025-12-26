@@ -26,18 +26,8 @@ export async function selectRearCameraDeviceId() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
   try {
     // helper: call global toast if available, then invoke provided onDecode
+    // Do not emit a generic scan toast here; pages should show domain-specific toasts.
     const wrappedOnDecode = (decoded) => {
-      try {
-        const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? String(navigator.userAgent) : '';
-        const isiOSSafari = /Safari/.test(ua) && !/Chrome|Chromium|CriOS|Android/.test(ua);
-        // On Safari we avoid showing the generic 'Gescand' toast because admin flow
-        // will show a more specific 'Ingeschreven' toast after successful registration.
-        if (!isiOSSafari) {
-          if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') {
-            try { window.showScanSuccess('Gescand'); } catch(_){}
-          }
-        }
-      } catch(_){}
       try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
     };
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -146,15 +136,8 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
   }
 
   try {
-    // Wrap the provided onDecode so we can show a toast on successful decode
-    const wrappedOnDecode = (decoded) => {
-      try {
-        if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') {
-          try { window.showScanSuccess('Gescand'); } catch(_){}
-        }
-      } catch(_){}
-      try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
-    };
+    // Do not emit a generic scan toast here; the admin flow will show registration toast.
+    const wrappedOnDecode = (decoded) => { try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); } };
 
     const startWithDevice = async (device) => {
       try {

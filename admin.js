@@ -663,8 +663,7 @@ export async function renderHistoryStars(memberId) {
           try {
             const res = await manualRegisterRide(String(memberId), String(d));
             if (res && res.success) {
-              try { showScanSuccess('Rit geregistreerd'); } catch(_){}
-              // leave the optimistic UI as-is
+              // leave the optimistic UI as-is (registration toast handled elsewhere)
             } else {
               // rollback optimistic UI on failure
               try {
@@ -1245,7 +1244,7 @@ try { if (typeof window !== 'undefined') {
 
           const res = await checkInMemberById(String(memberId), { lunchDeelname: lunchDeelname, lunchKeuze: lunchKeuze, Jaarhanger });
           if (res && res.success) {
-            try { showScanSuccess('Keuzes opgeslagen'); } catch(_){}
+            // choices saved — do not show a generic toast here; keep only registration toast
             // also register today's date in ScanDatums
             try {
               const today = new Date().toISOString().slice(0,10);
