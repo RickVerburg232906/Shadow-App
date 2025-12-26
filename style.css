@@ -833,20 +833,22 @@ div[role="button"] > .vast-item.selected,
   justify-content: center;
   /* Blue variant matching the QR overlay layout but using brand blue */
   /* make more visually prominent and ensure it sits above other UI elements */
-  background: rgba(22,62,141,0.72);
+  background: rgba(250,204,21,0.95);
+  color: #0f1724;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  z-index: 9999; /* ensure overlay is above everything inside the card and footer */
-  border-radius: 12px;
+  z-index: 49; /* place overlay above sections but behind footer (footer z-index:50) */
   flex-direction: column;
   gap: 10px;
   text-align: center;
   padding: 12px;
   color: #ffffff;
   pointer-events: auto; /* block interactions with underlying controls */
+  opacity: 0.9;
+  border-radius: 14px;
 }
-.manual-locked-overlay .material-symbols-outlined{ font-size: 36px; color: #ffffff; }
-.manual-locked-overlay .locked-text{ font-weight:700; color:#ffffff; font-size:1rem; }
+.manual-locked-overlay .material-symbols-outlined{ font-size: 36px; color: #000000; }
+.manual-locked-overlay .locked-text{ font-weight:700; color:#000000; font-size:1rem; }
 
 
 /* New non-Tailwind classes matching provided design (Mijn Keuzes) */
@@ -914,7 +916,7 @@ div[role="button"] > .vast-item.selected,
 
 /* QR overlay shown when member already checked in */
 .qr-box{ position:relative; }
-.qr-box .qr-overlay{ position:absolute; left:0; top:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; flex-direction:column; background: rgba(0,0,0,0.55); color: #fff; border-radius:12px; z-index:20; }
+.qr-box .qr-overlay{ position:absolute; left:0; top:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; flex-direction:column; background: rgba(250,204,21,0.95); color: #0f1724; border-radius:12px; z-index:49; box-shadow: 0 8px 30px rgba(15,23,36,0.08); }
 .qr-box .qr-overlay .qr-overlay-inner{ text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px; }
 .qr-box .qr-overlay .material-symbols-outlined{ font-size:36px; line-height:1; }
 .qr-box .qr-overlay .overlay-text{ font-weight:700; font-size:16px; }
@@ -1008,7 +1010,7 @@ div[role="button"] > .vast-item.selected,
   bottom:0;
   width:100%;
   box-sizing:border-box;
-  z-index:25;
+  z-index:50;
   border-top:1px solid var(--footer-border, #f3f4f6);
   background: var(--footer-bg, #ffffff);
   padding:16px 12px 28px;

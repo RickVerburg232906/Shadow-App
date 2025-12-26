@@ -912,7 +912,7 @@ function renderMemberInfoChoices() {
 try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderMemberInfoChoices); else renderMemberInfoChoices(); document.addEventListener('shadow:config-ready', renderMemberInfoChoices); } catch(_) {}
 
 // Update QR image and overlay based on current session member and scan dates
-function updateQROverlay() {
+async function updateQROverlay() {
 	try {
 		const qrImg = document.getElementById('memberInfoQRImg');
 		const saveBtn = document.getElementById('save-qr-btn');
@@ -943,6 +943,24 @@ function updateQROverlay() {
 			lunchDeelname: (lunchDel || '').toString(),
 			lunchKeuze: (lunchKeuze || '').toString()
 		};
+
+		// Add next planned ride date as `scanDate` (YYYY-MM-DD).
+		try {
+			const plannedDates = await getPlannedDates().catch(() => []);
+			const today = todayYMD();
+			let nextDate = null;
+			if (Array.isArray(plannedDates) && plannedDates.length) {
+				const sorted = plannedDates.slice().sort();
+				for (const d of sorted) {
+					if (typeof d === 'string' && d >= today) { nextDate = d; break; }
+				}
+				if (!nextDate) nextDate = sorted[0];
+			}
+			if (nextDate) payload.scanDate = String(nextDate);
+			else payload.scanDate = String(today);
+		} catch (e) {
+			try { payload.scanDate = String(todayYMD()); } catch(_) { payload.scanDate = '';} 
+		}
 
 		// Determine if member has a scan for today
 		let scansFromObj = [];

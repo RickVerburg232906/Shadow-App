@@ -90,6 +90,25 @@ function showScanSuccess(msg) {
   } catch (e) { console.warn('showScanSuccess failed', e); }
 }
 
+function showScanError(msg, visibleMs = 5000) {
+  try {
+    ensureScanToastStyles();
+    const el = document.createElement('div');
+    el.className = 'scan-toast show-in';
+    el.textContent = String(msg || 'Fout');
+    el.style.background = 'var(--red, #dc2626)';
+    document.body.appendChild(el);
+    requestAnimationFrame(() => {
+      // keep visible for visibleMs, then animate out
+      setTimeout(() => {
+        try { el.classList.remove('show-in'); el.classList.add('show-out'); } catch(_){}
+      }, visibleMs);
+    });
+    // Remove after out animation completes (visibleMs + 420ms + small buffer)
+    setTimeout(() => { try { if (el && el.parentNode) el.parentNode.removeChild(el); } catch(_){} }, visibleMs + 600);
+  } catch (e) { console.warn('showScanError failed', e); }
+}
+
 // Expose a global helper so shared scanner module can trigger the same toast
 try { if (typeof window !== 'undefined') window.showScanSuccess = showScanSuccess; } catch(_) {}
 
@@ -345,6 +364,37 @@ export async function initInschrijftafel() {
                   if (!lunchKeuze && /lunchkeuze|keuze/.test(k)) lunchKeuze = v;
                 }
               }
+              // If QR contains a scanDate, ensure it matches today's date
+              try {
+                let scanDateRaw = null;
+                if (parsed && typeof parsed === 'object') {
+                  scanDateRaw = parsed.scanDate || parsed.scan_date || parsed.scanDatum || parsed.scanDatum || parsed.scan || parsed.date || null;
+                }
+                if (!scanDateRaw) {
+                  // try to find date in raw parts
+                  for (const p of parts || []) {
+                    const kv = p.split(':'); if (kv.length < 2) continue;
+                    const k = kv[0].trim().toLowerCase(); const v = kv.slice(1).join(':').trim();
+                    if (!scanDateRaw && /scandate|scan_date|scandatum|datum|date/.test(k)) scanDateRaw = v;
+                  }
+                }
+                if (scanDateRaw) {
+                  // normalize to YYYY-MM-DD if possible
+                  let normalized = null;
+                  try {
+                    if (/^\d{4}-\d{2}-\d{2}/.test(scanDateRaw)) normalized = scanDateRaw.slice(0,10);
+                    else {
+                      const d = new Date(scanDateRaw);
+                      if (!isNaN(d)) normalized = d.toISOString().slice(0,10);
+                    }
+                  } catch(_) { normalized = null; }
+                  const today = (new Date()).toISOString().slice(0,10);
+                  if (normalized && normalized !== today) {
+                    try { showScanError('Deze QR is niet voor deze rit', 5000); } catch(_) { alert('Deze QR is niet meer geldig'); }
+                    return;
+                  }
+                }
+              } catch (e) { /* ignore date-check errors and continue */ }
               if (!memberId) {
                 alert('Gescand: geen lidnummer gevonden in QR');
                 return;
