@@ -1,62 +1,13 @@
-// Lightweight Firestore REST helpers with optional lazy SDK init for pages that need it.
-// We avoid static `import 'firebase/app'` here so static HTML pages can load this module
-// without requiring bare-module resolution in the browser. When SDK features are needed
-// we dynamically import the modular SDK from the Google CDN.
+// Lightweight Firestore REST helper that only uses files inside new-ui
+// Uses the project's development Firebase config (safe for local dev builds in this workspace).
+// Exports `getPlannedDates()` which returns an array of YYYY-MM-DD strings.
 
-let _sdkInitialized = false;
-let _db = null;
-let _sdkHelpers = {};
-
-async function ensureFirebaseSdk() {
-  if (_sdkInitialized) return { db: _db, helpers: _sdkHelpers };
-  try {
-    const appMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js');
-    const fsMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
-    const app = appMod.initializeApp(firebaseConfig);
-    const db = fsMod.getFirestore(app);
-    _db = db;
-    _sdkHelpers = {
-      collection: fsMod.collection,
-      onSnapshot: fsMod.onSnapshot,
-      doc: fsMod.doc,
-      getDoc: fsMod.getDoc
-    };
-    // expose globals for legacy scripts
-    try { window.db = _db; window.firebaseFirestore = _sdkHelpers; } catch(_) {}
-    _sdkInitialized = true;
-    return { db: _db, helpers: _sdkHelpers };
-  } catch (e) {
-    console.warn('ensureFirebaseSdk failed', e);
-    throw e;
-  }
-}
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
+const firebaseConfigDev = {
   apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
-  authDomain: "shadow-app-b3fb3.firebaseapp.com",
   projectId: "shadow-app-b3fb3",
-  storageBucket: "shadow-app-b3fb3.firebasestorage.app",
-  messagingSenderId: "38812973319",
-  appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
 };
 
-// Backwards-compat alias used in older scripts
-const firebaseConfigDev = firebaseConfig;
-
-// Export a helper to initialize SDK when callers need db/helpers.
-export async function initFirebase() { return ensureFirebaseSdk(); }
-
-// Also export placeholders (some built code may import these names). Callers that need
-// immediate SDK access should call `initFirebase()` first; legacy pages that only use
-// the REST helpers won't need to call it.
-export const db = _db;
-export const collection = (...args) => { throw new Error('collection: call initFirebase() first'); };
-export const onSnapshot = (...args) => { throw new Error('onSnapshot: call initFirebase() first'); };
-export const doc = (...args) => { throw new Error('doc: call initFirebase() first'); };
-export const getDoc = (...args) => { throw new Error('getDoc: call initFirebase() first'); };
-
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
+const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
 
 // Cache for planned dates to reduce duplicate network requests.
 let _plannedDatesCache = null;
@@ -79,7 +30,7 @@ export async function getPlannedDates(forceRefresh = false) {
     }
 
     _plannedDatesCachePromise = (async () => {
-      const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfig.apiKey}`;
+      const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfigDev.apiKey}`;
       const res = await fetch(url, { method: 'GET', credentials: 'omit' });
       if (!res.ok) {
         console.warn('getPlannedDates: fetch failed', res.status, res.statusText);
@@ -124,7 +75,7 @@ export default { getPlannedDates, clearPlannedDatesCache };
 // Fetch admin passwords from globals/passwords document. Returns object { inschrijftafel, hoofdadmin }
 export async function getAdminPasswords() {
   try {
-    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfig.apiKey}`;
+    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfigDev.apiKey}`;
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getAdminPasswords: fetch failed', res.status, res.statusText);
@@ -146,8 +97,8 @@ export async function searchMembers(prefix, maxResults = 8) {
   try {
     prefix = (prefix || '').trim();
     if (!prefix) return [];
-    const apiKey = firebaseConfig.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfigDev.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
 
     // Use a single GREATER_THAN_OR_EQUAL query per field and filter <= prefix+\uffff on client side.
     function escapeFieldPath(fieldPath) {
@@ -249,7 +200,7 @@ export async function searchMembers(prefix, maxResults = 8) {
 // Fetch lunch options from `globals/lunch` document. Returns { vastEten: [], keuzeEten: [] }
 export async function getLunchOptions() {
   try {
-    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfig.apiKey}`;
+    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfigDev.apiKey}`;
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getLunchOptions: fetch failed', res.status, res.statusText);
@@ -276,7 +227,7 @@ export async function getLunchOptions() {
 // Fetch a full member document by id and return parsed fields object
 export async function getMemberById(id) {
   if (!id) return null;
-  const url = `${BASE_URL}/members/${encodeURIComponent(id)}?key=${firebaseConfig.apiKey}`;
+  const url = `${BASE_URL}/members/${encodeURIComponent(id)}?key=${firebaseConfigDev.apiKey}`;
   const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
         console.warn('getMemberById: fetch failed', res.status, res.statusText);
@@ -301,8 +252,8 @@ export async function getMemberById(id) {
 export async function getLunchChoiceCount(choice) {
   try {
     if (!choice) return 0;
-    const apiKey = firebaseConfig.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfigDev.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
     const nowIso = new Date().toISOString();
     const body = {
       structuredQuery: {
@@ -354,8 +305,8 @@ export async function getLunchChoiceCount(choice) {
 export async function getParticipationCount(choice) {
   try {
     if (!choice) return 0;
-    const apiKey = firebaseConfig.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfigDev.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
 
     const variants = [];
     const c = String(choice || '').toLowerCase();

@@ -1,5 +1,6 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
-import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates, initFirebase } from './firestore.js';
+import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firestore.js';
+import { db, collection, onSnapshot, doc } from './src/firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
@@ -711,13 +712,8 @@ function initLiveLunchStats() {
 
     // Subscribe to full members collection and recompute counts on every snapshot
     try {
-      // Ensure SDK is initialized and get helpers
-      const sdk = await initFirebase().catch(e => { throw e; });
-      const sdkDb = sdk && sdk.db ? sdk.db : (typeof window !== 'undefined' ? window.db : null);
-      const helpers = sdk && sdk.helpers ? sdk.helpers : (typeof window !== 'undefined' ? window.firebaseFirestore : null);
-      if (!helpers || !sdkDb) throw new Error('Firebase SDK not available for live stats');
-      const colRef = helpers.collection(sdkDb, 'members');
-      const unsub = helpers.onSnapshot(colRef, snap => {
+      const colRef = collection(db, 'members');
+      const unsub = onSnapshot(colRef, snap => {
         try {
           let yes = 0, no = 0;
           const choiceCounts = new Map();
