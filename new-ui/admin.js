@@ -21,6 +21,33 @@ function normalizeYesNo(v) {
     return null;
   } catch (_) { return null; }
 }
+
+// Clear stored selection/state for the manual page but keep sections visible.
+export function clearManualStoredSelections() {
+  try {
+    // remove stored member id markers
+    try { const mi2 = document.getElementById('participant-name-input-manual'); if (mi2) { mi2.removeAttribute('data-member-id'); if (mi2.dataset) delete mi2.dataset.selectedMember; } } catch(_){}
+    try { if (window && window._selectedMemberId) delete window._selectedMemberId; } catch(_){}
+
+    // clear lunch radios and choices
+    try {
+      const eetRadios = Array.from(document.querySelectorAll('#lunch-choices-host input[name="eetmee"]'));
+      eetRadios.forEach(r => { try { r.checked = false; r.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){} });
+    } catch(_){}
+    try {
+      const keuzeEls = Array.from(document.querySelectorAll('#lunch-choices-list input[name="keuzeEten"]'));
+      keuzeEls.forEach(r => { try { r.checked = false; r.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){} });
+    } catch(_){}
+    try {
+      const jaarEls = Array.from(document.querySelectorAll('#jaarhanger-host input[name="jaarhanger"]'));
+      jaarEls.forEach(r => { try { r.checked = false; r.dispatchEvent(new Event('change', { bubbles: true })); } catch(_){} });
+    } catch(_){}
+
+    // reset any visual disabled state
+    try { const kc = document.getElementById('lunch-choices-list'); if (kc) kc.classList.remove('lunch-disabled'); } catch(_){}
+    try { updateManualSaveState(); } catch(_){}
+  } catch (e) { console.warn('clearManualStoredSelections failed', e); }
+}
 // handmatige-keuzes code removed per request; manual-page helpers intentionally omitted.
 
 function showScanSuccess(msg) {
@@ -696,7 +723,7 @@ try { if (typeof window !== 'undefined') window.addEventListener('DOMContentLoad
       const hist = document.getElementById('participant-name-input-history');
       if (hist && typeof hist.addEventListener === 'function') hist.addEventListener('focus', () => { try { hideRevealedSections(); } catch(_){} });
       const manual = document.getElementById('participant-name-input-manual');
-      if (manual && typeof manual.addEventListener === 'function') manual.addEventListener('focus', () => { try { hideRevealedSections(); } catch(_){} });
+      if (manual && typeof manual.addEventListener === 'function') manual.addEventListener('focus', () => { try { clearManualStoredSelections(); } catch(_){} });
     } catch(_){}
   }); } catch(_) {}
 
