@@ -499,38 +499,10 @@ function initHistoryInputHandlers() {
     const input = document.getElementById('participant-name-input-history');
     const container = document.getElementById('history-member-stars');
     if (!input || !container) return;
-
-    const setVisible = (v) => {
-      try { container.style.display = v ? 'flex' : 'none'; } catch(_){}
-    };
-
-    // initial visibility: hide if input empty
-    try { setVisible(Boolean((input.value || '').trim())); } catch(_) { setVisible(false); }
-
-    // when input content changes: only show stars when an explicit selection exists
-    input.addEventListener('input', () => {
-      try {
-        // if suppression window active, keep hidden
-        if (Date.now() < (_historySuppressShowUntil || 0)) { setVisible(false); return; }
-        // Only show stars when a dropdown selection was made (dataset.selectedMember) or global selected id matches
-        let selected = null;
-        try { selected = (input.dataset && input.dataset.selectedMember) ? String(input.dataset.selectedMember) : (window._selectedMemberId || null); } catch(_) { selected = (window._selectedMemberId || null); }
-        setVisible(Boolean(selected));
-      } catch(_){}
-    });
-
-    // when input is focused/clicked/pressed, hide the stars section (per UX request)
-    input.addEventListener('focus', () => { try { setVisible(false); _historySuppressShowUntil = Date.now() + 1000; } catch(_){} });
-    input.addEventListener('click', () => { try { setVisible(false); _historySuppressShowUntil = Date.now() + 1000; } catch(_){} });
-    // pointerdown fires earlier and covers touch/click reliably
-    input.addEventListener('pointerdown', (ev) => { try { setVisible(false); _historySuppressShowUntil = Date.now() + 1000; } catch(_){} });
-    // focusin covers delegated focus events
-    input.addEventListener('focusin', () => { try { setVisible(false); _historySuppressShowUntil = Date.now() + 1000; } catch(_){} });
-
-    // Also listen for a custom selection event so we can show stars
-    input.addEventListener('member-selected', (ev) => {
-      try { setVisible(true); } catch(_){}
-    });
+    // Keep the history stars always visible regardless of input content.
+    try { container.style.display = 'flex'; } catch(_){}
+    // We still respond to explicit member selection by re-rendering stars elsewhere,
+    // so no input-based hiding behaviour is needed here.
   } catch (e) { console.warn('initHistoryInputHandlers failed', e); }
 }
 
@@ -717,7 +689,16 @@ function initLiveLunchStats() {
 }
 
 // initialize manual search handlers after DOM loaded
-try { if (typeof window !== 'undefined') window.addEventListener('DOMContentLoaded', () => { try { createManualSearchHandlers(); } catch(_){} try { initHistoryInputHandlers(); } catch(_){} }); } catch(_) {}
+try { if (typeof window !== 'undefined') window.addEventListener('DOMContentLoaded', () => { try { createManualSearchHandlers(); } catch(_){} try { initHistoryInputHandlers(); } catch(_){}
+    // When either name input receives focus, hide any revealed/manual sections so
+    // the admin can start a fresh selection without previous member context.
+    try {
+      const hist = document.getElementById('participant-name-input-history');
+      if (hist && typeof hist.addEventListener === 'function') hist.addEventListener('focus', () => { try { hideRevealedSections(); } catch(_){} });
+      const manual = document.getElementById('participant-name-input-manual');
+      if (manual && typeof manual.addEventListener === 'function') manual.addEventListener('focus', () => { try { hideRevealedSections(); } catch(_){} });
+    } catch(_){}
+  }); } catch(_) {}
 
 // Reveal manual choice sections when a member is selected via the shared dropdown
 function revealManualChoiceSections(memberId, name) {
@@ -931,6 +912,25 @@ function hideManualChoiceSections() {
     } catch(_){}
     try { updateManualSaveState(); } catch(_){}
   } catch (e) { console.warn('hideManualChoiceSections failed', e); }
+}
+
+// Hide all sections that may have been revealed for a selected member
+export function hideRevealedSections() {
+  try {
+    // hide manual choice sections and reset state
+    try { hideManualChoiceSections(); } catch(_){}
+
+    // hide history stars container
+    try {
+      const hs = document.getElementById('history-member-stars');
+      if (hs) hs.style.display = 'none';
+    } catch(_){}
+
+    // clear selected member markers
+    try { if (window && window._selectedMemberId) delete window._selectedMemberId; } catch(_){}
+    try { const mi = document.getElementById('participant-name-input-history'); if (mi) mi.removeAttribute('data-member-id'); } catch(_){}
+    try { const mi2 = document.getElementById('participant-name-input-manual'); if (mi2) mi2.removeAttribute('data-member-id'); } catch(_){}
+  } catch (e) { console.warn('hideRevealedSections failed', e); }
 }
 
 try { document.addEventListener('member:selected', (ev) => {
