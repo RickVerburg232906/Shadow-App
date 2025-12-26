@@ -60,6 +60,7 @@ for (const d of uiDirs) {
 	} catch (e) {
 		console.warn(`copy-static: failed to copy ${d} directory`, e && e.message ? e.message : e);
 	}
+}
 
 // Copy entire `src` directory into dist/src so all modules are available at /src/*
 try {
