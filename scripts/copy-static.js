@@ -61,3 +61,13 @@ for (const d of uiDirs) {
 		console.warn(`copy-static: failed to copy ${d} directory`, e && e.message ? e.message : e);
 	}
 }
+
+// Copy `src/firebase.js` (browser shim) into dist/src so pages can import '/src/firebase.js'
+try {
+	const srcFirebase = 'src/firebase.js';
+	const destDir = join(distDir, 'src');
+	if (existsSync(srcFirebase)) {
+		if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+		copyFileSync(srcFirebase, join(destDir, 'firebase.js'));
+	}
+} catch (e) { console.warn('copy-static: failed to copy src/firebase.js', e && e.message ? e.message : e); }
