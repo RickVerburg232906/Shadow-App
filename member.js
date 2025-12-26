@@ -1090,10 +1090,9 @@ function setupHeaderBackButtons() {
 								return;
 							}
 						} catch(_) {}
-						const filename = (window.location.pathname || '').split('/').pop() || '';
-						const name = String(filename).toLowerCase();
-						// memberInfo page: always go to index.html
-						if (name.indexOf('memberinfopage.html') !== -1) {
+						const pathnameLower = String(window.location.pathname || '').toLowerCase();
+						// memberInfo page (match with or without .html, and on Vercel clean routes): always go to index.html
+						if (pathnameLower.indexOf('memberinfo') !== -1 || pathnameLower.indexOf('memberinfopage') !== -1) {
 							try { window.location.href = '../index.html'; } catch(_) { window.location.href = '/index.html'; }
 							return;
 						}

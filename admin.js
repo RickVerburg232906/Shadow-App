@@ -254,30 +254,7 @@ export async function initInschrijftafel() {
       let running = null;
       // save original HTML to restore later
       if (!startBtn.dataset.origHtml) startBtn.dataset.origHtml = startBtn.innerHTML;
-      // Request-camera button: ask for permission without starting scanner
-      try {
-        const requestBtn = document.getElementById('request-camera-button');
-        if (requestBtn) {
-          requestBtn.addEventListener('click', async () => {
-            try {
-              if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
-                alert('Camera toegang wordt niet ondersteund in deze browser.');
-                return;
-              }
-              // ask for camera permission and immediately stop tracks
-              const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-              try { stream.getTracks().forEach(t => t.stop()); } catch(_){}
-              try { showScanSuccess('Camera toegang verleend'); } catch(_){}
-              requestBtn.disabled = true;
-              requestBtn.classList.add('opacity-50');
-              requestBtn.textContent = 'Toegang verleend';
-            } catch (err) {
-              console.error('camera permission error', err);
-              alert('Toegang geweigerd of fout: ' + (err && err.message ? err.message : String(err)));
-            }
-          });
-        }
-      } catch (e) { console.warn('attach request-camera handler failed', e); }
+      // (Removed request-camera-button and handler)
       startBtn.addEventListener('click', async () => {
         try {
           if (running) {
