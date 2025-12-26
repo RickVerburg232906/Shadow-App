@@ -1,0 +1,11 @@
+{
+  "cleanUrls": true,
+  "ignoreCommand": "",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/new-ui/:path*", "destination": "/new-ui/:path*" },
+    { "source": "/admin-ui/:path*", "destination": "/admin-ui/:path*" },
+    { "source": "/lid-ui/:path*", "destination": "/lid-ui/:path*" },
+    { "source": "/:path*", "destination": "/index.html" }
+  ]
+}
