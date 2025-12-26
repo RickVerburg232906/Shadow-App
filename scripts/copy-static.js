@@ -60,24 +60,13 @@ for (const d of uiDirs) {
 	} catch (e) {
 		console.warn(`copy-static: failed to copy ${d} directory`, e && e.message ? e.message : e);
 	}
-}
 
-// Copy `src/firebase.js` (browser shim) into dist/src so pages can import '/src/firebase.js'
+// Copy entire `src` directory into dist/src so all modules are available at /src/*
 try {
-	const srcFirebase = 'src/firebase.js';
-	const destDir = join(distDir, 'src');
-	if (existsSync(srcFirebase)) {
-		if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
-		copyFileSync(srcFirebase, join(destDir, 'firebase.js'));
+	const srcDirAll = 'src';
+	const destSrcDir = join(distDir, 'src');
+	if (existsSync(srcDirAll)) {
+		if (!existsSync(destSrcDir)) mkdirSync(destSrcDir, { recursive: true });
+		cpSync(srcDirAll, destSrcDir, { recursive: true });
 	}
-} catch (e) { console.warn('copy-static: failed to copy src/firebase.js', e && e.message ? e.message : e); }
-
-// Copy `src/inschrijftafel.js` into dist/src so admin-ui pages can import it
-try {
-    const srcIns = 'src/inschrijftafel.js';
-    const destDir2 = join(distDir, 'src');
-    if (existsSync(srcIns)) {
-        if (!existsSync(destDir2)) mkdirSync(destDir2, { recursive: true });
-        copyFileSync(srcIns, join(destDir2, 'inschrijftafel.js'));
-    }
-} catch (e) { console.warn('copy-static: failed to copy src/inschrijftafel.js', e && e.message ? e.message : e); }
+} catch (e) { console.warn('copy-static: failed to copy src directory', e && e.message ? e.message : e); }
