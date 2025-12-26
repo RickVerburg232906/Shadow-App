@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Custom stylesheet (replaces Tailwind) -->
+<link rel="stylesheet" href="../style.css"/>
+  </head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+      <button id="back-button" class="back-button" aria-label="Terug">
+        <span class="material-symbols-outlined">home</span>
+      </button>
+      <div class="title-container">
+        <h1 class="page-title">Lid Informatie</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
+</header>
+<main class="main-content">
+  <section class="member-header">
+    <div class="profile">
+      <h1 class="member-name"></h1>
+      <div class="meta-badges">
+        <span class="info-chip"><span class="material-symbols-outlined">badge</span></span>
+        <span class="info-chip"><span class="material-symbols-outlined">location_on</span></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="surface-card stats-card">
+    <div class="stats-header">
+      <h3 class="section-title">Gereden Ritten</h3>
+      <span class="stat-count">4 / 5</span>
+    </div>
+    <div class="stats-stars">
+      <span class="material-symbols-outlined star filled">star</span>
+      <span class="material-symbols-outlined star filled">star</span>
+      <span class="material-symbols-outlined star filled">star</span>
+      <span class="material-symbols-outlined star filled">star</span>
+      <span class="material-symbols-outlined star empty">star</span>
+    </div>
+  </section>
+
+  <section class="mk-section">
+    <h3 class="mk-title">Mijn Keuzes</h3>
+    <div class="mk-grid">
+      <div class="mk-item mk-item--lunch" tabindex="0">
+        <div class="mk-item-icon" aria-hidden="true"><span class="material-symbols-outlined" aria-hidden="true">restaurant</span></div>
+        <div class="mk-item-body">
+          <p class="mk-item-category">Lunch</p>
+          <p class="mk-item-value">Vegetarisch Broodje</p>
+        </div>
+        <div class="mk-status-badge" aria-hidden="true"><span class="material-symbols-outlined" style="font-size:18px">check</span></div>
+        <span class="mk-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
+      </div>
+
+      <div class="mk-item mk-item--jaar mk-accent-gold" tabindex="0">
+        <div class="mk-item-icon mk-item-icon--gold" aria-hidden="true"><span class="material-symbols-outlined" aria-hidden="true">local_activity</span></div>
+        <div class="mk-item-body">
+          <p class="mk-item-category">Jaarhanger</p>
+          <p class="mk-item-value">2024 Editie</p>
+        </div>
+        <div class="mk-status-badge" aria-hidden="true"><span class="material-symbols-outlined" style="font-size:18px">check</span></div>
+        <span class="mk-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="checkin-section">
+    <div class="checkin-card surface-card">
+      <div class="text-center">
+        <h4 class="section-title">Check-in</h4>
+        <p class="muted-text">Scan deze code bij aankomst</p>
+      </div>
+      <div style="text-align:center; margin-top:8px;">
+        <button id="save-qr-btn" class="save-qr-btn" type="button" style="display:none">Sla QR op</button>
+      </div>
+      <div id="memberInfoQRWrap" class="qr-box" aria-hidden="false">
+        <div class="qr-inner">
+          <img id="memberInfoQRImg" alt="QR Code for member check-in" src="" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script type="module">
+  (async ()=>{
+    try{
+      await import('../member.js');
+    }catch(err){
+      console.error('Failed importing ../member.js', err);
+      try{
+        const url = new URL('../member.js', location.href).href;
+        const resp = await fetch(url, { cache: 'no-store' });
+        const text = await resp.text().catch(()=>'<no-body>');
+        console.error('Server response for', url, ':', resp.status, resp.statusText);
+        console.error('Response body (first 2000 chars):\n', String(text).slice(0,2000));
+      }catch(e){ console.error('Failed fetching module body', e); }
+      throw err;
+    }
+  })();
+</script>
+</body>
+</html>

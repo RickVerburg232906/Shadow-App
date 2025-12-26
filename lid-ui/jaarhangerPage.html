@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Custom stylesheet (replaces Tailwind) -->
+<link rel="stylesheet" href="../style.css"/>
+  </head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+      <button id="back-button" class="back-button" aria-label="Terug">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="title-container">
+        <h1 class="page-title">Jaarhanger</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
+</header>
+<main class="main-content">
+  <section class="choice-section">
+    <h2 class="choice-title">Wil je een jaarhanger?</h2>
+    <div class="choice-grid">
+      <label class="choice-option">
+        <input class="sr-only" type="radio" name="participation-jaarhanger" value="yes" />
+        <div class="choice-card">
+          <span class="material-symbols-outlined">check_circle</span>
+          <span class="choice-label">Ja</span>
+        </div>
+      </label>
+
+      <label class="choice-option">
+        <input class="sr-only" type="radio" name="participation-jaarhanger" value="no" />
+        <div class="choice-card choice-card--danger">
+          <span class="material-symbols-outlined">cancel</span>
+          <span class="choice-label">Nee</span>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <section class="section-header card-divider full-width">
+    <div>
+      <div class="info-row">
+        <span class="material-symbols-outlined info-note__icon">info</span>
+        <h3 class="header-title">Wat is een Jaarhanger?</h3>
+      </div>
+      <div class="surface-card">
+        <p class="lead-text">
+          Het aantal sterren geeft aan hoeveel landelijke ritten je dat jaar gereden hebt. De <strong class="text-tertiary">'moederpin'</strong> kan je als Shadow lid bestellen in de webshop, zodat je jouw jaarhangers mooi op je vest kwijt kunt.
+        </p>
+        <div class="vast-divider spacer-12"></div>
+        <p class="lead-text">
+          De jaarhangers zijn niet te koop en kan je alleen verdienen door mee te rijden met de landelijke ritten. <em class="jaarhanger-em">Da's pas een collectors item!</em>
+        </p>
+        <div class="jaarhanger-photo-wrap">
+          <img src="../assets/jaarhanger-photo.jpg" alt="Jaarhanger" class="jaarhanger-photo" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+<footer class="app-footer" role="contentinfo">
+  <div class="app-footer__inner">
+    <button class="app-footer__button" id="agree-jaarhanger">Bevestigen</button>
+  </div>
+</footer>
+
+<script type="module">
+  (async ()=>{
+    try{
+      await import('../member.js');
+    }catch(err){
+      console.error('Failed importing ../member.js', err);
+      try{
+        const url = new URL('../member.js', location.href).href;
+        const resp = await fetch(url, { cache: 'no-store' });
+        const text = await resp.text().catch(()=>'<no-body>');
+        console.error('Server response for', url, ':', resp.status, resp.statusText);
+        console.error('Response body (first 2000 chars):\n', String(text).slice(0,2000));
+      }catch(e){ console.error('Failed fetching module body', e); }
+      throw err;
+    }
+  })();
+</script>
+</body>
+</html>

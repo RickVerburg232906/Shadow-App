@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+
+<html class="" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inschrijftafel</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../style.css"/>
+</head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+            <a id="home-button" class="back-button home-button" aria-label="Home" href="../index.html">
+                <span class="material-symbols-outlined">home</span>
+            </a>
+      <div class="title-container">
+        <h1 class="page-title">Inschrijftafel</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
+</header>
+
+<main class="main-content">
+        <section class="lunch-stats">
+          <h3 class="lunch-stats__title">Lunch Statistieken</h3>
+          <div class="lunch-stats__grid">
+            <div class="stat-card stat-card--yes">
+              <div class="stat-card__label">EET MEE</div>
+              <div id="count-yes" class="stat-card__value">…</div>
+            </div>
+            <div class="stat-card stat-card--no">
+              <div class="stat-card__label">EET NIET MEE</div>
+              <div id="count-no" class="stat-card__value">…</div>
+              <span class="material-symbols-outlined">no_meals</span>
+            </div>
+          </div>
+
+          <div class="keuze-card">
+            <div class="keuze-card__header">KEUZE MAALTIJDEN</div>
+            <div id="keuze-maaltijden-list" class="keuze-list">
+              <div class="keuze-loading">Laden...</div>
+            </div>
+          </div>
+        </section>
+        <section class="scanner-card">
+          <div class="scanner-preview" data-alt="QR preview">
+            <div id="adminQRReader" class="scanner-canvas"></div>
+            <div id="adminQRPlaceholder" class="scanner-placeholder">
+              <div class="scanner-icon-wrap">
+                <span class="material-symbols-outlined scanner-icon">qr_code_scanner</span>
+              </div>
+            </div>
+          </div>
+          <div class="scanner-body card-divider">
+            <div class="scanner-copy">
+              <p class="scanner-title">QR-code Scanner</p>
+              <p class="scanner-sub">Start de camera om leden direct in te checken voor lunch en ritten.</p>
+            </div>
+            <button id="request-camera-button" class="primary-button" style="background:#fff; color:var(--blue); border:1px solid rgba(18,50,115,0.12); margin-bottom:8px;">
+              <span class="material-symbols-outlined" style="margin-right:8px; color:var(--blue);">videocam</span>
+              <span>Verleen camera toegang</span>
+            </button>
+            <button class="primary-button" id="start-scanner-button">
+              <span class="material-symbols-outlined scanner-button-icon" style="margin-right: 8px;">photo_camera</span>
+              <span>Start Scanner</span>
+            </button>
+          </div>
+        </section>
+        <section class="manual-card">
+          <div class="manual-card__inner">
+            <div class="manual-card__icon">
+              <span class="material-symbols-outlined">search</span>
+            </div>
+            <div class="manual-card__content">
+              <div class="manual-card__title">Handmatig Inschrijven</div>
+              <div class="manual-card__desc">Gebruik deze optie als de QR-code niet werkt of vergeten is.</div>
+            </div>
+          </div>
+            <div class="manual-card__actions">
+            <button id="goto-manual-choices" class="primary-button" onclick="window.location.href='../admin-ui/handmatige-keuzes.html'">
+              <span>Zoek op naam</span>
+            </button>
+          </div>
+        </section>
+        <div style="width: 100%;">
+        <h3 style="text-align: left; width: 100%;">Laatste Activiteit</h3>
+        <div id="recent-activity-list" class="activity-list">
+          <div id="recent-activity-placeholder" class="activity-item" aria-hidden="false">
+            <div style="display:flex; align-items:center; gap:12px; width:100%;">
+              <div class="activity-accent" aria-hidden="true"></div>
+              <div style="flex:1 1 auto; text-align:left;">
+                <div class="activity-name">Hier zie je iedereen die is ingescand deze rit.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+        <div id="historie-section">
+          <section class="manual-card">
+            <div class="manual-card__inner">
+              <div class="manual-card__icon">
+                <span class="material-symbols-outlined">history</span>
+              </div>
+              <div class="manual-card__content">
+                <div class="manual-card__title">Rit Historie Toevoegen</div>
+                <div class="manual-card__desc">Registreer handmatig ritten die al hebben plaatsgevonden.</div>
+              </div>
+            </div>
+            <div class="manual-card__actions">
+              <label class="form-label" style="width:100%;">
+                <span class="form-label__title">Voor of Achternaam</span>
+                <div class="icon-input" style="position:relative; padding-right: 12px;">
+                  <span class="material-symbols-outlined icon-left">person</span>
+                  <input id="participant-name-input-history" class="participant-name-input form-input" placeholder="Bijv. Rick" type="text" value="" autocomplete="off" />
+                  <div id="name-suggestions-history" class="member-suggestions" aria-hidden="true"></div>
+                </div>
+              </label>
+              <div id="history-member-stars" style="margin-top:8px; width:100%;"></div>
+            </div>
+          </section>
+        </div>
+        </main>
+  </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script type="module" src="../member.js"></script>
+<script type="module">
+  import { initInschrijftafel } from '../admin.js';
+  initInschrijftafel();
+</script>
+</body></html>

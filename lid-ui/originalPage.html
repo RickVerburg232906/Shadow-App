@@ -1,0 +1,52 @@
+<body class="bg-background-light dark:bg-background-dark font-display text-text-main h-full min-h-screen relative pb-32">
+<header class="fixed top-0 left-0 right-0 z-50 bg-primary text-white shadow-md">
+    <div class="flex items-end p-4 h-16 justify-between" style="align-items:flex-end;">
+        <a href="./admin-ui/password.html" class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+            <span class="material-symbols-outlined text-base">table_restaurant</span>
+            Inschrijftafel
+        </a>
+        <h1 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-4">
+                                Handmatige Keuzes
+                </h1>
+        <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub" class="h-full ml-3 object-contain" style="height:120%; width:auto; display:block; object-fit:contain; object-position:right bottom; transform-origin:right bottom;" />
+    </div>
+</header>
+<main class="flex-1 overflow-y-auto pb-[140px]" style="min-height:700px">
+<div class="px-4 pt-6 pb-2">
+<h3 class="text-[#0e121a] dark:text-white text-xl font-bold leading-tight tracking-tight">Geplande Ritten</h3>
+</div>
+<div id="rides-list" class="px-4 flex flex-col gap-3 mt-2">
+    <!-- Ritten worden dynamisch ingevuld door new-ui/main.js -> populatePlannedRides() -->
+</div>
+<div class="px-4 pt-8 pb-2">
+<h3 class="text-[#0e121a] dark:text-white text-xl font-bold leading-tight tracking-tight">Voorwaarden Deelname</h3>
+</div>
+<div class="px-4 pb-6">
+<div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
+<div class="h-2 w-full bg-accent-red"></div>
+<div class="p-5">
+<div class="flex items-start gap-3 mb-3">
+<span class="material-symbols-outlined text-accent-red text-[28px] shrink-0">gavel</span>
+<h4 class="text-lg font-bold text-gray-900 dark:text-white leading-tight">Veiligheid &amp; Privacy</h4>
+</div>
+<p class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+                            Door deel te nemen aan dit evenement bevestigt u dat u beschikt over een geldig rijbewijs. U gaat akkoord met het delen van foto's gemaakt tijdens de dag.
+                        </p>
+<div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg flex gap-3 items-center">
+<span class="material-symbols-outlined text-accent-red text-[20px]">warning</span>
+<span class="text-xs font-semibold text-accent-red dark:text-red-300">Deelname is volledig op eigen risico.</span>
+</div>
+<div class="mt-4 flex items-center gap-3">
+</div>
+</div>
+</div>
+</div>
+</main>
+<div class="fixed bottom-0 left-0 w-full bg-surface-light dark:bg-surface-dark border-t border-gray-100 dark:border-gray-800 p-4 pb-6 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] app-footer">
+<div class="flex flex-col gap-3">
+<button id="agree-original" class="w-full bg-primary hover:bg-primary-hover text-white font-bold text-base h-12 rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-[0.98] flex items-center justify-center">
+<span>Ja, ik ga akkoord</span>
+</button>
+</div>
+</div>
+</body>
