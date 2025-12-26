@@ -562,17 +562,29 @@ export async function renderHistoryStars(memberId) {
     for (let i = 0; i < count; i++) {
       const date = String(planned[i] || '').slice(0,10) || null;
       const filled = date && scans.indexOf(date) !== -1;
+      // lock if date is today or in the future
+      let locked = false;
+      try {
+        if (date) {
+          const today = new Date().toISOString().slice(0,10);
+          // YYYY-MM-DD string compare works for date ordering
+          if (String(date) >= String(today)) locked = true;
+        }
+      } catch(_) { locked = false; }
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'history-star-btn compact ' + (filled ? 'filled' : 'empty');
+      btn.className = 'history-star-btn compact ' + (filled ? 'filled' : 'empty') + (locked ? ' locked' : '');
       btn.setAttribute('data-date', date || '');
       btn.setAttribute('aria-pressed', filled ? 'true' : 'false');
       btn.setAttribute('title', date ? (filled ? `Meegereden: ${date}` : `Niet meegereden: ${date}`) : 'Geen datum');
-      // star icon only
+      // main icon: star or lock depending on state
       const ic = document.createElement('span');
-      ic.className = 'material-symbols-outlined star-icon ' + (filled ? 'filled' : 'empty');
-      ic.textContent = 'star';
+      ic.className = 'material-symbols-outlined star-icon ' + (filled ? 'filled' : 'empty') + (locked ? ' locked-main' : '');
+      ic.textContent = locked ? 'lock' : 'star';
       btn.appendChild(ic);
+      if (locked) {
+        try { btn.setAttribute('aria-disabled', 'true'); } catch(_){}
+      }
       // click handler: if not filled, register ride for that date
       btn.addEventListener('click', async (ev) => {
         try {
@@ -582,6 +594,7 @@ export async function renderHistoryStars(memberId) {
           const d = btn.getAttribute('data-date');
           if (!d) { alert('Geen datum beschikbaar'); return; }
           if (btn.classList.contains('filled')) return;
+          if (btn.classList.contains('locked')) return;
           // Optimistically update UI: mark this star as filled (yellow)
           try {
             btn.classList.add('filled');

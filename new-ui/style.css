@@ -372,12 +372,31 @@ body.app{
 .history-action-button .material-symbols-outlined{ color: var(--blue); font-size:20px; }
 
 /* History stars list: evenly spread square buttons */
-#history-member-stars{ display:flex; gap:8px; margin-top:8px; align-items:center; width:100%; }
-.history-star-btn{ display:inline-flex; align-items:center; justify-content:center; padding:0; border-radius:8px; border:1px solid rgba(226,232,240,1); background:#fff; cursor:pointer; flex:1 1 0; min-width:0; aspect-ratio:1 / 1; }
-.history-star-btn .star-icon{ font-size:20px; color:#bfc7cf; }
-.history-star-btn.filled{ background: linear-gradient(90deg, rgba(242,196,56,0.08), #fff); border-color: rgba(242,196,56,0.18); }
-.history-star-btn.filled .star-icon{ color:#F2C438; }
+
+#history-member-stars{ display:flex; gap:12px; margin-top:8px; align-items:center; width:100%; }
+.history-star-btn{ position:relative; display:inline-flex; align-items:center; justify-content:center; padding:0; border-radius:10px; border:1px solid rgba(226,232,240,1); background:#fff; cursor:pointer; flex:1 1 0; min-width:0; aspect-ratio:1 / 1; transition: transform 160ms ease, box-shadow 160ms ease; overflow:visible; }
+.history-star-btn:hover{ transform: translateY(-4px); box-shadow: 0 8px 18px rgba(16,24,40,0.06); }
+.history-star-btn .star-icon{ font-size:20px; color:#bfc7cf; display:block; /* default: outlined */ font-variation-settings: 'FILL' 0; }
+.history-star-btn.filled{ background: linear-gradient(90deg, rgba(242,196,56,0.18), rgba(242,196,56,0.04)); border-color: rgba(242,196,56,0.28); }
+.history-star-btn.filled .star-icon{ color:#F2C438; font-variation-settings: 'FILL' 1; }
 .history-star-label{ display:none; }
+
+/* Locked stars: polished blue tile with white star and small lock badge */
+.history-star-btn.locked{
+  /* Full blue tile for locked state with centered white lock */
+  background: linear-gradient(180deg, #2a62b8, #184f9a);
+  border-color: transparent;
+  color: #ffffff;
+  cursor: default;
+  transform: none;
+  box-shadow: 0 6px 14px rgba(16,24,40,0.08) inset, 0 4px 10px rgba(16,24,40,0.06);
+}
+.history-star-btn.locked .star-icon{ color: #ffffff; font-size:20px; }
+.history-star-btn.locked .star-icon.locked-main{ font-size:22px; }
+/* Ensure the lock icon is the outlined variant (not filled) */
+.history-star-btn.locked .star-icon.locked-main{ font-variation-settings: 'FILL' 0 !important; }
+
+
 
 /* Keep history card horizontal on all viewports so text stays right of the icon */
 
@@ -765,14 +784,19 @@ div[role="button"] > .vast-item.selected,
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.75);
-  z-index: 20; /* keep behind footer which uses higher z-index */
+  /* Blue variant matching the QR overlay layout but using brand blue */
+  /* make more visually prominent and ensure it sits above other UI elements */
+  background: rgba(22,62,141,0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9999; /* ensure overlay is above everything inside the card and footer */
   border-radius: 12px;
   flex-direction: column;
   gap: 10px;
   text-align: center;
   padding: 12px;
   color: #ffffff;
+  pointer-events: auto; /* block interactions with underlying controls */
 }
 .manual-locked-overlay .material-symbols-outlined{ font-size: 36px; color: #ffffff; }
 .manual-locked-overlay .locked-text{ font-weight:700; color:#ffffff; font-size:1rem; }
