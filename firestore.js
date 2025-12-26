@@ -1,13 +1,25 @@
-// Lightweight Firestore REST helper that only uses files inside new-ui
-// Uses the project's development Firebase config (safe for local dev builds in this workspace).
-// Exports `getPlannedDates()` which returns an array of YYYY-MM-DD strings.
+// Firebase modular SDK initialization + lightweight Firestore REST helpers
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection as fbCollection, onSnapshot as fbOnSnapshot, doc as fbDoc, getDoc as fbGetDoc } from "firebase/firestore";
 
-const firebaseConfigDev = {
+// Your web app's Firebase configuration
+const firebaseConfig = {
   apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
+  authDomain: "shadow-app-b3fb3.firebaseapp.com",
   projectId: "shadow-app-b3fb3",
+  storageBucket: "shadow-app-b3fb3.firebasestorage.app",
+  messagingSenderId: "38812973319",
+  appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
 };
 
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
+// Initialize Firebase SDK (browser-modular)
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Re-export commonly used Firestore SDK helpers for existing codepaths
+export { db, fbCollection as collection, fbOnSnapshot as onSnapshot, fbDoc as doc, fbGetDoc as getDoc };
+
+const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
 
 // Cache for planned dates to reduce duplicate network requests.
 let _plannedDatesCache = null;

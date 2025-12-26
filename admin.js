@@ -1,6 +1,6 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
 import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firestore.js';
-import { db, collection, onSnapshot, doc } from './src/firebase.js';
+import { db, collection, onSnapshot, doc } from './firestore.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
