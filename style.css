@@ -419,6 +419,16 @@ body.app{
 .activity-list.scrollable{ max-height: calc( (56px + 12px) * 3 ); overflow-y: auto; padding-right: 6px; }
 .activity-item{ min-height:56px; }
 
+/* Admin bottom nav (mobile-style footer) */
+#admin-bottom-nav{display:none;position:fixed;left:0;right:0;bottom:0;height:12vh;background:#ffffff;border-top:1px solid rgba(16,24,40,0.06);box-shadow:0 -6px 18px rgba(16,24,40,0.06);z-index:60}
+#admin-bottom-nav[aria-hidden="false"]{display:block}
+#admin-bottom-nav .admin-bottom-inner{height:100%;display:flex;align-items:center;justify-content:space-evenly;padding:0px 10px}
+#admin-bottom-nav .bottom-nav-item{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#0f172a;text-decoration:none;font-size:12px;padding:6px 0}
+#admin-bottom-nav .bottom-nav-item .nav-icon{font-size:18px;line-height:1}
+#admin-bottom-nav .bottom-nav-item .nav-label{margin-top:4px;font-size:11px;display:block}
+#admin-bottom-nav .bottom-nav-item:focus,.admin-bottom-nav .bottom-nav-item:hover{outline:none}
+#admin-bottom-nav .bottom-nav-item.active{color:var(--blue,#1e3a8a);}
+
 /* Thin custom scrollbar for modern browsers */
 .activity-list.scrollable::-webkit-scrollbar{ width:8px; }
 .activity-list.scrollable::-webkit-scrollbar-thumb{ background: rgba(16,24,40,0.08); border-radius:8px; }
@@ -1016,23 +1026,6 @@ div[role="button"] > .vast-item.selected,
   padding:16px 12px 28px;
   box-shadow: 0 -8px 30px rgba(0,0,0,0.12);
 }
-
-/* Empty activity placeholder (inschrijftafel) */
-.activity-placeholder.activity-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px 16px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.6), rgba(249,250,251,0.6));
-  border: 1px solid rgba(15,23,42,0.04);
-  border-radius: 12px;
-  color: #0f172a;
-}
-.activity-empty-inner { display:flex; align-items:center; gap:12px; max-width:680px; width:100%; }
-.activity-empty-illustration { font-size:34px; color: #f59e0b; display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:10px; background: rgba(245,158,11,0.12); }
-.activity-empty-title { font-weight:700; font-size:15px; line-height:1; }
-.activity-empty-sub { font-size:13px; color:#64748b; margin-top:4px; }
-
 
 .app-footer__inner{ max-width:var(--max-width); margin:0 auto; display:flex; flex-direction:column; gap:12px; }
 

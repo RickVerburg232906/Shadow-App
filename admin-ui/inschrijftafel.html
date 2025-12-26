@@ -99,14 +99,11 @@
         <div style="width: 100%;">
         <h3 style="text-align: left; width: 100%;">Laatste Activiteit</h3>
         <div id="recent-activity-list" class="activity-list">
-          <div id="recent-activity-placeholder" class="activity-placeholder activity-empty" aria-hidden="false">
-            <div class="activity-empty-inner">
-              <div class="activity-empty-illustration" aria-hidden="true">
-                <span class="material-symbols-outlined">calendar_today</span>
-              </div>
-              <div class="activity-empty-text">
-                <div class="activity-empty-title">Geen inscans voor vandaag</div>
-                <div class="activity-empty-sub">Hier zie je iedereen die is ingescand deze rit.</div>
+          <div id="recent-activity-placeholder" class="activity-item" aria-hidden="false">
+            <div style="display:flex; align-items:center; gap:12px; width:100%;">
+              <div class="activity-accent" aria-hidden="true"></div>
+              <div style="flex:1 1 auto; text-align:left;">
+                <div class="activity-name">Hier zie je iedereen die is ingescand deze rit.</div>
               </div>
             </div>
           </div>
@@ -136,16 +133,33 @@
             </div>
           </section>
         </div>
-        </main>
+</main>
+<footer class="app-footer" role="contentinfo">
+        <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">
+  <div class="admin-bottom-inner">
+    <a href="../admin-ui/inschrijftafel.html" class="bottom-nav-item" aria-label="Inschrijftafel">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">qr_code_scanner</span>
+      <span class="nav-label">Inschrijftafel</span>
+    </a>
+    <a href="../admin-ui/beheer.html" class="bottom-nav-item" aria-label="Beheer">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">settings</span>
+      <span class="nav-label">Beheer</span>
+    </a>
+    <a href="../admin-ui/voorbereiding.html" class="bottom-nav-item" aria-label="Voorbereiding">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">build</span>
+      <span class="nav-label">Voorbereiding</span>
+    </a>
+    <a href="../admin-ui/data.html" class="bottom-nav-item" aria-label="Data">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span>
+      <span class="nav-label">Data</span>
+    </a>
   </div>
-</div>
-</div>
-</div>
-</div>
-</div>
+</nav>
+</footer>
 <script type="module" src="../src/member.js"></script>
 <script type="module">
   import { initInschrijftafel } from '../src/inschrijftafel.js';
   initInschrijftafel();
 </script>
+<!-- Admin bottom navigation (visible only for admins via JS) -->
 </body></html>

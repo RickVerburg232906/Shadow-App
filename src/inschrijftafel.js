@@ -114,8 +114,6 @@ try { if (typeof window !== 'undefined') window.showScanSuccess = showScanSucces
 
 // Recent scan guard: map of memberId -> timestamp(ms) to prevent spammy duplicate scans
 const _recentScans = new Map();
-// Recent activity list (in-memory for this device session)
-const _recentActivity = [];
 // Members registered during this session (to prevent re-processing the same QR)
 const _registeredThisSession = new Set();
 function renderActivityItem(member, whenIso) {
@@ -254,6 +252,14 @@ export async function initInschrijftafel() {
       if (role !== 'admin') {
         try { const sec = document.getElementById('historie-section'); if (sec) sec.style.display = 'none'; } catch(_){ }
       }
+      try {
+        // show admin footer only for admin role (use aria-hidden so CSS controls display)
+        const footer = document.getElementById('admin-bottom-nav');
+        if (footer) {
+          if (role === 'admin') { footer.setAttribute('aria-hidden','false'); }
+          else { footer.setAttribute('aria-hidden','true'); }
+        }
+      } catch(_){}
     } catch (e) { console.error('role-visibility', e); }
 
     try {
@@ -619,7 +625,18 @@ export async function loadTodayActivity() {
       } catch (e) { console.warn('loadTodayActivity entry parse failed', e); }
     }
     if (seen.size === 0) {
-      try { container.innerHTML = '<div id="recent-activity-placeholder" class="activity-placeholder text-text-sub text-sm">Hier zie je iedereen die is ingescand deze rit.</div>'; } catch(_){}
+      try {
+        container.innerHTML = `
+          <div id="recent-activity-placeholder" class="activity-item" aria-hidden="false">
+            <div style="display:flex; align-items:center; gap:12px; width:100%;">
+              <div class="activity-accent" aria-hidden="true"></div>
+              <div style="flex:1 1 auto; text-align:left;">
+                <div class="activity-name">Hier zie je iedereen die is ingescand deze rit.</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch(_){ }
     }
     try { updateActivityScrollState(); } catch(_){}
   } catch (e) { console.error('loadTodayActivity failed', e); }
@@ -656,7 +673,18 @@ export function initLiveActivityListener() {
             } catch (e) { console.warn('live activity per-doc parse failed', e); }
           }
           if (seen.size === 0) {
-            try { container.innerHTML = '<div id="recent-activity-placeholder" class="activity-placeholder text-text-sub text-sm">Hier zie je iedereen die is ingescand deze rit.</div>'; } catch(_){}
+            try {
+              container.innerHTML = `
+                <div id="recent-activity-placeholder" class="activity-item" aria-hidden="false">
+                  <div style="display:flex; align-items:center; gap:12px; width:100%;">
+                    <div class="activity-accent" aria-hidden="true"></div>
+                    <div style="flex:1 1 auto; text-align:left;">
+                      <div class="activity-name">Hier zie je iedereen die is ingescand deze rit.</div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            } catch(_){ }
           }
           try { updateActivityScrollState(); } catch(_){}
         } catch (e) { console.warn('live activity snapshot handler failed', e); }
