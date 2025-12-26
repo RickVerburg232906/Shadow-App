@@ -336,24 +336,23 @@ body.app{
 
 /* History card (Eerdere Ritten Registreren) */
 .history-card{
-  display:flex;
-  gap:16px;
-  align-items:flex-start;
+  position:relative;
+  display:block;
   background: #ffffff;
   border: 1px solid rgba(243,244,246,1);
   border-radius:14px;
-  padding:16px;
+  padding:16px 16px 16px 16px; /* leave space for absolute icon */
   max-width:640px;
   margin:12px auto 18px;
   box-shadow: 0 8px 22px rgba(16,24,40,0.04);
 }
-.history-card__left{ flex:0 0 auto; }
-.history-icon-wrap{ width:48px; height:48px; border-radius:9999px; display:flex; align-items:center; justify-content:center; background: #fff7ed; border:1px solid rgba(243,224,203,1); }
+.history-card__left{ position:absolute; left:16px; top:16px; width:56px; height:56px; display:flex; align-items:flex-start; }
+.history-icon-wrap{ width:56px; height:56px; border-radius:9999px; display:flex; align-items:center; justify-content:center; background: #fff7ed; border:1px solid rgba(243,224,203,1); }
 .history-icon-wrap .material-symbols-outlined{ color:#7b2f00; font-size:22px; }
 .history-card__body{ flex:1 1 auto; }
-.history-card__title{ font-weight:800; font-size:1.05rem; color:#0f1724; }
-.history-card__desc{ color:#6b7280; margin-top:6px; }
-.history-card__controls{ margin-top:12px; }
+.history-card__title{ font-weight:800; font-size:1.05rem; color:#0f1724; padding-left: 72px;}
+.history-card__desc{ color:#6b7280; margin-top:6px; padding-left: 72px;}
+.history-card__controls{ margin-top:12px; padding: 0; }
 
 /* Action button inside history card: light background, blue text + left icon */
 .history-action-button{
@@ -372,10 +371,7 @@ body.app{
 }
 .history-action-button .material-symbols-outlined{ color: var(--blue); font-size:20px; }
 
-@media (max-width:520px){
-  .history-card{ flex-direction:column; }
-  .history-card__left{ display:flex; justify-content:flex-start; }
-}
+/* Keep history card horizontal on all viewports so text stays right of the icon */
 
 /* Jaarhanger / info helpers used by jaarhangerPage */
 .info-row{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
