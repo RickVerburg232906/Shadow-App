@@ -12,6 +12,14 @@ try { copyFileSync('sw.js', join(distDir, 'sw.js')); } catch (e) { /* ignore */ 
 // Copy root stylesheet so admin-ui and lid-ui can reference ../style.css -> /style.css
 try { copyFileSync('style.css', join(distDir, 'style.css')); } catch (e) { /* ignore */ }
 
+// Copy root JS modules that admin-ui and lid-ui expect at the webroot (e.g. ../firestore.js)
+const rootScripts = ['firestore.js', 'admin.js', 'member.js', 'scanner.js'];
+for (const s of rootScripts) {
+	try {
+		if (existsSync(s)) copyFileSync(s, join(distDir, s));
+	} catch (e) { console.warn('copy-static: failed to copy root script', s, e && e.message ? e.message : e); }
+}
+
 // Copy entire assets directory (if present) to dist/assets
 const assetsSrc = 'assets';
 const assetsDest = join(distDir, 'assets');
