@@ -22,3 +22,14 @@ try {
 	// Fallback: ignore errors but warn on console during build
 	console.warn('copy-static: failed to copy assets directory', e && e.message ? e.message : e);
 }
+
+// Also copy the `new-ui` directory into the dist so static deploys (e.g. Vercel)
+const newUiSrc = 'new-ui';
+const newUiDest = join(distDir, 'new-ui');
+try {
+    if (existsSync(newUiSrc)) {
+        cpSync(newUiSrc, newUiDest, { recursive: true });
+    }
+} catch (e) {
+    console.warn('copy-static: failed to copy new-ui directory', e && e.message ? e.message : e);
+}
