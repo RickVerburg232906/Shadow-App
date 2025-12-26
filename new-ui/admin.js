@@ -507,13 +507,15 @@ function initHistoryInputHandlers() {
     // initial visibility: hide if input empty
     try { setVisible(Boolean((input.value || '').trim())); } catch(_) { setVisible(false); }
 
-    // when input content changes, hide if empty, show otherwise (respect suppression)
+    // when input content changes: only show stars when an explicit selection exists
     input.addEventListener('input', () => {
       try {
-        const val = (input.value || '').trim();
         // if suppression window active, keep hidden
         if (Date.now() < (_historySuppressShowUntil || 0)) { setVisible(false); return; }
-        setVisible(Boolean(val));
+        // Only show stars when a dropdown selection was made (dataset.selectedMember) or global selected id matches
+        let selected = null;
+        try { selected = (input.dataset && input.dataset.selectedMember) ? String(input.dataset.selectedMember) : (window._selectedMemberId || null); } catch(_) { selected = (window._selectedMemberId || null); }
+        setVisible(Boolean(selected));
       } catch(_){}
     });
 
@@ -923,6 +925,8 @@ try { document.addEventListener('member:selected', (ev) => {
     const hasManualInput = !!document.getElementById('participant-name-input-manual');
     if (!hasManualInput) return;
     const detail = ev && ev.detail ? ev.detail : {};
+    // If event includes sourceInputId and it wasn't the manual input, ignore
+    try { if (detail && detail.sourceInputId && String(detail.sourceInputId) !== 'participant-name-input-manual') return; } catch(_) {}
     revealManualChoiceSections(detail.memberId || '', detail.name || '');
     try { populateManualWithMember(String(detail.memberId || '')); } catch(_){}
   } catch (_) {}
@@ -934,6 +938,8 @@ try { document.addEventListener('member:selected', (ev) => {
     const detail = ev && ev.detail ? ev.detail : {};
     const historyInput = document.getElementById('participant-name-input-history');
     if (!historyInput) return;
+    // If event includes sourceInputId and it wasn't the history input, ignore
+    try { if (detail && detail.sourceInputId && String(detail.sourceInputId) !== 'participant-name-input-history') return; } catch(_) {}
     try { historyInput.value = detail.name || historyInput.value || ''; } catch(_){}
     try { if (historyInput.dataset) historyInput.dataset.selectedMember = String(detail.memberId || ''); } catch(_){}
     try { window._selectedMemberId = String(detail.memberId || '') || window._selectedMemberId; } catch(_){}

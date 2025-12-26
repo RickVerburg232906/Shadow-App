@@ -173,7 +173,11 @@ function setupMemberSuggestions() {
 				if (!el || (el.dataset && el.dataset._suggestBound)) continue;
 				let timer = null;
 				let listEl = null;
-				function closeList() { if (listEl && listEl.parentNode) listEl.parentNode.removeChild(listEl); listEl = null; }
+				function closeList() {
+					try { if (listEl && listEl.__cleanup) try { listEl.__cleanup(); } catch(_){} } catch(_){}
+					try { if (listEl && listEl.parentNode) listEl.parentNode.removeChild(listEl); } catch(_){}
+					listEl = null;
+				}
 				async function showSuggestions(prefix) {
 					try {
 						const q = String(prefix || '').trim();
@@ -216,13 +220,44 @@ function setupMemberSuggestions() {
 									closeList();
 									try { updateSignupFooterState(); } catch(_) {}
 									// Notify other parts of the app that a member was selected
-									try { document.dispatchEvent(new CustomEvent('member:selected', { detail: { memberId: pickedId, name: item.textContent } })); } catch(_) {}
+									try { document.dispatchEvent(new CustomEvent('member:selected', { detail: { memberId: pickedId, name: item.textContent, sourceInputId: el.id || null } })); } catch(_) {}
 									// Do not fetch full member here; fetching happens when the footer button is pressed
 								} catch (e) { console.warn('suggestion click failed', e); }
 							});
 							listEl.appendChild(item);
 						});
 						document.body.appendChild(listEl);
+						// Close the dropdown if the input scrolls out of view (prevents it sticking to bottom)
+						const checkInputVisibility = () => {
+							try {
+								const rect2 = el.getBoundingClientRect();
+								// if input entirely above or below viewport, close
+								if (rect2.bottom < 0 || rect2.top > (window.innerHeight || document.documentElement.clientHeight)) {
+									closeList();
+								} else {
+									// reposition to stay anchored to the input while visible
+									try {
+										const rect = el.getBoundingClientRect();
+										listEl.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+										listEl.style.left = (rect.left + window.scrollX) + 'px';
+										// ensure minWidth follows input width
+										listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
+									} catch(_){}
+								}
+							} catch (e) { /* ignore visibility check errors */ }
+						};
+						// attach listeners
+						const onScroll = () => { try { checkInputVisibility(); } catch(_){} };
+						const onResize = () => { try { checkInputVisibility(); } catch(_){} };
+						window.addEventListener('scroll', onScroll, true);
+						window.addEventListener('resize', onResize);
+						// store references so closeList can remove them
+						listEl.__cleanup = () => {
+							try { window.removeEventListener('scroll', onScroll, true); } catch(_){}
+							try { window.removeEventListener('resize', onResize); } catch(_){}
+						};
+						// initial check
+						try { checkInputVisibility(); } catch(_){}
 // Realtime listener: attach a Firestore onSnapshot listener to update only ScanDatums
 function setupMemberScanListener() {
 	try {
