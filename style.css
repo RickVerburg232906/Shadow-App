@@ -932,6 +932,13 @@ div[role="button"] > .vast-item.selected,
 .save-qr-btn:active{ transform: translateY(1px); }
 .save-qr-btn[disabled]{ opacity:0.5; cursor:default; }
 
+/* Make the specific save-qr button twice as large (double padding and icon/text sizes) */
+#save-qr-btn{
+  padding: 16px 32px;
+}
+#save-qr-btn .material-symbols-outlined{ font-size:36px; }
+#save-qr-btn .btn-text{ font-size:1.125rem; }
+
 /* Jaarhanger photo */
 .jaarhanger-photo-wrap{ margin-top:12px; }
 .jaarhanger-photo{ width:100%; height:auto; object-fit:cover; border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.08); }

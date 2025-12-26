@@ -789,8 +789,8 @@ function renderMemberInfoChoices() {
 					if (badge) { badge.classList.remove('mk-badge-no'); badge.classList.add('mk-badge-yes'); }
 					try { lunchItem.classList.remove('mk-no'); } catch(_) {}
 				} else if (deel === 'nee') {
-					// show cross and Afwezig
-					if (valueEl) valueEl.textContent = 'Afwezig';
+					// show cross and Eet niet mee
+					if (valueEl) valueEl.textContent = 'Eet niet mee';
 					if (icon) icon.textContent = 'close';
 					if (badge) { badge.classList.remove('mk-badge-yes'); badge.classList.add('mk-badge-no'); }
 					try { lunchItem.classList.add('mk-no'); } catch(_) {}
@@ -943,6 +943,11 @@ function updateQROverlay() {
 			lunchDeelname: (lunchDel || '').toString(),
 			lunchKeuze: (lunchKeuze || '').toString()
 		};
+
+		// Determine if member has a scan for today
+		let scansFromObj = [];
+		try { scansFromObj = getMemberScanYMDs(memberObj2 || {}) || []; } catch(_) { scansFromObj = []; }
+		const isScannedToday = Array.isArray(scansFromObj) && scansFromObj.includes(todayYMD());
 		try {
 			const dataStr = JSON.stringify(payload);
 			if (qrImg) {
@@ -971,6 +976,16 @@ function updateQROverlay() {
 			}
 			if (saveBtn) {
 				saveBtn.style.display = '';
+				// lock the save button when the member is already scanned today
+				if (isScannedToday) {
+					saveBtn.disabled = true;
+					saveBtn.setAttribute('aria-disabled', 'true');
+					saveBtn.classList && saveBtn.classList.add('disabled');
+				} else {
+					saveBtn.disabled = false;
+					saveBtn.removeAttribute('aria-disabled');
+					saveBtn.classList && saveBtn.classList.remove('disabled');
+				}
 				// ensure button has icon + label markup
 				if (!saveBtn.dataset || !saveBtn.dataset._labelled) {
 					try { saveBtn.innerHTML = '<span class="material-symbols-outlined">file_download</span><span class="btn-text">Sla QR code op</span>'; } catch(_) {}
