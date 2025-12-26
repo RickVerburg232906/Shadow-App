@@ -28,8 +28,14 @@ export async function selectRearCameraDeviceId() {
     // helper: call global toast if available, then invoke provided onDecode
     const wrappedOnDecode = (decoded) => {
       try {
-        if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') {
-          try { window.showScanSuccess('Gescand'); } catch(_){}
+        const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? String(navigator.userAgent) : '';
+        const isiOSSafari = /Safari/.test(ua) && !/Chrome|Chromium|CriOS|Android/.test(ua);
+        // On Safari we avoid showing the generic 'Gescand' toast because admin flow
+        // will show a more specific 'Ingeschreven' toast after successful registration.
+        if (!isiOSSafari) {
+          if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') {
+            try { window.showScanSuccess('Gescand'); } catch(_){}
+          }
         }
       } catch(_){}
       try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
