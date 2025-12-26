@@ -9,6 +9,16 @@ const firebaseConfigDev = {
 };
 
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
+// Normalize common yes/no values (Dutch/English/boolean-like) to 'yes'|'no'|null
+function normalizeYesNo(v) {
+  try {
+    if (v === null || v === undefined) return null;
+    const s = String(v).toLowerCase().trim();
+    if (s === 'yes' || s === 'ja' || s === 'y' || s === 'true' || s === '1') return 'yes';
+    if (s === 'no' || s === 'nee' || s === 'n' || s === 'false' || s === '0') return 'no';
+    return null;
+  } catch (_) { return null; }
+}
 // handmatige-keuzes code removed per request; manual-page helpers intentionally omitted.
 
 function showScanSuccess(msg) {
