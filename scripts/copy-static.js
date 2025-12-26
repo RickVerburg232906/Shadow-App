@@ -23,13 +23,17 @@ try {
 	console.warn('copy-static: failed to copy assets directory', e && e.message ? e.message : e);
 }
 
-// Also copy the `new-ui` directory into the dist so static deploys (e.g. Vercel)
+// Also copy the `new-ui` build output into the dist so static deploys (e.g. Vercel).
+// Prefer a built `new-ui/dist` directory; if that's not present, fall back to copying the source `new-ui` folder.
 const newUiSrc = 'new-ui';
+const newUiBuild = join(newUiSrc, 'dist');
 const newUiDest = join(distDir, 'new-ui');
 try {
-    if (existsSync(newUiSrc)) {
-        cpSync(newUiSrc, newUiDest, { recursive: true });
-    }
+	if (existsSync(newUiBuild)) {
+		cpSync(newUiBuild, newUiDest, { recursive: true });
+	} else if (existsSync(newUiSrc)) {
+		cpSync(newUiSrc, newUiDest, { recursive: true });
+	}
 } catch (e) {
-    console.warn('copy-static: failed to copy new-ui directory', e && e.message ? e.message : e);
+	console.warn('copy-static: failed to copy new-ui directory or build output', e && e.message ? e.message : e);
 }
