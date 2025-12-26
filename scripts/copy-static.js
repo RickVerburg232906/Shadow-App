@@ -9,6 +9,8 @@ if (!existsSync(distDir)) mkdirSync(distDir, { recursive: true });
 // Copy manifest and service worker
 try { copyFileSync('manifest.webmanifest', join(distDir, 'manifest.webmanifest')); } catch (e) { /* ignore */ }
 try { copyFileSync('sw.js', join(distDir, 'sw.js')); } catch (e) { /* ignore */ }
+// Copy root stylesheet so admin-ui and lid-ui can reference ../style.css -> /style.css
+try { copyFileSync('style.css', join(distDir, 'style.css')); } catch (e) { /* ignore */ }
 
 // Copy entire assets directory (if present) to dist/assets
 const assetsSrc = 'assets';
