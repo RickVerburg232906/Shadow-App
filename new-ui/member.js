@@ -1040,7 +1040,7 @@ function setupSignupInputClear() {
 // Wire header back buttons to sensible navigation behavior.
 function setupHeaderBackButtons() {
 	try {
-		const buttons = Array.from(document.querySelectorAll('.back-button'));
+		const buttons = Array.from(document.querySelectorAll('.back-button, .home-button'));
 		if (!buttons || buttons.length === 0) return;
 		for (const btn of buttons) {
 			try {
@@ -1048,6 +1048,13 @@ function setupHeaderBackButtons() {
 				btn.addEventListener('click', (ev) => {
 					try {
 						ev.preventDefault();
+						// If this is explicitly a home-button, always go to the app index
+						try {
+							if (btn.classList && btn.classList.contains('home-button')) {
+								try { window.location.href = '../index.html'; } catch(_) { window.location.href = '/index.html'; }
+								return;
+							}
+						} catch(_) {}
 						const filename = (window.location.pathname || '').split('/').pop() || '';
 						const name = String(filename).toLowerCase();
 						// memberInfo page: always go to index.html

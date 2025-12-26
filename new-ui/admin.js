@@ -511,6 +511,170 @@ function revealManualChoiceSections(memberId, name) {
   } catch (e) { console.warn('revealManualChoiceSections failed', e); }
 }
 
+async function ensureKeuzeRadiosReady(timeoutMs = 1000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const radios = document.querySelectorAll('#lunch-choices-list input[name="keuzeEten"]');
+    if (radios && radios.length > 0) return true;
+    // wait a bit
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return false;
+}
+
+async function populateManualWithMember(memberId) {
+  try {
+    if (!memberId) return;
+    const input = document.getElementById('participant-name-input-manual');
+    if (input) {
+      try { input.setAttribute('data-member-id', String(memberId)); } catch(_){}
+    }
+    try { window._selectedMemberId = String(memberId); } catch(_){}
+
+    const doc = await getMemberById(String(memberId));
+    if (!doc) return;
+
+    // If member already has today's date in ScanDatums, lock the manual sections
+    try {
+      const scans = Array.isArray(doc.ScanDatums) ? doc.ScanDatums : (doc.ScanDatums ? [doc.ScanDatums] : []);
+      const today = new Date().toISOString().slice(0,10);
+      const hasToday = scans && Array.isArray(scans) && scans.indexOf(today) !== -1;
+      if (hasToday) {
+        applyManualLock(true, 'Lid is al ingeschreven');
+        // still prefill fields, but keep locked
+      } else {
+        applyManualLock(false);
+      }
+    } catch (e) { console.warn('scanDates check failed', e); }
+
+    // Prefill eetmee (lunch participation)
+    try {
+      const deel = (doc.lunchDeelname || doc.lunchDeelname || doc.lunch || doc.lunchDeelname || '').toString().toLowerCase();
+      const eetRadios = Array.from(document.querySelectorAll('#lunch-choices-host input[name="eetmee"]'));
+      if (eetRadios && eetRadios.length > 0) {
+        for (const r of eetRadios) {
+          try {
+            const v = String(r.value || '').toLowerCase();
+            if (deel && (deel.indexOf('nee') !== -1 || deel === 'no')) {
+              if (v.indexOf('nee') !== -1 || v === 'no') { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+            } else if (deel && (deel.indexOf('ja') !== -1 || deel === 'yes')) {
+              if (v.indexOf('ja') !== -1 || v === 'yes') { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+            }
+          } catch(_){}
+        }
+      }
+    } catch (e) { console.warn('prefill eetmee failed', e); }
+
+    // Ensure keuze radios are rendered before selecting
+    try { await ensureKeuzeRadiosReady(1200); } catch(_){}
+
+    // Prefill lunchKeuze
+    try {
+      const keuzeVal = (doc.lunchKeuze || doc.lunchChoice || doc.keuze || '').toString();
+      if (keuzeVal) {
+        const keuzeRadios = Array.from(document.querySelectorAll('#lunch-choices-list input[name="keuzeEten"]'));
+        for (const r of keuzeRadios) {
+          try {
+            if (String(r.value || '') === String(keuzeVal)) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+          } catch(_){}
+        }
+      }
+    } catch (e) { console.warn('prefill lunchKeuze failed', e); }
+
+    // Prefill Jaarhanger
+    try {
+      const jVal = (doc.Jaarhanger || doc.jaarhanger || '').toString().toLowerCase();
+      const jaarRadios = Array.from(document.querySelectorAll('#jaarhanger-host input[name="jaarhanger"]'));
+      if (jaarRadios && jaarRadios.length > 0) {
+        for (const r of jaarRadios) {
+          try {
+            const v = String(r.value || '').toLowerCase();
+            if (jVal && (jVal.indexOf('nee') !== -1 || jVal === 'no')) {
+              if (v.indexOf('nee') !== -1 || v === 'no') { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+            } else if (jVal && (jVal.indexOf('ja') !== -1 || jVal === 'yes')) {
+              if (v.indexOf('ja') !== -1 || v === 'yes') { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+            }
+          } catch(_){}
+        }
+      }
+    } catch (e) { console.warn('prefill Jaarhanger failed', e); }
+
+    try { updateManualSaveState(); } catch(_){}
+  } catch (e) { console.warn('populateManualWithMember failed', e); }
+}
+
+// Enable the manual save button only when required fields are present
+function updateManualSaveState() {
+  try {
+    const saveBtn = document.getElementById('save-manual-button');
+    if (!saveBtn) return;
+
+    // if sections are locked, disable save
+    try {
+      const lunchHost = document.getElementById('lunch-choices-host');
+      if (lunchHost && lunchHost.dataset && lunchHost.dataset.locked === '1') {
+        saveBtn.disabled = true; saveBtn.setAttribute('aria-disabled','true'); saveBtn.classList && saveBtn.classList.add('disabled'); return;
+      }
+    } catch(_){}
+
+    // check eetmee selection
+    const eetSel = document.querySelector('#lunch-choices-host input[name="eetmee"]:checked');
+    const jaarSel = document.querySelector('#jaarhanger-host input[name="jaarhanger"]:checked');
+    let valid = true;
+    if (!eetSel) valid = false;
+    if (!jaarSel) valid = false;
+
+    // if eetmee is yes, and keuzeEten options exist, ensure one is selected
+    try {
+      const eetVal = eetSel ? String(eetSel.value || '').toLowerCase() : '';
+      const keuzeEls = Array.from(document.querySelectorAll('#lunch-choices-list input[name="keuzeEten"]'));
+      if (eetVal && eetVal.indexOf('ja') !== -1 && keuzeEls.length > 0) {
+        const chosen = keuzeEls.find(r => r.checked);
+        if (!chosen) valid = false;
+      }
+    } catch(_) {}
+
+    saveBtn.disabled = !valid;
+    if (saveBtn.disabled) { saveBtn.setAttribute('aria-disabled','true'); saveBtn.classList && saveBtn.classList.add('disabled'); }
+    else { saveBtn.removeAttribute('aria-disabled'); saveBtn.classList && saveBtn.classList.remove('disabled'); }
+  } catch (e) { console.warn('updateManualSaveState failed', e); }
+}
+
+function applyManualLock(locked, message = 'Lid is al ingeschreven') {
+  try {
+    const hosts = [document.getElementById('lunch-choices-host'), document.getElementById('jaarhanger-host')];
+    hosts.forEach(host => {
+      try {
+        if (!host) return;
+        const card = host.querySelector('.surface-card') || host.querySelector('.card') || host;
+        if (locked) {
+          // mark as locked
+          host.dataset.locked = '1';
+          // disable inputs
+          const inputs = host.querySelectorAll('input, button, select, textarea');
+          inputs.forEach(i => { try { i.setAttribute('disabled','true'); } catch(_){} });
+          // add overlay if not present
+          if (!card.querySelector('.manual-locked-overlay')) {
+            const ov = document.createElement('div');
+            ov.className = 'manual-locked-overlay';
+            ov.innerHTML = `<span class="material-symbols-outlined">lock</span><div class="locked-text">${String(message)}</div>`;
+            // ensure card is positioned to contain absolute overlay
+            try { const pos = window.getComputedStyle(card).position; if (!pos || pos === 'static') card.style.position = 'relative'; } catch(_){}
+            card.appendChild(ov);
+          }
+        } else {
+          delete host.dataset.locked;
+          const inputs = host.querySelectorAll('input, button, select, textarea');
+          inputs.forEach(i => { try { i.removeAttribute('disabled'); } catch(_){} });
+          const ov = card.querySelector('.manual-locked-overlay');
+          if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+        }
+      } catch(_){}
+    });
+    try { updateManualSaveState(); } catch(_){}
+  } catch (e) { console.warn('applyManualLock failed', e); }
+}
+
 function hideManualChoiceSections() {
   try {
     const lunch = document.getElementById('lunch-choices-host');
@@ -539,6 +703,7 @@ function hideManualChoiceSections() {
         keuzeContainer.classList.remove('lunch-disabled');
       }
     } catch(_){}
+    try { updateManualSaveState(); } catch(_){}
   } catch (e) { console.warn('hideManualChoiceSections failed', e); }
 }
 
@@ -548,6 +713,7 @@ try { document.addEventListener('member:selected', (ev) => {
     if (!hasManualInput) return;
     const detail = ev && ev.detail ? ev.detail : {};
     revealManualChoiceSections(detail.memberId || '', detail.name || '');
+    try { populateManualWithMember(String(detail.memberId || '')); } catch(_){}
   } catch (_) {}
 }); } catch(_) {}
 
@@ -603,13 +769,18 @@ async function loadManualLunchOptions() {
     const opts = await getLunchOptions();
     const keuzes = Array.isArray(opts && opts.keuzeEten) ? opts.keuzeEten : [];
     if (!keuzes || keuzes.length === 0) {
-      try { listEl.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>'; } catch(_){}
+      try { listEl.innerHTML = ''; listEl.setAttribute('aria-hidden','true'); listEl.style.display = 'none'; } catch(_){ }
     } else {
       const html = keuzes.map((k) => {
         const safe = String(k).replace(/"/g, '&quot;');
         return `<label class="choice-option"><input class="sr-only" name="keuzeEten" value="${safe}" type="radio" /><div class="choice-card">${String(k)}</div></label>`;
       }).join('\n');
       try { listEl.innerHTML = html; listEl.removeAttribute('aria-hidden'); } catch(_){}
+      // wire change listeners for keuzeEten so save state updates when a choice is selected
+      try {
+        const radios = Array.from(listEl.querySelectorAll('input[name="keuzeEten"]'));
+        radios.forEach(r => { try { r.addEventListener('change', () => { try { updateManualSaveState(); } catch(_){} }); } catch(_){} });
+      } catch(_){}
     }
     try {
       if (inclusiefEl) {
@@ -617,6 +788,7 @@ async function loadManualLunchOptions() {
         inclusiefEl.textContent = (Array.isArray(vast) && vast.length > 0) ? vast.join(', ') : '—';
       }
     } catch(_){}
+    try { updateManualSaveState(); } catch(_){}
   } catch (e) { console.warn('loadManualLunchOptions failed', e); }
 }
 
@@ -652,7 +824,8 @@ try { if (typeof window !== 'undefined') {
         } catch (e) { console.warn('setDisabledState failed', e); }
       }
 
-      // wire change handlers
+
+      // wire change handlers for eetmee
       eetRadios.forEach(r => {
         try {
           r.addEventListener('change', (ev) => {
@@ -661,9 +834,16 @@ try { if (typeof window !== 'undefined') {
               if (v.indexOf('nee') !== -1) setDisabledState(true);
               else setDisabledState(false);
             } catch (_) {}
+            try { updateManualSaveState(); } catch(_){}
           });
-        } catch(_){}
+        } catch(_){ }
       });
+
+      // wire jaarhanger radios to update save state
+      try {
+        const jaarRadios = Array.from(document.querySelectorAll('#jaarhanger-host input[name="jaarhanger"]'));
+        jaarRadios.forEach(r => { try { r.addEventListener('change', () => { try { updateManualSaveState(); } catch(_){} }); } catch(_){} });
+      } catch(_){}
 
       // initialize state based on current selection
       try {
@@ -671,7 +851,10 @@ try { if (typeof window !== 'undefined') {
         if (sel) {
           setDisabledState(String(sel.value || '').toLowerCase().indexOf('nee') !== -1);
         }
-      } catch(_){}
+      } catch(_){ }
+
+      // initial save-button state
+      try { updateManualSaveState(); } catch(_){}
     } catch (e) { console.warn('attachManualLunchHandlers failed', e); }
   }
 
@@ -680,4 +863,72 @@ try { if (typeof window !== 'undefined') {
     const runHandlers = () => { try { attachManualLunchHandlers(); } catch(_){} };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runHandlers); else runHandlers();
     document.addEventListener('shadow:config-ready', runHandlers);
+  } } catch(_) {}
+
+  // Attach save handler for manual page: write selected choices to Firestore
+  function attachSaveManualHandler() {
+    try {
+      const btn = document.getElementById('save-manual-button');
+      if (!btn) return;
+      if (btn.dataset && btn.dataset._saveBound) return;
+      btn.addEventListener('click', async (ev) => {
+        try {
+          ev.preventDefault();
+          const input = document.getElementById('participant-name-input-manual');
+          if (!input) { alert('Geen naamveld gevonden'); return; }
+          const memberId = (input.dataset && input.dataset.memberId) ? input.dataset.memberId : (window._selectedMemberId || input.getAttribute('data-member-id') || '');
+          if (!memberId) { alert('Selecteer eerst een lid uit de suggesties'); return; }
+
+          // read eetmee
+          const eetSel = document.querySelector('#lunch-choices-host input[name="eetmee"]:checked');
+          const jaarSel = document.querySelector('#jaarhanger-host input[name="jaarhanger"]:checked');
+          if (!eetSel || !jaarSel) { alert('Kies eerst of de deelnemer eet en of hij een jaarhanger wil'); return; }
+          const eetVal = String(eetSel.value || '').toLowerCase();
+          const jaarVal = String(jaarSel.value || '').toLowerCase();
+
+          let lunchDeelname = null;
+          if (eetVal.indexOf('nee') !== -1 || eetVal === 'no') lunchDeelname = 'nee'; else lunchDeelname = 'ja';
+
+          let lunchKeuze = null;
+          try {
+            if (lunchDeelname === 'ja') {
+              const chosen = document.querySelector('#lunch-choices-list input[name="keuzeEten"]:checked');
+              if (chosen && chosen.value) lunchKeuze = String(chosen.value);
+            }
+          } catch(_){}
+
+          const Jaarhanger = (jaarVal.indexOf('nee') !== -1 || jaarVal === 'no') ? 'nee' : 'ja';
+
+          // disable button while saving
+          try { btn.disabled = true; btn.classList && btn.classList.add('disabled'); } catch(_){}
+
+          const res = await checkInMemberById(String(memberId), { lunchDeelname: lunchDeelname, lunchKeuze: lunchKeuze, Jaarhanger });
+          if (res && res.success) {
+            try { showScanSuccess('Keuzes opgeslagen'); } catch(_){}
+            // also register today's date in ScanDatums
+            try {
+              const today = new Date().toISOString().slice(0,10);
+              const mr = await manualRegisterRide(String(memberId), today);
+              if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+            } catch (e) { console.warn('manualRegisterRide error', e); }
+            // optionally update UI state
+            try { updateManualSaveState(); } catch(_){}
+            // navigate back to inschrijftafel
+            try { window.location.href = '../admin-ui/inschrijftafel.html'; } catch(_) { window.location.href = './inschrijftafel.html'; }
+            return;
+          } else {
+            console.warn('save manual choices failed', res);
+            alert('Kon keuzes niet opslaan');
+          }
+        } catch (e) { console.error('manual save handler error', e); alert('Fout bij opslaan'); }
+        finally { try { btn.disabled = false; btn.classList && btn.classList.remove('disabled'); } catch(_){} }
+      });
+      if (btn.dataset) btn.dataset._saveBound = '1';
+    } catch (e) { console.warn('attachSaveManualHandler failed', e); }
+  }
+
+  try { if (typeof window !== 'undefined') {
+    const runSave = () => { try { attachSaveManualHandler(); } catch(_){} };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runSave); else runSave();
+    document.addEventListener('shadow:config-ready', runSave);
   } } catch(_) {}
