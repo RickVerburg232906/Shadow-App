@@ -210,10 +210,7 @@ export async function initInschrijftafel() {
                   placeholder.style.display = 'none';
                 }
               } catch (_) {}
-              if (previewParent) {
-                previewParent.style.backgroundImage = 'none';
-                previewParent.style.backgroundSize = 'cover';
-              }
+              // don't remove placeholder/background yet — wait until scanner actually started successfully
               adminQR.style.width = '100%';
               adminQR.style.height = '100%';
               adminQR.style.position = 'relative';
@@ -221,7 +218,9 @@ export async function initInschrijftafel() {
             }
           } catch (e) { console.warn('prepare preview failed', e); }
 
-          const res = await startQrScanner('adminQRReader', async (decoded) => {
+          let res = null;
+          try {
+            res = await startQrScanner('adminQRReader', async (decoded) => {
             try {
               console.log('QR decoded:', decoded);
               // Attempt to parse JSON payload; fall back to raw string
@@ -310,6 +309,59 @@ export async function initInschrijftafel() {
             } catch(_){ }
           }, { fps: 10, qrbox: 250 });
           
+          // Only hide the placeholder and remove preview background after scanner actually displays video
+          try {
+            const adminQR = document.getElementById('adminQRReader');
+            if (adminQR) {
+              const previewParent = adminQR.parentElement;
+              const placeholder = document.getElementById('adminQRPlaceholder');
+              const hidePlaceholder = () => {
+                try { if (placeholder) placeholder.style.display = 'none'; } catch(_){}
+                try {
+                  if (previewParent) {
+                    previewParent.style.backgroundImage = 'none';
+                    previewParent.style.backgroundSize = 'cover';
+                  }
+                } catch(_){}
+              };
+
+              // If a video element was inserted by html5-qrcode, wait for it to start playing
+              try {
+                const video = adminQR.querySelector('video');
+                if (video) {
+                  // If already playing, hide immediately
+                  if (!video.paused && !video.ended && video.readyState > 2) {
+                    hidePlaceholder();
+                  } else {
+                    const onPlay = () => { try { hidePlaceholder(); video.removeEventListener('playing', onPlay); video.removeEventListener('canplay', onPlay); } catch(_){} };
+                    video.addEventListener('playing', onPlay);
+                    video.addEventListener('canplay', onPlay);
+                    // fallback: after 1500ms hide anyway
+                    setTimeout(() => { try { hidePlaceholder(); video.removeEventListener('playing', onPlay); video.removeEventListener('canplay', onPlay); } catch(_){} }, 1500);
+                  }
+                } else {
+                  // no video element yet — wait a bit for DOM insertion then hide as fallback
+                  setTimeout(() => { try { hidePlaceholder(); } catch(_){} }, 400);
+                }
+              } catch (e) {
+                try { hidePlaceholder(); } catch(_){}
+              }
+            }
+          } catch(_) {}
+          } catch (startErr) {
+            console.warn('startQrScanner failed', startErr);
+            // restore placeholder/background if start failed
+            try {
+              const adminQR = document.getElementById('adminQRReader');
+              if (adminQR) {
+                const previewParent = adminQR.parentElement;
+                const placeholder = document.getElementById('adminQRPlaceholder');
+                try { if (placeholder) placeholder.style.display = placeholder.dataset.prevDisplay || ''; } catch(_){}
+                try { if (previewParent) previewParent.style.removeProperty('background-image'); } catch(_){}
+              }
+            } catch(_){}
+          }
+
           running = res && res.scannerInstance ? res.scannerInstance : null;
           try { startBtn.innerHTML = '<span class="material-symbols-outlined">stop</span> Stop Scanner'; } catch(_){ }
           
@@ -332,7 +384,18 @@ export async function initInschrijftafel() {
               } catch (_) {}
             }, 100);
           } catch (e) { console.warn('scroll to scanner failed', e); }
-        } catch (e) { console.error('start btn handler error', e); }
+        } catch (e) {
+          try {
+            const adminQR = document.getElementById('adminQRReader');
+            if (adminQR) {
+              const previewParent = adminQR.parentElement;
+              const placeholder = document.getElementById('adminQRPlaceholder');
+              try { if (placeholder) placeholder.style.display = placeholder.dataset.prevDisplay || ''; } catch(_){}
+              try { if (previewParent) previewParent.style.removeProperty('background-image'); } catch(_){}
+            }
+          } catch(_){}
+          console.error('start btn handler error', e);
+        }
       });
     }
 

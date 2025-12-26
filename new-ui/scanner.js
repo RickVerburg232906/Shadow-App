@@ -89,7 +89,7 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
 
     selectContainer.appendChild(select);
     parent.appendChild(selectContainer);
-    try { parent.style.transition = parent.style.transition || 'height 220ms ease'; } catch(_){ }
+    try { parent.style.transition = parent.style.transition || 'transform 220ms ease, max-height 220ms ease, opacity 220ms ease'; } catch(_){ }
     return { container: selectContainer, select };
   }
 
@@ -109,14 +109,17 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
         html5Qr.__previewState = html5Qr.__previewState || {};
         if (pParent) {
           html5Qr.__previewState.prevBackgroundImage = pParent.style.backgroundImage || '';
+          try { html5Qr.__previewState.prevBackgroundComputed = window.getComputedStyle(pParent).backgroundImage || ''; } catch(_) { html5Qr.__previewState.prevBackgroundComputed = ''; }
           html5Qr.__previewState.prevHeight = pParent.style.height || '';
           html5Qr.__previewState.prevMaxHeight = pParent.style.maxHeight || '';
+          html5Qr.__previewState.prevClass = pParent.className || '';
         }
         try {
           if (rootElem) {
             rootElem.dataset.prevBackgroundImage = (pParent && pParent.style.backgroundImage) || '';
             rootElem.dataset.prevHeight = (pParent && pParent.style.height) || '';
             rootElem.dataset.prevMaxHeight = (pParent && pParent.style.maxHeight) || '';
+            rootElem.dataset.prevClass = (pParent && pParent.className) || '';
           }
         } catch(_) {}
       } catch(_) {}
@@ -139,7 +142,12 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
     };
 
     let started = false;
-    if (chosenCameraId) started = await startWithDevice(chosenCameraId);
+    const isIOS = (typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream);
+    // On iOS Safari try facingMode exact first as some devices require it
+    if (isIOS) {
+      try { started = await startWithDevice({ facingMode: { exact: 'environment' } }); } catch(_) { started = false; }
+    }
+    if (!started && chosenCameraId) started = await startWithDevice(chosenCameraId);
     if (!started) {
       try {
         const cams = await Html5Qrcode.getCameras();
@@ -167,13 +175,35 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
       const previewParent = document.getElementById(target).parentElement;
       html5Qr.__previewState = html5Qr.__previewState || {};
       if (previewParent) {
-        html5Qr.__previewState.prevBackgroundImage = previewParent.style.backgroundImage;
-        html5Qr.__previewState.prevHeight = previewParent.style.height;
-        html5Qr.__previewState.prevMaxHeight = previewParent.style.maxHeight;
+      html5Qr.__previewState.prevBackgroundImage = previewParent.style.backgroundImage || '';
+      try { html5Qr.__previewState.prevBackgroundComputed = window.getComputedStyle(previewParent).backgroundImage || ''; } catch(_) { html5Qr.__previewState.prevBackgroundComputed = ''; }
+      html5Qr.__previewState.prevHeight = previewParent.style.height || '';
+      html5Qr.__previewState.prevMaxHeight = previewParent.style.maxHeight || '';
         const root = document.getElementById(target);
         if (root) { root.style.width = '100%'; root.style.height = '100%'; root.style.minHeight = '60vh'; }
-        previewParent.style.height = '60vh';
-        previewParent.style.maxHeight = '80vh';
+        // Use class toggle for transform-based animation instead of directly manipulating height
+        try {
+          previewParent.classList.add('scanner-open');
+          // ensure the scanner-card is scrolled into view after opening (allow a tick for layout/animation)
+          try {
+            setTimeout(() => {
+              // prefer scrolling the whole card so the control area (stop button) is visible
+              const card = previewParent.closest && previewParent.closest('.scanner-card') ? previewParent.closest('.scanner-card') : previewParent;
+              try { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(_) {}
+              // after the initial scroll, nudge further down if bottom of card is cut off so the stop button becomes visible
+              setTimeout(() => {
+                try {
+                  const rect = card.getBoundingClientRect();
+                  const margin = 120; // keep 120px free from bottom so controls are visible
+                  if (rect.bottom > window.innerHeight - margin) {
+                    const overshoot = rect.bottom - (window.innerHeight - margin) + 12;
+                    window.scrollBy({ top: overshoot, behavior: 'smooth' });
+                  }
+                } catch(_) {}
+              }, 160);
+            }, 80);
+          } catch(_) {}
+        } catch(_) { previewParent.style.height = '60vh'; previewParent.style.maxHeight = '80vh'; }
       }
     } catch (_) {}
   } catch (e) {
@@ -197,58 +227,100 @@ export async function stopQrScanner(scannerInstance) {
       const st = scannerInstance.__previewState;
       const root = document.getElementById(scannerInstance._elementId || 'adminQRReader');
       const previewParent = root && root.parentElement;
-      if (st && previewParent) {
-        if (st.prevBackgroundImage) previewParent.style.backgroundImage = st.prevBackgroundImage;
-        else previewParent.style.removeProperty('background-image');
-        if (st.prevHeight) previewParent.style.height = st.prevHeight;
-        else previewParent.style.removeProperty('height');
-        if (st.prevMaxHeight) previewParent.style.maxHeight = st.prevMaxHeight;
-        else previewParent.style.removeProperty('max-height');
+
+      const doRestore = () => {
+        try {
+          if (st && previewParent) {
+            if (st.prevBackgroundImage) previewParent.style.backgroundImage = st.prevBackgroundImage;
+            else if (st.prevBackgroundComputed) previewParent.style.backgroundImage = st.prevBackgroundComputed;
+            else previewParent.style.removeProperty('background-image');
+            // Prefer restoring previous class; fall back to heights
+            if (st.prevClass) {
+              try { previewParent.className = st.prevClass; } catch(_) { previewParent.classList.remove('scanner-open'); }
+            } else {
+              try { previewParent.classList.remove('scanner-open'); } catch(_) { }
+              if (st.prevHeight) previewParent.style.height = st.prevHeight;
+              else previewParent.style.removeProperty('height');
+              if (st.prevMaxHeight) previewParent.style.maxHeight = st.prevMaxHeight;
+              else previewParent.style.removeProperty('max-height');
+            }
+          }
+        } catch (_) {}
+
+        // Ensure preview has a blue fallback background if computed style ended up empty
+        try {
+          if (previewParent) {
+            const compBg = (window.getComputedStyle && window.getComputedStyle(previewParent).backgroundImage) || '';
+            if (!compBg || compBg === 'none') {
+              previewParent.style.background = 'linear-gradient(180deg, rgba(22,62,141,0.44) 0%, rgba(22,62,141,0.22) 100%)';
+              previewParent.style.backgroundSize = 'cover';
+            }
+          }
+        } catch(_) {}
+        try {
+          const r = root || document.getElementById('adminQRReader');
+          const pParent = r && r.parentElement;
+          if (r && pParent) {
+            if ((!st || !st.prevBackgroundImage) && r.dataset.prevBackgroundImage) pParent.style.backgroundImage = r.dataset.prevBackgroundImage || '';
+            else if ((!st || !st.prevBackgroundImage)) pParent.style.removeProperty('background-image');
+            // restore class (preferred) or heights
+            if ((!st || !st.prevClass) && r.dataset.prevClass) {
+              try { pParent.className = r.dataset.prevClass || ''; } catch(_) { pParent.classList.remove('scanner-open'); }
+            } else if ((!st || !st.prevClass)) {
+              try { pParent.classList.remove('scanner-open'); } catch(_) {}
+            }
+            if ((!st || !st.prevHeight) && r.dataset.prevHeight) pParent.style.height = r.dataset.prevHeight || '';
+            else if ((!st || !st.prevHeight)) pParent.style.removeProperty('height');
+            if ((!st || !st.prevMaxHeight) && r.dataset.prevMaxHeight) pParent.style.maxHeight = r.dataset.prevMaxHeight || '';
+            else if ((!st || !st.prevMaxHeight)) pParent.style.removeProperty('max-height');
+          }
+          const placeholder = document.getElementById('adminQRPlaceholder');
+          if (placeholder) {
+            const prev = (st && st.prevPlaceholderDisplay) || (placeholder && placeholder.dataset.prevDisplay) || (r && r.dataset.prevPlaceholderDisplay) || '';
+            placeholder.style.display = prev || '';
+            try {
+              const prevHtml = (st && st.prevPlaceholderInnerHtml) || placeholder.dataset.prevInnerHtml || '';
+              if (prevHtml) placeholder.innerHTML = prevHtml;
+            } catch (_) {}
+          }
+          if (r) {
+            if (r.dataset.prevWidth) r.style.width = r.dataset.prevWidth; else r.style.removeProperty('width');
+            if (r.dataset.prevHeight) r.style.height = r.dataset.prevHeight; else r.style.removeProperty('height');
+            if (r.dataset.prevPosition) r.style.position = r.dataset.prevPosition; else r.style.removeProperty('position');
+            if (r.dataset.prevMinHeight) r.style.minHeight = r.dataset.prevMinHeight; else r.style.removeProperty('min-height');
+          }
+        } catch (_) {}
+
+        try {
+          const rootEl = document.getElementById(scannerInstance._elementId || 'adminQRReader');
+          if (rootEl) {
+            delete rootEl.dataset.prevBackgroundImage;
+            delete rootEl.dataset.prevHeight;
+            delete rootEl.dataset.prevMaxHeight;
+            delete rootEl.dataset.prevWidth;
+            delete rootEl.dataset.prevPosition;
+            delete rootEl.dataset.prevMinHeight;
+            delete rootEl.dataset.prevPlaceholderDisplay;
+            delete rootEl.dataset.prevInnerHtml;
+          }
+          const placeholderEl = document.getElementById('adminQRPlaceholder');
+          if (placeholderEl) {
+            delete placeholderEl.dataset.prevDisplay;
+          }
+        } catch (_) {}
+      };
+
+      try {
+        // If the preview was opened with class, remove class to trigger collapse animation, then restore after transition
+        if (previewParent && previewParent.classList && previewParent.classList.contains('scanner-open')) {
+          try { previewParent.classList.remove('scanner-open'); } catch(_) {}
+          setTimeout(doRestore, 360);
+        } else {
+          doRestore();
+        }
+      } catch (_) {
+        doRestore();
       }
-      try {
-        const r = root || document.getElementById('adminQRReader');
-        const pParent = r && r.parentElement;
-        if (r && pParent) {
-          if ((!st || !st.prevBackgroundImage) && r.dataset.prevBackgroundImage) pParent.style.backgroundImage = r.dataset.prevBackgroundImage || '';
-          else if ((!st || !st.prevBackgroundImage)) pParent.style.removeProperty('background-image');
-          if ((!st || !st.prevHeight) && r.dataset.prevHeight) pParent.style.height = r.dataset.prevHeight || '';
-          else if ((!st || !st.prevHeight)) pParent.style.removeProperty('height');
-          if ((!st || !st.prevMaxHeight) && r.dataset.prevMaxHeight) pParent.style.maxHeight = r.dataset.prevMaxHeight || '';
-          else if ((!st || !st.prevMaxHeight)) pParent.style.removeProperty('max-height');
-        }
-        const placeholder = document.getElementById('adminQRPlaceholder');
-        if (placeholder) {
-          const prev = (st && st.prevPlaceholderDisplay) || (placeholder && placeholder.dataset.prevDisplay) || (r && r.dataset.prevPlaceholderDisplay) || '';
-          placeholder.style.display = prev || '';
-          try {
-            const prevHtml = (st && st.prevPlaceholderInnerHtml) || placeholder.dataset.prevInnerHtml || '';
-            if (prevHtml) placeholder.innerHTML = prevHtml;
-          } catch (_) {}
-        }
-        if (r) {
-          if (r.dataset.prevWidth) r.style.width = r.dataset.prevWidth; else r.style.removeProperty('width');
-          if (r.dataset.prevHeight) r.style.height = r.dataset.prevHeight; else r.style.removeProperty('height');
-          if (r.dataset.prevPosition) r.style.position = r.dataset.prevPosition; else r.style.removeProperty('position');
-          if (r.dataset.prevMinHeight) r.style.minHeight = r.dataset.prevMinHeight; else r.style.removeProperty('min-height');
-        }
-      } catch (_) {}
-      try {
-        const rootEl = document.getElementById(scannerInstance._elementId || 'adminQRReader');
-        if (rootEl) {
-          delete rootEl.dataset.prevBackgroundImage;
-          delete rootEl.dataset.prevHeight;
-          delete rootEl.dataset.prevMaxHeight;
-          delete rootEl.dataset.prevWidth;
-          delete rootEl.dataset.prevPosition;
-          delete rootEl.dataset.prevMinHeight;
-          delete rootEl.dataset.prevPlaceholderDisplay;
-          delete rootEl.dataset.prevInnerHtml;
-        }
-        const placeholderEl = document.getElementById('adminQRPlaceholder');
-        if (placeholderEl) {
-          delete placeholderEl.dataset.prevDisplay;
-        }
-      } catch (_) {}
     } catch (_) {}
   } catch (e) { console.warn('stopQrScanner failed', e); }
 }
