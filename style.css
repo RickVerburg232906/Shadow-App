@@ -1017,6 +1017,23 @@ div[role="button"] > .vast-item.selected,
   box-shadow: 0 -8px 30px rgba(0,0,0,0.12);
 }
 
+/* Empty activity placeholder (inschrijftafel) */
+.activity-placeholder.activity-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 16px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.6), rgba(249,250,251,0.6));
+  border: 1px solid rgba(15,23,42,0.04);
+  border-radius: 12px;
+  color: #0f172a;
+}
+.activity-empty-inner { display:flex; align-items:center; gap:12px; max-width:680px; width:100%; }
+.activity-empty-illustration { font-size:34px; color: #f59e0b; display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:10px; background: rgba(245,158,11,0.12); }
+.activity-empty-title { font-weight:700; font-size:15px; line-height:1; }
+.activity-empty-sub { font-size:13px; color:#64748b; margin-top:4px; }
+
+
 .app-footer__inner{ max-width:var(--max-width); margin:0 auto; display:flex; flex-direction:column; gap:12px; }
 
 .app-footer__button{

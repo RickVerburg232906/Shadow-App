@@ -91,7 +91,7 @@
             </div>
           </div>
             <div class="manual-card__actions">
-            <button id="goto-manual-choices" class="primary-button" onclick="window.location.href='../admin-ui/handmatige-keuzes.html'">
+            <button id="goto-manual-choices" class="primary-button" data-href="../admin-ui/handmatige-keuzes.html">
               <span>Zoek op naam</span>
             </button>
           </div>
@@ -99,11 +99,14 @@
         <div style="width: 100%;">
         <h3 style="text-align: left; width: 100%;">Laatste Activiteit</h3>
         <div id="recent-activity-list" class="activity-list">
-          <div id="recent-activity-placeholder" class="activity-item" aria-hidden="false">
-            <div style="display:flex; align-items:center; gap:12px; width:100%;">
-              <div class="activity-accent" aria-hidden="true"></div>
-              <div style="flex:1 1 auto; text-align:left;">
-                <div class="activity-name">Hier zie je iedereen die is ingescand deze rit.</div>
+          <div id="recent-activity-placeholder" class="activity-placeholder activity-empty" aria-hidden="false">
+            <div class="activity-empty-inner">
+              <div class="activity-empty-illustration" aria-hidden="true">
+                <span class="material-symbols-outlined">calendar_today</span>
+              </div>
+              <div class="activity-empty-text">
+                <div class="activity-empty-title">Geen inscans voor vandaag</div>
+                <div class="activity-empty-sub">Hier zie je iedereen die is ingescand deze rit.</div>
               </div>
             </div>
           </div>

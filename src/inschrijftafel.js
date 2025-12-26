@@ -812,6 +812,26 @@ export async function renderHistoryStars(memberId) {
       btn.addEventListener('click', async (ev) => {
         try {
           ev.preventDefault();
+          // Block manual save when today is not a planned ride date
+          try {
+            const plannedRaw = await getPlannedDates().catch(() => []);
+            const planned = Array.isArray(plannedRaw) ? plannedRaw.map(d => String(d).slice(0,10)) : [];
+            const today = new Date().toISOString().slice(0,10);
+            try { console.debug('manual save plannedDates', planned, 'today', today); } catch(_){}
+            if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
+              try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
+              return;
+            }
+          } catch (e) { console.warn('plannedDates check failed', e); }
+          // Ensure today is a planned ride date before allowing manual check-in
+          try {
+            const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : await getPlannedDates().catch(()=>[]);
+            const today = new Date().toISOString().slice(0,10);
+            if (!Array.isArray(planned) || !planned.includes(today)) {
+              try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
+              return;
+            }
+          } catch (e) { /* if planned check fails, allow operation to continue */ }
           ev.stopPropagation();
           if (!memberId) { alert('Geen lid geselecteerd'); return; }
           const d = btn.getAttribute('data-date');
@@ -1440,3 +1460,38 @@ try { if (typeof window !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runSave); else runSave();
     document.addEventListener('shadow:config-ready', runSave);
   } } catch(_) {}
+
+// Attach handler for the "Zoek op naam" button so we check planned dates before navigating
+function attachGotoManualHandler() {
+  try {
+    const btn = document.getElementById('goto-manual-choices');
+    if (!btn) return;
+    if (btn.dataset && btn.dataset._gotoBound) return;
+    btn.addEventListener('click', async (ev) => {
+      try {
+        ev.preventDefault();
+        // disable while checking
+        try { btn.disabled = true; } catch(_){}
+        const plannedRaw = await getPlannedDates().catch(() => []);
+        const planned = Array.isArray(plannedRaw) ? plannedRaw.map(d => String(d).slice(0,10)) : [];
+        const today = (new Date()).toISOString().slice(0,10);
+        try { console.debug('goto-manual plannedDates', planned, 'today', today); } catch(_){}
+        if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
+          try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
+          return;
+        }
+        // navigate to configured href (fallback to handmatige-keuzes)
+        const href = btn.getAttribute('data-href') || '../admin-ui/handmatige-keuzes.html';
+        try { window.location.href = href; } catch(e) { console.warn('navigate failed', e); }
+      } catch (e) { console.warn('goto-manual click failed', e); }
+      finally { try { btn.disabled = false; } catch(_){} }
+    });
+    if (btn.dataset) btn.dataset._gotoBound = '1';
+  } catch (e) { console.warn('attachGotoManualHandler failed', e); }
+}
+
+try { if (typeof window !== 'undefined') {
+  const runGoto = () => { try { attachGotoManualHandler(); } catch(_){} };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runGoto); else runGoto();
+  document.addEventListener('shadow:config-ready', runGoto);
+} } catch(_) {}
