@@ -9,6 +9,8 @@ const firebaseConfigDev = {
 };
 
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
+// Timestamp (ms) until which automatic showing of history stars should be suppressed.
+let _historySuppressShowUntil = 0;
 // Normalize common yes/no values (Dutch/English/boolean-like) to 'yes'|'no'|null
 function normalizeYesNo(v) {
   try {
@@ -421,6 +423,8 @@ function createManualSearchHandlers() {
 
     inputs.forEach((input) => {
       try {
+        // Skip history inputs: member.js already binds suggestions for history inputs
+        try { if (input && ((input.id && input.id.includes('history')) || (input.closest && input.closest('#historie-section')))) return; } catch(_){}
         const suggestionsEl = (input.parentElement && input.parentElement.querySelector('[id^="name-suggestions"]')) || document.getElementById('name-suggestions');
         if (!suggestionsEl) return;
         let selected = null;
@@ -485,6 +489,135 @@ function createManualSearchHandlers() {
       } catch (e) { console.error('createManualSearchHandlers per-input failed', e); }
     });
   } catch (e) { console.error('createManualSearchHandlers failed', e); }
+}
+
+// Initialize handlers specific to the history input: hide stars when
+// the input is empty or when it receives focus/click. Show stars when
+// a member is selected (renderHistoryStars will also ensure visibility).
+function initHistoryInputHandlers() {
+  try {
+    const input = document.getElementById('participant-name-input-history');
+    const container = document.getElementById('history-member-stars');
+    if (!input || !container) return;
+
+    const setVisible = (v) => {
+      try { container.style.display = v ? 'flex' : 'none'; } catch(_){}
+    };
+
+    // initial visibility: hide if input empty
+    try { setVisible(Boolean((input.value || '').trim())); } catch(_) { setVisible(false); }
+
+    // when input content changes, hide if empty, show otherwise (respect suppression)
+    input.addEventListener('input', () => {
+      try {
+        const val = (input.value || '').trim();
+        // if suppression window active, keep hidden
+        if (Date.now() < (_historySuppressShowUntil || 0)) { setVisible(false); return; }
+        setVisible(Boolean(val));
+      } catch(_){}
+    });
+
+    // when input is focused/clicked/pressed, hide the stars section (per UX request)
+    input.addEventListener('focus', () => { try { setVisible(false); _historySuppressShowUntil = Date.now() + 1000; } catch(_){} });
+    input.addEventListener('click', () => { try { setVisible(false); _historySuppressShowUntil = Date.now() + 1000; } catch(_){} });
+    // pointerdown fires earlier and covers touch/click reliably
+    input.addEventListener('pointerdown', (ev) => { try { setVisible(false); _historySuppressShowUntil = Date.now() + 1000; } catch(_){} });
+    // focusin covers delegated focus events
+    input.addEventListener('focusin', () => { try { setVisible(false); _historySuppressShowUntil = Date.now() + 1000; } catch(_){} });
+
+    // Also listen for a custom selection event so we can show stars
+    input.addEventListener('member-selected', (ev) => {
+      try { setVisible(true); } catch(_){}
+    });
+  } catch (e) { console.warn('initHistoryInputHandlers failed', e); }
+}
+
+// Render history stars for a member in the history section.
+// Shows one star per planned date (usually 5 or 6) and marks filled stars
+// for dates that exist in the member's `ScanDatums`.
+export async function renderHistoryStars(memberId) {
+  try {
+    const container = document.getElementById('history-member-stars');
+    if (!container) return;
+    // ensure the container is visible while rendering; caller may hide it again
+    try { container.style.display = 'flex'; } catch(_){}
+    container.innerHTML = '';
+
+    // Fetch planned dates (YYYY-MM-DD)
+    let planned = [];
+    try { planned = Array.isArray(await getPlannedDates()) ? await getPlannedDates() : []; } catch(_) { planned = []; }
+    // If none, fallback to empty array
+    if (!Array.isArray(planned)) planned = [];
+
+    // Limit to sensible maximum (most deployments use 5 or 6 planned dates)
+    const count = Math.min(planned.length || 5, 6);
+    // Fetch member scans
+    let member = null;
+    try { member = await getMemberById(String(memberId)); } catch (_) { member = null; }
+    const scans = Array.isArray(member && member.ScanDatums) ? member.ScanDatums.map(String) : [];
+
+    // Build compact horizontal star buttons (icon-only) with tooltip
+    for (let i = 0; i < count; i++) {
+      const date = String(planned[i] || '').slice(0,10) || null;
+      const filled = date && scans.indexOf(date) !== -1;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'history-star-btn compact ' + (filled ? 'filled' : 'empty');
+      btn.setAttribute('data-date', date || '');
+      btn.setAttribute('aria-pressed', filled ? 'true' : 'false');
+      btn.setAttribute('title', date ? (filled ? `Meegereden: ${date}` : `Niet meegereden: ${date}`) : 'Geen datum');
+      // star icon only
+      const ic = document.createElement('span');
+      ic.className = 'material-symbols-outlined star-icon ' + (filled ? 'filled' : 'empty');
+      ic.textContent = 'star';
+      btn.appendChild(ic);
+      // click handler: if not filled, register ride for that date
+      btn.addEventListener('click', async (ev) => {
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (!memberId) { alert('Geen lid geselecteerd'); return; }
+          const d = btn.getAttribute('data-date');
+          if (!d) { alert('Geen datum beschikbaar'); return; }
+          if (btn.classList.contains('filled')) return;
+          // Optimistically update UI: mark this star as filled (yellow)
+          try {
+            btn.classList.add('filled');
+            btn.classList.remove('empty');
+            btn.setAttribute('aria-pressed', 'true');
+            btn.title = `Meegereden: ${d}`;
+            const ic = btn.querySelector('.star-icon'); if (ic) ic.classList.add('filled');
+          } catch (_) {}
+
+          // Persist to Firestore but do NOT re-render the whole section
+          try {
+            const res = await manualRegisterRide(String(memberId), String(d));
+            if (res && res.success) {
+              try { showScanSuccess('Rit geregistreerd'); } catch(_){}
+              // leave the optimistic UI as-is
+            } else {
+              // rollback optimistic UI on failure
+              try {
+                btn.classList.remove('filled'); btn.classList.add('empty'); btn.setAttribute('aria-pressed','false');
+                const ic2 = btn.querySelector('.star-icon'); if (ic2) ic2.classList.remove('filled');
+                btn.title = `Niet meegereden: ${d}`;
+              } catch(_){}
+              console.warn('manualRegisterRide failed', res);
+              alert('Kon rit niet registreren');
+            }
+          } catch (e) {
+            // rollback optimistic UI on exception
+            try { btn.classList.remove('filled'); btn.classList.add('empty'); btn.setAttribute('aria-pressed','false'); const ic3 = btn.querySelector('.star-icon'); if (ic3) ic3.classList.remove('filled'); btn.title = `Niet meegereden: ${d}`; } catch(_){}
+            console.warn('history star click failed', e);
+            alert('Fout bij registreren');
+          }
+        } catch (e) { console.warn('history star click failed outer', e); }
+      });
+      container.appendChild(btn);
+    }
+    // If nothing rendered, hide the container to keep UI clean
+    try { if (!container.children || container.children.length === 0) container.style.display = 'none'; else container.style.display = 'flex'; } catch(_){}
+  } catch (e) { console.warn('renderHistoryStars failed', e); }
 }
 
 // Live listener to keep lunch statistics dynamic (yes/no + per-choice)
@@ -569,7 +702,7 @@ function initLiveLunchStats() {
 }
 
 // initialize manual search handlers after DOM loaded
-try { if (typeof window !== 'undefined') window.addEventListener('DOMContentLoaded', () => { try { createManualSearchHandlers(); } catch(_){} }); } catch(_) {}
+try { if (typeof window !== 'undefined') window.addEventListener('DOMContentLoaded', () => { try { createManualSearchHandlers(); } catch(_){} try { initHistoryInputHandlers(); } catch(_){} }); } catch(_) {}
 
 // Reveal manual choice sections when a member is selected via the shared dropdown
 function revealManualChoiceSections(memberId, name) {
@@ -793,6 +926,33 @@ try { document.addEventListener('member:selected', (ev) => {
     revealManualChoiceSections(detail.memberId || '', detail.name || '');
     try { populateManualWithMember(String(detail.memberId || '')); } catch(_){}
   } catch (_) {}
+}); } catch(_) {}
+
+// Also handle member selection for the history input so stars update
+try { document.addEventListener('member:selected', (ev) => {
+  try {
+    const detail = ev && ev.detail ? ev.detail : {};
+    const historyInput = document.getElementById('participant-name-input-history');
+    if (!historyInput) return;
+    try { historyInput.value = detail.name || historyInput.value || ''; } catch(_){}
+    try { if (historyInput.dataset) historyInput.dataset.selectedMember = String(detail.memberId || ''); } catch(_){}
+    try { window._selectedMemberId = String(detail.memberId || '') || window._selectedMemberId; } catch(_){}
+    // Respect suppression window: if recent input click happened, do not auto-show stars
+    try {
+      if (Date.now() < (_historySuppressShowUntil || 0)) {
+        // still update value/dataset but skip rendering
+        return;
+      }
+    } catch(_) {}
+    // Also avoid auto-showing when the history input is focused or empty
+    try {
+      const active = (typeof document !== 'undefined' && document.activeElement) ? document.activeElement : null;
+      if (active === historyInput) return;
+      const hv = String(historyInput.value || '').trim();
+      if (!hv) return; // don't render if input is empty
+    } catch(_) {}
+    try { renderHistoryStars(String(detail.memberId || '')); } catch(e) { console.warn('renderHistoryStars failed', e); }
+  } catch(_){}
 }); } catch(_) {}
 
 // Hide manual sections when the manual name input is cleared

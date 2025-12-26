@@ -371,6 +371,14 @@ body.app{
 }
 .history-action-button .material-symbols-outlined{ color: var(--blue); font-size:20px; }
 
+/* History stars list: evenly spread square buttons */
+#history-member-stars{ display:flex; gap:8px; margin-top:8px; align-items:center; width:100%; }
+.history-star-btn{ display:inline-flex; align-items:center; justify-content:center; padding:0; border-radius:8px; border:1px solid rgba(226,232,240,1); background:#fff; cursor:pointer; flex:1 1 0; min-width:0; aspect-ratio:1 / 1; }
+.history-star-btn .star-icon{ font-size:20px; color:#bfc7cf; }
+.history-star-btn.filled{ background: linear-gradient(90deg, rgba(242,196,56,0.08), #fff); border-color: rgba(242,196,56,0.18); }
+.history-star-btn.filled .star-icon{ color:#F2C438; }
+.history-star-label{ display:none; }
+
 /* Keep history card horizontal on all viewports so text stays right of the icon */
 
 /* Jaarhanger / info helpers used by jaarhangerPage */
