@@ -1,4 +1,4 @@
-import { getRideConfig, updateRideConfig, listAllMembers } from './firestore.js';
+import { getRideConfig, updateRideConfig, listAllMembers, getAdminPasswords, updateAdminPasswords } from './firestore.js';
 
 export async function initBeheer() {
   try {
@@ -91,6 +91,67 @@ export async function initBeheer() {
   } catch (e) {
     console.error('initBeheer error', e);
   }
+  // Wire password change handlers for access-control section
+  try {
+    const insInput = document.getElementById('pwd-inschrijf-input');
+    const insBtn = document.getElementById('pwd-inschrijf-save');
+    const adminCur = document.getElementById('pwd-admin-current');
+    const adminNew = document.getElementById('pwd-admin-new');
+    const adminBtn = document.getElementById('pwd-admin-save');
+
+    // load cached passwords for validation
+    let cachedPw = null;
+    try { cachedPw = await getAdminPasswords(); } catch (_) { cachedPw = null; }
+
+    if (insBtn && insInput && !insBtn._bound) {
+      insBtn.addEventListener('click', async () => {
+        try {
+          const v = (insInput.value || '').trim();
+          if (!v) { window.showScanError && window.showScanError('Vul een nieuw wachtwoord in'); return; }
+          insBtn.disabled = true;
+          const res = await updateAdminPasswords({ inschrijftafel: v });
+          insBtn.disabled = false;
+          if (res && res.success) {
+            try { window.showScanSuccess && window.showScanSuccess('Wachtwoord opgeslagen'); } catch(_){}
+            insInput.value = '';
+          } else {
+            console.warn('update inschrijftafel pwd failed', res);
+            window.showScanError && window.showScanError('Opslaan mislukt');
+          }
+        } catch (e) { console.error('inschrijf pwd save error', e); window.showScanError && window.showScanError('Opslaan mislukt'); };
+      });
+      insBtn._bound = true;
+    }
+
+    if (adminBtn && adminCur && adminNew && !adminBtn._bound) {
+      adminBtn.addEventListener('click', async () => {
+        try {
+          const cur = (adminCur.value || '').trim();
+          const neu = (adminNew.value || '').trim();
+          if (!cur || !neu) { window.showScanError && window.showScanError('Vul huidig en nieuw wachtwoord in'); return; }
+          // ensure we have latest cached password
+          try { cachedPw = await getAdminPasswords(); } catch(_) { cachedPw = cachedPw || null; }
+          const real = cachedPw && cachedPw.hoofdadmin ? String(cachedPw.hoofdadmin) : null;
+          if (real === null) { window.showScanError && window.showScanError('Kan huidig wachtwoord niet verifiëren'); return; }
+          if (String(cur) !== String(real)) { window.showScanError && window.showScanError('Huidig wachtwoord ongeldig'); return; }
+          adminBtn.disabled = true;
+          const res = await updateAdminPasswords({ hoofdadmin: neu });
+          adminBtn.disabled = false;
+          if (res && res.success) {
+            try { window.showScanSuccess && window.showScanSuccess('Admin wachtwoord gewijzigd'); } catch(_){}
+            adminCur.value = '';
+            adminNew.value = '';
+            // update cache
+            cachedPw = { ...(cachedPw || {}), hoofdadmin: neu };
+          } else {
+            console.warn('update hoofdadmin pwd failed', res);
+            window.showScanError && window.showScanError('Wijzigen mislukt');
+          }
+        } catch (e) { console.error('admin pwd change error', e); window.showScanError && window.showScanError('Wijzigen mislukt'); }
+      });
+      adminBtn._bound = true;
+    }
+  } catch (e) { console.error('Password handlers wiring failed', e); }
 }
 
 // Helper: convert various date-like strings to year number (or null)

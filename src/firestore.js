@@ -487,3 +487,31 @@ export async function listAllMembers(pageSize = 500) {
     return [];
   }
 }
+
+// Update admin passwords in globals/passwords document. Pass one or both keys.
+export async function updateAdminPasswords({ inschrijftafel = undefined, hoofdadmin = undefined } = {}) {
+  try {
+    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfigDev.apiKey}`;
+    const fields = {};
+    if (inschrijftafel !== undefined) fields.inschrijftafel = { stringValue: String(inschrijftafel) };
+    if (hoofdadmin !== undefined) fields.hoofdadmin = { stringValue: String(hoofdadmin) };
+    if (Object.keys(fields).length === 0) return { success: false, error: 'no_fields' };
+    const body = { fields };
+    // construct updateMask params for each provided field
+    let finalUrl = url;
+    for (const p of Object.keys(fields)) {
+      finalUrl += `&updateMask.fieldPaths=${encodeURIComponent(p)}`;
+    }
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '<no body>');
+      console.warn('updateAdminPasswords failed', res.status, res.statusText, txt);
+      return { success: false, status: res.status, statusText: res.statusText, raw: txt };
+    }
+    const json = await res.json();
+    return { success: true, raw: json };
+  } catch (e) {
+    console.error('updateAdminPasswords error', e);
+    return { success: false, error: String(e) };
+  }
+}

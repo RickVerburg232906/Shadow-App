@@ -163,10 +163,10 @@
               <label class="form-label">
                 <div class="icon-input" style="position:relative; padding-right:12px;">
                   <span class="material-symbols-outlined icon-left">lock</span>
-                  <input class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                  <input id="pwd-inschrijf-input" class="form-input" placeholder="Nieuw wachtwoord" type="password" />
                 </div>
               </label>
-              <button class="primary-button">Opslaan</button>
+              <button id="pwd-inschrijf-save" class="primary-button">Opslaan</button>
             </div>
           </div>
 
@@ -179,16 +179,16 @@
               <label class="form-label">
                 <div class="icon-input" style="position:relative; padding-right:12px;">
                   <span class="material-symbols-outlined icon-left">lock</span>
-                  <input class="form-input" placeholder="Huidig wachtwoord" type="password" />
+                  <input id="pwd-admin-current" class="form-input" placeholder="Huidig wachtwoord" type="password" />
                 </div>
               </label>
               <label class="form-label">
                 <div class="icon-input" style="position:relative; padding-right:12px;">
                   <span class="material-symbols-outlined icon-left">lock</span>
-                  <input class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                  <input id="pwd-admin-new" class="form-input" placeholder="Nieuw wachtwoord" type="password" />
                 </div>
               </label>
-              <button class="primary-button">Wijzig Admin Wachtwoord</button>
+              <button id="pwd-admin-save" class="primary-button">Wijzig Admin Wachtwoord</button>
             </div>
           </div>
         </div>
@@ -221,6 +221,7 @@
   import { initInschrijftafel } from '../src/inschrijftafel.js';
   initInschrijftafel();
 </script>
+<script src="../assets/header-date.js" defer></script>
 <script type="module">
   import { initBeheer } from '../src/beheer.js';
   // initialize beheer UI (populate planned dates)

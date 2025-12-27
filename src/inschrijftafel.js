@@ -111,6 +111,7 @@ function showScanError(msg, visibleMs = 5000) {
 
 // Expose a global helper so shared scanner module can trigger the same toast
 try { if (typeof window !== 'undefined') window.showScanSuccess = showScanSuccess; } catch(_) {}
+try { if (typeof window !== 'undefined') window.showScanError = showScanError; } catch(_) {}
 
 // Recent scan guard: map of memberId -> timestamp(ms) to prevent spammy duplicate scans
 const _recentScans = new Map();
