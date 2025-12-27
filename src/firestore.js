@@ -443,3 +443,47 @@ export async function updateRideConfig({ plannedDates = [], regions = {} } = {})
     return { success: false, error: String(e) };
   }
 }
+
+// List all members documents, paginating if necessary. Returns array of parsed member objects { id, ...fields }
+export async function listAllMembers(pageSize = 500) {
+  try {
+    const apiKey = firebaseConfigDev.apiKey;
+    const out = [];
+    let url = `${BASE_URL}/members?pageSize=${pageSize}&key=${apiKey}`;
+    while (url) {
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '<no body>');
+        console.warn('listAllMembers fetch failed', res.status, res.statusText, txt);
+        break;
+      }
+      const json = await res.json();
+      const docs = json.documents || [];
+      for (const doc of docs) {
+        const id = doc.name ? doc.name.split('/').pop() : null;
+        const f = doc.fields || {};
+        const parsed = { id };
+        for (const k of Object.keys(f)) {
+          const v = f[k];
+          if (!v) { parsed[k] = null; continue; }
+          if (v.arrayValue && Array.isArray(v.arrayValue.values)) {
+            parsed[k] = v.arrayValue.values.map(x => parseFirestoreValue(x)).filter(x => x !== null);
+          } else {
+            parsed[k] = parseFirestoreValue(v);
+          }
+        }
+        out.push(parsed);
+      }
+      // handle pagination token
+      if (json.nextPageToken) {
+        url = `${BASE_URL}/members?pageSize=${pageSize}&pageToken=${json.nextPageToken}&key=${apiKey}`;
+      } else {
+        url = null;
+      }
+    }
+    return out;
+  } catch (e) {
+    console.error('listAllMembers error', e);
+    return [];
+  }
+}

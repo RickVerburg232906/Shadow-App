@@ -1,4 +1,4 @@
-import { getRideConfig, updateRideConfig } from './firestore.js';
+import { getRideConfig, updateRideConfig, listAllMembers } from './firestore.js';
 
 export async function initBeheer() {
   try {
@@ -92,5 +92,111 @@ export async function initBeheer() {
     console.error('initBeheer error', e);
   }
 }
+
+// Helper: convert various date-like strings to year number (or null)
+function toYear(val) {
+  if (!val) return null;
+  try {
+    // if already ISO-like string
+    if (typeof val === 'string') {
+      const m = val.match(/^(\d{4})-/);
+      if (m) return Number(m[1]);
+      const d = new Date(val);
+      if (!isNaN(d)) return d.getFullYear();
+    } else if (val instanceof Date) return val.getFullYear();
+  } catch(_){}
+  return null;
+}
+
+// Build Excel and trigger download. Excludes any fields starting with 'lunch' (case-insensitive).
+async function handleExportCsvClick(ev) {
+  try {
+    const ok = window.confirm && window.confirm('Download deelnemerslijst als Excel (.xlsx)?');
+    if (!ok) return;
+    // fetch all members
+    const members = await listAllMembers(500);
+    if (!Array.isArray(members) || members.length === 0) {
+      alert('Geen leden gevonden om te exporteren.');
+      return;
+    }
+
+    // Filter only members where Jaarhanger == 'ja' (case-insensitive)
+    const filtered = members.filter(m => {
+      const jah = (m.Jaarhanger || m.jaarhanger || m.JAARHANGER || m['Jaarhanger'] || m['jaarhanger'] || '').toString().toLowerCase();
+      return jah === 'ja' || jah === 'yes' || jah === 'true' || jah === '1';
+    });
+
+    const currentYear = new Date().getFullYear();
+
+    // Prepare rows with only the requested columns: Volledige naam (incl. tussenvoegsel), Regio, AantalSterren
+    const header = ['Volledige naam', 'Regio', 'AantalSterren'];
+    const aoa = [header];
+    for (const m of filtered) {
+      // build name pieces including tussenvoegsel inside the full name
+      const voor = (m['Voor naam'] || m.voor || m.Voor || m.firstName || m.voornaam || '') || '';
+      const tussen = (m['Tussenvoegsel'] || m['Tussen voegsel'] || m.tussenvoegsel || m.tussen || '') || '';
+      const naam = (m.Naam || m.naam || m.lastName || '') || '';
+      const fullName = `${String(voor).trim()} ${String(tussen).trim()} ${String(naam).trim()}`.replace(/\s+/g, ' ').trim();
+      // region
+      const region = (m['Regio Omschrijving'] || m.Regio || m.regio || m.region || '') || '';
+      // aantal sterren: count scan dates in current year
+      const rawArr = m.ScanDatums || m.scandatums || m.scans || [];
+      let count = 0;
+      if (Array.isArray(rawArr)) {
+        for (const s of rawArr) {
+          const y = toYear(s);
+          if (y && Number(y) === Number(currentYear)) count++;
+        }
+      }
+      aoa.push([fullName, String(region), String(count)]);
+    }
+
+    // ensure XLSX available (load from CDN if necessary)
+    if (typeof window.XLSX === 'undefined') {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = () => resolve();
+        s.onerror = (e) => reject(new Error('Failed to load XLSX library'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // build workbook
+    const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Deelnemers');
+    const fname = `leden_export_${new Date().toISOString().slice(0,10)}.xlsx`;
+    // write file (triggers download)
+    try {
+      window.XLSX.writeFile(wb, fname);
+    } catch (e) {
+      // fallback: write as binary and create blob
+      const wopts = { bookType: 'xlsx', type: 'array' };
+      const wbout = window.XLSX.write(wb, wopts);
+      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.setAttribute('download', fname);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+  } catch (e) {
+    console.error('export excel error', e);
+    alert('Export mislukt: ' + (e && e.message ? e.message : String(e)));
+  }
+}
+
+// Attach export handler to button if present
+try {
+  const btn = document.getElementById('export-csv');
+  if (btn && !btn._exportBound) {
+    btn.addEventListener('click', handleExportCsvClick);
+    btn._exportBound = true;
+  }
+} catch (_) {}
 
 export default { initBeheer };
