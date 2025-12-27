@@ -38,36 +38,122 @@
       <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
     </div>
 </header>
-
 <main class="main-content">
 
+  <section class="lunch-planner-section" style="width:100%; margin:0 auto;">
+    <div class="planner-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+      <div style="padding-left: 8px;">
+        <h3 class="section-title">Lunch inplannen</h3>
+        <p class="muted-text" id="next-ride-date" style="margin:4px 0 0; text-align: left;">Laden...</p>
+      </div>
+      <div aria-hidden="true">
+        <span class="material-symbols-outlined" style="color:rgba(99,102,120,0.75);font-size:22px;">restaurant</span>
+      </div>
+    </div>
+
+    <div class="terms-card__card">
+      <div class="terms-card__content">
+        <!-- Vast eten -->
+        <div style="margin-bottom:12px;">
+          <div class="terms-card__row" style="text-align: left;">
+            <div>
+              <h4 class="terms-card__heading" style="font-size:1rem; margin:0;">Vast eten</h4>
+              <p class="terms-card__text" style="font-size:0.85rem; margin-top:6px;">Dit eten krijgt iedereen, ongeacht hun keuze.</p>
+            </div>
+          </div>
+
+          <div class="vast-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+
+          <button id="add-vast" class="primary-button" style="margin-top:12px; height:40px;"> 
+            <span class="material-symbols-outlined" style="margin-right:8px; font-size:18px;">add</span>
+            Voeg item toe
+          </button>
+        </div>
+
+        <hr style="border:none;border-top:1px solid rgba(243,244,246,1);margin:12px 0;">
+
+        <!-- Keuze eten -->
+        <div>
+          <div style="text-align: left;">
+            <h4 class="terms-card__heading" style="font-size:1rem; margin:0;">Keuze eten</h4>
+            <p class="terms-card__text" style="font-size:0.85rem; margin-top:6px;">Leden kunnen één optie kiezen.</p>
+          </div>
+
+          <div class="keuze-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+
+          <button id="add-keuze" class="primary-button" style="margin-top:12px; height:40px;"> 
+            <span class="material-symbols-outlined" style="margin-right:8px; font-size:18px;">add</span>
+            Voeg optie toe
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="data-section">
+    <div class="data-spacer"></div>
+    <div class="data-divider" aria-hidden="true"></div>
+    <div class="flex flex-col mt-4" style="padding:0 12px; margin-bottom: 12px;">
+      <div class="data-top" style="padding:8px 0;">
+        <h3 class="text-neutral-dark text-xl font-bold">Data up to date houden</h3>
+        <span class="material-symbols-outlined" style="color:rgba(107,114,128,0.8);">sync</span>
+      </div>
+        <div class="data-card">
+          <div class="data-card-inner" style="position:relative; z-index:10;">
+            <div class="flex justify-between items-start">
+              <div>
+                <h4>Leden Data</h4>
+                <p class="data-meta">Status: <span id="data-status-badge" class="data-status-badge">XXX</span></p>
+                <p id="data-last-update" class="muted-small" style="margin-top:6px;">Laatste update: XXXX</p>
+              </div>
+                <div class="data-status-top" aria-hidden="true"><span class="material-symbols-outlined">cloud_off</span></div>
+            </div>
+            <label class="data-upload-label">
+              <span class="muted-small">Upload nieuwe data (Excel)</span>
+              <div class="data-upload-btn" role="button" style="margin-top: 8px;">
+                <span class="material-symbols-outlined">upload_file</span>
+                Selecteer Excel bestand
+                <input accept=".xlsx, .xls, .csv" type="file" />
+              </div>
+            </label>
+        </div>
+      </div>
+    </div>
+    <div class="h-8"></div>
+  </section>
 </main>
+
 <footer class="app-footer" role="contentinfo">
-        <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">
-  <div class="admin-bottom-inner">
-    <a href="../admin-ui/inschrijftafel.html" class="bottom-nav-item" aria-label="Inschrijftafel">
-      <span class="material-symbols-outlined nav-icon" aria-hidden="true">qr_code_scanner</span>
-      <span class="nav-label">Inschrijftafel</span>
-    </a>
-    <a href="../admin-ui/beheer.html" class="bottom-nav-item" aria-label="Beheer">
-      <span class="material-symbols-outlined nav-icon" aria-hidden="true">settings</span>
-      <span class="nav-label">Beheer</span>
-    </a>
-    <a href="../admin-ui/voorbereiding.html" class="bottom-nav-item" aria-label="Voorbereiding">
-      <span class="material-symbols-outlined nav-icon" aria-hidden="true">build</span>
-      <span class="nav-label">Voorbereiding</span>
-    </a>
-    <a href="../admin-ui/data.html" class="bottom-nav-item" aria-label="Data">
-      <span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span>
-      <span class="nav-label">Data</span>
-    </a>
-  </div>
-</nav>
+  <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">
+    <div class="admin-bottom-inner">
+      <a href="../admin-ui/inschrijftafel.html" class="bottom-nav-item" aria-label="Inschrijftafel">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">qr_code_scanner</span>
+        <span class="nav-label">Inschrijftafel</span>
+      </a>
+      <a href="../admin-ui/beheer.html" class="bottom-nav-item" aria-label="Beheer">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">settings</span>
+        <span class="nav-label">Beheer</span>
+      </a>
+      <a href="../admin-ui/voorbereiding.html" class="bottom-nav-item" aria-label="Voorbereiding">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">build</span>
+        <span class="nav-label">Voorbereiding</span>
+      </a>
+      <a href="../admin-ui/data.html" class="bottom-nav-item" aria-label="Data">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span>
+        <span class="nav-label">Data</span>
+      </a>
+    </div>
+  </nav>
 </footer>
 <script type="module" src="../src/member.js"></script>
 <script type="module">
   import { initInschrijftafel } from '../src/inschrijftafel.js';
   initInschrijftafel();
+</script>
+<script type="module">
+  import { initVoorbereiding } from '../src/voorbereiding.js';
+  initVoorbereiding();
 </script>
 <!-- Admin bottom navigation (visible only for admins via JS) -->
 </body></html>

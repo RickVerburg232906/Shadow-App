@@ -515,3 +515,86 @@ export async function updateAdminPasswords({ inschrijftafel = undefined, hoofdad
     return { success: false, error: String(e) };
   }
 }
+
+// Update lunch options document `globals/lunch` with arrays for `vastEten` and `keuzeEten`.
+export async function updateLunchOptions({ vastEten = undefined, keuzeEten = undefined } = {}) {
+  try {
+    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfigDev.apiKey}`;
+    const fields = {};
+    if (vastEten !== undefined) {
+      fields.vastEten = { arrayValue: { values: (Array.isArray(vastEten) ? vastEten : []).map(v => ({ stringValue: String(v) })) } };
+    }
+    if (keuzeEten !== undefined) {
+      fields.keuzeEten = { arrayValue: { values: (Array.isArray(keuzeEten) ? keuzeEten : []).map(v => ({ stringValue: String(v) })) } };
+    }
+    if (Object.keys(fields).length === 0) return { success: false, error: 'no_fields' };
+    const body = { fields };
+    let finalUrl = url;
+    for (const p of Object.keys(fields)) {
+      finalUrl += `&updateMask.fieldPaths=${encodeURIComponent(p)}`;
+    }
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '<no body>');
+      console.warn('updateLunchOptions failed', res.status, res.statusText, txt);
+      return { success: false, status: res.status, statusText: res.statusText, raw: txt };
+    }
+    const json = await res.json();
+    return { success: true, raw: json };
+  } catch (e) {
+    console.error('updateLunchOptions error', e);
+    return { success: false, error: String(e) };
+  }
+}
+
+// Update data status document `globals/dataStatus` with lastUpdated timestamp and optional filename
+export async function updateDataStatus({ lastUpdated = undefined, filename = undefined } = {}) {
+  try {
+    const url = `${BASE_URL}/globals/dataStatus?key=${firebaseConfigDev.apiKey}`;
+    const fields = {};
+    if (lastUpdated !== undefined) fields.lastUpdated = { timestampValue: String(lastUpdated) };
+    if (filename !== undefined) fields.filename = { stringValue: String(filename) };
+    if (typeof arguments !== 'undefined' && arguments[0] && arguments[0].downloadUrl !== undefined) {
+      fields.downloadUrl = { stringValue: String(arguments[0].downloadUrl || '') };
+    }
+    if (Object.keys(fields).length === 0) return { success: false, error: 'no_fields' };
+    const body = { fields };
+    let finalUrl = url;
+    for (const p of Object.keys(fields)) {
+      finalUrl += `&updateMask.fieldPaths=${encodeURIComponent(p)}`;
+    }
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '<no body>');
+      console.warn('updateDataStatus failed', res.status, res.statusText, txt);
+      return { success: false, status: res.status, statusText: res.statusText, raw: txt };
+    }
+    const json = await res.json();
+    return { success: true, raw: json };
+  } catch (e) {
+    console.error('updateDataStatus error', e);
+    return { success: false, error: String(e) };
+  }
+}
+
+// Read data status document (globals/dataStatus)
+export async function getDataStatus() {
+  try {
+    const url = `${BASE_URL}/globals/dataStatus?key=${firebaseConfigDev.apiKey}`;
+    const res = await fetch(url, { method: 'GET', credentials: 'omit' });
+    if (!res.ok) {
+      console.warn('getDataStatus: fetch failed', res.status, res.statusText);
+      return null;
+    }
+    const data = await res.json();
+    const fields = data && data.fields ? data.fields : {};
+    const out = {};
+    if (fields.lastUpdated && fields.lastUpdated.timestampValue) out.lastUpdated = fields.lastUpdated.timestampValue;
+    if (fields.filename && fields.filename.stringValue) out.filename = fields.filename.stringValue;
+    if (fields.downloadUrl && fields.downloadUrl.stringValue) out.downloadUrl = fields.downloadUrl.stringValue;
+    return out;
+  } catch (e) {
+    console.error('getDataStatus error', e);
+    return null;
+  }
+}

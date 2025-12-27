@@ -383,7 +383,6 @@ body.app{
   background: #ffffff;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(230,232,235,1);
   box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 .vast-item{
@@ -425,7 +424,27 @@ body.app{
 /* Yellow accent variant (generic + legacy alias) */
 .terms-card__accent--yellow, .accent-bar--yellow{ height:8px; background:#F2C438; width:100%; }
 .terms-card__content{ padding:20px; }
+.lunch-planner-section .terms-card__card{ box-shadow: none; border: 0; background: transparent; }
 .terms-card__row{ display:flex; gap:12px; margin-bottom:12px; text-align: center;}
+
+/* Data upload card styles (used in voorbereiding) */
+.data-section{ display:flex; flex-direction:column; margin-top:16px; width: 100%;}
+.data-spacer{ height:1rem; }
+.data-divider{ height:1px; background: #e5e7eb; margin:0 16px; }
+.data-card{ position:relative; overflow:hidden; border-radius:14px; background-color: #1e3a8a; color:#fff; padding:16px; box-shadow: 0 12px 30px rgba(30,58,138,0.12); text-align: left; }
+.data-card .data-accent-circle{ position:absolute; right:-48px; top:-48px; height:128px; width:128px; border-radius:50%; background:rgba(255,255,255,0.08); filter: blur(18px); }
+.data-card .data-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.data-card h4{ margin:0; font-size:1.125rem; font-weight:700; }
+.data-card .data-meta{ color: rgba(255,255,255,0.85); font-size:0.875rem; margin-top:6px; }
+.data-status-badge{ padding:8px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; }
+.data-upload-label{ display:block; margin-top:12px; }
+.data-upload-btn{ display:flex; align-items:center; justify-content:center; gap:8px; height:44px; background:#fff; color:var(--blue, #1e3a8a); font-weight:700; border-radius:10px; border:2px dashed rgba(255,255,255,0.22); cursor:pointer; }
+.data-upload-btn input[type=file]{ display:none; }
+.data-card .muted-small{ color: rgba(255,255,255,0.85); opacity:0.9; font-size:0.85rem; }
+.data-status-top{ position:absolute; top:12px; right:12px; background: rgba(255,255,255,0.12); width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; z-index:20; }
+.data-status-top .material-symbols-outlined{ color:#fff; font-size:20px; }
+.data-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.data-top .material-symbols-outlined{ color: rgba(107,114,128,0.8); font-size:20px; }
 .terms-icon{ color:#7b2f00; font-size:28px; line-height:1; }
 .terms-card__heading{ font-size:1.125rem; font-weight:700; margin:0; color:#0f1724;}
 .terms-card__text{ color:#4b5563; font-size:0.95rem; line-height:1.5; margin:0; }
