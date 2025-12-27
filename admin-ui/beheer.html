@@ -116,14 +116,14 @@
         </div>
       </form>
     </div>
-  </section>
-  
-        <div class="export-hero-left card-divider" style="width: 100%;">
-          <div class="export-hero-icon" aria-hidden="true">
-            <span class="material-symbols-outlined">download</span>
-          </div>
-          <h3 class="export-hero-title">Data Exporteren</h3>
-          </div>
+    </section>
+
+    <div class="export-hero-left card-divider" style="width: 100%;">
+      <div class="export-hero-icon" aria-hidden="true">
+        <span class="material-symbols-outlined">download</span>
+      </div>
+      <h3 class="export-hero-title">Data Exporteren</h3>
+    </div>
     <section id="data-export" class="card export-card card-divider" aria-labelledby="export-title">
       <div class="export-list">
         <button id="export-csv" class="export-button" type="button" aria-label="Export deelnemerslijst (CSV)">
@@ -141,6 +141,59 @@
       </div>
     </div>
   </section>
+
+    <!-- Toegangsbeheer -->
+    <section class="access-control full-width" aria-labelledby="access-title" style="width:100%; margin-top:12px; display:block;">
+      <div class="card-header" style="display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom: 1px solid rgba(243,244,246,1);">
+        <div style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:10px; background:#F2F8FF; color:var(--blue);">
+          <span class="material-symbols-outlined">lock_reset</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-start;">
+          <h2 id="access-title" class="export-hero-title">Toegangsbeheer</h2>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="access-list" style="display:flex; flex-direction:column; gap:12px;">
+          <div class="terms-card__card" style="padding:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; border-bottom:1px solid rgba(243,244,246,1); padding-bottom:8px;">
+              <span class="material-symbols-outlined">badge</span>
+              <h4 style="margin:0; font-weight:700; color:#0f1724;">Wachtwoord Inschrijftafel</h4>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label class="form-label">
+                <div class="icon-input" style="position:relative; padding-right:12px;">
+                  <span class="material-symbols-outlined icon-left">lock</span>
+                  <input class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                </div>
+              </label>
+              <button class="primary-button">Opslaan</button>
+            </div>
+          </div>
+
+          <div class="terms-card__card" style="padding:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; border-bottom:1px solid rgba(243,244,246,1); padding-bottom:8px;">
+              <span class="material-symbols-outlined">admin_panel_settings</span>
+              <h4 style="margin:0; font-weight:700; color:#0f1724;">Wachtwoord Administrator</h4>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label class="form-label">
+                <div class="icon-input" style="position:relative; padding-right:12px;">
+                  <span class="material-symbols-outlined icon-left">lock</span>
+                  <input class="form-input" placeholder="Huidig wachtwoord" type="password" />
+                </div>
+              </label>
+              <label class="form-label">
+                <div class="icon-input" style="position:relative; padding-right:12px;">
+                  <span class="material-symbols-outlined icon-left">lock</span>
+                  <input class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                </div>
+              </label>
+              <button class="primary-button">Wijzig Admin Wachtwoord</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 </main>
 <footer class="app-footer" role="contentinfo">
         <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">

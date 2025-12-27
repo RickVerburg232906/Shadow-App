@@ -138,6 +138,37 @@ body.app{
 /* page-container uses .form-input rules already defined; ensure .form-label stacks vertically */
 .form-label{ display:flex; flex-direction:column; gap:8px; text-align:left; }
 
+/* unified form input used across admin cards */
+.form-input, .date-input {
+  width:100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(230,232,235,1);
+  background: #ffffff;
+  font-size: 14px;
+  color: #0f1724;
+  box-sizing: border-box;
+  transition: box-shadow 140ms ease, border-color 120ms ease, transform 80ms ease;
+}
+.form-input::placeholder, .date-input::placeholder{ color: #9ca3af; }
+.form-input:focus, .date-input:focus{
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 8px 20px rgba(22,62,141,0.08);
+}
+
+/* ensure the inputs used in the access cards appear slightly inset */
+.terms-card__card .form-input, .terms-card__card .date-input{
+  background: #fff;
+}
+
+/* Make primary buttons a bit taller and more rounded inside cards */
+.terms-card__card .primary-button, .access-control .primary-button{
+  border-radius: 12px;
+  padding: 12px 16px;
+  height: 48px;
+}
+
 /* Small helpers moved from admin handmatige-keuzes inline styles */
 .radio-card{ transition: all 0.2s ease-in-out; }
 .radio-card:active{ transform: scale(0.98); }
