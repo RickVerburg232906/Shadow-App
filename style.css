@@ -202,6 +202,51 @@ body.app{
 }
 .card:hover{ border-color: rgba(22,62,141,0.25); transform: translateY(-1px); }
 
+/* Ritten plannen specific layout: left title/description, right form grid */
+.rides-planner{
+  display:flex;
+  gap:24px;
+  align-items:center;
+  padding:24px;
+  box-shadow: 0 8px 22px rgba(16,24,40,0.06);
+}
+.rides-planner .card-header{
+  flex: 0 0 320px;
+  text-align:left;
+  padding: 8px 0 8px 8px;
+}
+.rides-planner .card-title{
+  font-size:28px;
+  margin:0 0 6px 0;
+  color: #0f1724;
+  font-weight:800;
+}
+.rides-planner .card-subtitle{
+  margin:0;
+  color:#6b7280;
+  font-size:15px;
+}
+.rides-planner .card-body{
+  flex:1 1 auto;
+  padding:0;
+}
+.plan-rides-form{ display:flex; flex-direction:column; align-items:stretch; }
+.date-grid{ display:flex; flex-direction:column; gap:10px; width:100%; max-width:100%; }
+.date-row{ display:flex; gap:6px; align-items:center; justify-content:space-between; width:100%; }
+.date-input{ padding:8px 12px; border-radius:8px; border:1px solid rgba(230,232,235,1); background:#fff; font-size:14px; flex:1 1 auto; box-sizing:border-box; box-shadow: none; }
+.region-select{ padding:8px 12px; border-radius:8px; border:1px solid rgba(230,232,235,1); background:#fff; font-size:14px; flex:0 0 140px; box-sizing:border-box; box-shadow: none; }
+.form-actions{ margin-top:14px; width:100%; display:flex; justify-content:flex-end; }
+.btn{ display:inline-flex; align-items:center; justify-content:center; padding:10px 16px; border-radius:10px; border:0; cursor:pointer; }
+.btn-primary{ background: var(--blue); color:#fff; font-weight:800; box-shadow: 0 10px 20px rgba(22,62,141,0.12); }
+
+@media (max-width:760px){
+  .rides-planner{ flex-direction:column; align-items:stretch; padding:16px; }
+  .rides-planner .card-header{ flex: 0 0 auto; text-align:center; padding:8px 0; }
+  .plan-rides-form{ align-items:stretch; }
+  .date-row{ justify-content:space-between; }
+  .form-actions{ justify-content:center; }
+}
+
 .ride-date{
   color: #0e121a;
   font-weight: 500;

@@ -39,7 +39,84 @@
 </header>
 
 <main class="main-content">
-
+  <section id="rides-planner" class="card rides-planner">
+    <header class="card-header">
+      <h2 class="card-title">Ritten plannen</h2>
+      <p class="card-subtitle">Vul minimaal 5 datums in (6e is optioneel).</p>
+    </header>
+    <div class="card-body">
+      <form id="plan-rides-form" class="plan-rides-form" novalidate>
+        <div class="date-grid">
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate1" placeholder="mm/dd/yyyy" />
+            <select class="region-select" name="region1">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate2" />
+            <select class="region-select" name="region2">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate3" />
+            <select class="region-select" name="region3">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate4" />
+            <select class="region-select" name="region4">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate5" />
+            <select class="region-select" name="region5">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate6" />
+            <select class="region-select" name="region6">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
 </main>
 <footer class="app-footer" role="contentinfo">
         <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">
@@ -63,10 +140,10 @@
   </div>
 </nav>
 </footer>
-<script type="module" src="../src/member.js"></script>
 <script type="module">
-  import { initInschrijftafel } from '../src/inschrijftafel.js';
-  initInschrijftafel();
+  import { initBeheer } from '../src/beheer.js';
+  // initialize beheer UI (populate planned dates)
+  initBeheer();
 </script>
 <!-- Admin bottom navigation (visible only for admins via JS) -->
 </body></html>

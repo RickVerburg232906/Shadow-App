@@ -366,3 +366,80 @@ export async function getParticipationCount(choice) {
     return 'ERROR';
   }
 }
+
+// Fetch the full rideConfig document (plannedDates array + regions map)
+export async function getRideConfig() {
+  try {
+    const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfigDev.apiKey}`;
+    const res = await fetch(url, { method: 'GET', credentials: 'omit' });
+    if (!res.ok) {
+      console.warn('getRideConfig: fetch failed', res.status, res.statusText);
+      return { plannedDates: [], regions: {} };
+    }
+    const data = await res.json();
+    const fields = data && data.fields ? data.fields : {};
+    // parse plannedDates similar to getPlannedDates
+    const arr = fields.plannedDates && fields.plannedDates.arrayValue && Array.isArray(fields.plannedDates.arrayValue.values) ? fields.plannedDates.arrayValue.values : [];
+    const plannedDates = arr.map(v => parseFirestoreValue(v) || '').filter(Boolean).map(s => {
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+      const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (m) return m[1];
+      try { const d = new Date(s); if (!isNaN(d)) return d.toISOString().slice(0,10); } catch(_){}
+      return s;
+    }).filter(Boolean);
+
+    // parse regions map (mapValue.fields)
+    const regions = {};
+    if (fields.regions && fields.regions.mapValue && fields.regions.mapValue.fields) {
+      const map = fields.regions.mapValue.fields;
+      for (const k of Object.keys(map)) {
+        const v = map[k];
+        const parsed = parseFirestoreValue(v);
+        if (parsed !== null && parsed !== undefined) regions[k] = parsed;
+        else regions[k] = '';
+      }
+    }
+    return { plannedDates, regions };
+  } catch (e) {
+    console.error('getRideConfig error', e);
+    return { plannedDates: [], regions: {} };
+  }
+}
+
+// Update the rideConfig document with plannedDates array and regions map.
+export async function updateRideConfig({ plannedDates = [], regions = {} } = {}) {
+  try {
+    const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfigDev.apiKey}`;
+    const fields = {};
+    // plannedDates -> arrayValue.values of stringValue
+    if (Array.isArray(plannedDates)) {
+      fields.plannedDates = { arrayValue: { values: plannedDates.map(d => ({ stringValue: String(d) })) } };
+    } else {
+      fields.plannedDates = { arrayValue: { values: [] } };
+    }
+    // regions -> mapValue.fields with stringValue entries
+    const regionsFields = {};
+    for (const k of Object.keys(regions || {})) {
+      // Firestore expects field values; empty string allowed
+      regionsFields[String(k)] = { stringValue: String(regions[k] || '') };
+    }
+    fields.regions = { mapValue: { fields: regionsFields } };
+
+    const body = { fields };
+    // Use PATCH to set both fields; updateMask ensures only these paths updated
+    const finalUrl = url + '&updateMask.fieldPaths=plannedDates&updateMask.fieldPaths=regions';
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '<no body>');
+      console.warn('updateRideConfig failed', res.status, res.statusText, txt);
+      return { success: false, status: res.status, statusText: res.statusText, raw: txt };
+    }
+    const json = await res.json();
+    // Clear planned dates cache if any
+    try { if (typeof clearPlannedDatesCache === 'function') clearPlannedDatesCache(); } catch(_){}
+    return { success: true, raw: json };
+  } catch (e) {
+    console.error('updateRideConfig error', e);
+    return { success: false, error: String(e) };
+  }
+}

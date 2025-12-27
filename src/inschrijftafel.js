@@ -125,8 +125,29 @@ function renderActivityItem(member, whenIso) {
       const ph = document.getElementById('recent-activity-placeholder');
       if (ph && ph.parentNode === container) ph.parentNode.removeChild(ph);
     } catch(_){}
-    const time = new Date(whenIso || Date.now());
-    const hh = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Only use the timestamp coming from Firebase (member.lunchExpires).
+    // Do NOT fall back to the provided `whenIso` or current time — if the
+    // Firebase value isn't present or can't be parsed, we will omit the time.
+    let timeIso = null;
+    try {
+      if (member) {
+        const cand = member.lunchExpires || member.lunch_expires || member.lunch_exptime || null;
+        if (cand) {
+          if (typeof cand === 'string') timeIso = cand;
+          else if (typeof cand === 'object') {
+            try {
+              if (typeof cand.toDate === 'function') timeIso = cand.toDate().toISOString();
+              else if (typeof cand.seconds === 'number') timeIso = new Date(Number(cand.seconds) * 1000).toISOString();
+              else if (typeof cand._seconds === 'number') timeIso = new Date(Number(cand._seconds) * 1000).toISOString();
+            } catch(_) { /* ignore parsing errors */ }
+          }
+        }
+      }
+    } catch(_) {}
+    let hh = '';
+    if (timeIso) {
+      try { const time = new Date(timeIso); hh = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch(_) { hh = ''; }
+    }
     // Prefer separate first/last name fields when available (Dutch + English variants)
     // Support Firestore field names like 'Voor naam' (with space) and 'Achternaam'
     const first = member && (member['Voor naam'] || member.Voornaam || member.voornaam || member.firstName || member.first || member.givenName) ? (member['Voor naam'] || member.Voornaam || member.voornaam || member.firstName || member.first || member.givenName) : '';
@@ -161,7 +182,7 @@ function renderActivityItem(member, whenIso) {
         <div class="activity-avatar" title="${String(name)}">${initials}</div>
         <div class="activity-content">
           <div class="activity-name">${String(name)}</div>
-          <div class="activity-meta">${hh}</div>
+          ${hh ? `<div class="activity-meta">${hh}</div>` : ''}
         </div>
       </div>
       <div class="activity-check" aria-hidden="true"><span class="material-symbols-outlined">check</span></div>
