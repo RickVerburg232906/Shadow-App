@@ -187,7 +187,7 @@ body.app{
   width:100%;
 }
 .card{
-  background: var(--bg-light);
+  background: white;
   border: 1px solid rgba(243,244,246,1); /* gray-100 */
   border-radius: 0.5rem; /* rounded-lg smaller */
   padding: 0.75rem; /* compact p-3 */
@@ -245,6 +245,44 @@ body.app{
   .plan-rides-form{ align-items:stretch; }
   .date-row{ justify-content:space-between; }
   .form-actions{ justify-content:center; }
+}
+
+/* Data export card */
+.export-card{ padding:0; border-radius:14px; }
+.export-body{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:18px;
+  padding:20px 28px;
+}
+
+.export-hero{ display:flex; align-items:center; gap:12px; }
+.export-hero-left{ display:flex; align-items:center; gap:12px; }
+.export-hero-icon{ width:40px; height:40px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; background:#F2F8FF; color:var(--blue); box-shadow: 0 6px 18px rgba(16,24,40,0.03); }
+.export-hero-icon .material-symbols-outlined{ font-size:20px; }
+.export-hero-title{ margin:0; font-size:18px; font-weight:800; color:#0f1724; }
+
+.export-list{ display:block; width:100%; }
+.export-button{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; background:#fff; border:1px solid rgba(243,244,246,1); border-radius:12px; box-shadow: 0 6px 20px rgba(16,24,40,0.04); cursor:pointer; transition: transform 120ms ease, border-color 120ms ease; }
+.export-button:active{ transform: translateY(1px); }
+.export-button:hover{ border-color: rgba(22,62,141,0.12); }
+.export-item-left{ display:flex; align-items:center; gap:12px; }
+.export-item-icon{ width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:#E6F4EA; color:#137333; }
+.export-item-icon .material-symbols-outlined{ font-size:20px; }
+.export-item-content{ display:flex; flex-direction:column; align-items:flex-start; }
+.export-item-title{ font-size:14px; font-weight:700; color:#0f1724; }
+.export-item-sub{ font-size:13px; color:#9ca3af; margin-top:2px; }
+.export-item-action{ color: var(--blue); font-size:22px; }
+
+@media (min-width:760px){
+  .export-body{ flex-direction:row; align-items:center; justify-content:space-between; }
+  .export-actions{ justify-content:flex-end; }
+  /* on larger screens, ensure visual spacing remains consistent */
+}
+
+@media (max-width:520px){
+  .export-body{ padding:14px; }
 }
 
 .ride-date{

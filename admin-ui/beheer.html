@@ -117,6 +117,30 @@
       </form>
     </div>
   </section>
+  
+        <div class="export-hero-left card-divider" style="width: 100%;">
+          <div class="export-hero-icon" aria-hidden="true">
+            <span class="material-symbols-outlined">download</span>
+          </div>
+          <h3 class="export-hero-title">Data Exporteren</h3>
+          </div>
+    <section id="data-export" class="card export-card card-divider" aria-labelledby="export-title">
+      <div class="export-list">
+        <button id="export-csv" class="export-button" type="button" aria-label="Export deelnemerslijst (CSV)">
+          <div class="export-item-left">
+            <div class="export-item-icon" aria-hidden="true">
+              <span class="material-symbols-outlined">table_chart</span>
+            </div>
+            <div class="export-item-content">
+              <span class="export-item-title">Deelnemerslijst (CSV)</span>
+              <span class="export-item-sub">Alle actieve registraties</span>
+            </div>
+          </div>
+          <span class="material-symbols-outlined export-item-action">download</span>
+        </button>
+      </div>
+    </div>
+  </section>
 </main>
 <footer class="app-footer" role="contentinfo">
         <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">
@@ -140,6 +164,10 @@
   </div>
 </nav>
 </footer>
+<script type="module">
+  import { initInschrijftafel } from '../src/inschrijftafel.js';
+  initInschrijftafel();
+</script>
 <script type="module">
   import { initBeheer } from '../src/beheer.js';
   // initialize beheer UI (populate planned dates)
