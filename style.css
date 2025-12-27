@@ -236,26 +236,27 @@ body.app{
 /* Ritten plannen specific layout: left title/description, right form grid */
 .rides-planner{
   display:flex;
-  gap:24px;
-  align-items:center;
-  padding:24px;
+  flex-direction:column; /* stacked vertically on all screen sizes */
+  gap:16px;
+  align-items:stretch;
+  padding:20px;
   box-shadow: 0 8px 22px rgba(16,24,40,0.06);
 }
 .rides-planner .card-header{
-  flex: 0 0 320px;
+  flex: 0 0 auto;
   text-align:left;
-  padding: 8px 0 8px 8px;
+  padding: 4px 0 8px 0;
 }
 .rides-planner .card-title{
-  font-size:28px;
-  margin:0 0 6px 0;
+  font-size:22px;
+  margin:0 0 8px 0;
   color: #0f1724;
   font-weight:800;
 }
 .rides-planner .card-subtitle{
   margin:0;
   color:#6b7280;
-  font-size:15px;
+  font-size:14px;
 }
 .rides-planner .card-body{
   flex:1 1 auto;
