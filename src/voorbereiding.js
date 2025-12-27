@@ -1,6 +1,5 @@
 import { getPlannedDates, getLunchOptions, updateLunchOptions, updateDataStatus, getDataStatus } from './firestore.js';
-import { initializeApp, getApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js';
+import { readWorkbook, sheetToRows, normalizeRows, importRowsToFirestore } from './excel-import.js';
 
 function formatDutchShort(dateStr) {
   try {
@@ -165,100 +164,108 @@ function formatDateLong(iso) {
 }
 
 function wireDataUpload() {
-  try {
-    const input = document.querySelector('.data-upload-btn input[type=file]');
-    const statusBadge = document.getElementById('data-status-badge');
-    const lastUpdateEl = document.getElementById('data-last-update');
-    const statusIcon = document.querySelector('.data-status-top .material-symbols-outlined');
-    if (!input || !statusBadge || !lastUpdateEl) return;
+  const input = document.querySelector('.data-upload-btn input[type="file"]');
+  const badge = document.getElementById('data-status-badge');
+  const lastEl = document.getElementById('data-last-update');
+  const statusTop = document.querySelector('.data-status-top');
+  if (!input) return;
 
-    // load existing status if present
-    (async () => {
-      try {
-        const doc = await getDataStatus();
-        if (!doc) return;
-        if (doc.filename) statusBadge.textContent = 'Bijgewerkt';
-        if (doc.lastUpdated) lastUpdateEl.textContent = 'Laatste update: ' + formatDateLong(doc.lastUpdated);
-        const statusIcon = document.querySelector('.data-status-top .material-symbols-outlined');
-        if (statusIcon && doc.downloadUrl) statusIcon.textContent = 'cloud_done';
-      } catch (e) { /* ignore */ }
-    })();
-
-    input.addEventListener('change', async (ev) => {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      // optimistic UI
-      statusBadge.textContent = 'Uploading...';
-      if (statusIcon) statusIcon.textContent = 'cloud_upload';
-      try {
-        // ensure firebase app initialized
-        try { getApp(); } catch (e) { initializeApp(window.firebaseConfigDev || {}); }
-
-        const uploadResult = await uploadToStorage(file, (pct) => {
-          try { statusBadge.textContent = `Uploading ${pct}%`; } catch(_){}
-        });
-        const nowIso = new Date().toISOString();
-        const res = await updateDataStatus({ lastUpdated: nowIso, filename: file.name, downloadUrl: (uploadResult && uploadResult.url) || '' });
-        if (res && res.success) {
-          if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') window.showScanSuccess('Data geüpload en status bijgewerkt');
-          statusBadge.textContent = 'Bijgewerkt';
-          lastUpdateEl.textContent = 'Laatste update: ' + formatDateLong(nowIso);
-          if (statusIcon) statusIcon.textContent = 'cloud_done';
-        } else {
-          if (typeof window !== 'undefined' && typeof window.showScanError === 'function') window.showScanError('Bijwerken status mislukt');
-          statusBadge.textContent = 'Fout';
-          if (statusIcon) statusIcon.textContent = 'cloud_off';
-        }
-      } catch (e) {
-        console.warn('data upload handler failed', e);
-        // detect auth/storage errors and suggest checking Firebase Storage rules
-        let msg = 'Upload mislukt';
-        try { if (e && e.code && (e.code === 'storage/unauthorized' || e.code === 'auth/invalid-user-token')) msg = 'Upload geweigerd (controleer Storage regels of auth)'; } catch(_){ }
-        if (typeof window !== 'undefined' && typeof window.showScanError === 'function') window.showScanError(msg);
-        statusBadge.textContent = 'Fout';
-        if (statusIcon) statusIcon.textContent = 'cloud_off';
-      }
-    });
-  } catch (e) { console.warn('wireDataUpload failed', e); }
-}
-
-async function uploadToStorage(file, onProgress) {
-  if (!file) throw new Error('missing file');
-  try {
-    const app = (() => { try { return getApp(); } catch (_) { return initializeApp(window.firebaseConfigDev || {}); } })();
-    // Ensure storage is created with a valid bucket. Prefer app.options.storageBucket, fallback to window.firebaseConfigDev.storageBucket or projectId.appspot.com
-    let storage;
+  function setStatus({ state = 'unknown', lastUpdated = null } = {}) {
+    if (!badge) return;
+    badge.textContent = state;
+    if (lastEl) lastEl.textContent = lastUpdated ? `Laatste update: ${formatDateLong(lastUpdated)}` : 'Laatste update: onbekend';
+    if (statusTop) {
+      statusTop.innerHTML = state === 'Up-to-date' || state === 'Up-to-date (geen ritten)' ? '<span class="material-symbols-outlined">cloud_done</span>' : '<span class="material-symbols-outlined">cloud_off</span>';
+    }
+    // color: green when up-to-date, red when not
     try {
-      const hasDefaultBucket = app && app.options && app.options.storageBucket;
-      if (hasDefaultBucket) storage = getStorage(app);
-      else {
-        const cfg = (typeof window !== 'undefined' && window.firebaseConfigDev) ? window.firebaseConfigDev : null;
-        const bucketName = cfg && cfg.storageBucket ? cfg.storageBucket : (cfg && cfg.projectId ? (cfg.projectId + '.appspot.com') : null);
-        if (bucketName) {
-          const bucketUrl = bucketName.startsWith('gs://') ? bucketName : `gs://${bucketName}`;
-          storage = getStorage(app, bucketUrl);
-        } else {
-          storage = getStorage(app);
-        }
+      if (state === 'Up-to-date' || state === 'Up-to-date (geen ritten)') {
+        badge.style.color = '#059669';
+      } else if (state === 'Verouderd') {
+        // amber/orange for outdated
+        badge.style.color = '#F59E0B';
+      } else if (state === 'Niet geladen' || state === 'Onbekend' || state === 'Uploaden...') {
+        badge.style.color = '';
+      } else {
+        badge.style.color = '#DC2626';
       }
-    } catch (e) { storage = getStorage(app); }
-    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-    const path = `uploads/data/${Date.now()}_${safeName}`;
-    const storageRef = ref(storage, path);
-    const uploadTask = uploadBytesResumable(storageRef, file);
-    return await new Promise((resolve, reject) => {
-      uploadTask.on('state_changed', snapshot => {
-        const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-        if (onProgress) onProgress(pct);
-      }, err => reject(err), async () => {
-        try {
-          const url = await getDownloadURL(uploadTask.snapshot.ref);
-          resolve({ url, path });
-        } catch (e) { reject(e); }
-      });
-    });
-  } catch (e) { throw e; }
+    } catch (_) {}
+  }
+
+  // initialize status from firestore + planned dates
+  (async () => {
+    try {
+      const [st, planned] = await Promise.all([getDataStatus().catch(() => null), getPlannedDates().catch(() => [])]);
+      const sorted = (Array.isArray(planned) ? planned.map(s => String(s).slice(0,10)).filter(Boolean).sort() : []);
+      // helper to evaluate whether lastUpdated is after previous ride and before next ride
+      function evaluate(lastUpdatedIso) {
+        if (!lastUpdatedIso) return { ok: false, state: 'Niet geladen' };
+        const lu = new Date(lastUpdatedIso).getTime();
+        const today = new Date().toISOString().slice(0,10);
+        let next = sorted.find(d => d >= today);
+        if (!next) next = sorted[sorted.length - 1] || null;
+        let prev = null;
+        if (next) {
+          const idx = sorted.indexOf(next);
+          if (idx > 0) prev = sorted[idx - 1];
+        } else if (sorted.length > 0) {
+          prev = sorted[sorted.length - 1];
+        }
+        // compute boundaries
+        let prevEnd = null;
+        let nextStart = null;
+        if (prev) prevEnd = new Date(prev + 'T23:59:59').getTime();
+        if (next) nextStart = new Date(next + 'T00:00:00').getTime();
+        // If no next and no prev, nothing to compare -> consider up-to-date
+        if (!prev && !next) return { ok: true, state: 'Up-to-date (geen ritten)' };
+        const afterPrev = prevEnd ? (lu > prevEnd) : true;
+        const beforeNext = nextStart ? (lu < nextStart) : true;
+        return { ok: afterPrev && beforeNext, state: (afterPrev && beforeNext) ? 'Up-to-date' : 'Verouderd' };
+      }
+
+      if (st && st.lastUpdated) {
+        const ev = evaluate(st.lastUpdated);
+        setStatus({ state: ev.state, lastUpdated: st.lastUpdated });
+      } else if (st && st.filename) {
+        const assumed = st.lastUpdated || new Date().toISOString();
+        const ev = evaluate(assumed);
+        setStatus({ state: ev.state, lastUpdated: assumed });
+      } else {
+        setStatus({ state: 'Niet geladen', lastUpdated: null });
+      }
+    } catch (e) { setStatus({ state: 'Onbekend', lastUpdated: null }); }
+  })();
+
+  input.addEventListener('change', async (ev) => {
+    const file = (ev.target.files && ev.target.files[0]) ? ev.target.files[0] : null;
+    if (!file) return;
+    try {
+      setStatus({ state: 'Uploaden...', lastUpdated: new Date().toISOString() });
+      input.disabled = true;
+
+      // Read workbook and import rows
+      const wb = await readWorkbook(file);
+      const rows = sheetToRows(wb);
+      const norm = normalizeRows(rows || []);
+      const res = await importRowsToFirestore(norm);
+
+      // Update dataStatus doc
+      await updateDataStatus({ lastUpdated: new Date().toISOString(), filename: file.name });
+
+      setStatus({ state: 'Up-to-date', lastUpdated: new Date().toISOString() });
+      try { if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') window.showScanSuccess(`Geüpload (${res.updated} records)`); } catch(_) {}
+    } catch (e) {
+      console.error('data upload failed', e);
+      try { if (typeof window !== 'undefined' && typeof window.showScanError === 'function') window.showScanError('Upload mislukt'); } catch(_) {}
+      setStatus({ state: 'Fout', lastUpdated: null });
+    } finally {
+      input.value = '';
+      input.disabled = false;
+    }
+  });
 }
+
+/* uploadToStorage removed */
 
 export function initVoorbereiding() {
   if (document.readyState === 'loading') {

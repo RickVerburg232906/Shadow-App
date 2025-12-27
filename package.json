@@ -8,6 +8,9 @@
     "build": "vite build && node scripts/copy-static.js",
     "preview": "vite preview"
   },
+  "dependencies": {
+    "firebase": "^9.22.1"
+  },
   "devDependencies": {
     "vite": "^5.4.0"
   }

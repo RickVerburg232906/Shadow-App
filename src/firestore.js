@@ -2,6 +2,8 @@
 // Uses the project's development Firebase config (safe for local dev builds in this workspace).
 // Exports `getPlannedDates()` which returns an array of YYYY-MM-DD strings.
 
+import { db, doc, setDoc, serverTimestamp } from './firebase.js';
+
 const firebaseConfigDev = {
   apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
   projectId: "shadow-app-b3fb3",
@@ -548,29 +550,19 @@ export async function updateLunchOptions({ vastEten = undefined, keuzeEten = und
 }
 
 // Update data status document `globals/dataStatus` with lastUpdated timestamp and optional filename
-export async function updateDataStatus({ lastUpdated = undefined, filename = undefined } = {}) {
+export async function updateDataStatus({ lastUpdated = undefined, filename = undefined, downloadUrl = undefined } = {}) {
   try {
-    const url = `${BASE_URL}/globals/dataStatus?key=${firebaseConfigDev.apiKey}`;
-    const fields = {};
-    if (lastUpdated !== undefined) fields.lastUpdated = { timestampValue: String(lastUpdated) };
-    if (filename !== undefined) fields.filename = { stringValue: String(filename) };
-    if (typeof arguments !== 'undefined' && arguments[0] && arguments[0].downloadUrl !== undefined) {
-      fields.downloadUrl = { stringValue: String(arguments[0].downloadUrl || '') };
+    if (lastUpdated === undefined && filename === undefined && downloadUrl === undefined) return { success: false, error: 'no_fields' };
+    const payload = {};
+    if (lastUpdated !== undefined) {
+      // Accept ISO string or Date; store as Firestore timestamp
+      try { payload.lastUpdated = lastUpdated ? new Date(String(lastUpdated)) : serverTimestamp(); } catch(_) { payload.lastUpdated = serverTimestamp(); }
     }
-    if (Object.keys(fields).length === 0) return { success: false, error: 'no_fields' };
-    const body = { fields };
-    let finalUrl = url;
-    for (const p of Object.keys(fields)) {
-      finalUrl += `&updateMask.fieldPaths=${encodeURIComponent(p)}`;
-    }
-    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '<no body>');
-      console.warn('updateDataStatus failed', res.status, res.statusText, txt);
-      return { success: false, status: res.status, statusText: res.statusText, raw: txt };
-    }
-    const json = await res.json();
-    return { success: true, raw: json };
+    if (filename !== undefined) payload.filename = String(filename || '');
+    if (downloadUrl !== undefined) payload.downloadUrl = String(downloadUrl || '');
+
+    await setDoc(doc(db, 'globals', 'dataStatus'), payload, { merge: true });
+    return { success: true };
   } catch (e) {
     console.error('updateDataStatus error', e);
     return { success: false, error: String(e) };
