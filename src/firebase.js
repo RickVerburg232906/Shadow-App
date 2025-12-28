@@ -1,9 +1,58 @@
-import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, orderBy, startAt, startAfter as _startAfter, endAt, limit, getDocs as _getDocs, getDoc as _getDoc, doc, writeBatch as _writeBatch, setDoc as _setDoc, addDoc as _addDoc, serverTimestamp, increment, arrayUnion, runTransaction as _runTransaction, updateDoc as _updateDoc, deleteDoc as _deleteDoc, onSnapshot as _onSnapshot } from "firebase/firestore";
-// arrayUnion exporteren voor gemak
-// (optioneel, admin.js importeert direct uit firebase/firestore)
+// Dynamically import Firebase modules so this file can run both under a bundler
+// (where bare specifiers are resolved) and directly in browsers (fallback to CDN ESM).
+let initializeApp;
+let initializeFirestore, persistentLocalCache, persistentMultipleTabManager;
+let collection, query, where, orderBy, startAt, _startAfter, endAt, limit;
+let _getDocs, _getDoc, doc, _writeBatch, _setDoc, _addDoc, serverTimestamp, increment, arrayUnion, _runTransaction, _updateDoc, _deleteDoc, _onSnapshot;
+let getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL;
 
-import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+async function _dynamicImport() {
+  // Helper: try bare import (bundler), else CDN fallback
+  async function tryImport(bare, cdn) {
+    try { return await import(bare); } catch (e) {
+      try { return await import(cdn); } catch (e2) { throw e; }
+    }
+  }
+
+  const appMod = await tryImport('firebase/app', 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js');
+  initializeApp = appMod.initializeApp;
+
+  const fsMod = await tryImport('firebase/firestore', 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
+  initializeFirestore = fsMod.initializeFirestore;
+  persistentLocalCache = fsMod.persistentLocalCache;
+  persistentMultipleTabManager = fsMod.persistentMultipleTabManager;
+  collection = fsMod.collection;
+  query = fsMod.query;
+  where = fsMod.where;
+  orderBy = fsMod.orderBy;
+  startAt = fsMod.startAt;
+  _startAfter = fsMod.startAfter;
+  endAt = fsMod.endAt;
+  limit = fsMod.limit;
+  _getDocs = fsMod.getDocs;
+  _getDoc = fsMod.getDoc;
+  doc = fsMod.doc;
+  _writeBatch = fsMod.writeBatch;
+  _setDoc = fsMod.setDoc;
+  _addDoc = fsMod.addDoc;
+  serverTimestamp = fsMod.serverTimestamp;
+  increment = fsMod.increment;
+  arrayUnion = fsMod.arrayUnion;
+  _runTransaction = fsMod.runTransaction;
+  _updateDoc = fsMod.updateDoc;
+  _deleteDoc = fsMod.deleteDoc;
+  _onSnapshot = fsMod.onSnapshot;
+
+  const stMod = await tryImport('firebase/storage', 'https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js');
+  getStorage = stMod.getStorage;
+  ref = stMod.ref;
+  uploadBytes = stMod.uploadBytes;
+  uploadBytesResumable = stMod.uploadBytesResumable;
+  getDownloadURL = stMod.getDownloadURL;
+}
+
+// perform dynamic imports at module initialization (top-level await allowed in ESM)
+await _dynamicImport();
 
 // --- Firebase configs for different environments ---
 // Keep the existing config as the development config.
