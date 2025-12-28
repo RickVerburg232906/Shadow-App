@@ -277,12 +277,22 @@ export async function initInschrijftafel() {
       try {
         // show admin footer only for admin role (use aria-hidden so CSS controls display)
         const footer = document.getElementById('admin-bottom-nav');
+        const appFooter = document.querySelector('.app-footer');
         if (footer) {
           if (role === 'admin') { footer.setAttribute('aria-hidden','false'); }
           else { footer.setAttribute('aria-hidden','true'); }
-          try { markAdminFooterActive(); } catch(_){}
+          try { markAdminFooterActive(); } catch(_){ }
         }
-      } catch(_){}
+        // When signed in with the lightweight "inschrijftafel" password,
+        // hide the entire footer container so the bottom bar doesn't show.
+        if (appFooter) {
+          if (role === 'inschrijftafel') {
+            try { appFooter.style.display = 'none'; } catch(_){}
+          } else {
+            try { appFooter.style.display = ''; } catch(_){}
+          }
+        }
+      } catch(_){ }
     } catch (e) { console.error('role-visibility', e); }
 
     try {
