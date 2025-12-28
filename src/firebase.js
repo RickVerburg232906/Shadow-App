@@ -1,23 +1,9 @@
-// Use top-level dynamic imports so the module works both when served
-// by a bundler (Vite) and when opened directly as an ES module in
-// the browser (file:// or simple static server). Try to import the
-// bare specifiers first (works with node_modules + bundlers); if
-// that fails fall back to the Firebase CDN ESM build.
-let firebaseAppMod, firebaseFirestoreMod, firebaseStorageMod;
-try {
-  firebaseAppMod = await import('firebase/app');
-  firebaseFirestoreMod = await import('firebase/firestore');
-  firebaseStorageMod = await import('firebase/storage');
-} catch (e) {
-  // Fallback to CDN (version pinned to a recent compatible release).
-  firebaseAppMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js');
-  firebaseFirestoreMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
-  firebaseStorageMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js');
-}
+import { initializeApp } from "firebase/app";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, orderBy, startAt, startAfter as _startAfter, endAt, limit, getDocs as _getDocs, getDoc as _getDoc, doc, writeBatch as _writeBatch, setDoc as _setDoc, addDoc as _addDoc, serverTimestamp, increment, arrayUnion, runTransaction as _runTransaction, updateDoc as _updateDoc, deleteDoc as _deleteDoc, onSnapshot as _onSnapshot } from "firebase/firestore";
+// arrayUnion exporteren voor gemak
+// (optioneel, admin.js importeert direct uit firebase/firestore)
 
-const { initializeApp } = firebaseAppMod;
-const { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, orderBy, startAt, startAfter: _startAfter, endAt, limit, getDocs: _getDocs, getDoc: _getDoc, doc, writeBatch: _writeBatch, setDoc: _setDoc, addDoc: _addDoc, serverTimestamp, increment, arrayUnion, runTransaction: _runTransaction, updateDoc: _updateDoc, deleteDoc: _deleteDoc, onSnapshot: _onSnapshot } = firebaseFirestoreMod;
-const { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL } = firebaseStorageMod;
+import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 // --- Firebase configs for different environments ---
 // Keep the existing config as the development config.
