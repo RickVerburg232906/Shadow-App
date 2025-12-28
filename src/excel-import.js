@@ -1,4 +1,4 @@
-import * as XLSX from "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.mjs";
+import * as XLSX from "https://unpkg.com/xlsx@0.18.5?module";
 import { db, writeBatch, doc } from "./firebase.js";
 
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel", "Regio Omschrijving"];
