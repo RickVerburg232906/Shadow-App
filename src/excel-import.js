@@ -1,5 +1,5 @@
 import * as XLSX from "https://unpkg.com/xlsx@0.18.5?module";
-import { db, writeBatch, doc } from "./firebase.js";
+import { db, writeBatch, doc, storage, ref, uploadBytes, getDownloadURL } from "./firebase.js";
 
 const REQUIRED_COLS = ["LidNr", "Naam", "Voor naam", "Voor letters", "Tussen voegsel", "Regio Omschrijving"];
 
@@ -42,4 +42,19 @@ export async function importRowsToFirestore(rows) {
   }
   await commit();
   return { total, updated, skipped };
+}
+
+export async function uploadFileToStorage(file, pathPrefix = 'uploads/members') {
+  if (!file) return null;
+  try {
+    const safeName = String(file.name).replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const storagePath = `${pathPrefix}/${Date.now()}_${safeName}`;
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return { storagePath, downloadUrl };
+  } catch (e) {
+    console.warn('uploadFileToStorage failed', e);
+    return null;
+  }
 }

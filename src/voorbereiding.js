@@ -169,6 +169,7 @@ function wireDataUpload() {
   const statusTop = document.querySelector('.data-status-top');
   const input = document.querySelector('.data-upload-btn input[type="file"]') || null;
   const dropzone = document.querySelector('.data-upload-dropzone') || null;
+  const chooseBtn = document.querySelector('.data-upload-btn button') || null;
 
   function setStatus({ state = 'unknown', lastUpdated = null } = {}) {
     if (!badge) return;
@@ -241,6 +242,11 @@ function wireDataUpload() {
     if (!file) return;
     await processFile(file);
   });
+  if (chooseBtn && input) {
+    chooseBtn.addEventListener('click', (ev) => { ev.preventDefault(); input.click(); });
+  }
+  // Native label behavior will open the hidden input when clicked,
+  // so we avoid programmatically calling `input.click()` to prevent duplicates.
   async function processFile(file) {
     if (!file) return;
     try {
@@ -263,16 +269,16 @@ function wireDataUpload() {
     } finally {
       try { if (input) { input.value = ''; input.disabled = false; } } catch(_){ }
       // cleanup legacy dropzone styles if present
-      try { const dz = document.querySelector('.data-upload-dropzone'); if (dz) { dz.style.background = ''; dz.style.borderColor = 'rgba(99,102,120,0.2)'; } } catch(_){ }
+      try { const dz = document.querySelector('.data-upload-dropzone'); if (dz) { dz.style.background = ''; dz.style.borderColor = 'rgba(245,158,11,0.35)'; } } catch(_){ }
     }
   }
   if (dropzone) {
-    dropzone.addEventListener('dragenter', (ev) => { ev.preventDefault(); try { dropzone.style.background = 'rgba(99,102,120,0.03)'; dropzone.style.borderColor = 'rgba(99,102,120,0.5)'; } catch(_){} });
+    dropzone.addEventListener('dragenter', (ev) => { ev.preventDefault(); try { dropzone.style.background = 'rgba(245,158,11,0.06)'; dropzone.style.borderColor = 'rgba(245,158,11,0.6)'; } catch(_){} });
     dropzone.addEventListener('dragover', (ev) => { ev.preventDefault(); });
-    dropzone.addEventListener('dragleave', (ev) => { ev.preventDefault(); try { dropzone.style.background = ''; dropzone.style.borderColor = 'rgba(99,102,120,0.2)'; } catch(_){} });
+    dropzone.addEventListener('dragleave', (ev) => { ev.preventDefault(); try { dropzone.style.background = ''; dropzone.style.borderColor = 'rgba(245,158,11,0.35)'; } catch(_){} });
     dropzone.addEventListener('drop', async (ev) => {
       ev.preventDefault();
-      try { dropzone.style.background = ''; dropzone.style.borderColor = 'rgba(99,102,120,0.2)'; } catch(_){ }
+      try { dropzone.style.background = ''; dropzone.style.borderColor = 'rgba(245,158,11,0.35)'; } catch(_){ }
       const file = (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) ? ev.dataTransfer.files[0] : null;
       if (!file) return;
       await processFile(file);
