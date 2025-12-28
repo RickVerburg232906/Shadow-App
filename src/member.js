@@ -1,5 +1,6 @@
 // Minimal member-side helpers for signupPage
 import { getPlannedDates, getLunchOptions, searchMembers, getMemberById } from '../src/firestore.js';
+import { db, doc, onSnapshot, getDoc } from './firebase.js';
 // Keeps only what `lid-ui/signupPage.html` (and index) require: footer binding, simple suggestions glue,
 // sessionStorage diagnostics and safe helpers. Other features removed.
 
@@ -261,20 +262,8 @@ function setupMemberSuggestions() {
 // Realtime listener: attach a Firestore onSnapshot listener to update only ScanDatums
 function setupMemberScanListener() {
 	try {
-		// dynamically import Firebase SDK modules from CDN
 		(async () => {
 			try {
-				const firebaseAppMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js');
-				const firebaseFirestoreMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
-				const { initializeApp } = firebaseAppMod;
-				const { getFirestore, doc, onSnapshot, getDoc } = firebaseFirestoreMod;
-
-				// Firebase config (matches new-ui/firestore.js)
-				const firebaseConfig = { apiKey: 'AIzaSyCwHJ1VIqM9s4tfh2hn8KxqunuYySzuwQ', projectId: 'shadow-app-b3fb3' };
-				let app = null;
-				try { app = initializeApp(firebaseConfig); } catch(_) { /* already initialized? ignore */ }
-				const db = getFirestore(app);
-
 				let memberId = window._selectedMemberId || '';
 				if (!memberId) {
 					try {
@@ -484,20 +473,8 @@ function setupSignupFooterNavigation() {
 // Bind index footer button to navigate to the signup page
 function setupIndexFooterNavigation() {
 	try {
-		// dynamically import Firebase SDK modules from CDN
 		(async () => {
 			try {
-				const firebaseAppMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js');
-				const firebaseFirestoreMod = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
-				const { initializeApp } = firebaseAppMod;
-				const { getFirestore, doc, onSnapshot, getDoc } = firebaseFirestoreMod;
-
-				// Firebase config (matches new-ui/firestore.js)
-				const firebaseConfig = { apiKey: 'AIzaSyCwHJ1VIqM9s4tfh2hn8KxqunuYySzuwQ', projectId: 'shadow-app-b3fb3' };
-				let app = null;
-				try { app = initializeApp(firebaseConfig); } catch(_) { /* already initialized? ignore */ }
-				const db = getFirestore(app);
-
 				let memberId = window._selectedMemberId || '';
 				if (!memberId) {
 					try {
