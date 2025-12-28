@@ -32,33 +32,40 @@ const firebaseConfigs = {
   production: firebaseConfigProd
 };
 
-// Determine environment:
+// Determine environment with Vercel branch-awareness.
 // Priority:
 // 1) If `VITE_FIREBASE_ENV` is explicitly set, respect it.
-// 2) If running on Vercel and `VERCEL_ENV=production`, use production.
-// 3) If running the Vite dev server (`import.meta.env.DEV`) use development.
-// 4) Otherwise default to development to avoid accidental production usage from preview builds.
+// 2) If building on Vercel: use production only when `VERCEL_ENV=production` AND branch is `main`.
+//    Otherwise use development (for preview branches and vercel dev).
+// 3) If built with Vite in production locally (`import.meta.env.PROD`), use production.
+// 4) Default to development to avoid accidental production usage.
 const hasMeta = (typeof import.meta !== 'undefined' && import.meta.env);
 const explicit = hasMeta && import.meta.env.VITE_FIREBASE_ENV;
 const isDevServer = hasMeta && Boolean(import.meta.env.DEV);
-// Vite exposes `import.meta.env.PROD` in production builds; prefer that for build-time detection.
 const isViteProd = hasMeta && Boolean(import.meta.env.PROD);
-// Check Vercel env (server-side process env during build or injected env during runtime if configured)
-const isVercelProd = (typeof process !== 'undefined' && process.env && process.env.VERCEL_ENV === 'production') || (hasMeta && import.meta.env.VERCEL_ENV === 'production');
+
+// Branch name available on Vercel as VERCEL_GIT_COMMIT_REF during build
+const branchName = (hasMeta && (import.meta.env.VERCEL_GIT_COMMIT_REF || import.meta.env.GIT_COMMIT_REF)) || (typeof process !== 'undefined' && process.env && (process.env.VERCEL_GIT_COMMIT_REF || process.env.GIT_COMMIT_REF)) || null;
+const vercelEnv = (hasMeta && import.meta.env.VERCEL_ENV) || (typeof process !== 'undefined' && process.env && process.env.VERCEL_ENV) || null;
+
 let firebaseEnv = 'development';
 if (explicit) {
   firebaseEnv = explicit;
+} else if (vercelEnv) {
+  // On Vercel: production only for the main branch
+  if (vercelEnv === 'production' && (branchName === 'main' || branchName === 'master')) {
+    firebaseEnv = 'production';
+  } else {
+    firebaseEnv = 'development';
+  }
 } else if (isViteProd) {
-  // Built with Vite in production mode -> use production config
-  firebaseEnv = 'production';
-} else if (isVercelProd) {
   firebaseEnv = 'production';
 } else if (isDevServer) {
   firebaseEnv = 'development';
 } else {
-  // Default to development for safety (preview builds / branches should not use production)
   firebaseEnv = 'development';
 }
+
 export const firebaseConfig = firebaseConfigs[firebaseEnv] || firebaseConfigProd;
 export const firebaseEnvironment = firebaseEnv;
 
