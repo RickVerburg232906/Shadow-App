@@ -164,11 +164,11 @@ function formatDateLong(iso) {
 }
 
 function wireDataUpload() {
-  const input = document.querySelector('.data-upload-btn input[type="file"]');
   const badge = document.getElementById('data-status-badge');
   const lastEl = document.getElementById('data-last-update');
   const statusTop = document.querySelector('.data-status-top');
-  if (!input) return;
+  const input = document.querySelector('.data-upload-btn input[type="file"]') || null;
+  const dropzone = document.querySelector('.data-upload-dropzone') || null;
 
   function setStatus({ state = 'unknown', lastUpdated = null } = {}) {
     if (!badge) return;
@@ -239,17 +239,19 @@ function wireDataUpload() {
   input.addEventListener('change', async (ev) => {
     const file = (ev.target.files && ev.target.files[0]) ? ev.target.files[0] : null;
     if (!file) return;
+    await processFile(file);
+  });
+  async function processFile(file) {
+    if (!file) return;
     try {
       setStatus({ state: 'Uploaden...', lastUpdated: new Date().toISOString() });
-      input.disabled = true;
+      if (input) input.disabled = true;
 
-      // Read workbook and import rows
       const wb = await readWorkbook(file);
       const rows = sheetToRows(wb);
       const norm = normalizeRows(rows || []);
       const res = await importRowsToFirestore(norm);
 
-      // Update dataStatus doc
       await updateDataStatus({ lastUpdated: new Date().toISOString(), filename: file.name });
 
       setStatus({ state: 'Up-to-date', lastUpdated: new Date().toISOString() });
@@ -259,10 +261,23 @@ function wireDataUpload() {
       try { if (typeof window !== 'undefined' && typeof window.showScanError === 'function') window.showScanError('Upload mislukt'); } catch(_) {}
       setStatus({ state: 'Fout', lastUpdated: null });
     } finally {
-      input.value = '';
-      input.disabled = false;
+      try { if (input) { input.value = ''; input.disabled = false; } } catch(_){ }
+      // cleanup legacy dropzone styles if present
+      try { const dz = document.querySelector('.data-upload-dropzone'); if (dz) { dz.style.background = ''; dz.style.borderColor = 'rgba(99,102,120,0.2)'; } } catch(_){ }
     }
-  });
+  }
+  if (dropzone) {
+    dropzone.addEventListener('dragenter', (ev) => { ev.preventDefault(); try { dropzone.style.background = 'rgba(99,102,120,0.03)'; dropzone.style.borderColor = 'rgba(99,102,120,0.5)'; } catch(_){} });
+    dropzone.addEventListener('dragover', (ev) => { ev.preventDefault(); });
+    dropzone.addEventListener('dragleave', (ev) => { ev.preventDefault(); try { dropzone.style.background = ''; dropzone.style.borderColor = 'rgba(99,102,120,0.2)'; } catch(_){} });
+    dropzone.addEventListener('drop', async (ev) => {
+      ev.preventDefault();
+      try { dropzone.style.background = ''; dropzone.style.borderColor = 'rgba(99,102,120,0.2)'; } catch(_){ }
+      const file = (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) ? ev.dataTransfer.files[0] : null;
+      if (!file) return;
+      await processFile(file);
+    });
+  }
 }
 
 /* uploadToStorage removed */
