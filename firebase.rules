@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default: allow reads for all (adjust if you want to restrict reads)
+    match /{document=**} {
+      allow read: if true;
+
+      // Allow writes only for authenticated users with role 'admin' or 'inschrijftafel'
+      // and where the roleExpiry claim has not passed.
+      allow write: if request.auth != null && (
+        (
+          (request.auth.token.role == 'admin' || request.auth.token.role == 'inschrijftafel') &&
+          request.auth.token.roleExpiry != null && request.time.seconds < request.auth.token.roleExpiry
+        ) || (
+          request.auth.token.roles != null && (
+            (request.auth.token.roles['admin'] == true || request.auth.token.roles['inschrijftafel'] == true) &&
+            request.auth.token.roleExpiry != null && request.time.seconds < request.auth.token.roleExpiry
+          )
+        )
+      );
+    }
+  }
+}

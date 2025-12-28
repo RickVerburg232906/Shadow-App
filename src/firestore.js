@@ -2,7 +2,7 @@
 // Uses the project's development Firebase config (safe for local dev builds in this workspace).
 // Exports `getPlannedDates()` which returns an array of YYYY-MM-DD strings.
 
-import { db, doc, setDoc, serverTimestamp } from './firebase.js';
+import { db, doc, setDoc, serverTimestamp, getIdToken } from './firebase.js';
 
 const firebaseConfigDev = {
   apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
@@ -412,6 +412,8 @@ export async function getRideConfig() {
 export async function updateRideConfig({ plannedDates = [], regions = {} } = {}) {
   try {
     const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfigDev.apiKey}`;
+    const idToken = await getIdToken();
+    if (!idToken) return { success: false, error: 'not_authenticated' };
     const fields = {};
     // plannedDates -> arrayValue.values of stringValue
     if (Array.isArray(plannedDates)) {
@@ -430,7 +432,7 @@ export async function updateRideConfig({ plannedDates = [], regions = {} } = {})
     const body = { fields };
     // Use PATCH to set both fields; updateMask ensures only these paths updated
     const finalUrl = url + '&updateMask.fieldPaths=plannedDates&updateMask.fieldPaths=regions';
-    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken }, body: JSON.stringify(body) });
     if (!res.ok) {
       const txt = await res.text().catch(() => '<no body>');
       console.warn('updateRideConfig failed', res.status, res.statusText, txt);
@@ -494,6 +496,8 @@ export async function listAllMembers(pageSize = 500) {
 export async function updateAdminPasswords({ inschrijftafel = undefined, hoofdadmin = undefined } = {}) {
   try {
     const url = `${BASE_URL}/globals/passwords?key=${firebaseConfigDev.apiKey}`;
+    const idToken = await getIdToken();
+    if (!idToken) return { success: false, error: 'not_authenticated' };
     const fields = {};
     if (inschrijftafel !== undefined) fields.inschrijftafel = { stringValue: String(inschrijftafel) };
     if (hoofdadmin !== undefined) fields.hoofdadmin = { stringValue: String(hoofdadmin) };
@@ -504,7 +508,7 @@ export async function updateAdminPasswords({ inschrijftafel = undefined, hoofdad
     for (const p of Object.keys(fields)) {
       finalUrl += `&updateMask.fieldPaths=${encodeURIComponent(p)}`;
     }
-    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken }, body: JSON.stringify(body) });
     if (!res.ok) {
       const txt = await res.text().catch(() => '<no body>');
       console.warn('updateAdminPasswords failed', res.status, res.statusText, txt);
@@ -522,6 +526,8 @@ export async function updateAdminPasswords({ inschrijftafel = undefined, hoofdad
 export async function updateLunchOptions({ vastEten = undefined, keuzeEten = undefined } = {}) {
   try {
     const url = `${BASE_URL}/globals/lunch?key=${firebaseConfigDev.apiKey}`;
+    const idToken = await getIdToken();
+    if (!idToken) return { success: false, error: 'not_authenticated' };
     const fields = {};
     if (vastEten !== undefined) {
       fields.vastEten = { arrayValue: { values: (Array.isArray(vastEten) ? vastEten : []).map(v => ({ stringValue: String(v) })) } };
@@ -535,7 +541,7 @@ export async function updateLunchOptions({ vastEten = undefined, keuzeEten = und
     for (const p of Object.keys(fields)) {
       finalUrl += `&updateMask.fieldPaths=${encodeURIComponent(p)}`;
     }
-    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken }, body: JSON.stringify(body) });
     if (!res.ok) {
       const txt = await res.text().catch(() => '<no body>');
       console.warn('updateLunchOptions failed', res.status, res.statusText, txt);

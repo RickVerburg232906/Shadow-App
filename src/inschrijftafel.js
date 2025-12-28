@@ -1,6 +1,6 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
 import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firestore.js';
-import { initFirebase, db, collection, onSnapshot, doc, query, where } from './firebase.js';
+import { initFirebase, db, collection, onSnapshot, doc, query, where, getIdToken } from './firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 const firebaseConfigDev = {
@@ -225,7 +225,9 @@ export async function checkInMemberById(memberId, { lunchDeelname = null, lunchK
     if (Jaarhanger !== null) params.push('updateMask.fieldPaths=Jaarhanger');
     params.push('updateMask.fieldPaths=lunchExpires');
     const finalUrl = url + (params.length ? ('&' + params.join('&')) : '');
-    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const idToken = await getIdToken();
+    if (!idToken) return { success: false, error: 'not_authenticated' };
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken }, body: JSON.stringify(body) });
     if (!res.ok) {
       const text = await res.text().catch(() => '<no body>');
       console.warn('checkInMemberById failed', res.status, res.statusText, text);
@@ -243,7 +245,8 @@ export async function manualRegisterRide(memberId, rideDateYMD) {
   if (!memberId || !rideDateYMD) return { success: false, error: 'missing-params' };
   try {
     const getUrl = `${BASE_URL}/members/${encodeURIComponent(memberId)}?key=${firebaseConfigDev.apiKey}`;
-    const getRes = await fetch(getUrl, { method: 'GET' });
+    const idToken = await getIdToken();
+    const getRes = await fetch(getUrl, { method: 'GET', headers: idToken ? { 'Authorization': 'Bearer ' + idToken } : {} });
     if (!getRes.ok) return { success: false, error: 'member-not-found' };
     const doc = await getRes.json();
     const fields = doc.fields || {};
@@ -251,7 +254,9 @@ export async function manualRegisterRide(memberId, rideDateYMD) {
     if (!scans.includes(rideDateYMD)) scans.push(rideDateYMD);
     const body = { fields: { ScanDatums: { arrayValue: { values: scans.map(s => ({ stringValue: String(s) })) } } } };
     const finalUrl = `${getUrl}&updateMask.fieldPaths=ScanDatums`;
-    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const idToken2 = await getIdToken();
+    if (!idToken2) return { success: false, error: 'not_authenticated' };
+    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken2 }, body: JSON.stringify(body) });
     if (!res.ok) { const txt = await res.text().catch(() => ''); return { success: false, raw: txt }; }
     return { success: true, raw: await res.json() };
   } catch (e) { return { success: false, error: String(e) }; }

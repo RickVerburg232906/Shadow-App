@@ -4,6 +4,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 // (optioneel, admin.js importeert direct uit firebase/firestore)
 
 import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js";
+import { getAuth, signInWithEmailAndPassword as _signInWithEmailAndPassword, signOut as _signOut } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
 // --- Firebase configs for different environments ---
 // Keep the existing config as the development config.
@@ -67,6 +68,42 @@ try {
 } catch (_) {}
 
 const app = initializeApp(firebaseConfig);
+
+// Auth helper (client SDK)
+let auth = null;
+try { auth = getAuth(app); } catch (_) { auth = null; }
+
+export { auth };
+
+// Return current user's ID token or null
+export async function getIdToken(forceRefresh = false) {
+  try {
+    if (!auth || !auth.currentUser) return null;
+    return await auth.currentUser.getIdToken(forceRefresh);
+  } catch (_) {
+    return null;
+  }
+}
+
+// Expose lightweight debug helpers on window for console inspection
+if (typeof window !== 'undefined') {
+  try {
+    window.firebaseAuth = auth;
+    window.getIdTokenFromApp = getIdToken;
+  } catch (_) {}
+}
+
+// Sign in with email/password (returns userCredential or throws)
+export async function signInWithEmailPassword(email, password) {
+  if (!auth) throw new Error('auth_not_initialized');
+  return await _signInWithEmailAndPassword(auth, String(email), String(password));
+}
+
+// Sign out current user
+export async function signOutUser() {
+  if (!auth) return;
+  try { await _signOut(auth); } catch (_) {}
+}
 
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
