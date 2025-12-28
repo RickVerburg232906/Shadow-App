@@ -2,14 +2,9 @@
 // Uses the project's development Firebase config (safe for local dev builds in this workspace).
 // Exports `getPlannedDates()` which returns an array of YYYY-MM-DD strings.
 
-import { db, doc, setDoc, serverTimestamp } from './firebase.js';
+import { db, doc, setDoc, serverTimestamp, firebaseConfig } from './firebase.js';
 
-const firebaseConfigDev = {
-  apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
-  projectId: "shadow-app-b3fb3",
-};
-
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
+const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
 
 // Cache for planned dates to reduce duplicate network requests.
 let _plannedDatesCache = null;
@@ -32,7 +27,7 @@ export async function getPlannedDates(forceRefresh = false) {
     }
 
     _plannedDatesCachePromise = (async () => {
-      const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfigDev.apiKey}`;
+      const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfig.apiKey}`;
       const res = await fetch(url, { method: 'GET', credentials: 'omit' });
       if (!res.ok) {
         console.warn('getPlannedDates: fetch failed', res.status, res.statusText);
@@ -77,7 +72,7 @@ export default { getPlannedDates, clearPlannedDatesCache };
 // Fetch admin passwords from globals/passwords document. Returns object { inschrijftafel, hoofdadmin }
 export async function getAdminPasswords() {
   try {
-    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfig.apiKey}`;
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getAdminPasswords: fetch failed', res.status, res.statusText);
@@ -99,8 +94,8 @@ export async function searchMembers(prefix, maxResults = 8) {
   try {
     prefix = (prefix || '').trim();
     if (!prefix) return [];
-    const apiKey = firebaseConfigDev.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfig.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
 
     // Use a single GREATER_THAN_OR_EQUAL query per field and filter <= prefix+\uffff on client side.
     function escapeFieldPath(fieldPath) {
@@ -202,7 +197,7 @@ export async function searchMembers(prefix, maxResults = 8) {
 // Fetch lunch options from `globals/lunch` document. Returns { vastEten: [], keuzeEten: [] }
 export async function getLunchOptions() {
   try {
-    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfig.apiKey}`;
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getLunchOptions: fetch failed', res.status, res.statusText);
@@ -229,7 +224,7 @@ export async function getLunchOptions() {
 // Fetch a full member document by id and return parsed fields object
 export async function getMemberById(id) {
   if (!id) return null;
-  const url = `${BASE_URL}/members/${encodeURIComponent(id)}?key=${firebaseConfigDev.apiKey}`;
+  const url = `${BASE_URL}/members/${encodeURIComponent(id)}?key=${firebaseConfig.apiKey}`;
   const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
         console.warn('getMemberById: fetch failed', res.status, res.statusText);
@@ -254,8 +249,8 @@ export async function getMemberById(id) {
 export async function getLunchChoiceCount(choice) {
   try {
     if (!choice) return 0;
-    const apiKey = firebaseConfigDev.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfig.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
     const nowIso = new Date().toISOString();
     const body = {
       structuredQuery: {
@@ -307,8 +302,8 @@ export async function getLunchChoiceCount(choice) {
 export async function getParticipationCount(choice) {
   try {
     if (!choice) return 0;
-    const apiKey = firebaseConfigDev.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const apiKey = firebaseConfig.apiKey;
+    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
 
     const variants = [];
     const c = String(choice || '').toLowerCase();
@@ -372,7 +367,7 @@ export async function getParticipationCount(choice) {
 // Fetch the full rideConfig document (plannedDates array + regions map)
 export async function getRideConfig() {
   try {
-    const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfig.apiKey}`;
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getRideConfig: fetch failed', res.status, res.statusText);
@@ -411,7 +406,7 @@ export async function getRideConfig() {
 // Update the rideConfig document with plannedDates array and regions map.
 export async function updateRideConfig({ plannedDates = [], regions = {} } = {}) {
   try {
-    const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/rideConfig?key=${firebaseConfig.apiKey}`;
     const fields = {};
     // plannedDates -> arrayValue.values of stringValue
     if (Array.isArray(plannedDates)) {
@@ -449,7 +444,7 @@ export async function updateRideConfig({ plannedDates = [], regions = {} } = {})
 // List all members documents, paginating if necessary. Returns array of parsed member objects { id, ...fields }
 export async function listAllMembers(pageSize = 500) {
   try {
-    const apiKey = firebaseConfigDev.apiKey;
+    const apiKey = firebaseConfig.apiKey;
     const out = [];
     let url = `${BASE_URL}/members?pageSize=${pageSize}&key=${apiKey}`;
     while (url) {
@@ -493,7 +488,7 @@ export async function listAllMembers(pageSize = 500) {
 // Update admin passwords in globals/passwords document. Pass one or both keys.
 export async function updateAdminPasswords({ inschrijftafel = undefined, hoofdadmin = undefined } = {}) {
   try {
-    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/passwords?key=${firebaseConfig.apiKey}`;
     const fields = {};
     if (inschrijftafel !== undefined) fields.inschrijftafel = { stringValue: String(inschrijftafel) };
     if (hoofdadmin !== undefined) fields.hoofdadmin = { stringValue: String(hoofdadmin) };
@@ -521,7 +516,7 @@ export async function updateAdminPasswords({ inschrijftafel = undefined, hoofdad
 // Update lunch options document `globals/lunch` with arrays for `vastEten` and `keuzeEten`.
 export async function updateLunchOptions({ vastEten = undefined, keuzeEten = undefined } = {}) {
   try {
-    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/lunch?key=${firebaseConfig.apiKey}`;
     const fields = {};
     if (vastEten !== undefined) {
       fields.vastEten = { arrayValue: { values: (Array.isArray(vastEten) ? vastEten : []).map(v => ({ stringValue: String(v) })) } };
@@ -572,7 +567,7 @@ export async function updateDataStatus({ lastUpdated = undefined, filename = und
 // Read data status document (globals/dataStatus)
 export async function getDataStatus() {
   try {
-    const url = `${BASE_URL}/globals/dataStatus?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/globals/dataStatus?key=${firebaseConfig.apiKey}`;
     const res = await fetch(url, { method: 'GET', credentials: 'omit' });
     if (!res.ok) {
       console.warn('getDataStatus: fetch failed', res.status, res.statusText);

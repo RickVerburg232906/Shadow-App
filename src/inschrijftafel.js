@@ -1,17 +1,12 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
 import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firestore.js';
-import { initFirebase, db, collection, onSnapshot, doc, query, where } from './firebase.js';
+import { initFirebase, db, collection, onSnapshot, doc, query, where, firebaseConfig } from './firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
-const firebaseConfigDev = {
-  apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
-  projectId: "shadow-app-b3fb3",
-};
-
 // Initialize the browser Firebase shim so `db` is available for collection()/onSnapshot()
-try { initFirebase(firebaseConfigDev); } catch (e) { console.warn('initFirebase failed', e); }
+try { initFirebase(firebaseConfig); } catch (e) { console.warn('initFirebase failed', e); }
 
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents`;
+const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
 // Timestamp (ms) until which automatic showing of history stars should be suppressed.
 let _historySuppressShowUntil = 0;
 // Normalize common yes/no values (Dutch/English/boolean-like) to 'yes'|'no'|null
@@ -210,7 +205,7 @@ function updateActivityScrollState() {
 export async function checkInMemberById(memberId, { lunchDeelname = null, lunchKeuze = null, Jaarhanger = null } = {}) {
   if (!memberId) return { success: false, error: 'missing-id' };
   try {
-    const url = `${BASE_URL}/members/${encodeURIComponent(memberId)}?key=${firebaseConfigDev.apiKey}`;
+    const url = `${BASE_URL}/members/${encodeURIComponent(memberId)}?key=${firebaseConfig.apiKey}`;
     const fields = {};
     if (lunchDeelname !== null) fields.lunchDeelname = { stringValue: String(lunchDeelname) };
     if (lunchKeuze !== null) fields.lunchKeuze = { stringValue: String(lunchKeuze) };
@@ -242,7 +237,7 @@ export async function checkInMemberById(memberId, { lunchDeelname = null, lunchK
 export async function manualRegisterRide(memberId, rideDateYMD) {
   if (!memberId || !rideDateYMD) return { success: false, error: 'missing-params' };
   try {
-    const getUrl = `${BASE_URL}/members/${encodeURIComponent(memberId)}?key=${firebaseConfigDev.apiKey}`;
+    const getUrl = `${BASE_URL}/members/${encodeURIComponent(memberId)}?key=${firebaseConfig.apiKey}`;
     const getRes = await fetch(getUrl, { method: 'GET' });
     if (!getRes.ok) return { success: false, error: 'member-not-found' };
     const doc = await getRes.json();
@@ -607,10 +602,10 @@ export async function loadTodayActivity() {
     if (!container) return;
     // show loading state
     try { container.innerHTML = '<div id="recent-activity-placeholder" class="activity-placeholder text-text-sub text-sm">Laden…</div>'; } catch(_){}
-    const apiKey = (typeof firebaseConfigDev !== 'undefined' && firebaseConfigDev.apiKey) ? firebaseConfigDev.apiKey : null;
+    const apiKey = (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) ? firebaseConfig.apiKey : null;
     if (!apiKey) return;
     const today = new Date().toISOString().slice(0,10);
-    const runUrl = `https://firestore.googleapis.com/v1/projects/${firebaseConfigDev.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const runUrl = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
     const body = {
       structuredQuery: {
         from: [{ collectionId: 'members' }],
