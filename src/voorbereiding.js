@@ -284,6 +284,33 @@ function wireDataUpload() {
       await processFile(file);
     });
   }
+
+  // Also listen at document level so dragging over any child element
+  // inside the dropzone still activates the dropzone visuals.
+  document.addEventListener('dragover', (ev) => {
+    try {
+      const dz = ev.target && ev.target.closest && ev.target.closest('.data-upload-dropzone');
+      if (!dz) return;
+      dz.style.background = 'rgba(245,158,11,0.06)';
+      dz.style.borderColor = 'rgba(245,158,11,0.6)';
+    } catch (_) {}
+  });
+  document.addEventListener('dragleave', (ev) => {
+    try {
+      const dz = ev.target && ev.target.closest && ev.target.closest('.data-upload-dropzone');
+      if (!dz) return;
+      dz.style.background = '';
+      dz.style.borderColor = 'rgba(245,158,11,0.35)';
+    } catch (_) {}
+  });
+  document.addEventListener('drop', (ev) => {
+    try {
+      const dz = ev.target && ev.target.closest && ev.target.closest('.data-upload-dropzone');
+      if (!dz) return;
+      dz.style.background = '';
+      dz.style.borderColor = 'rgba(245,158,11,0.35)';
+    } catch (_) {}
+  });
 }
 
 /* uploadToStorage removed */

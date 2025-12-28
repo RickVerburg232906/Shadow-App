@@ -1405,19 +1405,21 @@ function renderLunchPreview() {
 		const keuze = data && Array.isArray(data.keuzeEten) ? data.keuzeEten : [];
 		if (vastEl) {
 			if (vast && vast.length > 0) {
-				// build styled list using existing CSS (.vast-list, .vast-item)
-				const list = document.createElement('div');
-				list.className = 'vast-list';
-				for (const v of vast) {
-					const row = document.createElement('div');
-					row.className = 'vast-item';
-					row.textContent = String(v || '');
-					list.appendChild(row);
-				}
-				vastEl.innerHTML = '';
-				vastEl.appendChild(list);
+				// Place the comma-separated text directly into the surface-card container
+					const text = vast.map(v => String(v || '')).join(', ');
+					vastEl.innerHTML = '';
+					vastEl.textContent = text;
+					// if the vast display lives inside a .surface-card, add accent class
+					try {
+						const sc = vastEl.closest && vastEl.closest('.surface-card');
+						if (sc) sc.classList.add('surface-card--accent');
+					} catch(_) {}
 			} else {
-				vastEl.textContent = 'Geen vast eten beschikbaar';
+					vastEl.textContent = 'Geen vast eten beschikbaar';
+					try {
+						const sc = vastEl.closest && vastEl.closest('.surface-card');
+						if (sc) sc.classList.remove('surface-card--accent');
+					} catch(_) {}
 			}
 		}
 		if (keuzeWrap) {

@@ -397,6 +397,29 @@ body.app{
 }
 .vast-item + .vast-item{ border-top: 1px solid rgba(240,241,242,1); }
 
+/* Accent variant for surface-card when vast eten exists */
+.surface-card.surface-card--accent{
+  /* keep card background white but add space for an accent bar */
+  background: var(--bg-light);
+  border: 1px solid rgba(222,231,246,0.9);
+  box-shadow: 0 8px 20px rgba(16,24,40,0.04);
+  color: #0f1724;
+  position: relative;
+  overflow: hidden;
+  padding-top: 10px; /* space below the accent bar */
+}
+
+/* Blue accent bar on top of the surface-card */
+.surface-card.surface-card--accent::before{
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 8px;
+  background:#163E8C;
+}
+
 /* color accent used for icons and top bar */
 .bg-tertiary{ background: #7b2f00; }
 .text-tertiary{ color: var(--blue); }
@@ -909,7 +932,7 @@ body.app{
 /* The input is visually hidden but accessible; .sr-only exists earlier in this file */
 .choice-card-input.sr-only{ position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
-.choice-card{ position:relative; display:flex; align-items:center; gap:16px; padding:16px; border-radius:14px; border:2px solid transparent; background:var(--bg-light); box-shadow: 0 8px 20px rgba(16,24,40,0.04); transition: box-shadow 160ms ease, transform 120ms ease, border-color 120ms ease; min-height:88px; box-sizing:border-box; }
+.choice-card{ position:relative; display:flex; align-items:center; gap:16px; padding:12px; border-radius:14px; border:2px solid transparent; background:var(--bg-light); box-shadow: 0 8px 20px rgba(16,24,40,0.04); transition: box-shadow 160ms ease, transform 120ms ease, border-color 120ms ease; min-height:56px; max-height:80px; overflow:hidden; box-sizing:border-box; }
 .choice-card:hover{ box-shadow: 0 14px 34px rgba(16,24,40,0.06); transform: translateY(-2px); }
 .choice-card:focus-within{ border-color: rgba(22,62,141,0.12); }
 
@@ -1096,6 +1119,16 @@ div[role="button"] > .vast-item.selected,
 
 /* Reusable surface card used for small panels and forms */
 .surface-card{ box-sizing:border-box; width:100%; border-radius:14px; background:var(--bg-light); border:1px solid rgba(243,244,246,0.9); box-shadow: 0 8px 20px rgba(16,24,40,0.04); }
+
+/* Make the fixed-food text inside the surface-card centered, larger and darker */
+.surface-card #vastEtenDisplay{
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f1724; /* strong dark color */
+  padding: 14px 16px;
+  line-height: 1.4;
+}
 
 /* Form label (vertical stack) */
 .form-label{ display:flex; flex-direction:column; gap:8px; text-align:left; padding: 12px;}
