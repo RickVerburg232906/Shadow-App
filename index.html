@@ -1,590 +1,102 @@
-<!doctype html>
-<html lang="nl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Shadow Motorclub</title>
-    <!-- Critical inline CSS so splash shows immediately on slow/blank startup (iOS) -->
-    <style>
-      html,body{height:100%;margin:0;background:#0b0c10}
-      .app-splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20000;background:#0b0c10}
-      .splash-inner{width:92vw;text-align:center;padding:20px}
-      .splash-logo{width:110px;height:auto;margin:0 auto 12px;display:block}
-      .splash-progress{height:10px;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin:10px 0}
-      .splash-progress-bar{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);width:0%;transition:width .3s ease}
-      
-      /* Inklapbare pijl: links (ingeklapt) → onder (uitgeklapt) */
-      details summary .toggle-icon {
-        transform: rotate(-90deg);
-      }
-      details[open] summary .toggle-icon {
-        transform: rotate(0deg);
-      }
-      details summary::-webkit-details-marker {
-        display: none;
-      }
-      details summary::marker {
-        display: none;
-      }
-      /* QR expand styles */
-      #memberInfoQRWrap { display:flex; }
-      #memberInfoQRImg { cursor: zoom-in; }
-      #memberInfoQRImg.qr-expanded {
-        position: fixed;
-        z-index: 99999;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%,-50%);
-        width: calc(100vw - 32px);
-        height: calc(100vw - 32px);
-        max-width: 100%;
-        max-height: 100%;
-        border-radius: 6px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-        background: #fff;
-      }
-    </style>
-  <link rel="stylesheet" href="/style.css">
-  <!-- Preload main module and important image hints to reduce time-to-interactive / LCP jitter -->
-  <link rel="modulepreload" href="/src/main.js">
-  <link rel="preload" href="/assets/logo_MC_nieuw_trans_300.gif" as="image">
+<!DOCTYPE html>
 
-    <!-- iOS PWA / splash hints -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <!-- Add device-specific splash images in assets/ (placeholders below) -->
-    <link rel="apple-touch-startup-image" href="/assets/splash-1125x2436.png" media="(device-width:375px) and (device-height:812px) and (-webkit-device-pixel-ratio:3)">
-    <link rel="apple-touch-startup-image" href="/assets/splash-1242x2688.png" media="(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:3)">
-    <link rel="apple-touch-startup-image" href="/assets/splash-828x1792.png" media="(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:2)">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="apple-touch-icon" href="/assets/logo_MC_nieuw_trans_300.gif">
-    <meta name="theme-color" content="#0f172a">
-    
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nieuwe Lege Pagina</title>
+<script>
+  // Provide a global firebaseConfigDev for legacy/bundled scripts
+  window.firebaseConfigDev = {
+    apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
+    authDomain: "shadow-app-b3fb3.firebaseapp.com",
+    projectId: "shadow-app-b3fb3",
+    storageBucket: "shadow-app-b3fb3.firebasestorage.app",
+    messagingSenderId: "38812973319",
+    appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
+  };
+  var firebaseConfigDev = window.firebaseConfigDev;
+</script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Custom stylesheet (replaces Tailwind) -->
+<link rel="stylesheet" href="style.css"/>
+<script src="assets/header-date.js" defer></script>
   </head>
-  <body>
-    <!-- App splash / loader -->
-    <div id="appSplash" class="app-splash" aria-hidden="false">
-      <div class="splash-inner">
-        <img src="/assets/logo_MC_nieuw_trans_300.gif" alt="Shadow" class="splash-logo" decoding="async" />
-        <div class="splash-title">Shadow Motorclub</div>
-        <div class="splash-progress">
-          <div class="splash-progress-bar" id="splashProgressBar" style="width:0%"></div>
+<body class="app light">
+  <!-- Navigation Header -->
+  <header class="nav-header">
+      <!-- Critical inline style to show loader immediately while JS initializes -->
+      <div class="nav-inner">
+        <button class="btn-inschrijftafel" onclick="location.href='admin-ui/password.html'"> 
+          <span class="material-symbols-outlined">table_restaurant</span> 
+          Inschrijftafel
+        </button>
+        <div class="title-container">
+          <h1 class="page-title">Voorwaarden</h1>
+          <span class="header-date" aria-hidden="true"></span>
         </div>
-        <div class="splash-caption" id="splashCaption">Laden…</div>
+        <img class="header-logo" src="assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+      </div>
+  </header>
+  <main class="main-content">
+
+    <!-- Geplande ritten (data wordt door JS geladen in .planned-rides) -->
+    <section class="planned-list">
+        <h3 id="planned-title" class="section-title">Geplande Ritten</h3>
+        <div class="planned-rides"></div>
+    </section>
+
+    <div class="terms-card">
+      <div class="terms-card__body">
+        <article class="terms-card__card">
+          <div class="terms-card__accent"></div>
+          <div class="terms-card__content">
+            <div class="terms-card__row">
+              <span class="terms-icon material-symbols-outlined">gavel</span>
+              <h4 class="terms-card__heading">Veiligheid &amp; Privacy</h4>
+            </div>
+            <p class="terms-card__text">
+              Door deel te nemen aan dit evenement bevestigt u dat u beschikt over een geldig rijbewijs. U gaat akkoord met het delen van foto's gemaakt tijdens de dag.
+            </p>
+
+            <div class="terms-card__warning">
+              <span class="terms-icon material-symbols-outlined">warning</span>
+              <span class="terms-card__warning-text">Deelname is volledig op eigen risico.</span>
+            </div>
+
+          </div>
+        </article>
       </div>
     </div>
-    <header class="topbar">
-  <img id="clubLogo" src="/assets/logo_MC_nieuw_trans_300.gif" alt="Shadow Motorclub logo" width="100" height="30" decoding="async" fetchpriority="high"/>
-      <nav class="nav">
-        <button id="tabMember" class="tab active">Lid</button>
-        <button id="tabAdmin" class="tab">Inschrijftafel</button>
-      </nav>
-    </header>
-
-    <main class="wrap">
-
-
-      <header id="siteHeader" class="site-header">
-      
-    </header>
-      <section id="viewMember" class="view active">
-      <!-- Geplande ritten voor leden (zichtbaar zolang de gebruiker nog niet akkoord heeft gedrukt) -->
-      <section id="plannedRidesSection" class="card" aria-labelledby="plannedRidesTitle">
-        <h3 id="plannedRidesTitle">Geplande ritten</h3>
-        <p class="muted">Hieronder vind je de geplande data van de ritten.</p>
-        <ul id="plannedRidesList" class="hint" style="margin-top:8px;"></ul>
-      </section>
-<section id="rideConsentGate" class="consent card" aria-labelledby="rideConsentTitle">
-  <div class="consent__header">
-    <h2 id="rideConsentTitle">Voorwaarden deelname</h2>
-    <p>Hierbij verklaar ik <strong>voor eigen risico</strong> mee te rijden met deze rit.</p>
-  </div>
-  <div class="consent__actions">
-    <button id="rideConsentBtn" class="btn btn-primary">Ik ga akkoord</button>
-  </div>
-  <p id="rideConsentWarn" class="msg" role="status" aria-live="polite"></p>
-</section>
-        <section id="landelijkeSignup" data-ride-signup="true" hidden>
-          <div class="card">
-            <h1>Inschrijven voor Landelijke rit</h1>
-            <p class="hint">Zoek op voornaam of achternaam en toon jouw QR-code bij de inschrijftafel.</p>
-            
-            <div id="memberSearchMount"></div>
-            <script type="module">
-              import renderMemberSearchInput, { wireAutocomplete } from '/src/member-search-input.js';
-
-              const mountEl = document.getElementById('memberSearchMount');
-              const widget = renderMemberSearchInput(mountEl, { showButton: false, placeholder: 'Naam' });
-              try { wireAutocomplete(widget, {
-                  onSelected: async (memberId) => {
-                    // Don't call setSelectedDocFromEntry here — emit global event and let
-                    // the page/module implement the new selection loading logic.
-                    try {
-                      const ev = new CustomEvent('member-search:selected', { detail: { id: memberId }, bubbles: true });
-                      document.dispatchEvent(ev);
-                    } catch (e) { console.error('dispatch member-search:selected failed', e); }
-                  }
-                }); } catch(e) { console.error('failed to wire autocomplete', e); }
-            </script>
-            <div id="lunchChoiceSection" style="margin-top:12px;"></div>
-            <script type="module">
-              import renderLunchChoice from '/src/lunch-ui.js';
-              import { renderYearhanger } from '/src/yearhanger-ui.js';
-              const lunchMount = document.getElementById('lunchChoiceSection');
-              let lunchWidget = renderLunchChoice(lunchMount);
-              document.addEventListener('member-search:selected', (ev) => {
-                try {
-                  const id = ev && ev.detail && ev.detail.id ? ev.detail.id : null;
-                  try { console.debug('index: member-search:selected (landelijk)', id); } catch(_) {}
-                  if (!id) return;
-                  // Ensure mount is visible and widget exists (may have been cleared)
-                  try { if (lunchMount) { lunchMount.style.display = ''; } } catch(_) {}
-                  try {
-                    const isEmpty = !lunchMount || String(lunchMount.innerHTML || '').trim().length === 0;
-                    if (isEmpty || !lunchWidget) {
-                      try { lunchWidget = renderLunchChoice(lunchMount); } catch(_) { lunchWidget = null; }
-                    }
-                  } catch(_) {}
-                  if (lunchWidget && typeof lunchWidget.setMember === 'function') {
-                    try {
-                      const memberIdStr = String(id);
-                      // Bind the lunch widget; when it finishes it will dispatch
-                      // `lunch:completed` which the global handler will process and
-                      // call `renderYearhanger.setMember(memberId)` and reveal the UI.
-                      try { lunchWidget.setMember(memberIdStr); } catch(e) { console.error('lunchWidget.setMember failed', e); }
-                    } catch (e) { console.error('prefill jaarhanger on selection failed', e); }
-                  }
-                } catch (e) { console.error('wiring lunch widget failed', e); }
-              });
-
-              // Hide/clear lunch widget when the search input becomes empty
-              document.addEventListener('member-search:input', (ev) => {
-                try {
-                  const val = ev && ev.detail && typeof ev.detail.value === 'string' ? ev.detail.value.trim() : '';
-                  if (!val) {
-                    // Clear lunch widget and hide its container
-                    try {
-                      if (lunchWidget && typeof lunchWidget.setMember === 'function') {
-                        try { lunchWidget.setMember(null); } catch(_) {}
-                      }
-                    } catch(_) {}
-                    try { if (lunchMount) { lunchMount.style.display = 'none'; lunchMount.innerHTML = ''; } } catch(_) {}
-
-                    // Hide local jaarhanger and clear its contents
-                    try { const yr = document.getElementById('yearhangerRow_local'); if (yr) { yr.style.display = 'none'; } } catch(_) {}
-
-                    // Hide result card and reset displayed member fields
-                    try { const resultEl = document.getElementById('result'); if (resultEl) resultEl.style.display = 'none'; } catch(_) {}
-                    try { const rn = document.getElementById('rName'); if (rn) rn.textContent = '—'; } catch(_) {}
-                    try { const rno = document.getElementById('rMemberNo'); if (rno) rno.textContent = '—'; } catch(_) {}
-                    try { const rg = document.getElementById('rRegion'); if (rg) rg.textContent = '—'; } catch(_) {}
-
-                    // Hide loading / error indicators
-                    try { const loading = document.getElementById('loadingIndicator'); if (loading) loading.style.display = 'none'; } catch(_) {}
-                    try { const err = document.getElementById('error'); if (err) err.style.display = 'none'; } catch(_) {}
-
-                    // Clear QR canvas if present
-                    try { const qr = document.getElementById('qrCanvas'); if (qr && qr.getContext) { const ctx = qr.getContext('2d'); ctx.clearRect(0,0,qr.width,qr.height); } } catch(_) {}
-                  }
-                } catch (e) { console.error('member-search:input handler failed', e); }
-              });
-
-              // Ensure the jaarhanger is mounted directly under the lunch section
-              try {
-                let yr = document.getElementById('yearhangerRow_local');
-                if (!yr) {
-                  yr = document.createElement('div');
-                  yr.id = 'yearhangerRow_local';
-                  yr.style.marginTop = '8px';
-                  yr.style.display = 'none';
-                  lunchMount.parentNode.insertBefore(yr, lunchMount.nextSibling);
-                }
-                try { renderYearhanger(yr); } catch(_) {}
-                // Attach a single listener to act when lunch completes for any member.
-                // This global handler marks the member as lunch-completed and then
-                // asks the jaarhanger module to prefill from Firestore, which will
-                // subsequently emit `yearhanger:changed` and let the result be shown.
-                if (!window.__yearhanger_lunch_listener_index) {
-                  document.addEventListener('lunch:completed', (ev) => {
-                    try {
-                      const memberId = ev && ev.detail && ev.detail.memberId ? String(ev.detail.memberId) : null;
-                      if (!memberId) return;
-                      try { window.__lunch_completed_members = window.__lunch_completed_members || new Set(); window.__lunch_completed_members.add(memberId); } catch(_) {}
-                      try { console.debug('lunch:completed received (index):', ev && ev.detail); } catch(_) {}
-
-                      // show yearhanger under lunch
-                      try { const yrEl = document.getElementById('yearhangerRow_local'); if (yrEl) { yrEl.style.display = 'block'; } } catch(_) {}
-
-                      // Register a one-time listener that will reveal the member-info only
-                      // when the jaarhanger actually has a value. Register it BEFORE calling
-                      // setMember so prefill dispatches are caught.
-                      try {
-                        let called = false;
-                        const onYearChanged = (yEv) => {
-                          try {
-                            const val = yEv && yEv.detail && yEv.detail.value ? yEv.detail.value : null;
-                            const mid = yEv && yEv.detail && yEv.detail.memberId ? String(yEv.detail.memberId) : null;
-                            if (!val) return; // only react to non-empty values
-                            if (mid && mid !== memberId) return; // ignore other members
-                            if (called) return;
-                            called = true;
-                            try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
-                            try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
-                          } catch (e) { console.error('yearhanger:changed handler failed', e); }
-                          finally { try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {} }
-                        };
-                        document.addEventListener('yearhanger:changed', onYearChanged);
-                        // safety: don't wait forever — remove listener after 3s
-                        const yrTimeout = setTimeout(() => { try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {} }, 3000);
-
-                        // Now call setMember (may synchronously dispatch a prefill event)
-                        try { renderYearhanger.setMember(memberId); } catch(_) {}
-                        // If renderYearhanger already had a value synchronously and didn't
-                        // dispatch, call member-info as a fallback
-                        try {
-                          const current = (renderYearhanger && typeof renderYearhanger.getValue === 'function') ? renderYearhanger.getValue() : null;
-                          if (current) {
-                            try { if (window.__memberInfo && typeof window.__memberInfo.setMember === 'function') window.__memberInfo.setMember(memberId); } catch(_) {}
-                            try { if (typeof ensureResultVisibleAndScroll === 'function') ensureResultVisibleAndScroll(); } catch(_) {}
-                            try { document.removeEventListener('yearhanger:changed', onYearChanged); } catch(_) {}
-                            try { clearTimeout(yrTimeout); } catch(_) {}
-                          }
-                        } catch(_) {}
-                      } catch (e) { console.error('yearhanger prefill wiring failed', e); }
-                    } catch (e) { console.error('lunch:completed handler failed', e); }
-                  });
-                  window.__yearhanger_lunch_listener_index = true;
-                }
-              } catch(_) {}
-            </script>
-
-            <!-- Suggestions list removed (centralized search will be provided later) -->
-            <div id="error" class="error" style="display:none"></div>
-            <div id="loadingIndicator" class="loading-indicator" style="display:none;">
-              <div class="spinner"></div>
-              <span class="loading-text">Gegevens laden...</span>
-            </div>
-            <div id="result" class="result" style="display:none">
-              <div id="memberInfoMount"></div>
-              <div id="memberInfoQRWrap" style="margin-top:12px; display:none; align-items:center; justify-content:center; gap:8px; flex-direction:column; text-align:center; width:100%;">
-                <img id="memberInfoQRImg" alt="Member data QR" style="width:100%; height:auto; max-width:420px; aspect-ratio:1/1; border-radius:6px; background:#fff; display:block; object-fit:contain;" />
-              </div>
-            </div>
-            <script type="module">
-              import renderMemberInfo from '/src/member-info.js';
-              import { renderYearhanger } from '/src/yearhanger-ui.js';
-              import { db, doc, onSnapshot, getDoc } from '/src/firebase.js';
-              try {
-                const mount = document.getElementById('memberInfoMount');
-                window.__memberInfo = renderMemberInfo(mount);
-
-                // Track current selection and which members had lunch:completed
-                window.__current_selected_member = window.__current_selected_member || null;
-                window.__lunch_completed_members = window.__lunch_completed_members || new Set();
-
-                // Helper to place the result block directly after the local jaarhanger row
-                function placeResultUnderYearhanger() {
-                  try {
-                    const yr = document.getElementById('yearhangerRow_local') || document.getElementById('yearhangerRow');
-                    const result = document.getElementById('result');
-                    if (!yr || !result) return;
-                    // Move the result node to directly follow the jaarhanger row
-                    if (yr.parentNode && result.parentNode !== yr.parentNode) {
-                      yr.parentNode.insertBefore(result, yr.nextSibling);
-                    } else if (yr.parentNode && result.parentNode === yr.parentNode) {
-                      // ensure order
-                      yr.parentNode.insertBefore(result, yr.nextSibling);
-                    }
-                  } catch (e) { console.warn('placeResultUnderYearhanger failed', e); }
-                }
-
-                function showResult(show) {
-                  try {
-                    const result = document.getElementById('result');
-                    if (!result) return;
-                    result.style.display = show ? 'block' : 'none';
-                  } catch (e) { console.warn('showResult failed', e); }
-                }
-
-                // Listen for jaarhanger changes — only reveal the result when lunch
-                // completion has been recorded for that member. This prevents the
-                // jaarhanger UI from appearing before lunch choices are handled.
-                document.addEventListener('yearhanger:changed', (ev) => {
-                  try {
-                    const val = ev && ev.detail && ev.detail.value ? ev.detail.value : null;
-                    const evMember = ev && ev.detail && ev.detail.memberId ? String(ev.detail.memberId) : null;
-                    const current = window.__current_selected_member ? String(window.__current_selected_member) : null;
-                    const memberToCheck = evMember || current;
-                    try { const hasCompleted = !!(memberToCheck && window.__lunch_completed_members && window.__lunch_completed_members.has(memberToCheck)); console.debug('index: yearhanger:changed', { val, evMember, current, memberToCheck, hasCompleted }); } catch(_) {}
-                    if (memberToCheck && window.__lunch_completed_members && window.__lunch_completed_members.has(memberToCheck)) {
-                      placeResultUnderYearhanger();
-                      showResult(!!val);
-                    } else {
-                      showResult(false);
-                    }
-                  } catch (e) { console.error('yearhanger:changed handler failed', e); }
-                });
-
-                // Initial check: if the jaarhanger module already has a value from Firestore,
-                // show result only if that prefill is present (renderYearhanger may have
-                // dispatched a prefill event already). We prefer listening for the
-                // `yearhanger:changed` prefills; as a safety, if getValue() returns a
-                // truthy value and no lunch is required, reveal it.
-                try {
-                  if (renderYearhanger && typeof renderYearhanger.getValue === 'function') {
-                    const v = renderYearhanger.getValue();
-                    if (v) {
-                      // If lunch completion is required we will wait for it; otherwise show.
-                      // Here we conservatively show only when there is no lunch section present
-                      // or when lunch mount indicates no interaction required.
-                      const lunchMountEl = document.getElementById('lunchChoiceSection');
-                      const requiresLunch = lunchMountEl && String(lunchMountEl.innerHTML || '').trim().length > 0;
-                      if (!requiresLunch) {
-                        placeResultUnderYearhanger();
-                        showResult(true);
-                      }
-                    }
-                  }
-                } catch (e) { /* ignore */ }
-
-              } catch (e) { console.error('member-info mount failed (index)', e); }
-              document.addEventListener('member-search:selected', (ev) => {
-                try {
-                  const id = ev && ev.detail && ev.detail.id ? ev.detail.id : null;
-                  try { console.debug('index: member-search:selected (member-info)', id); } catch(_) {}
-                  window.__current_selected_member = id ? String(id) : null;
-                  // selection handled by lunch widget; member-info will be shown when jaarhanger emits a value
-                } catch (e) { console.error('member-info: selection handler suppressed (index)', e); }
-              });
-
-              // --- QR wiring: listen for member selection or lunch completion and render QR ---
-              let __qrUnsub = null;
-              function hideQR() {
-                try { const wrap = document.getElementById('memberInfoQRWrap'); if (wrap) wrap.style.display = 'none'; } catch(_) {}
-              }
-
-              function ensureQRLib() {
-                return new Promise((resolve, reject) => {
-                  if (window.QRCode && typeof window.QRCode.toDataURL === 'function') return resolve(window.QRCode);
-                  // load qrcode library from jsdelivr
-                  const src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js';
-                  // don't inject twice
-                  if (document.querySelector('script[data-qr-lib]')) {
-                    // wait for onload
-                    const s = document.querySelector('script[data-qr-lib]');
-                    s.addEventListener('load', () => resolve(window.QRCode));
-                    s.addEventListener('error', () => reject(new Error('QR lib failed')));
-                    return;
-                  }
-                  const s = document.createElement('script');
-                  s.setAttribute('data-qr-lib', '1');
-                  s.src = src;
-                  s.onload = () => resolve(window.QRCode);
-                  s.onerror = () => reject(new Error('Failed to load QR lib'));
-                  document.head.appendChild(s);
-                });
-              }
-
-              async function renderQRForData(d) {
-                try {
-                  const qrWrap = document.getElementById('memberInfoQRWrap');
-                  const qrImg = document.getElementById('memberInfoQRImg');
-                  if (!qrWrap || !qrImg) return;
-                  const lid = d.id || d.lid || d.LidNr || d.member || d.uid || '';
-                  // Prefer Firestore value but allow UI to override below
-                  const fsJaarhanger = d.Jaarhanger || d.jaarhanger || d.Jaarhangers || d.JaarhangerY || '';
-                  const scansRaw = Array.isArray(d.ScanDatums) ? d.ScanDatums : (Array.isArray(d.scandatums) ? d.scandatums : []);
-                  const scanNormalized = (Array.isArray(scansRaw) ? scansRaw.map(v => {
-                    try { if (typeof v === 'string') { const m = v.match(/\d{4}-\d{2}-\d{2}/); if (m) return m[0]; }
-                          const dt = new Date(v); if (!isNaN(dt)) return dt.toISOString().slice(0,10); } catch(_) {}
-                    return String(v);
-                  }).filter(Boolean) : []);
-                  // Read current UI selections (if operator selected but not saved to Firestore)
-                  const uiLunchYes = document.getElementById('lunchYes');
-                  const uiLunchNo = document.getElementById('lunchNo');
-                  const uiLunchDeelname = uiLunchYes && uiLunchYes.classList.contains('active') ? 'ja'
-                                        : uiLunchNo && uiLunchNo.classList.contains('active') ? 'nee'
-                                        : null;
-                  let uiLunchKeuze = null;
-                  const keuzeWrap = document.getElementById('keuzeEtenButtons');
-                  if (keuzeWrap) {
-                    const activeBtn = keuzeWrap.querySelector('button.active');
-                    if (activeBtn) uiLunchKeuze = (activeBtn.textContent || '').trim();
-                  }
-                  const uiYYes = document.getElementById('yearhangerYes');
-                  const uiYNo  = document.getElementById('yearhangerNo');
-                  const uiJaarhanger = uiYYes && uiYYes.classList.contains('active') ? 'Ja'
-                                     : uiYNo && uiYNo.classList.contains('active') ? 'Nee'
-                                     : null;
-
-                  // Final values: UI overrides Firestore when present
-                  const finalJaarhanger = (uiJaarhanger !== null) ? uiJaarhanger : (fsJaarhanger || null);
-                  const finalLunchDeelname = (uiLunchDeelname !== null) ? uiLunchDeelname : (d.lunchDeelname || d.LunchDeelname || d.lunch || d.Lunch || null);
-                  const finalLunchKeuze = (uiLunchKeuze !== null) ? uiLunchKeuze : (d.LunchKeuze || d.lunchKeuze || d.lunchKeuzeKeuze || null);
-                  const lunchRide = d.LunchRideDateYMD || d.lunchRideDateYMD || d.LunchRideDate || '';
-
-                  // Build payload only with non-empty values so admin scanner doesn't overwrite with empty strings
-                  const payloadObj = {};
-                  if (lid) payloadObj.uid = String(lid || '');
-                  if (finalJaarhanger) payloadObj.Jaarhanger = finalJaarhanger;
-                  if (Array.isArray(scanNormalized) && scanNormalized.length) payloadObj.ScanDatums = scanNormalized;
-                  if (finalLunchDeelname) payloadObj.lunchDeelname = finalLunchDeelname;
-                  if (finalLunchKeuze) payloadObj.lunchKeuze = finalLunchKeuze;
-                  if (lunchRide) payloadObj.LunchRideDateYMD = lunchRide;
-
-                  const payloadStr = JSON.stringify(payloadObj);
-                  const hasAny = (payloadObj.uid && String(payloadObj.uid).trim()) || (Array.isArray(payloadObj.ScanDatums) && payloadObj.ScanDatums.length) || payloadObj.Jaarhanger || payloadObj.lunchDeelname || payloadObj.lunchKeuze || payloadObj.LunchRideDateYMD;
-                  if (!hasAny) { qrWrap.style.display = 'none'; return; }
-
-                  // Try to generate a data URL locally using qrcode lib (sized to container width)
-                  try {
-                    await ensureQRLib();
-                    // Size QR to the parent container width so it fills available space
-                    const container = qrImg.parentElement;
-                    const measured = (container && container.clientWidth) || qrImg.getBoundingClientRect().width || 300;
-                    const drawSize = Math.min(Math.max(160, Math.floor(measured)), 1024);
-                    const internalSize = Math.floor(drawSize * (window.devicePixelRatio || 1));
-                    const dataUrl = await new Promise((resolve, reject) => {
-                      try {
-                        // QRCode.toDataURL(payload, opts, callback)
-                        window.QRCode.toDataURL(payloadStr, { width: internalSize }, (err, url) => err ? reject(err) : resolve(url));
-                      } catch (e) { reject(e); }
-                    });
-                    qrImg.src = dataUrl;
-                    try { qrWrap.style.display = 'flex'; qrWrap.style.alignItems = 'center'; } catch(_) {}
-                    return;
-                  } catch (e) {
-                    console.debug('QR lib failed, falling back to Google Chart image:', e);
-                  }
-
-                  // Fallback: Google Chart endpoint sized to container
-                  try {
-                    const container = qrImg.parentElement;
-                    const measured = (container && container.clientWidth) || qrImg.getBoundingClientRect().width || 300;
-                    const drawSize = Math.min(Math.max(160, Math.floor(measured)), 1024);
-                    const encoded = encodeURIComponent(payloadStr);
-                    qrImg.src = `https://chart.googleapis.com/chart?cht=qr&chs=${drawSize}x${drawSize}&chl=${encoded}&choe=UTF-8`;
-                    try { qrWrap.style.display = 'flex'; qrWrap.style.alignItems = 'center'; } catch(_) {}
-                    return;
-                  } catch (e) {
-                    console.warn('Both QR generation methods failed', e);
-                    try { qrWrap.style.display = 'none'; } catch(_) {}
-                  }
-                } catch (e) { console.warn('index: renderQRForData failed', e); }
-              }
-
-              async function setupMemberQR(memberId) {
-                try { if (__qrUnsub) { __qrUnsub(); __qrUnsub = null; } } catch(_) {}
-                if (!memberId) { hideQR(); return; }
-                try {
-                  const ref = doc(db, 'members', String(memberId));
-                  __qrUnsub = onSnapshot(ref, (snap) => {
-                    try {
-                      if (!snap.exists()) { hideQR(); return; }
-                      const data = snap.data() || {};
-                      data.id = snap.id;
-                      renderQRForData(data);
-                    } catch (e) { console.warn('index: qr snapshot handler failed', e); }
-                  }, (err) => { console.warn('index: qr onSnapshot error', err); });
-                } catch (e) {
-                  try { const snap = await getDoc(doc(db,'members',String(memberId))); if (snap && snap.exists()) renderQRForData(Object.assign({ id: snap.id }, snap.data())); else hideQR(); } catch(e2){ console.warn('index: qr fallback failed', e2); hideQR(); }
-                }
-              }
-
-              document.addEventListener('member-search:selected', (ev) => { try { const id = ev && ev.detail && ev.detail.id ? ev.detail.id : null; setupMemberQR(id); } catch(e) { console.warn('member-search:selected qr handler failed', e); } });
-              document.addEventListener('lunch:completed', (ev) => { try { const id = ev && ev.detail && ev.detail.memberId ? ev.detail.memberId : null; setupMemberQR(id); } catch(e) { console.warn('lunch:completed qr handler failed', e); } });
-
-              // If there's already a selected member, wire QR for it
-              try { if (window.__current_selected_member) setupMemberQR(window.__current_selected_member); } catch(_) {}
-
-              // Inline shared QR fullscreen helper (copied from `src/landelijke-signup.js`)
-              function openQrFullscreenFromCanvas(qrCanvas) {
-                try {
-                  const dataUrl = qrCanvas.toDataURL("image/png");
-                  const overlay = document.createElement("div");
-                  overlay.id = "qrFullscreenOverlay";
-                  overlay.style.position = "fixed";
-                  overlay.style.inset = "0";
-                  overlay.style.background = "rgba(0,0,0,0.95)";
-                  overlay.style.display = "flex";
-                  overlay.style.alignItems = "center";
-                  overlay.style.justifyContent = "center";
-                  overlay.style.zIndex = "9999";
-                  overlay.style.cursor = "zoom-out";
-                  overlay.setAttribute("role", "dialog");
-                  overlay.setAttribute("aria-label", "QR-code fullscreen");
-
-                  const img = document.createElement("img");
-                  img.src = dataUrl;
-                  img.alt = "QR-code";
-                  img.style.width = "100vmin";
-                  img.style.height = "100vmin";
-                  img.style.imageRendering = "pixelated";
-
-                  const hint = document.createElement("div");
-                  hint.textContent = "Klik om te sluiten";
-                  hint.style.position = "fixed";
-                  hint.style.bottom = "24px";
-                  hint.style.left = "50%";
-                  hint.style.transform = "translateX(-50%)";
-                  hint.style.color = "#e5e7eb";
-                  hint.style.fontSize = "14px";
-                  hint.style.opacity = "0.8";
-
-                  function close() {
-                    try { document.removeEventListener("keydown", onKey); } catch(_) {}
-                    overlay.remove();
-                  }
-                  function onKey(e) { if (e.key === "Escape") close(); }
-                  overlay.addEventListener("click", close, { passive: true });
-                  document.addEventListener("keydown", onKey);
-
-                  overlay.appendChild(img);
-                  overlay.appendChild(hint);
-                  document.body.appendChild(overlay);
-                } catch (e) {
-                  console.error("QR fullscreen overlay faalde:", e);
-                }
-              }
-
-              // --- QR fullscreen handler using openQrFullscreenFromCanvas ---
-              try {
-                const qrImgEl = document.getElementById('memberInfoQRImg');
-                const qrNotice = document.getElementById('memberInfoQRNotice');
-                if (qrImgEl) {
-                  qrImgEl.addEventListener('click', async (ev) => {
-                    try {
-                      if (qrNotice) qrNotice.style.display = 'none';
-                      // Create a temporary canvas and draw the image onto it, then
-                      // call the shared fullscreen helper so behaviour matches.
-                      const img = qrImgEl;
-                      const canvas = document.createElement('canvas');
-                      const w = img.naturalWidth || img.width || 600;
-                      const h = img.naturalHeight || img.height || w;
-                      canvas.width = w;
-                      canvas.height = h;
-                      const ctx = canvas.getContext('2d');
-                      ctx.fillStyle = '#ffffff';
-                      ctx.fillRect(0,0,w,h);
-                      // draw image centered and scaled to canvas
-                      ctx.drawImage(img, 0, 0, w, h);
-                      // Use the exported helper to open the overlay (it handles Esc/click)
-                      try { openQrFullscreenFromCanvas(canvas); } catch (e) { console.warn('openQrFullscreenFromCanvas failed', e); }
-                    } catch (e) {
-                      console.warn('QR fullscreen open failed', e);
-                    }
-                  });
-                }
-              } catch (_) {}
-            </script>
-          </div>
-        </section>
-      </section>
-    </main>
-
-    <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
-
-    <script type="module" src="/src/main.js"></script>
-    <!-- Member search initialization removed to decouple local input-driven queries -->
-  </body>
+  </main>
+  <!-- Footer (semantic, controlled by CSS) -->
+    <footer class="app-footer" role="contentinfo">
+    <div class="app-footer__inner">
+      <button class="app-footer__button" id="agree-index" onclick="location.href='lid-ui/signupPage.html'">Ja, ik ga akkoord</button>
+    </div>
+  </footer>
+  <script type="module" src="src/member.js"></script>
+  <script>
+    // Dump sessionStorage on every page load for debugging
+    (function dumpSessionOnLoad(){
+      try{
+        function snapshot(){
+          const out = {};
+          for(let i=0;i<sessionStorage.length;i++){
+            const k = sessionStorage.key(i);
+            try{ out[k] = JSON.parse(sessionStorage.getItem(k)); }catch(_){ out[k] = sessionStorage.getItem(k); }
+          }
+          return out;
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=> console.debug('sessionStorage snapshot on load', snapshot()));
+        else console.debug('sessionStorage snapshot on load', snapshot());
+      }catch(e){ console.warn('dumpSessionOnLoad failed', e); }
+    })();
+  </script>
+</body>
 </html>

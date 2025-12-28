@@ -1,22 +1,15 @@
 {
-  "name": "shadow-app-mobile",
+  "name": "new-ui",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host --port 5173 --strictPort",
+    "dev": "vite --host --port 3000 --strictPort",
     "build": "vite build && node scripts/copy-static.js",
-    "serve:dist": "npx http-server dist -p 8080 --cors",
-    "preview": "vite preview --port 4173",
-    "serve": "vite preview"
-  },
-  "engines": {
-    "node": ">=18 <21"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "firebase": "^10.13.1",
-    
-    "xlsx": "^0.18.5"
+    "firebase": "^9.22.1"
   },
   "devDependencies": {
     "vite": "^5.4.0"

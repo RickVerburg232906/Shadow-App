@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Handmatige Keuzes</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind removed; styles use new-ui/style.css -->
+<!-- small helper rules moved to new-ui/style.css -->
+  <link rel="stylesheet" href="../style.css"/>
+<script src="../assets/header-date.js" defer></script>
+</head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+            <button id="back-button" class="back-button" aria-label="Terug">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+      <div class="title-container">
+        <h1 class="page-title">Handmatig</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
+</header>
+<main class="main-content">
+      <div class="surface-card card-divider">
+        <label class="form-label">
+          <span class="form-label__title">Voor of Achternaam</span>
+          <div class="icon-input" style="position:relative;">
+            <span class="material-symbols-outlined icon-left">person</span>
+            <input id="participant-name-input-manual" class="form-input" placeholder="Bijv. Rick" type="text" value="" autocomplete="off" />
+            <div id="name-suggestions-manual" class="member-suggestions" aria-hidden="true"></div>
+          </div>
+        </label>
+      </div>
+<div id="lunch-choices-host" aria-hidden="true" hidden>
+    <div class="surface-card">
+        <div class="card-body">
+            <h2>Lunch Keuze</h2>
+            <p class="muted-text">Selecteer het type lunch voor de deelnemer.</p>
+
+            <div id="eetmee-host">
+                <h3 class="choice-title">Eet mee?</h3>
+                <div class="choice-grid">
+                    <label class="choice-option">
+                        <input class="sr-only" name="eetmee" value="ja" type="radio" />
+                        <div class="choice-card">Ja</div>
+                    </label>
+                    <label class="choice-option">
+                        <input class="sr-only" name="eetmee" value="nee" type="radio" />
+                        <div class="choice-card choice-card--danger">Nee</div>
+                    </label>
+                </div>
+            </div>
+
+            <div id="lunch-choices-list" class="choice-list" aria-hidden="true"></div>
+
+            <div class="section-header" style="margin-top:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span class="material-symbols-outlined">info</span>
+                    <div class="muted-text">Inclusief: <span id="inclusief-list" class="font-medium">Laden…</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="jaarhanger-host" class="surface-card card-divider" style="margin-bottom: 8px;" aria-hidden="true" hidden>
+    <div class="card-body">
+        <h2>Jaarhanger Keuze</h2>
+        <p class="muted-text">Wil de deelnemer een jaarhanger ontvangen?</p>
+        <div class="choice-grid">
+            <label class="choice-option"><input class="sr-only" name="jaarhanger" value="ja" type="radio"/><div class="choice-card">Ja</div></label>
+            <label class="choice-option"><input class="sr-only" name="jaarhanger" value="nee" type="radio"/><div class="choice-card choice-card--danger">Nee</div></label>
+        </div>
+    </div>
+</div>
+<!-- handmatige-keuzes script removed; manual-page logic moved/disabled -->
+    </main>
+
+<div class="app-footer">
+    <div class="app-footer__inner">
+        <button id="save-manual-button" class="app-footer__button">Inschrijven</button>
+    </div>
+</div>
+
+</body></html>
+<script type="module" src="../src/inschrijftafel.js"></script>
+<script type="module" src="../src/member.js"></script>

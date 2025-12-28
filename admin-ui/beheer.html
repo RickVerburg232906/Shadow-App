@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html class="" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inschrijftafel</title>
+<script>
+  // Provide a global firebaseConfigDev for legacy/bundled scripts
+  window.firebaseConfigDev = {
+    apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
+    authDomain: "shadow-app-b3fb3.firebaseapp.com",
+    projectId: "shadow-app-b3fb3",
+    storageBucket: "shadow-app-b3fb3.firebasestorage.app",
+    messagingSenderId: "38812973319",
+    appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
+  };
+  var firebaseConfigDev = window.firebaseConfigDev;
+</script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../style.css"/>
+</head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+            <a id="home-button" class="back-button home-button" aria-label="Home" href="../index.html">
+                <span class="material-symbols-outlined">home</span>
+            </a>
+      <div class="title-container">
+        <h1 class="page-title">Beheer</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
+</header>
+
+<main class="main-content">
+  <section id="rides-planner" class="card rides-planner">
+    <header class="card-header">
+      <h2 class="card-title">Ritten plannen</h2>
+      <p class="card-subtitle">Vul minimaal 5 datums in (6e is optioneel).</p>
+    </header>
+    <div class="card-body">
+      <form id="plan-rides-form" class="plan-rides-form" novalidate>
+        <div class="date-grid">
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate1" placeholder="mm/dd/yyyy" />
+            <select class="region-select" name="region1">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate2" />
+            <select class="region-select" name="region2">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate3" />
+            <select class="region-select" name="region3">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate4" />
+            <select class="region-select" name="region4">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate5" />
+            <select class="region-select" name="region5">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+          <div class="date-row">
+            <input class="date-input" type="date" name="rideDate6" />
+            <select class="region-select" name="region6">
+              <option value="" selected disabled>Vul regio in</option>
+              <option value="Midden">Midden</option>
+              <option value="Noordoost">Noordoost</option>
+              <option value="Noordwest">Noordwest</option>
+              <option value="Zuid">Zuid</option>
+              <option value="Zuidwest">Zuidwest</option>
+            </select>
+          </div>
+        </div>
+      </form>
+    </div>
+    </section>
+
+    <div class="export-hero-left card-divider" style="width: 100%;">
+      <div class="export-hero-icon" aria-hidden="true">
+        <span class="material-symbols-outlined">download</span>
+      </div>
+      <h3 class="export-hero-title">Data Exporteren</h3>
+    </div>
+    <section id="data-export" class="card export-card card-divider" aria-labelledby="export-title">
+      <div class="export-list">
+        <button id="export-csv" class="export-button" type="button" aria-label="Export deelnemerslijst (CSV)">
+          <div class="export-item-left">
+            <div class="export-item-icon" aria-hidden="true">
+              <span class="material-symbols-outlined">table_chart</span>
+            </div>
+            <div class="export-item-content">
+              <span class="export-item-title">Deelnemerslijst (CSV)</span>
+              <span class="export-item-sub">Alle actieve registraties</span>
+            </div>
+          </div>
+          <span class="material-symbols-outlined export-item-action">download</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+    <!-- Toegangsbeheer -->
+
+    <div class="export-hero-left card-divider" style="width: 100%;">
+      <div class="export-hero-icon" aria-hidden="true">
+        <span class="material-symbols-outlined">lock_reset</span>
+      </div>
+      <h3 class="export-hero-title">Toegangsbeheer</h3>
+    </div>
+    <section class="access-control full-width" aria-labelledby="access-title" style="width:100%; margin-top:12px; display:block;">
+        <div class="access-list" style="display:flex; flex-direction:column; gap:12px;">
+          <div class="terms-card__card" style="padding:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; border-bottom:1px solid rgba(243,244,246,1); padding-bottom:8px;">
+              <span class="material-symbols-outlined">badge</span>
+              <h4 style="margin:0; font-weight:700; color:#0f1724;">Wachtwoord Inschrijftafel</h4>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label class="form-label">
+                <div class="icon-input" style="position:relative; padding-right:12px;">
+                  <span class="material-symbols-outlined icon-left">lock</span>
+                  <input id="pwd-inschrijf-input" class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                </div>
+              </label>
+              <button id="pwd-inschrijf-save" class="primary-button">Opslaan</button>
+            </div>
+          </div>
+
+          <div class="terms-card__card" style="padding:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; border-bottom:1px solid rgba(243,244,246,1); padding-bottom:8px;">
+              <span class="material-symbols-outlined">admin_panel_settings</span>
+              <h4 style="margin:0; font-weight:700; color:#0f1724;">Wachtwoord Administrator</h4>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label class="form-label">
+                <div class="icon-input" style="position:relative; padding-right:12px;">
+                  <span class="material-symbols-outlined icon-left">lock</span>
+                  <input id="pwd-admin-current" class="form-input" placeholder="Huidig wachtwoord" type="password" />
+                </div>
+              </label>
+              <label class="form-label">
+                <div class="icon-input" style="position:relative; padding-right:12px;">
+                  <span class="material-symbols-outlined icon-left">lock</span>
+                  <input id="pwd-admin-new" class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                </div>
+              </label>
+              <button id="pwd-admin-save" class="primary-button">Wijzig Admin Wachtwoord</button>
+            </div>
+          </div>
+      </div>
+    </section>
+</main>
+<footer class="app-footer" role="contentinfo">
+        <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">
+  <div class="admin-bottom-inner">
+    <a href="../admin-ui/inschrijftafel.html" class="bottom-nav-item" aria-label="Inschrijftafel">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">qr_code_scanner</span>
+      <span class="nav-label">Inschrijftafel</span>
+    </a>
+    <a href="../admin-ui/beheer.html" class="bottom-nav-item" aria-label="Beheer">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">settings</span>
+      <span class="nav-label">Beheer</span>
+    </a>
+    <a href="../admin-ui/voorbereiding.html" class="bottom-nav-item" aria-label="Voorbereiding">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">build</span>
+      <span class="nav-label">Voorbereiding</span>
+    </a>
+    <a href="../admin-ui/data.html" class="bottom-nav-item" aria-label="Data">
+      <span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span>
+      <span class="nav-label">Data</span>
+    </a>
+  </div>
+</nav>
+</footer>
+<script type="module">
+  import { initInschrijftafel } from '../src/inschrijftafel.js';
+  initInschrijftafel();
+</script>
+<script src="../assets/header-date.js" defer></script>
+<script type="module">
+  import { initBeheer } from '../src/beheer.js';
+  // initialize beheer UI (populate planned dates)
+  initBeheer();
+</script>
+<!-- Admin bottom navigation (visible only for admins via JS) -->
+</body></html>

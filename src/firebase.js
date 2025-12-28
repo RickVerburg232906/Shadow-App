@@ -1,9 +1,9 @@
-import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, orderBy, startAt, startAfter as _startAfter, endAt, limit, getDocs as _getDocs, getDoc as _getDoc, doc, writeBatch as _writeBatch, setDoc as _setDoc, addDoc as _addDoc, serverTimestamp, increment, arrayUnion, runTransaction as _runTransaction, updateDoc as _updateDoc, deleteDoc as _deleteDoc, onSnapshot as _onSnapshot } from "firebase/firestore";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, orderBy, startAt, startAfter as _startAfter, endAt, limit, getDocs as _getDocs, getDoc as _getDoc, doc, writeBatch as _writeBatch, setDoc as _setDoc, addDoc as _addDoc, serverTimestamp, increment, arrayUnion, runTransaction as _runTransaction, updateDoc as _updateDoc, deleteDoc as _deleteDoc, onSnapshot as _onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 // arrayUnion exporteren voor gemak
 // (optioneel, admin.js importeert direct uit firebase/firestore)
 
-import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js";
 
 // --- Firebase configs for different environments ---
 // Keep the existing config as the development config.
@@ -73,6 +73,15 @@ export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true
 });
 export const storage = getStorage(app);
+
+export function initFirebase(config) {
+  try {
+    if (config) {
+      try { initializeApp(config); } catch(_) { /* already initialized or ignored */ }
+    }
+  } catch (_) {}
+  return db;
+}
 
 // --- Firestore metrics tracking ---
 // Global counters and a small reporter (exposed on window for debugging)
@@ -162,5 +171,4 @@ const writeBatch = function(dbRef) {
 const onSnapshot = wrapOnSnapshot(_onSnapshot);
 
 // Re-export helpers
-export { addDoc, arrayUnion, collection, doc, endAt, getDoc, getDocs, increment, limit, orderBy, query, ref, serverTimestamp, setDoc, startAt, startAfter, uploadBytes, where, writeBatch, runTransaction, updateDoc, deleteDoc, onSnapshot };
-
+export { addDoc, arrayUnion, collection, doc, endAt, getDoc, getDocs, increment, limit, orderBy, query, ref, serverTimestamp, setDoc, startAt, startAfter, uploadBytes, uploadBytesResumable, getDownloadURL, where, writeBatch, runTransaction, updateDoc, deleteDoc, onSnapshot };

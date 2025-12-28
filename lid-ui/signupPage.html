@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Custom stylesheet (replaces Tailwind) -->
+<link rel="stylesheet" href="../style.css"/>
+<script src="../assets/header-date.js" defer></script>
+  </head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+      <button id="back-button" class="back-button" aria-label="Terug">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div class="title-container">
+        <h1 class="page-title">Inschrijven</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
+</header>
+<main class="main-content">
+  <div class="terms-card">
+    <div class="terms-card__card">
+        <div class="accent-bar accent-bar--yellow"></div>
+        <div class="terms-card__content">
+          <h1 class="terms-card__heading">Inschrijven voor Landelijke Rit</h1>
+          <p class="terms-card__text">Vul hieronder je voor of achternaam en selecteer jezelf uit de lijst.</p>
+        </div>
+      </div>
+
+      <!-- Sign-up form (uses only new-ui/style.css classes) -->
+      <div class="surface-card card-divider">
+        <label class="form-label">
+          <span class="form-label__title">Voor of Achternaam</span>
+          <div class="icon-input">
+            <span class="material-symbols-outlined icon-left">person</span>
+            <input class="form-input" placeholder="Bijv. Rick" type="text" value="" />
+          </div>
+          <p class="muted-text">Deze naam wordt gebruikt voor het inschrijven.</p>
+        </label>
+      </div>
+  </div>
+</main>
+<footer class="app-footer" role="contentinfo">
+  <div class="app-footer__inner">
+    <button class="app-footer__button" id="agree-signup">Doorgaan</button>
+  </div>
+</footer>
+
+<script type="module">
+  (async ()=>{
+    try{
+      await import('../src/member.js');
+    }catch(err){
+      console.error('Failed importing ../src/member.js', err);
+      try{
+        const url = new URL('../src/member.js', location.href).href;
+        const resp = await fetch(url, { cache: 'no-store' });
+        const text = await resp.text().catch(()=>'<no-body>');
+        console.error('Server response for', url, ':', resp.status, resp.statusText);
+        console.error('Response body (first 2000 chars):\n', String(text).slice(0,2000));
+      }catch(e){ console.error('Failed fetching module body', e); }
+      throw err;
+    }
+  })();
+</script>
+</body>
+</html>

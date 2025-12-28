@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+
+<html class="" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inschrijftafel</title>
+<script>
+  // Provide a global firebaseConfigDev for legacy/bundled scripts
+  window.firebaseConfigDev = {
+    apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
+    authDomain: "shadow-app-b3fb3.firebaseapp.com",
+    projectId: "shadow-app-b3fb3",
+    storageBucket: "shadow-app-b3fb3.firebasestorage.app",
+    messagingSenderId: "38812973319",
+    appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
+  };
+  var firebaseConfigDev = window.firebaseConfigDev;
+</script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../style.css"/>
+<script src="../assets/header-date.js" defer></script>
+</head>
+<body class="app light">
+<header class="nav-header">
+    <div class="nav-inner">
+    
+            <a id="home-button" class="back-button home-button" aria-label="Home" href="../index.html">
+                <span class="material-symbols-outlined">home</span>
+            </a>
+      <div class="title-container">
+        <h1 class="page-title">Voorbereiding</h1>
+        <span class="header-date" aria-hidden="true"></span>
+      </div>
+      <img class="header-logo" src="../assets/logo_MC_nieuw_trans_300.gif" alt="MC logo">
+    </div>
+</header>
+<main class="main-content">
+
+  <section class="lunch-planner-section" style="width:100%; margin:0 auto;">
+    <div class="planner-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+      <div style="padding-left: 8px;">
+        <h3 class="section-title">Lunch inplannen</h3>
+        <p class="muted-text" id="next-ride-date" style="margin:4px 0 0; text-align: left;">Laden...</p>
+      </div>
+      <div aria-hidden="true">
+        <span class="material-symbols-outlined" style="color:rgba(99,102,120,0.75);font-size:22px;">restaurant</span>
+      </div>
+    </div>
+
+    <div class="terms-card__card">
+      <div class="terms-card__content">
+        <!-- Vast eten -->
+        <div style="margin-bottom:12px;">
+          <div class="terms-card__row" style="text-align: left;">
+            <div>
+              <h4 class="terms-card__heading" style="font-size:1rem; margin:0;">Vast eten</h4>
+              <p class="terms-card__text" style="font-size:0.85rem; margin-top:6px;">Dit eten krijgt iedereen, ongeacht hun keuze.</p>
+            </div>
+          </div>
+
+          <div class="vast-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+
+          <button id="add-vast" class="primary-button" style="margin-top:12px; height:40px;"> 
+            <span class="material-symbols-outlined" style="margin-right:8px; font-size:18px;">add</span>
+            Voeg item toe
+          </button>
+        </div>
+
+        <hr style="border:none;border-top:1px solid rgba(243,244,246,1);margin:12px 0;">
+
+        <!-- Keuze eten -->
+        <div>
+          <div style="text-align: left;">
+            <h4 class="terms-card__heading" style="font-size:1rem; margin:0;">Keuze eten</h4>
+            <p class="terms-card__text" style="font-size:0.85rem; margin-top:6px;">Leden kunnen één optie kiezen.</p>
+          </div>
+
+          <div class="keuze-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+
+          <button id="add-keuze" class="primary-button" style="margin-top:12px; height:40px;"> 
+            <span class="material-symbols-outlined" style="margin-right:8px; font-size:18px;">add</span>
+            Voeg optie toe
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="data-section">
+    <div class="data-spacer"></div>
+    <div class="data-divider" aria-hidden="true"></div>
+    <div class="flex flex-col mt-4" style="padding:0 12px; margin-bottom: 12px;">
+      <div class="data-top" style="padding:8px 0;">
+        <h3 class="text-neutral-dark text-xl font-bold">Data up to date houden</h3>
+        <span class="material-symbols-outlined" style="color:rgba(107,114,128,0.8);">sync</span>
+      </div>
+        <div class="data-card">
+          <div class="data-card-inner" style="position:relative; z-index:10;">
+            <div class="flex justify-between items-start">
+              <div>
+                <h4>Leden Data</h4>
+                <p class="data-meta">Status: <span id="data-status-badge" class="data-status-badge">XXX</span></p>
+                <p class="muted-small" style="margin-top:6px;"><span id="data-last-update">XXXX</span></p>
+              </div>
+                <div class="data-status-top" aria-hidden="true"><span class="material-symbols-outlined">cloud_off</span></div>
+            </div>
+
+            <!-- Excel upload dropzone -->
+            <div style="margin-top:12px; width:100%;">
+              <label class="data-upload-dropzone" aria-label="Upload ledenbestand (sleep hierheen)" style="display:flex;align-items:center;gap:12px;border:1px dashed rgba(245,158,11,0.35);padding:12px;border-radius:8px;cursor:pointer;"> 
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:28px;color:rgba(245,158,11,1);">upload_file</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:600;">Sleep hier uw Excel bestand (.xlsx)</div>
+                  <div class="muted-small">Of klik om te kiezen — alleen .xlsx/.xls</div>
+                </div>
+                <div class="data-upload-btn" style="margin-left:12px;display:flex;align-items:center;gap:8px;" hidden>
+                  <input type="file" accept=".xlsx,.xls" style="display:none" />
+                </div>
+              </label>
+            </div>
+            </div>
+        </div>
+      </div>
+    </div>
+    <div class="h-8"></div>
+  </section>
+</main>
+
+<footer class="app-footer" role="contentinfo">
+  <nav id="admin-bottom-nav" class="admin-bottom-nav" aria-hidden="true">
+    <div class="admin-bottom-inner">
+      <a href="../admin-ui/inschrijftafel.html" class="bottom-nav-item" aria-label="Inschrijftafel">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">qr_code_scanner</span>
+        <span class="nav-label">Inschrijftafel</span>
+      </a>
+      <a href="../admin-ui/beheer.html" class="bottom-nav-item" aria-label="Beheer">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">settings</span>
+        <span class="nav-label">Beheer</span>
+      </a>
+      <a href="../admin-ui/voorbereiding.html" class="bottom-nav-item" aria-label="Voorbereiding">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">build</span>
+        <span class="nav-label">Voorbereiding</span>
+      </a>
+      <a href="../admin-ui/data.html" class="bottom-nav-item" aria-label="Data">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span>
+        <span class="nav-label">Data</span>
+      </a>
+    </div>
+  </nav>
+</footer>
+<script type="module" src="../src/member.js"></script>
+<script type="module">
+  import { initInschrijftafel } from '../src/inschrijftafel.js';
+  initInschrijftafel();
+</script>
+<script type="module">
+  import { initVoorbereiding } from '../src/voorbereiding.js';
+  initVoorbereiding();
+</script>
+<!-- Admin bottom navigation (visible only for admins via JS) -->
+</body></html>
