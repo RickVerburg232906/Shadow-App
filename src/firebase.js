@@ -126,7 +126,7 @@ if (typeof window !== 'undefined') {
   window.__firebase_debug = showFirebaseDebug;
 }
 
-export { app, analytics, firebaseConfig, currentMode as isProd, switchFirebaseConfig, showFirebaseDebug };
+export { app, analytics, firebaseConfig, currentMode as isProd, switchFirebaseConfig, showFirebaseDebug, initFirebase };
 
 // Firestore / Storage exports for other modules
 const db = getFirestore(app);
