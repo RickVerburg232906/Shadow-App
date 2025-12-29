@@ -44,12 +44,18 @@ const explicit = hasMeta && import.meta.env.VITE_FIREBASE_ENV;
 const isDevServer = hasMeta && Boolean(import.meta.env.DEV);
 const isViteProd = hasMeta && Boolean(import.meta.env.PROD);
 
+// Allow a runtime override from legacy pages or manual tests.
+// Set `window.__FIREBASE_ENV__ = 'production'` or `window.FIREBASE_USE_PROD = true` before scripts load.
+const runtimeEnv = (typeof window !== 'undefined' && (window.__FIREBASE_ENV__ || (window.FIREBASE_USE_PROD ? 'production' : null))) || null;
+
 // Branch name available on Vercel as VERCEL_GIT_COMMIT_REF during build
 const branchName = (hasMeta && (import.meta.env.VERCEL_GIT_COMMIT_REF || import.meta.env.GIT_COMMIT_REF)) || (typeof process !== 'undefined' && process.env && (process.env.VERCEL_GIT_COMMIT_REF || process.env.GIT_COMMIT_REF)) || null;
 const vercelEnv = (hasMeta && import.meta.env.VERCEL_ENV) || (typeof process !== 'undefined' && process.env && process.env.VERCEL_ENV) || null;
 
 let firebaseEnv = 'development';
-if (explicit) {
+if (runtimeEnv) {
+  firebaseEnv = runtimeEnv;
+} else if (explicit) {
   firebaseEnv = explicit;
 } else if (vercelEnv) {
   // On Vercel: production only for the main branch
@@ -70,7 +76,7 @@ export const firebaseConfig = firebaseConfigs[firebaseEnv] || firebaseConfigProd
 export const firebaseEnvironment = firebaseEnv;
 
 try {
-  console.info('[Firebase] selected environment:', firebaseEnvironment, 'projectId:', firebaseConfig && firebaseConfig.projectId);
+  console.info('[Firebase] selected environment:', firebaseEnvironment, 'projectId:', firebaseConfig && firebaseConfig.projectId, 'runtimeEnv:', runtimeEnv, 'vercelEnv:', vercelEnv, 'branch:', branchName, 'viteProd:', isViteProd);
 } catch (_) {}
 
 const app = initializeApp(firebaseConfig);
