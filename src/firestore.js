@@ -2,7 +2,7 @@
 // Uses the project's development Firebase config (safe for local dev builds in this workspace).
 // Exports `getPlannedDates()` which returns an array of YYYY-MM-DD strings.
 
-import { db, doc, setDoc, serverTimestamp, firebaseConfig } from './firebase.js';
+import { db, doc, setDoc, serverTimestamp, firebaseConfig, collection, query as fbQuery, where, orderBy, limit as fbLimit, getDocs } from './firebase.js';
 
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
 
@@ -94,100 +94,53 @@ export async function searchMembers(prefix, maxResults = 8) {
   try {
     prefix = (prefix || '').trim();
     if (!prefix) return [];
-    const apiKey = firebaseConfig.apiKey;
-    const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const limitCount = Math.max(maxResults, 8);
 
-    // Use a single GREATER_THAN_OR_EQUAL query per field and filter <= prefix+\uffff on client side.
-    function escapeFieldPath(fieldPath) {
-      // Split dotted paths and quote tokens that contain characters
-      // outside [A-Za-z0-9_] by wrapping them in backticks.
-      // Firestore expects backticks around property names with spaces.
-      return fieldPath.split('.').map(tok => {
-        if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tok)) return tok;
-        return '`' + tok + '`';
-      }).join('.');
-    }
+    // Create prefix end for <= comparison
+    const endPrefix = prefix + '\\uf8ff';
 
-    const makeBody = (fieldPath, limitCount) => {
-      const fp = escapeFieldPath(fieldPath);
-      return {
-        structuredQuery: {
-          from: [{ collectionId: 'members' }],
-          where: {
-            fieldFilter: { field: { fieldPath: fp }, op: 'GREATER_THAN_OR_EQUAL', value: { stringValue: prefix } }
-          },
-          orderBy: [{ field: { fieldPath: fp }, direction: 'ASCENDING' }],
-          limit: limitCount
-        }
-      };
-    };
-
-    const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
-    const limitCount = Math.max(maxResults * 2, 16);
-    const bodies = [makeBody('Naam', limitCount), makeBody('Voor naam', limitCount)];
     const results = [];
-    for (const bdy of bodies) {
-      try {
-        const bodyStr = JSON.stringify(bdy);
-        const res = await fetch(url, Object.assign({}, opts, { body: bodyStr }));
-        if (!res.ok) {
-          const text = await res.text().catch(() => '<no body>');
-          console.warn('searchMembers: runQuery failed', res.status, res.statusText, text);
-          continue;
-        }
-        const arr = await res.json();
-        for (const entry of arr) {
-          if (entry && entry.document && entry.document.name) {
-            const id = entry.document.name.split('/').pop();
-            const f = entry.document.fields || {};
-            const naam = f.Naam ? (f.Naam.stringValue || '') : '';
-            const voor = f['Voor naam'] ? (f['Voor naam'].stringValue || '') : '';
-            results.push({ id, naam, voor });
-          }
-        }
-      } catch (e) {
-        console.error('searchMembers fetch error', e);
-      }
+
+    // Query by last name (`Naam`)
+    try {
+      const q = fbQuery(collection(db, 'members'), where('Naam', '>=', prefix), where('Naam', '<=', endPrefix), orderBy('Naam'), fbLimit(limitCount));
+      const snap = await getDocs(q);
+      snap.forEach(docSnap => {
+        try {
+          const data = docSnap.data && typeof docSnap.data === 'function' ? docSnap.data() : docSnap;
+          const naam = (data && (data.Naam || data.achternaam || data.Naam)) || '';
+          const voor = (data && (data['Voor naam'] || data.Voornaam || data.firstName || '')) || '';
+          results.push({ id: docSnap.id || String(docSnap._key && docSnap._key.path && docSnap._key.path.segments && docSnap._key.path.segments.slice(-1)[0] || ''), naam: String(naam || ''), voor: String(voor || '') });
+        } catch(_){}
+      });
+    } catch (e) {
+      console.warn('searchMembers: query by Naam failed', e);
     }
 
-    console.log('searchMembers: raw results count', results.length);
-
-    // Fallback: if runQuery returned nothing, fetch a modest page of members and filter client-side.
-    if (results.length === 0) {
-      try {
-        const listUrl = `${BASE_URL}/members?pageSize=200&key=${apiKey}`;
-        const listRes = await fetch(listUrl, { method: 'GET' });
-        if (listRes.ok) {
-          const listJson = await listRes.json();
-          const docs = listJson.documents || [];
-          for (const doc of docs) {
-            const id = doc.name ? doc.name.split('/').pop() : null;
-            const f = doc.fields || {};
-            const naam = f.Naam ? (f.Naam.stringValue || '') : '';
-            const voor = f['Voor naam'] ? (f['Voor naam'].stringValue || '') : '';
-            if (id) results.push({ id, naam, voor });
-          }
-          console.log('searchMembers: fallback list fetched', results.length);
-        } else {
-          console.warn('searchMembers: fallback list fetch failed', listRes.status, listRes.statusText);
-        }
-      } catch (e) {
-        console.error('searchMembers fallback error', e);
-      }
+    // Query by first name (`Voor naam`)
+    try {
+      const q2 = fbQuery(collection(db, 'members'), where('Voor naam', '>=', prefix), where('Voor naam', '<=', endPrefix), orderBy('Voor naam'), fbLimit(limitCount));
+      const snap2 = await getDocs(q2);
+      snap2.forEach(docSnap => {
+        try {
+          const data = docSnap.data && typeof docSnap.data === 'function' ? docSnap.data() : docSnap;
+          const naam = (data && (data.Naam || data.achternaam || data.Naam)) || '';
+          const voor = (data && (data['Voor naam'] || data.Voornaam || data.firstName || '')) || '';
+          results.push({ id: docSnap.id || String(docSnap._key && docSnap._key.path && docSnap._key.path.segments && docSnap._key.path.segments.slice(-1)[0] || ''), naam: String(naam || ''), voor: String(voor || '') });
+        } catch(_){}
+      });
+    } catch (e) {
+      console.warn('searchMembers: query by Voor naam failed', e);
     }
 
-    // Filter client-side: check both `Naam` (last name) and `Voor naam` (first name)
-    // so a prefix that matches the first name still returns the member even when last name exists.
-    const pl = prefix.toLowerCase();
-    const filtered = results.filter(r => {
-      const naam = (r.naam || '').toLowerCase();
-      const voor = (r.voor || '').toLowerCase();
-      return (naam && naam.startsWith(pl)) || (voor && voor.startsWith(pl));
-    });
-    // Preserve insertion order but dedupe by id
+    // Deduplicate by id while preserving order
     const map = new Map();
-    for (const d of filtered) if (!map.has(d.id)) map.set(d.id, d);
-    return Array.from(map.values()).slice(0, maxResults);
+    for (const r of results) {
+      if (!r || !r.id) continue;
+      if (!map.has(r.id)) map.set(r.id, r);
+    }
+    const out = Array.from(map.values()).slice(0, maxResults);
+    return out;
   } catch (e) {
     console.error('searchMembers error', e);
     return [];
