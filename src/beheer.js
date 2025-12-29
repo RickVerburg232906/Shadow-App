@@ -1,4 +1,4 @@
-import { getRideConfig, updateRideConfig, listAllMembers, getAdminPasswords, updateAdminPasswords } from './firestore.js';
+import { getRideConfig, updateRideConfig, listAllMembers, getAdminPasswords, updateAdminPasswords } from './firebase.js';
 
 export async function initBeheer() {
   try {

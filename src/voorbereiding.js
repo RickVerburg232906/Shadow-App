@@ -1,4 +1,4 @@
-import { getPlannedDates, getLunchOptions, updateLunchOptions, updateDataStatus, getDataStatus } from './firestore.js';
+import { getPlannedDates, getLunchOptions, updateLunchOptions, updateDataStatus, getDataStatus } from './firebase.js';
 import { readWorkbook, sheetToRows, normalizeRows, importRowsToFirestore } from './excel-import.js';
 
 function formatDutchShort(dateStr) {

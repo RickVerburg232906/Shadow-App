@@ -1,5 +1,5 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
-import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firestore.js';
+import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firebase.js';
 import { initFirebase, db, collection, onSnapshot, doc, query, where, firebaseConfig } from './firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
@@ -830,7 +830,8 @@ export async function renderHistoryStars(memberId) {
     // If none, fallback to empty array
     if (!Array.isArray(planned)) planned = [];
 
-    // Limit to sensible maximum (most deployments use 5 or 6 planned dates)
+        // Limit to sensible maximum (most deployments use 5 or 6 planned dates)
+        // debug removed
     const count = Math.min(planned.length || 5, 6);
     // Fetch member scans
     let member = null;
@@ -873,7 +874,7 @@ export async function renderHistoryStars(memberId) {
             const plannedRaw = await getPlannedDates().catch(() => []);
             const planned = Array.isArray(plannedRaw) ? plannedRaw.map(d => String(d).slice(0,10)) : [];
             const today = new Date().toISOString().slice(0,10);
-            try { console.debug('manual save plannedDates', planned, 'today', today); } catch(_){}
+            try { /* debug removed */ } catch(_){ }
             if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
               try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
               return;
@@ -1531,7 +1532,7 @@ function attachGotoManualHandler() {
         const plannedRaw = await getPlannedDates().catch(() => []);
         const planned = Array.isArray(plannedRaw) ? plannedRaw.map(d => String(d).slice(0,10)) : [];
         const today = (new Date()).toISOString().slice(0,10);
-        try { console.debug('goto-manual plannedDates', planned, 'today', today); } catch(_){}
+        try { /* debug removed */ } catch(_){ }
         if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
           try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
           return;

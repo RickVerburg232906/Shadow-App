@@ -1,5 +1,5 @@
 // Minimal member-side helpers for signupPage
-import { getPlannedDates, getLunchOptions, searchMembers, getMemberById } from '../src/firestore.js';
+import { getPlannedDates, getLunchOptions, searchMembers, getMemberById } from './firebase.js';
 import { db, doc, onSnapshot, getDoc } from './firebase.js';
 // Keeps only what `lid-ui/signupPage.html` (and index) require: footer binding, simple suggestions glue,
 // sessionStorage diagnostics and safe helpers. Other features removed.
@@ -8,7 +8,7 @@ import { db, doc, onSnapshot, getDoc } from './firebase.js';
 function dumpSessionStorage() {
 	try {
 		const keys = Object.keys(sessionStorage || {});
-		if (!keys.length) { console.debug('dumpSessionStorage: empty'); return; }
+		if (!keys.length) { return; }
 		const snapshot = {};
 		for (const k of keys) {
 			try {
@@ -16,7 +16,7 @@ function dumpSessionStorage() {
 				try { snapshot[k] = JSON.parse(raw); } catch (_) { snapshot[k] = raw; }
 			} catch (e) { snapshot[k] = `__error__: ${String(e)}`; }
 		}
-		console.debug('dumpSessionStorage snapshot', snapshot);
+		/* debug removed */
 	} catch (e) { console.warn('dumpSessionStorage failed', e); }
 }
 
@@ -24,7 +24,6 @@ function dumpSessionStorage() {
 function setSessionAndDump(key, value) {
 	try {
 		sessionStorage.setItem(key, value);
-		console.debug('setSessionAndDump: wrote', key);
 	} catch (e) { console.warn('setSessionAndDump failed', e); }
 	try { dumpSessionStorage(); } catch(_) {}
 }
@@ -50,7 +49,7 @@ function setMemberSessionField(field, val) {
 				if (val === null) delete obj[field]; else obj[field] = val;
 				try { setSessionAndDump(key, JSON.stringify(obj)); } catch(e) { sessionStorage.setItem(key, JSON.stringify(obj)); }
 				return true;
-			} catch (e) { console.debug('setMemberSessionField failed', e); }
+				} catch (e) { /* debug removed */ }
 		}
 	} catch(_) {}
 	try {
@@ -161,7 +160,6 @@ function clearAllMemberSessionData() {
 			} catch(_) {}
 		}
 		try { sessionStorage.removeItem('shadow_ui_current_member'); } catch(_) {}
-		console.debug('clearAllMemberSessionData: cleared member keys');
 	} catch (e) { console.warn('clearAllMemberSessionData failed', e); }
 }
 
@@ -279,8 +277,8 @@ function setupMemberScanListener() {
 				try {
 					try {
 						const snapOnce = await getDoc(ref);
-						try { console.debug('setupMemberScanListener: getDoc.exists', snapOnce && (typeof snapOnce.exists === 'function' ? snapOnce.exists() : !!snapOnce.exists)); } catch(_) {}
-						try { console.debug('setupMemberScanListener: getDoc.data', (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : snapOnce)); } catch(_) {}
+						try { /* debug removed */ } catch(_) {}
+						try { /* debug removed */ } catch(_) {}
 						// Normalize same as onSnapshot
 						try {
 							const dd = (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : null);
@@ -299,7 +297,7 @@ function setupMemberScanListener() {
 								} catch(_) { continue; }
 							}
 							const normalized = Array.from(new Set(tmp)).sort();
-							try { console.debug('setupMemberScanListener: getDoc.normalizedScanDatums', normalized); } catch(_) {}
+							try { /* debug removed */ } catch(_) {}
 						} catch(_) {}
 					} catch(e) { console.warn('setupMemberScanListener getDoc failed', e); }
 				} catch(_) {}
@@ -488,11 +486,11 @@ function setupIndexFooterNavigation() {
 				const ref = doc(db, 'members', String(memberId));
 
 				// optional one-time read to surface shapes in the console
-				try {
-					const snapOnce = await getDoc(ref).catch(()=>null);
-					try { console.debug('setupMemberScanListener: getDoc present', !!(snapOnce && (typeof snapOnce.exists === 'function' ? snapOnce.exists() : snapOnce.exists))); } catch(_) {}
-					try { const dd = (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : snapOnce); console.debug('setupMemberScanListener: getDoc.raw', dd); } catch(_) {}
-				} catch(_) {}
+					try {
+						const snapOnce = await getDoc(ref).catch(()=>null);
+						try { /* debug removed */ } catch(_) {}
+						try { const dd = (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : snapOnce); /* debug removed */ } catch(_) {}
+					} catch(_) {}
 
 				const unsub = onSnapshot(ref, (snap) => {
 					try {
@@ -662,10 +660,7 @@ function renderMemberInfoChoices() {
 			// Debug: log planned vs scanned dates to help troubleshooting why stars don't light
 			try {
 				if (window && window.location && window.location.hostname) {
-					console.debug('renderMemberInfoChoices: planned', planned);
-					console.debug('renderMemberInfoChoices: scans', scans);
-					console.debug('renderMemberInfoChoices: plannedSet', Array.from(plannedSet));
-					console.debug('renderMemberInfoChoices: scanSet', Array.from(scanSet));
+					/* debug removed */
 				}
 			} catch(_) {}
 			let attended = 0;
@@ -698,7 +693,7 @@ function renderMemberInfoChoices() {
 							sp.dataset.date = String(date);
 							try { sp.title = formatDateLocal(date); } catch(_) {}
 							if (scanSet.has(String(date))) {
-								try { console.debug('renderMemberInfoChoices: filling star for', String(date)); } catch(_) {}
+								/* debug removed */
 								sp.classList.add('filled'); filledCount++;
 							}
 						} else {
