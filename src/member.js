@@ -740,6 +740,16 @@ function renderMemberInfoChoices() {
 							if (scanSet.has(String(date))) {
 								/* debug removed */
 								sp.classList.add('filled'); filledCount++;
+							} else {
+								// If this date is today and not scanned, mark specially so CSS can color it blue
+								try {
+									const today = todayYMD();
+									if (String(date) === String(today)) {
+										sp.classList.add('today-unscanned');
+									} else {
+										sp.classList.add('empty');
+									}
+								} catch(_) { sp.classList.add('empty'); }
 							}
 						} else {
 							sp.classList.add('empty');

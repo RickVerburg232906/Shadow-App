@@ -667,6 +667,16 @@ body.app{
 /* Ensure the stars container is horizontally centered inside the card */
 .stats-card .stats-stars{ margin-left: auto; margin-right: auto; }
 
+/* No mobile override: keep unscanned (empty) stars grey on all viewports */
+
+/* Today's unscanned star: use blue color and ensure filled glyph for visibility */
+.stats-stars .star.today-unscanned,
+.material-symbols-outlined.star.today-unscanned{
+  font-variation-settings: 'FILL' 1, 'wght' 400 !important;
+  -webkit-font-variation-settings: 'FILL' 1, 'wght' 400 !important;
+  color: #163E8C !important;
+}
+
 /* Mijn Keuzes styles removed — section deleted from memberInfoPage.html */
 /* Reintroduced Mijn Keuzes styles */
 .choice-list{ width:100%; max-width:640px; margin-top:14px; display:flex; flex-direction:column; gap:12px; }
