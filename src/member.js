@@ -1,5 +1,5 @@
 // Minimal member-side helpers for signupPage
-import { getPlannedDates, getLunchOptions, searchMembers, getMemberById } from '../src/firestore.js';
+import { getPlannedDates, getLunchOptions, getRideConfig, searchMembers, listAllMembers, getMemberById } from './firebase.js';
 import { db, doc, onSnapshot, getDoc } from './firebase.js';
 // Keeps only what `lid-ui/signupPage.html` (and index) require: footer binding, simple suggestions glue,
 // sessionStorage diagnostics and safe helpers. Other features removed.
@@ -8,7 +8,7 @@ import { db, doc, onSnapshot, getDoc } from './firebase.js';
 function dumpSessionStorage() {
 	try {
 		const keys = Object.keys(sessionStorage || {});
-		if (!keys.length) { console.debug('dumpSessionStorage: empty'); return; }
+		if (!keys.length) { return; }
 		const snapshot = {};
 		for (const k of keys) {
 			try {
@@ -16,7 +16,7 @@ function dumpSessionStorage() {
 				try { snapshot[k] = JSON.parse(raw); } catch (_) { snapshot[k] = raw; }
 			} catch (e) { snapshot[k] = `__error__: ${String(e)}`; }
 		}
-		console.debug('dumpSessionStorage snapshot', snapshot);
+		/* debug removed */
 	} catch (e) { console.warn('dumpSessionStorage failed', e); }
 }
 
@@ -24,7 +24,6 @@ function dumpSessionStorage() {
 function setSessionAndDump(key, value) {
 	try {
 		sessionStorage.setItem(key, value);
-		console.debug('setSessionAndDump: wrote', key);
 	} catch (e) { console.warn('setSessionAndDump failed', e); }
 	try { dumpSessionStorage(); } catch(_) {}
 }
@@ -50,7 +49,7 @@ function setMemberSessionField(field, val) {
 				if (val === null) delete obj[field]; else obj[field] = val;
 				try { setSessionAndDump(key, JSON.stringify(obj)); } catch(e) { sessionStorage.setItem(key, JSON.stringify(obj)); }
 				return true;
-			} catch (e) { console.debug('setMemberSessionField failed', e); }
+				} catch (e) { /* debug removed */ }
 		}
 	} catch(_) {}
 	try {
@@ -161,17 +160,18 @@ function clearAllMemberSessionData() {
 			} catch(_) {}
 		}
 		try { sessionStorage.removeItem('shadow_ui_current_member'); } catch(_) {}
-		console.debug('clearAllMemberSessionData: cleared member keys');
 	} catch (e) { console.warn('clearAllMemberSessionData failed', e); }
 }
 
 // Minimal suggestions wiring: expects a global `searchMembers(prefix,max)` function (optional).
 function setupMemberSuggestions() {
 	try {
+		try { console.debug('setupMemberSuggestions: init'); } catch(_){}
 		const inputs = Array.from(document.querySelectorAll('input.form-input'));
+		console.debug('setupMemberSuggestions: found inputs', inputs.length);
 		for (const el of inputs) {
 			try {
-				if (!el || (el.dataset && el.dataset._suggestBound)) continue;
+				if (!el || (el.dataset && el.dataset._suggestBound)) { console.debug('setupMemberSuggestions: skipping bound or missing el'); continue; }
 				let timer = null;
 				let listEl = null;
 				function closeList() {
@@ -180,36 +180,61 @@ function setupMemberSuggestions() {
 					listEl = null;
 				}
 				async function showSuggestions(prefix) {
+					console.debug('showSuggestions called for prefix', prefix);
 					try {
 						const q = String(prefix || '').trim();
 						if (!q) { closeList(); return; }
-						// Prefer window.searchMembers if present, otherwise do nothing
-						const searchFn = window.searchMembers || (typeof searchMembers === 'function' ? searchMembers : null);
-						if (!searchFn) return;
-						const results = await searchFn(q, 8);
-						if (!Array.isArray(results) || results.length === 0) { closeList(); return; }
-						closeList();
-						listEl = document.createElement('div');
+								// Build or use an in-memory cache of members for substring search
+								let cache = null;
+								try { cache = window._memberCache || null; } catch(_) { cache = null; }
+								if (!cache) {
+									// Always load from the root `members` collection via `listAllMembers`
+									try {
+										cache = await listAllMembers(2000);
+									} catch(_) { cache = []; }
+									try { window._memberCache = Array.isArray(cache) ? cache : []; } catch(_) {}
+								}
+								console.debug('member cache size', Array.isArray(cache) ? cache.length : 0);
+								if (!Array.isArray(cache) || cache.length === 0) { closeList(); return; }
+
+								// Substring match across `voor` and `naam` (case-insensitive)
+								const ql = q.toLowerCase();
+								const matches = cache.filter(m => {
+									try {
+										const n = (m.naam || '').toLowerCase();
+										const v = (m.voor || '').toLowerCase();
+										return n.includes(ql) || v.includes(ql) || (`${v} ${n}`).includes(ql) || (`${n} ${v}`).includes(ql);
+									} catch(_) { return false; }
+								}).slice(0, 20);
+								console.debug('matches found', matches.length);
+								if (!Array.isArray(matches) || matches.length === 0) { closeList(); return; }
+								closeList();
+								listEl = document.createElement('div');
 						listEl.className = 'member-suggestions';
 						listEl.style.position = 'absolute';
 						listEl.style.zIndex = 9999;
 						listEl.style.background = '#fff';
 						listEl.style.border = '1px solid rgba(0,0,0,0.08)';
 						listEl.style.borderRadius = '8px';
-						listEl.style.overflow = 'hidden';
-						listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
+								listEl.style.overflow = 'hidden';
+								listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
+								listEl.style.maxHeight = '320px';
+								listEl.style.overflowY = 'auto';
 						listEl.setAttribute('role','listbox');
 						const rect = el.getBoundingClientRect();
 						listEl.style.top = (rect.bottom + window.scrollY + 6) + 'px';
 						listEl.style.left = (rect.left + window.scrollX) + 'px';
-						results.forEach((r) => {
-							const item = document.createElement('div');
-							item.className = 'member-suggestion-item';
-							item.style.padding = '8px 12px';
-							item.style.cursor = 'pointer';
-							const nameDisplay = `${(r.voor||'').trim()} ${(r.naam||'').trim()}`.trim();
-							item.textContent = nameDisplay || (r.naam || r.voor || r.id || '');
-							item.dataset.memberId = r.id || '';
+								matches.forEach((r) => {
+									const item = document.createElement('div');
+									item.className = 'member-suggestion-item';
+									item.style.padding = '8px 12px';
+									item.style.cursor = 'pointer';
+									item.style.whiteSpace = 'nowrap';
+									item.style.textOverflow = 'ellipsis';
+									item.style.overflow = 'hidden';
+									const nameDisplay = `${(r.voor||'').trim()} ${(r.naam||'').trim()}`.trim();
+									item.textContent = nameDisplay || (r.naam || r.voor || r.id || '');
+									item.dataset.memberId = r.id || '';
 							item.addEventListener('click', (ev) => {
 								try {
 									ev.preventDefault();
@@ -227,7 +252,20 @@ function setupMemberSuggestions() {
 							});
 							listEl.appendChild(item);
 						});
-						document.body.appendChild(listEl);
+						// Always append to body for predictable positioning; log debug info if dropdown not visible
+						try {
+							const rect = el.getBoundingClientRect();
+							listEl.style.position = 'absolute';
+							listEl.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+							listEl.style.left = (rect.left + window.scrollX) + 'px';
+							listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
+							listEl.style.zIndex = 2147483646;
+							document.body.appendChild(listEl);
+							// debug helper in case extension/content scripts interfere
+							try { console.debug('member-suggestions appended', { top: listEl.style.top, left: listEl.style.left, minWidth: listEl.style.minWidth, items: listEl.children.length }); } catch(_) {}
+						} catch (e) {
+							try { console.error('failed to append member-suggestions', e); } catch(_) {}
+						}
 						// Close the dropdown if the input scrolls out of view (prevents it sticking to bottom)
 						const checkInputVisibility = () => {
 							try {
@@ -236,14 +274,17 @@ function setupMemberSuggestions() {
 								if (rect2.bottom < 0 || rect2.top > (window.innerHeight || document.documentElement.clientHeight)) {
 									closeList();
 								} else {
-									// reposition to stay anchored to the input while visible
 									try {
-										const rect = el.getBoundingClientRect();
-										listEl.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-										listEl.style.left = (rect.left + window.scrollX) + 'px';
-										// ensure minWidth follows input width
-										listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
-									} catch(_){}
+										if (container === document.body) {
+											const rect = el.getBoundingClientRect();
+											listEl.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+											listEl.style.left = (rect.left + window.scrollX) + 'px';
+											listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
+										} else {
+											// inside parent: let CSS positioning handle it, but ensure width
+											listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
+										}
+									} catch(_){ }
 								}
 							} catch (e) { /* ignore visibility check errors */ }
 						};
@@ -279,8 +320,8 @@ function setupMemberScanListener() {
 				try {
 					try {
 						const snapOnce = await getDoc(ref);
-						try { console.debug('setupMemberScanListener: getDoc.exists', snapOnce && (typeof snapOnce.exists === 'function' ? snapOnce.exists() : !!snapOnce.exists)); } catch(_) {}
-						try { console.debug('setupMemberScanListener: getDoc.data', (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : snapOnce)); } catch(_) {}
+						try { /* debug removed */ } catch(_) {}
+						try { /* debug removed */ } catch(_) {}
 						// Normalize same as onSnapshot
 						try {
 							const dd = (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : null);
@@ -299,7 +340,7 @@ function setupMemberScanListener() {
 								} catch(_) { continue; }
 							}
 							const normalized = Array.from(new Set(tmp)).sort();
-							try { console.debug('setupMemberScanListener: getDoc.normalizedScanDatums', normalized); } catch(_) {}
+							try { /* debug removed */ } catch(_) {}
 						} catch(_) {}
 					} catch(e) { console.warn('setupMemberScanListener getDoc failed', e); }
 				} catch(_) {}
@@ -375,7 +416,7 @@ function setupMemberScanListener() {
 try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setupMemberScanListener()); else setupMemberScanListener(); document.addEventListener('shadow:config-ready', () => setupMemberScanListener()); } catch(_) {}
 					} catch (e) { console.warn('showSuggestions failed', e); }
 				}
-				function schedule(prefix) { if (timer) clearTimeout(timer); timer = setTimeout(() => { showSuggestions(prefix); }, 300); }
+				function schedule(prefix) { if (timer) clearTimeout(timer); console.debug('schedule suggestion for', prefix); timer = setTimeout(() => { showSuggestions(prefix); }, 300); }
 				el.addEventListener('input', (ev) => {
 					try {
 						if (el.dataset) { delete el.dataset.selectedMember; }
@@ -488,11 +529,11 @@ function setupIndexFooterNavigation() {
 				const ref = doc(db, 'members', String(memberId));
 
 				// optional one-time read to surface shapes in the console
-				try {
-					const snapOnce = await getDoc(ref).catch(()=>null);
-					try { console.debug('setupMemberScanListener: getDoc present', !!(snapOnce && (typeof snapOnce.exists === 'function' ? snapOnce.exists() : snapOnce.exists))); } catch(_) {}
-					try { const dd = (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : snapOnce); console.debug('setupMemberScanListener: getDoc.raw', dd); } catch(_) {}
-				} catch(_) {}
+					try {
+						const snapOnce = await getDoc(ref).catch(()=>null);
+						try { /* debug removed */ } catch(_) {}
+						try { const dd = (snapOnce && typeof snapOnce.data === 'function') ? snapOnce.data() : (snapOnce && snapOnce._document ? snapOnce._document.data.value.mapValue.fields : snapOnce); /* debug removed */ } catch(_) {}
+					} catch(_) {}
 
 				const unsub = onSnapshot(ref, (snap) => {
 					try {
@@ -625,12 +666,14 @@ function renderMemberInfoChoices() {
 		try {
 			const statCountEl = document.querySelector('.stat-count');
 			const starsContainer = document.querySelector('.stats-stars');
-			// read planned dates
+			// read planned dates from sessionStorage.rideConfig.regions only
 			let planned = [];
 			try {
-				const rc = sessionStorage.getItem('rideConfig');
-				if (rc) {
-					try { const obj = JSON.parse(rc); if (obj && Array.isArray(obj.plannedDates)) planned = obj.plannedDates.map(d=>toYMDString(d)).filter(Boolean); } catch(_) { planned = []; }
+				const raw = sessionStorage.getItem('rideConfig');
+				const obj = raw ? JSON.parse(raw) : null;
+				if (obj) {
+					if (obj.regions && typeof obj.regions === 'object') planned = Object.keys(obj.regions).map(d => toYMDString(d)).filter(Boolean);
+					else if (Array.isArray(obj.plannedDates)) planned = obj.plannedDates.map(d => toYMDString(d)).filter(Boolean);
 				}
 			} catch(_) { planned = []; }
 
@@ -662,10 +705,7 @@ function renderMemberInfoChoices() {
 			// Debug: log planned vs scanned dates to help troubleshooting why stars don't light
 			try {
 				if (window && window.location && window.location.hostname) {
-					console.debug('renderMemberInfoChoices: planned', planned);
-					console.debug('renderMemberInfoChoices: scans', scans);
-					console.debug('renderMemberInfoChoices: plannedSet', Array.from(plannedSet));
-					console.debug('renderMemberInfoChoices: scanSet', Array.from(scanSet));
+					/* debug removed */
 				}
 			} catch(_) {}
 			let attended = 0;
@@ -698,7 +738,7 @@ function renderMemberInfoChoices() {
 							sp.dataset.date = String(date);
 							try { sp.title = formatDateLocal(date); } catch(_) {}
 							if (scanSet.has(String(date))) {
-								try { console.debug('renderMemberInfoChoices: filling star for', String(date)); } catch(_) {}
+								/* debug removed */
 								sp.classList.add('filled'); filledCount++;
 							}
 						} else {
@@ -1122,8 +1162,16 @@ function setupHeaderBackButtons() {
 	} catch (e) { console.warn('setupHeaderBackButtons failed', e); }
 }
 
-// Run on import
-try { setupFooterDelegation(); } catch(_) {}
+// Run on import, but ensure DOM is ready first so inputs exist
+try {
+	if (typeof document !== 'undefined' && document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', () => {
+			try { setupFooterDelegation(); } catch (e) { console.warn('setupFooterDelegation failed on DOMContentLoaded', e); }
+		});
+	} else {
+		try { setupFooterDelegation(); } catch (e) { console.warn('setupFooterDelegation failed', e); }
+	}
+} catch(_) {}
 
 // No exports — module is side-effecting for signup page
 
@@ -1134,11 +1182,26 @@ try { setupFooterDelegation(); } catch(_) {}
 	try {
 		async function init() {
 			try {
-				const [plannedDates, lunchOptions] = await Promise.all([getPlannedDates().catch(()=>[]), getLunchOptions().catch(()=>({ vastEten: [], keuzeEten: [] }))]);
-				try { setSessionAndDump('rideConfig', JSON.stringify({ plannedDates: Array.isArray(plannedDates) ? plannedDates : [] })); } catch(_) {}
+				const [rideCfg, lunchOptions] = await Promise.all([getRideConfig(), getLunchOptions()]);
+				// Persist only regions into sessionStorage (never plannedDates)
+				try {
+					if (rideCfg && rideCfg.regions && typeof rideCfg.regions === 'object') {
+						setSessionAndDump('rideConfig', JSON.stringify({ regions: rideCfg.regions }));
+					} else {
+						try { sessionStorage.removeItem('rideConfig'); } catch(_) {}
+					}
+				} catch(_) {}
 				try { setSessionAndDump('lunch', JSON.stringify(lunchOptions || { vastEten: [], keuzeEten: [] })); } catch(_) {}
 				// Hide any loading indicator if present
 				try { const li = document.getElementById('loadingIndicator'); if (li) li.style.display = 'none'; } catch(_) {}
+				// Derive plannedDates for the event payload from rideCfg if present
+				let plannedDates = [];
+				try {
+					if (rideCfg) {
+						if (Array.isArray(rideCfg.plannedDates)) plannedDates = rideCfg.plannedDates.slice();
+						else if (rideCfg.regions && typeof rideCfg.regions === 'object') plannedDates = Object.keys(rideCfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+					}
+				} catch(_) { plannedDates = []; }
 				// Dispatch a small event for other code that might wait for this
 				try { document.dispatchEvent(new CustomEvent('shadow:config-ready', { detail: { plannedDates, lunchOptions } })); } catch(_) {}
 			} catch (e) { console.warn('ensureShadowData.init failed', e); }
@@ -1287,12 +1350,19 @@ function renderPlannedRides() {
 		if (!container) return;
 		// Clear
 		container.innerHTML = '';
-		let cfgRaw = null;
-		try { cfgRaw = sessionStorage.getItem('rideConfig'); } catch(_) { cfgRaw = null; }
-		if (!cfgRaw) return;
+		// Read rideConfig.regions from sessionStorage only (do not fetch from Firebase)
 		let cfg = null;
-		try { cfg = JSON.parse(cfgRaw); } catch(_) { cfg = null; }
-		const dates = (cfg && Array.isArray(cfg.plannedDates)) ? cfg.plannedDates.filter(Boolean) : [];
+		try {
+			const raw = sessionStorage.getItem('rideConfig');
+			cfg = raw ? JSON.parse(raw) : null;
+		} catch(_) { cfg = null; }
+		if (!cfg) return;
+		// Derive dates from regions keys (prefer indices in regions)
+		let dates = [];
+		try {
+			if (cfg && cfg.regions && typeof cfg.regions === 'object') dates = Object.keys(cfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+			else if (cfg && Array.isArray(cfg.plannedDates)) dates = cfg.plannedDates.filter(Boolean);
+		} catch(_) { dates = []; }
 		// Show only today and future rides
 		const upcoming = dates.filter(d => {
 			try { return daysUntil(d) >= 0; } catch(_) { return false; }
@@ -1376,10 +1446,25 @@ function renderPlannedRides() {
 	} catch (e) { console.warn('renderPlannedRides failed', e); }
 }
 
-// Update render on load and when config ready
+// Update render on load and when config ready — ensure rideConfig is loaded first
 try {
-	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderPlannedRides);
-	else renderPlannedRides();
+	async function ensureConfigAnd(fn) {
+		try {
+			// Only proceed if sessionStorage contains rideConfig.regions; do NOT fetch from Firebase here
+			const raw = sessionStorage.getItem('rideConfig');
+			if (!raw) {
+				console.warn('sessionStorage.rideConfig missing; skipping render (per config)');
+				return;
+			}
+		} catch (e) {
+			console.error('failed to check sessionStorage for rideConfig before rendering planned rides', e);
+			return;
+		}
+		try { fn(); } catch (e) { console.error('renderPlannedRides failed after config load', e); }
+	}
+
+	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => ensureConfigAnd(renderPlannedRides));
+	else ensureConfigAnd(renderPlannedRides);
 	document.addEventListener('shadow:config-ready', renderPlannedRides);
 } catch(_) {}
 
