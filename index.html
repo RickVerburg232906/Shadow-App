@@ -17,6 +17,14 @@
 <script src="assets/header-date.js" defer></script>
   </head>
 <body class="app light">
+  <!-- App loader shown while the webapp initializes -->
+  <div id="app-loader" class="app-loader" role="status" aria-live="polite">
+    <div class="app-loader__inner">
+      <img src="assets/logo_MC_nieuw_trans_300.gif" alt="MC" class="app-loader__logo">
+      <div class="app-loader__spinner" aria-hidden="true"></div>
+      <div class="app-loader__text">Bezig met laden…</div>
+    </div>
+  </div>
   <!-- Navigation Header -->
   <header class="nav-header">
       <!-- Critical inline style to show loader immediately while JS initializes -->
@@ -71,6 +79,22 @@
   </footer>
   <script type="module" src="src/member.js"></script>
   <script>
+    (function(){
+      const loader = document.getElementById('app-loader');
+      function hideLoader(){
+        if(!loader) return;
+        loader.style.opacity = '0';
+        loader.style.pointerEvents = 'none';
+        setTimeout(()=>{ try{ loader.remove(); }catch(e){} }, 320);
+      }
+      // Expose a hook so app code can hide the loader when initialization finishes
+      window.appReady = hideLoader;
+      // Fallback: hide shortly after DOMContentLoaded to avoid indefinite blocking
+      document.addEventListener('DOMContentLoaded', ()=>{
+        setTimeout(hideLoader, 420);
+      });
+    })();
+  </script>
     // Dump sessionStorage on every page load for debugging
     (function dumpSessionOnLoad(){
       try{
