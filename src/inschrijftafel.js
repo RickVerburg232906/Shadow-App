@@ -3,8 +3,7 @@ import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberB
 import { initFirebase, db, collection, onSnapshot, doc, query, where, firebaseConfig } from './firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
-// Initialize the browser Firebase shim so `db` is available for collection()/onSnapshot()
-try { initFirebase(firebaseConfig); } catch (e) { console.warn('initFirebase failed', e); }
+// Firebase is initialized in `src/firebase.js`; no second init here.
 
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
 // Timestamp (ms) until which automatic showing of history stars should be suppressed.
