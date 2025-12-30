@@ -1,4 +1,4 @@
-import { getRideConfig, updateRideConfig, listAllMembers, getAdminPasswords, updateAdminPasswords } from './firebase.js';
+import { getRideConfig, listMembersByJaarhanger, getAdminPasswords, updateAdminPasswords, updateRideConfig } from './firebase.js';
 
 export async function initBeheer() {
   try {
@@ -61,13 +61,49 @@ export async function initBeheer() {
             form._saving = true;
             const btn = form.querySelector('button[type="submit"]');
             if (btn) { btn.disabled = true; btn.classList.add('disabled'); }
-            const res = await updateRideConfig({ plannedDates: newDates, regions: newRegions });
-            if (btn) { btn.disabled = false; btn.classList.remove('disabled'); }
-            if (res && res.success) {
-              window.showScanSuccess && window.showScanSuccess('Automatisch opgeslagen');
-            } else {
+            try {
+              // Persist only `regions` to sessionStorage (runtime-only canonical source)
+              sessionStorage.setItem('rideConfig', JSON.stringify({ regions: newRegions }));
+              try { window._rideConfig = { regions: newRegions }; } catch(_){ }
+
+              // Determine if we have at least one valid date+region pair to push to Firestore
+              const regionKeys = Object.keys(newRegions || {}).filter(k => k && newRegions[k]);
+              if (regionKeys.length > 0) {
+                try {
+                  try { console.debug('beheer: calling updateRideConfig', { regionKeys, newRegions }); } catch(_){}
+                  // compute keys that existed previously but are now removed so we can delete them server-side
+                  let oldRegions = {};
+                  try {
+                    if (window && window._rideConfig && window._rideConfig.regions) oldRegions = window._rideConfig.regions;
+                    else {
+                      try { const r = await getRideConfig(); oldRegions = (r && r.regions) ? r.regions : {}; } catch(_) { oldRegions = {}; }
+                    }
+                  } catch(_) { oldRegions = {}; }
+                  const oldKeys = Object.keys(oldRegions || {}).filter(k => k && /^\d{4}-\d{2}-\d{2}$/.test(k));
+                  const removed = oldKeys.filter(k => !(k in (newRegions || {})));
+                  const up = await updateRideConfig({ regions: newRegions, removeRegions: removed.length ? removed : undefined });
+                  try { console.debug('beheer: updateRideConfig result', up, { removed }); } catch(_){}
+                  if (up && up.success) {
+                    window.showScanSuccess && window.showScanSuccess('Automatisch opgeslagen');
+                  } else {
+                    window.showScanError && window.showScanError('Opslaan naar server mislukt');
+                    console.warn('updateRideConfig failed', up);
+                  }
+                } catch (e) {
+                  try { console.error('beheer: updateRideConfig exception', e); } catch(_){}
+                  window.showScanError && window.showScanError('Opslaan naar server mislukt');
+                  console.warn('updateRideConfig error', e);
+                }
+              } else {
+                // No valid entries to send to server; keep runtime/session update only
+                window.showScanSuccess && window.showScanSuccess('Lokaal opgeslagen (geen datum+regio)');
+              }
+
+              if (btn) { btn.disabled = false; btn.classList.remove('disabled'); }
+            } catch (e) {
+              if (btn) { btn.disabled = false; btn.classList.remove('disabled'); }
               window.showScanError && window.showScanError('Automatisch opslaan mislukt');
-              console.warn('auto save rideConfig failed', res);
+              console.warn('auto save rideConfig failed', e);
             }
           } catch (e) {
             console.error('auto-save error', e);
@@ -184,18 +220,13 @@ async function handleExportCsvClick(ev) {
   try {
     const ok = window.confirm && window.confirm('Download deelnemerslijst als Excel (.xlsx)?');
     if (!ok) return;
-    // fetch all members
-    const members = await listAllMembers(500);
+    // fetch members that have Jaarhanger == ja (server-side)
+    const members = await listMembersByJaarhanger(5000);
     if (!Array.isArray(members) || members.length === 0) {
       alert('Geen leden gevonden om te exporteren.');
       return;
     }
-
-    // Filter only members where Jaarhanger == 'ja' (case-insensitive)
-    const filtered = members.filter(m => {
-      const jah = (m.Jaarhanger || m.jaarhanger || m.JAARHANGER || m['Jaarhanger'] || m['jaarhanger'] || '').toString().toLowerCase();
-      return jah === 'ja' || jah === 'yes' || jah === 'true' || jah === '1';
-    });
+    const filtered = members;
 
     const currentYear = new Date().getFullYear();
 

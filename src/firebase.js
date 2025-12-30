@@ -1,6 +1,6 @@
 // Minimal firebase loader: only what we need to fetch `globals/lunch` and `globals/rideConfig`
 import { initializeApp, getApps, getApp, deleteApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, onSnapshot, setDoc, writeBatch, serverTimestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, onSnapshot, setDoc, updateDoc, writeBatch, serverTimestamp, getDocs, query, where, orderBy, deleteField } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const devConfig = {
@@ -138,8 +138,13 @@ async function getRideConfig() {
     if (!db) initFirebase();
     if (!db) throw new Error('Firestore not initialized');
     const dref = doc(db, 'globals', 'rideConfig');
-    const snap = await getDoc(dref);
-    if (!snap || (typeof snap.exists === 'function' ? !snap.exists() : !snap._document)) throw new Error('globals/rideConfig not found');
+    const snap = await getDoc(dref).catch(() => null);
+    if (!snap || (typeof snap.exists === 'function' ? !snap.exists() : !snap._document)) {
+        // No rideConfig defined in Firestore — return a safe default instead of throwing.
+        const def = { regions: {} };
+        try { if (typeof window !== 'undefined') window._rideConfig = def; } catch(_){}
+        return def;
+    }
     const data = typeof snap.data === 'function' ? snap.data() : snap;
     // Keep a runtime-only in-memory copy so callers can access without persisting.
     try { if (typeof window !== 'undefined') window._rideConfig = data; } catch(_) {}
@@ -148,13 +153,15 @@ async function getRideConfig() {
 
 async function getPlannedDates() {
     const cfg = await getRideConfig();
+    if (!cfg || typeof cfg !== 'object') return [];
     if (Array.isArray(cfg.plannedDates)) return cfg.plannedDates.slice();
     if (cfg.regions && typeof cfg.regions === 'object') {
         const keys = Object.keys(cfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
         keys.sort();
         return keys;
     }
-    throw new Error('rideConfig has neither plannedDates nor regions');
+    // No planned dates available — return empty array
+    return [];
 }
 
 // Count members that have a given lunchChoice value using Firestore SDK queries.
@@ -221,6 +228,52 @@ async function updateAdminPasswords(obj) {
         await setDoc(doc(db, 'globals', 'passwords'), obj, { merge: true });
         return { success: true };
     } catch (e) { console.error('updateAdminPasswords error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
+}
+
+// Update rideConfig (merge) under globals/rideConfig
+async function updateRideConfig(obj) {
+    try {
+        try { console.debug('updateRideConfig: start', obj); } catch(_){}
+        if (!obj || typeof obj !== 'object') throw new Error('invalid payload');
+        if (!db) initFirebase();
+        if (!db) throw new Error('Firestore not initialized');
+        const dref = doc(db, 'globals', 'rideConfig');
+        const updatePayload = {};
+        // If caller provided a full regions map, set it (will replace the regions field)
+        if (obj.regions && typeof obj.regions === 'object') updatePayload['regions'] = obj.regions;
+        // If caller asked to remove specific region keys, mark them for deletion
+        if (Array.isArray(obj.removeRegions) && obj.removeRegions.length > 0) {
+            for (const k of obj.removeRegions) {
+                if (!k) continue;
+                // delete the nested field regions.<key>
+                updatePayload[`regions.${k}`] = deleteField();
+            }
+        }
+        // Ensure document exists before attempting updates that require it
+        const existingSnap = await getDoc(dref).catch(() => null);
+        const exists = !!(existingSnap && (typeof existingSnap.exists === 'function' ? existingSnap.exists() : existingSnap._document));
+        if (!exists) {
+            // If doc doesn't exist, create it with provided `regions` (if any).
+            if (obj.regions && typeof obj.regions === 'object') {
+                await setDoc(dref, { regions: obj.regions }, { merge: true });
+            } else {
+                // nothing to create; nothing else to delete
+                try { console.debug('updateRideConfig: doc missing and no regions to create'); } catch(_){}
+            }
+            // If removeRegions was requested but doc didn't exist, nothing to delete.
+        } else {
+            // If we have a payload with fields to update/delete, use updateDoc
+            if (Object.keys(updatePayload).length > 0) {
+                await updateDoc(dref, updatePayload);
+            } else {
+                try { console.debug('updateRideConfig: nothing to update'); } catch(_){}
+            }
+        }
+        // Refresh in-memory copy by merging provided regions
+        try { if (typeof window !== 'undefined' && obj.regions && typeof obj.regions === 'object') window._rideConfig = Object.assign({}, window._rideConfig || {}, { regions: obj.regions }); } catch(_){}
+        try { console.debug('updateRideConfig: success'); } catch(_){}
+        return { success: true };
+    } catch (e) { console.error('updateRideConfig error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
 }
 
 // Snapshot sessionStorage into an object and expose it via `getSessionSnapshot()`.
@@ -374,8 +427,6 @@ async function _loadIfIndex() {
 }
 
 try { _loadIfIndex(); } catch(_) {}
-
-export { initFirebase, getLunchOptions, getRideConfig, getPlannedDates, getLunchChoiceCount, getParticipationCount, db, firebaseConfig, storage, getMemberById, searchMembers, getSessionSnapshot, getDbEnv, setDbEnv, showFirebaseDebugBanner, getAdminPasswords, updateAdminPasswords };
 // List all members (id, naam, voor) up to `limit` for client-side searching
 async function listAllMembers(limit = 500) {
     try {
@@ -418,6 +469,62 @@ async function listAllMembers(limit = 500) {
         return out.slice(0, limit);
     } catch (e) { console.error('listAllMembers error', e); return []; }
 }
-export { listAllMembers };
-export { collection, onSnapshot, doc, getDoc, getDocs, setDoc, writeBatch, serverTimestamp, query, where, orderBy };
-export { ref, uploadBytes, getDownloadURL };
+
+// List members that have a Jaarhanger-like value (case-insensitive variants)
+async function listMembersByJaarhanger(limit = 500, variants = null) {
+    try {
+        if (!db) initFirebase();
+        if (!db) return [];
+        const vals = Array.isArray(variants) && variants.length > 0 ? variants : ['ja','Ja','JA','yes','Yes','YES','true','True','1'];
+        // Try server-side IN query (limited to 10 values)
+        const q = query(collection(db, 'members'), where('Jaarhanger', 'in', vals));
+        const snap = await getDocs(q).catch(()=>null);
+        const out = [];
+        if (snap && Array.isArray(snap.docs) && snap.docs.length) {
+            for (const s of snap.docs) {
+                try {
+                    const d = typeof s.data === 'function' ? s.data() : (s || {});
+                    out.push(Object.assign({ id: s.id || (s.ref && s.ref.id) || null }, d));
+                    if (out.length >= limit) break;
+                } catch(_){ }
+            }
+        }
+        return out;
+    } catch (e) { console.error('listMembersByJaarhanger error', e); return []; }
+}
+export {
+    initFirebase,
+    getLunchOptions,
+    getRideConfig,
+    getPlannedDates,
+    getLunchChoiceCount,
+    getParticipationCount,
+    db,
+    firebaseConfig,
+    storage,
+    getMemberById,
+    searchMembers,
+    getSessionSnapshot,
+    getDbEnv,
+    setDbEnv,
+    showFirebaseDebugBanner,
+    getAdminPasswords,
+    updateAdminPasswords,
+    updateRideConfig,
+    listAllMembers,
+    listMembersByJaarhanger,
+    collection,
+    onSnapshot,
+    doc,
+    getDoc,
+    getDocs,
+    setDoc,
+    writeBatch,
+    serverTimestamp,
+    query,
+    where,
+    orderBy,
+    ref,
+    uploadBytes,
+    getDownloadURL
+};
