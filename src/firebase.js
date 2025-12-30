@@ -30,6 +30,20 @@ function isProdHost() {
     try {
         if (typeof window !== 'undefined' && window.location && window.location.hostname) {
             const h = window.location.hostname || '';
+            // Vercel: production deployments use <project>.vercel.app (no branch prefix).
+            // Preview deployments use the form <branch>--<project>.vercel.app
+            try {
+                if (h.endsWith('.vercel.app')) {
+                    // If hostname does NOT include the branch separator `--`, it's the production deployment
+                    if (!h.includes('--')) return true;
+                    // If it does include `--`, the branch is the prefix before `--` — treat `main` or `master` as prod
+                    const parts = h.split('--');
+                    if (parts && parts.length >= 2) {
+                        const branch = parts[0] || '';
+                        if (branch === 'main' || branch === 'master') return true;
+                    }
+                }
+            } catch (_) {}
             return h.includes('landelijke-rit') || h === 'landelijke-rit.firebaseapp.com' || h === 'landelijke-rit.web.app';
         }
     } catch (e) {}
