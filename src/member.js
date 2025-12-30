@@ -737,17 +737,6 @@ function renderMemberInfoChoices() {
 						if (date) {
 							sp.dataset.date = String(date);
 							try { sp.title = formatDateLocal(date); } catch(_) {}
-							// mark the star that corresponds to today's planned date
-							try {
-								const todayNorm = String(today || '');
-								if (todayNorm && String(date) === todayNorm) {
-									sp.classList.add('star-today');
-									sp.dataset.today = '1';
-									sp.dataset.todayLabel = 'vandaag';
-									// enhance accessible title
-									try { sp.title = (sp.title ? sp.title + ' — vandaag' : 'Vandaag'); } catch(_){}
-								}
-							} catch(_) {}
 							if (scanSet.has(String(date))) {
 								/* debug removed */
 								sp.classList.add('filled'); filledCount++;
