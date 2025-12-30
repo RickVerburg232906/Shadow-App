@@ -1,11 +1,11 @@
 // Admin helpers for new-ui: scanner + simple Firestore REST writers (simplified)
 import { getLunchOptions, getLunchChoiceCount, getParticipationCount, getMemberById, searchMembers, getPlannedDates } from './firebase.js';
-import { initFirebase, db, collection, onSnapshot, doc, query, where, firebaseConfig } from './firebase.js';
+import { initFirebase, db, collection, onSnapshot, doc, query, where, getDoc, getDocs, setDoc, firebaseConfig } from './firebase.js';
 import { ensureHtml5Qrcode, selectRearCameraDeviceId, startQrScanner, stopQrScanner } from './scanner.js';
 
 // Firebase is initialized in `src/firebase.js`; no second init here.
 
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
+// NOTE: Using Firestore SDK for all reads/writes — no REST endpoints here.
 // Timestamp (ms) until which automatic showing of history stars should be suppressed.
 let _historySuppressShowUntil = 0;
 // Normalize common yes/no values (Dutch/English/boolean-like) to 'yes'|'no'|null
@@ -120,7 +120,7 @@ function renderActivityItem(member, whenIso) {
       const ph = document.getElementById('recent-activity-placeholder');
       if (ph && ph.parentNode === container) ph.parentNode.removeChild(ph);
     } catch(_){}
-    // Only use the timestamp coming from Firebase (member.lunchExpires).
+    // Use the expiry timestamp (`lunchExpires`) for activity time display.
     // Do NOT fall back to the provided `whenIso` or current time — if the
     // Firebase value isn't present or can't be parsed, we will omit the time.
     let timeIso = null;
@@ -204,29 +204,19 @@ function updateActivityScrollState() {
 export async function checkInMemberById(memberId, { lunchDeelname = null, lunchKeuze = null, Jaarhanger = null } = {}) {
   if (!memberId) return { success: false, error: 'missing-id' };
   try {
-    const url = `${BASE_URL}/members/${encodeURIComponent(memberId)}?key=${firebaseConfig.apiKey}`;
-    const fields = {};
-    if (lunchDeelname !== null) fields.lunchDeelname = { stringValue: String(lunchDeelname) };
-    if (lunchKeuze !== null) fields.lunchKeuze = { stringValue: String(lunchKeuze) };
-    if (Jaarhanger !== null) fields.Jaarhanger = { stringValue: String(Jaarhanger) };
-    // set expiry for lunch fields (24h)
+    // Use Firestore SDK (setDoc with merge) to update the member document.
+    if (!db) await initFirebase();
+    if (!db) return { success: false, error: 'db-not-initialized' };
+    const dref = doc(db, 'members', String(memberId));
+    const updates = {};
+    if (lunchDeelname !== null) updates.lunchDeelname = String(lunchDeelname);
+    if (lunchKeuze !== null) updates.lunchKeuze = String(lunchKeuze);
+    if (Jaarhanger !== null) updates.Jaarhanger = String(Jaarhanger);
+    // set an expiry for lunch fields (24h); activity UI uses `lunchExpires`
     const expires = new Date(Date.now() + (24 * 60 * 60 * 1000));
-    fields.lunchExpires = { timestampValue: expires.toISOString() };
-    const body = { fields };
-    const params = [];
-    if (lunchDeelname !== null) params.push('updateMask.fieldPaths=lunchDeelname');
-    if (lunchKeuze !== null) params.push('updateMask.fieldPaths=lunchKeuze');
-    if (Jaarhanger !== null) params.push('updateMask.fieldPaths=Jaarhanger');
-    params.push('updateMask.fieldPaths=lunchExpires');
-    const finalUrl = url + (params.length ? ('&' + params.join('&')) : '');
-    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '<no body>');
-      console.warn('checkInMemberById failed', res.status, res.statusText, text);
-      return { success: false, status: res.status, statusText: res.statusText, raw: text };
-    }
-    const json = await res.json();
-    return { success: true, raw: json };
+    updates.lunchExpires = expires.toISOString();
+    await setDoc(dref, updates, { merge: true });
+    return { success: true };
   } catch (e) {
     console.error('checkInMemberById error', e);
     return { success: false, error: String(e) };
@@ -236,18 +226,16 @@ export async function checkInMemberById(memberId, { lunchDeelname = null, lunchK
 export async function manualRegisterRide(memberId, rideDateYMD) {
   if (!memberId || !rideDateYMD) return { success: false, error: 'missing-params' };
   try {
-    const getUrl = `${BASE_URL}/members/${encodeURIComponent(memberId)}?key=${firebaseConfig.apiKey}`;
-    const getRes = await fetch(getUrl, { method: 'GET' });
-    if (!getRes.ok) return { success: false, error: 'member-not-found' };
-    const doc = await getRes.json();
-    const fields = doc.fields || {};
-    const scans = (fields.ScanDatums && Array.isArray(fields.ScanDatums.arrayValue && fields.ScanDatums.arrayValue.values) ? fields.ScanDatums.arrayValue.values.map(v => v.stringValue || '') : []);
+    if (!db) await initFirebase();
+    if (!db) return { success: false, error: 'db-not-initialized' };
+    const dref = doc(db, 'members', String(memberId));
+    const snap = await getDoc(dref);
+    if (!snap || (typeof snap.exists === 'function' ? !snap.exists() : !snap._document)) return { success: false, error: 'member-not-found' };
+    const data = typeof snap.data === 'function' ? snap.data() : snap;
+    const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
     if (!scans.includes(rideDateYMD)) scans.push(rideDateYMD);
-    const body = { fields: { ScanDatums: { arrayValue: { values: scans.map(s => ({ stringValue: String(s) })) } } } };
-    const finalUrl = `${getUrl}&updateMask.fieldPaths=ScanDatums`;
-    const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) { const txt = await res.text().catch(() => ''); return { success: false, raw: txt }; }
-    return { success: true, raw: await res.json() };
+    await setDoc(dref, { ScanDatums: scans }, { merge: true });
+    return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
 }
 
@@ -264,7 +252,8 @@ export default {
 export async function initInschrijftafel() {
   try {
     try {
-      const role = (localStorage.getItem('role') || '').trim();
+      const role = (localStorage.getItem('role') || '').trim().toLowerCase();
+      // Hide history unless admin
       if (role !== 'admin') {
         try { const sec = document.getElementById('historie-section'); if (sec) sec.style.display = 'none'; } catch(_){ }
       }
@@ -281,9 +270,9 @@ export async function initInschrijftafel() {
         // hide the entire footer container so the bottom bar doesn't show.
         if (appFooter) {
           if (role === 'inschrijftafel') {
-            try { appFooter.style.display = 'none'; } catch(_){}
+            try { appFooter.style.display = 'none'; } catch(_){ }
           } else {
-            try { appFooter.style.display = ''; } catch(_){}
+            try { appFooter.style.display = ''; } catch(_){ }
           }
         }
       } catch(_){ }
@@ -586,88 +575,14 @@ export async function initInschrijftafel() {
       });
     }
 
-    // Start live activity listener (real-time) and fall back to initial load
-    try { await loadTodayActivity(); } catch(e) { console.warn('loadTodayActivity failed', e); }
+    // Start live activity listener (real-time)
     try { initLiveActivityListener(); } catch(e) { console.warn('initLiveActivityListener failed', e); }
 
     
   } catch (e) { console.error('initInschrijftafel failed', e); }
 }
 
-// Load list of members scanned today across all devices and render into the activity list.
-export async function loadTodayActivity() {
-  try {
-    const container = document.getElementById('recent-activity-list');
-    if (!container) return;
-    // show loading state
-    try { container.innerHTML = '<div id="recent-activity-placeholder" class="activity-placeholder text-text-sub text-sm">Laden…</div>'; } catch(_){}
-    const apiKey = (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) ? firebaseConfig.apiKey : null;
-    if (!apiKey) return;
-    const today = new Date().toISOString().slice(0,10);
-    const runUrl = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
-    const body = {
-      structuredQuery: {
-        from: [{ collectionId: 'members' }],
-        where: {
-          fieldFilter: {
-            field: { fieldPath: 'ScanDatums' },
-            op: 'ARRAY_CONTAINS',
-            value: { stringValue: String(today) }
-          }
-        },
-        limit: 5000
-      }
-    };
-    const res = await fetch(runUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) {
-      try { container.innerHTML = '<div class="activity-placeholder text-text-sub text-sm">Kon activiteit niet laden</div>'; } catch(_){}
-      console.warn('loadTodayActivity runQuery failed', res.status, res.statusText);
-      return;
-    }
-    const arr = await res.json();
-    const seen = new Set();
-    // clear list
-    try { container.innerHTML = ''; } catch(_){}
-    for (const entry of arr) {
-      if (!entry || !entry.document) continue;
-      try {
-        const doc = entry.document;
-        const id = doc.name ? String(doc.name).split('/').pop() : null;
-        if (!id || seen.has(id)) continue;
-        seen.add(id);
-        const f = doc.fields || {};
-        const memberObj = {};
-        for (const k of Object.keys(f)) {
-          const v = f[k];
-          if (!v) { memberObj[k] = null; continue; }
-          if (v.arrayValue && Array.isArray(v.arrayValue.values)) {
-            memberObj[k] = v.arrayValue.values.map(x => (x.stringValue !== undefined ? x.stringValue : (x.timestampValue !== undefined ? x.timestampValue : null))).filter(Boolean);
-          } else {
-            memberObj[k] = (v.stringValue !== undefined) ? v.stringValue : (v.timestampValue !== undefined ? v.timestampValue : null);
-          }
-        }
-        // prefer to pass an object with id for renderActivityItem
-        memberObj.id = id;
-        renderActivityItem(memberObj, new Date().toISOString());
-      } catch (e) { console.warn('loadTodayActivity entry parse failed', e); }
-    }
-    if (seen.size === 0) {
-      try {
-        container.innerHTML = `
-          <div id="recent-activity-placeholder" class="activity-item" aria-hidden="false">
-            <div style="display:flex; align-items:center; gap:12px; width:100%;">
-              <div class="activity-accent" aria-hidden="true"></div>
-              <div style="flex:1 1 auto; text-align:left;">
-                <div class="activity-name">Hier zie je iedereen die is ingescand deze rit.</div>
-              </div>
-            </div>
-          </div>
-        `;
-      } catch(_){ }
-    }
-    try { updateActivityScrollState(); } catch(_){}
-  } catch (e) { console.error('loadTodayActivity failed', e); }
-}
+// `loadTodayActivity` removed — real-time listener covers activity rendering.
 
 // Start a real-time listener for members scanned today and update recent activity live.
 export function initLiveActivityListener() {
@@ -934,27 +849,37 @@ export async function renderHistoryStars(memberId) {
 }
 
 // Live listener to keep lunch statistics dynamic (yes/no + per-choice)
-function initLiveLunchStats() {
+async function initLiveLunchStats() {
   try {
+    // Ensure Firebase is initialized before any reads
+    try { await initFirebase(); } catch (e) { console.error('initLiveLunchStats initFirebase failed', e); }
     const yesEl = document.getElementById('count-yes');
     const noEl = document.getElementById('count-no');
     const choiceContainers = {}; // map choice -> element id(s)
 
     // get lunch choices so we can map counts to UI elements
-    (async () => {
-      try {
-        const opts = await getLunchOptions();
-        const keuzes = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
-        // Ensure choice count placeholders exist (ids choice-count-{idx})
-        keuzes.forEach((k, idx) => {
-          const el = document.getElementById('choice-count-' + idx);
-          if (el) choiceContainers[String(k)] = el;
-        });
-      } catch (e) { console.error('initLiveLunchStats getLunchOptions failed', e); }
-    })();
+    try {
+      const opts = await getLunchOptions();
+      const keuzes = Array.isArray(opts.keuzeEten) ? opts.keuzeEten : [];
+      // Ensure choice count placeholders exist (ids choice-count-{idx}) and set default 0
+      keuzes.forEach((k, idx) => {
+        const el = document.getElementById('choice-count-' + idx);
+        if (el) {
+          choiceContainers[String(k)] = el;
+          try { el.textContent = '0'; } catch(_){}
+        }
+      });
+      // If no choices found, clear loading placeholder text
+      if (keuzes.length === 0) {
+        try { const container = document.getElementById('keuze-maaltijden-list'); if (container) container.innerHTML = '<div class="text-text-sub text-sm">Geen keuze maaltijden gevonden</div>'; } catch(_){}
+      }
+    } catch (e) { console.error('initLiveLunchStats getLunchOptions failed', e); }
 
     // Subscribe to full members collection and recompute counts on every snapshot
     try {
+      if (!db) {
+        try { await initFirebase(); } catch(_){}
+      }
       const colRef = collection(db, 'members');
       const unsub = onSnapshot(colRef, snap => {
         try {
@@ -978,10 +903,11 @@ function initLiveLunchStats() {
               }
               // If no expiry field, treat as not registered for lunch
               if (!valid) continue;
-              const deel = normalizeYesNo(data.lunchDeelname || data.lunch || data.participation || null);
+              // Use explicit fields only: `lunchDeelname` and `lunchKeuze`
+              const deel = normalizeYesNo(data.lunchDeelname || null);
               if (deel === 'yes') {
                 yes += 1;
-                const kc = data.lunchKeuze || data.lunchChoice || data.keuze || null;
+                const kc = data.lunchKeuze || null;
                 if (kc) {
                   const key = String(kc);
                   choiceCounts.set(key, (choiceCounts.get(key) || 0) + 1);

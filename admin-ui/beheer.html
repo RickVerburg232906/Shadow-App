@@ -209,6 +209,21 @@
 </script>
 <script src="../assets/header-date.js" defer></script>
 <script type="module">
+  // Fetch hoofdadmin password (same approach as password.html)
+  (async function(){
+    try {
+      const { initFirebase, getAdminPasswords } = await import('/src/firebase.js');
+      await initFirebase();
+      const p = await getAdminPasswords();
+      const hoofd = String(p.hoofdadmin || '1100');
+      const el = document.getElementById('pwd-admin-current');
+      if (el) el.value = hoofd;
+    } catch (e) {
+      console.error('beheer password fetch error', e);
+    }
+  })();
+</script>
+<script type="module">
   import { initBeheer } from '../src/beheer.js';
   // initialize beheer UI (populate planned dates)
   initBeheer();

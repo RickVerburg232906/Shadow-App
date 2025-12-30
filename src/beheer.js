@@ -2,27 +2,37 @@ import { getRideConfig, updateRideConfig, listAllMembers, getAdminPasswords, upd
 
 export async function initBeheer() {
   try {
-    const cfg = await getRideConfig().catch(() => ({ plannedDates: [], regions: {} }));
-    const dates = Array.isArray(cfg.plannedDates) ? cfg.plannedDates : [];
-    const regions = cfg.regions || {};
-    if (!dates || dates.length === 0) return;
-    // Fill the rideDate1..rideDate6 inputs and region selects if mapping exists
-    for (let i = 0; i < 6; i++) {
-      const input = document.querySelector(`input[name=rideDate${i+1}]`);
-      const select = document.querySelector(`select[name=region${i+1}]`);
-      const val = dates[i];
-      if (input && val) {
-        try { input.value = String(val).slice(0,10); } catch(_){}
+    // Populate planner from `sessionStorage.rideConfig.regions` (keys = dates, values = regio)
+    let regions = {};
+    let dates = [];
+    try {
+      const raw = sessionStorage.getItem('rideConfig');
+      if (raw) {
+        try {
+          const obj = JSON.parse(raw);
+          if (obj && obj.regions && typeof obj.regions === 'object') {
+            regions = obj.regions;
+            dates = Object.keys(regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+          }
+        } catch (_) { /* ignore parse errors */ }
       }
-      // populate select based on regions map keyed by date string
-      try {
-        const dKey = val ? String(val).slice(0,10) : null;
-        if (select && dKey && Object.prototype.hasOwnProperty.call(regions, dKey)) {
-          const regionVal = regions[dKey] || '';
-          if (regionVal) select.value = regionVal;
+      // Fill the rideDate1..rideDate6 inputs and region selects if mapping exists
+      for (let i = 0; i < 6; i++) {
+        const input = document.querySelector(`input[name=rideDate${i+1}]`);
+        const select = document.querySelector(`select[name=region${i+1}]`);
+        const val = dates[i];
+        if (input && val) {
+          try { input.value = String(val).slice(0,10); } catch(_){ }
         }
-      } catch(_){}
-    }
+        try {
+          const dKey = val ? String(val).slice(0,10) : null;
+          if (select && dKey && Object.prototype.hasOwnProperty.call(regions, dKey)) {
+            const regionVal = regions[dKey] || '';
+            if (regionVal) select.value = regionVal;
+          }
+        } catch(_){ }
+      }
+    } catch (_) { /* ignore sessionStorage errors */ }
     // Attach submit handler and auto-save on change (debounced)
     try {
       const form = document.getElementById('plan-rides-form');
