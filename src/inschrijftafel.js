@@ -1478,20 +1478,31 @@ function markAdminFooterActive() {
     const footer = document.getElementById('admin-bottom-nav');
     if (!footer) return;
     const items = Array.from(footer.querySelectorAll('.bottom-nav-item'));
-    const cur = (typeof window !== 'undefined' && window.location && window.location.pathname) ? String(window.location.pathname).split('/').pop() : '';
-    items.forEach(a => {
-      try {
-        const href = a.getAttribute('href') || '';
-        const last = String(href).split('/').pop();
-        if (last && cur && String(last) === String(cur)) {
-          a.classList.add('active');
-          a.setAttribute('aria-current','page');
-        } else {
-          a.classList.remove('active');
-          a.removeAttribute('aria-current');
-        }
-      } catch(_){}
-    });
+    const curRaw = (typeof window !== 'undefined' && window.location && window.location.pathname) ? String(window.location.pathname) : '';
+      // normalize: remove trailing slash and optional .html extension
+      const normalize = (p) => {
+        if (!p) return '';
+        try {
+          // take only last segment
+          let seg = String(p).split('/').filter(Boolean).pop() || '';
+          seg = seg.replace(/\.html$/i, '');
+          return seg.replace(/\/$/, '');
+        } catch (_) { return String(p); }
+      };
+      const cur = normalize(curRaw);
+      items.forEach(a => {
+        try {
+          const href = a.getAttribute('href') || '';
+          const last = normalize(href);
+          if (last && cur && String(last) === String(cur)) {
+            a.classList.add('active');
+            a.setAttribute('aria-current','page');
+          } else {
+            a.classList.remove('active');
+            a.removeAttribute('aria-current');
+          }
+        } catch(_){ }
+      });
   } catch (e) { console.warn('markAdminFooterActive failed', e); }
 }
 
