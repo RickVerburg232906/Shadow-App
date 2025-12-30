@@ -232,7 +232,7 @@ function setupMemberSuggestions() {
 									item.style.whiteSpace = 'nowrap';
 									item.style.textOverflow = 'ellipsis';
 									item.style.overflow = 'hidden';
-									const nameDisplay = `${(r.voor||'').trim()} ${(r.naam||'').trim()}`.trim();
+									const nameDisplay = `${(r.voor||'').trim()} ${(r.tussen||'').trim()} ${(r.naam||'').trim()}`.replace(/\s+/g,' ').trim();
 									item.textContent = nameDisplay || (r.naam || r.voor || r.id || '');
 									item.dataset.memberId = r.id || '';
 							item.addEventListener('click', (ev) => {

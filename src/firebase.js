@@ -494,7 +494,7 @@ async function listAllMembers(limit = 500) {
                 for (const s of snap.docs) {
                     try {
                         const d = typeof s.data === 'function' ? s.data() : (s || {});
-                        out.push({ id: s.id || (s.ref && s.ref.id) || null, naam: String(d.Naam || d.naam || ''), voor: String(d['Voor naam'] || d.voor || d.voornaam || '') });
+                            out.push({ id: s.id || (s.ref && s.ref.id) || null, naam: String(d.Naam || d.naam || ''), voor: String(d['Voor naam'] || d.voor || d.voornaam || ''), tussen: String(d['Tussenvoegsel'] || d['Tussen voegsel'] || d.tussenvoegsel || d.tussen || '') });
                         if (out.length >= limit) break;
                     } catch(_){ }
                 }
@@ -507,8 +507,8 @@ async function listAllMembers(limit = 500) {
                     if (snap2 && Array.isArray(snap2.docs) && snap2.docs.length) {
                         for (const s of snap2.docs) {
                             try {
-                                const d = typeof s.data === 'function' ? s.data() : (s || {});
-                                out.push({ id: s.id || (s.ref && s.ref.id) || null, naam: String(d.Naam || d.naam || ''), voor: String(d['Voor naam'] || d.voor || d.voornaam || '') });
+                                    const d = typeof s.data === 'function' ? s.data() : (s || {});
+                                    out.push({ id: s.id || (s.ref && s.ref.id) || null, naam: String(d.Naam || d.naam || ''), voor: String(d['Voor naam'] || d.voor || d.voornaam || ''), tussen: String(d['Tussenvoegsel'] || d['Tussen voegsel'] || d.tussenvoegsel || d.tussen || '') });
                                 if (out.length >= limit) break;
                             } catch(_){ }
                         }
