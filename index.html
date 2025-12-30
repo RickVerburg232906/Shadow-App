@@ -94,7 +94,7 @@
         setTimeout(hideLoader, 420);
       });
     })();
-  </script>
+
     // Dump sessionStorage on every page load for debugging
     (function dumpSessionOnLoad(){
       try{
@@ -107,7 +107,7 @@
           return out;
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=> { try { snapshot(); } catch(_){} });
-        else try { snapshot(); } catch(_){}
+        else try { snapshot(); } catch(_){ }
       }catch(e){ console.warn('dumpSessionOnLoad failed', e); }
     })();
   </script>
