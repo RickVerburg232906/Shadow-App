@@ -1,0 +1,15 @@
+{
+  "name": "Inschrijven LR",
+  "short_name": "Inschrijven",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#163e8d",
+  "icons": [
+    {
+      "src": "/assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
