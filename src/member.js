@@ -811,7 +811,17 @@ function renderMemberInfoChoices() {
 					let keuze = null;
 					try { keuze = getMemberSessionField('lunchKeuze'); } catch(_) { keuze = null; }
 					if (!keuze) try { keuze = sessionStorage.getItem('lunchKeuze'); } catch(_) { }
-					if (valueEl) valueEl.textContent = keuze && String(keuze).trim() ? String(keuze) : (valueEl.textContent || '');
+					// Determine if lunch choices are configured in sessionStorage
+					let lunchRaw = null;
+					let lunchCfg = null;
+					try { lunchRaw = sessionStorage.getItem('lunch'); } catch(_) { lunchRaw = null; }
+					try { lunchCfg = lunchRaw ? JSON.parse(lunchRaw) : null; } catch(_) { lunchCfg = null; }
+					const hasKeuzeOptions = Array.isArray(lunchCfg && lunchCfg.keuzeEten) && lunchCfg.keuzeEten.length > 0;
+					let displayText = '';
+					if (keuze && String(keuze).trim()) displayText = String(keuze).trim();
+					else if (!hasKeuzeOptions) displayText = 'Eet mee';
+					else displayText = (valueEl && valueEl.textContent) ? valueEl.textContent : '';
+					if (valueEl) valueEl.textContent = displayText;
 					if (icon) icon.textContent = 'check';
 					if (badge) { badge.classList.remove('mk-badge-no'); badge.classList.add('mk-badge-yes'); }
 					try { lunchItem.classList.remove('mk-no'); } catch(_) {}
