@@ -1,4 +1,4 @@
-import { getPlannedDates, getLunchOptions, updateLunchOptions, updateDataStatus, getDataStatus } from './firebase.js';
+import { getLunchOptions, updateLunchOptions, getDataStatus, updateDataStatus } from './firebase.js';
 import { readWorkbook, sheetToRows, normalizeRows, importRowsToFirestore } from './excel-import.js';
 
 function formatDutchShort(dateStr) {
@@ -18,7 +18,16 @@ async function setNextRide() {
     const el = document.getElementById('next-ride-date');
     if (!el) return;
     el.textContent = 'Laden...';
-    const planned = await getPlannedDates().catch(() => []);
+    // Read planned dates from sessionStorage.rideConfig.regions (do NOT fetch from Firebase)
+    let planned = [];
+    try {
+      const raw = sessionStorage.getItem('rideConfig');
+      if (raw) {
+        const rc = JSON.parse(raw || '{}');
+        const regions = rc && rc.regions ? rc.regions : {};
+        planned = Object.keys(regions || []).filter(Boolean);
+      }
+    } catch (e) { planned = []; }
     if (!planned || planned.length === 0) { el.textContent = 'Geen geplande rit'; return; }
     const todayIso = new Date().toISOString().slice(0,10);
     const sorted = planned.slice().filter(Boolean).map(s => s.slice(0,10)).sort();
@@ -98,14 +107,19 @@ export async function initLunchUI() {
     try {
       const vast = Array.from(vastList.querySelectorAll('input.form-input')).map(i => i.value.trim()).filter(Boolean);
       const keuze = Array.from(keuzeList.querySelectorAll('input.form-input')).map(i => i.value.trim()).filter(Boolean);
-      const res = await updateLunchOptions({ vastEten: vast, keuzeEten: keuze });
+      // try to persist to Firestore globals/lunch; fall back to sessionStorage on failure
       try {
+        const res = await updateLunchOptions({ vastEten: vast, keuzeEten: keuze });
         if (res && res.success) {
-          if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') window.showScanSuccess('Lunch opgeslagen');
+          try { if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') window.showScanSuccess('Lunch opgeslagen'); } catch(_){}
         } else {
-          if (typeof window !== 'undefined' && typeof window.showScanError === 'function') window.showScanError('Opslaan mislukt');
+          try { sessionStorage.setItem('lunch', JSON.stringify({ vastEten: vast, keuzeEten: keuze })); } catch(_){}
+          try { if (typeof window !== 'undefined' && typeof window.showScanError === 'function') window.showScanError('Opslaan naar server mislukt — lokaal opgeslagen'); } catch(_){}
         }
-      } catch (e) { /* ignore toast errors */ }
+      } catch (e) {
+        try { sessionStorage.setItem('lunch', JSON.stringify({ vastEten: vast, keuzeEten: keuze })); } catch(_){}
+        try { if (typeof window !== 'undefined' && typeof window.showScanError === 'function') window.showScanError('Opslaan mislukt — lokaal opgeslagen'); } catch(_){}
+      }
     } catch (e) { console.warn('save lunch failed', e); try { if (typeof window !== 'undefined' && typeof window.showScanError === 'function') window.showScanError('Opslaan mislukt'); } catch(_){} }
   }, 600);
 
@@ -163,6 +177,35 @@ function formatDateLong(iso) {
   } catch (e) { return iso; }
 }
 
+function normalizeTimestampValue(ts) {
+  try {
+    if (!ts) return null;
+    // Firestore Timestamp with toDate()
+    if (typeof ts.toDate === 'function') {
+      return ts.toDate().toISOString();
+    }
+    // Plain object with seconds/nanoseconds
+    if (typeof ts === 'object' && ts.seconds && (ts.nanoseconds || ts.nanoseconds === 0)) {
+      const ms = (Number(ts.seconds) * 1000) + Math.floor(Number(ts.nanoseconds) / 1e6);
+      return new Date(ms).toISOString();
+    }
+    // ISO string
+    if (typeof ts === 'string') {
+      // try to parse; if invalid, return null
+      const d = new Date(ts);
+      if (!isNaN(d.getTime())) return d.toISOString();
+      return null;
+    }
+    // numeric milliseconds or seconds
+    if (typeof ts === 'number') {
+      // heuristic: if > 1e12 it's ms, if ~1e9 it's seconds
+      if (ts > 1e12) return new Date(ts).toISOString();
+      return new Date(ts * 1000).toISOString();
+    }
+    return null;
+  } catch (e) { return null; }
+}
+
 function wireDataUpload() {
   const badge = document.getElementById('data-status-badge');
   const lastEl = document.getElementById('data-last-update');
@@ -196,7 +239,17 @@ function wireDataUpload() {
   // initialize status from firestore + planned dates
   (async () => {
     try {
-      const [st, planned] = await Promise.all([getDataStatus().catch(() => null), getPlannedDates().catch(() => [])]);
+      const st = await getDataStatus().catch(() => null);
+      // read planned dates from sessionStorage instead of Firebase
+      let planned = [];
+      try {
+        const raw = sessionStorage.getItem('rideConfig');
+        if (raw) {
+          const rc = JSON.parse(raw || '{}');
+          const regions = rc && rc.regions ? rc.regions : {};
+          planned = Object.keys(regions || []).filter(Boolean);
+        }
+      } catch (e) { planned = []; }
       const sorted = (Array.isArray(planned) ? planned.map(s => String(s).slice(0,10)).filter(Boolean).sort() : []);
       // helper to evaluate whether lastUpdated is after previous ride and before next ride
       function evaluate(lastUpdatedIso) {
@@ -225,12 +278,13 @@ function wireDataUpload() {
       }
 
       if (st && st.lastUpdated) {
-        const ev = evaluate(st.lastUpdated);
-        setStatus({ state: ev.state, lastUpdated: st.lastUpdated });
+        const parsed = normalizeTimestampValue(st.lastUpdated) || null;
+        const ev = evaluate(parsed);
+        setStatus({ state: ev.state, lastUpdated: parsed });
       } else if (st && st.filename) {
-        const assumed = st.lastUpdated || new Date().toISOString();
-        const ev = evaluate(assumed);
-        setStatus({ state: ev.state, lastUpdated: assumed });
+        const parsed = normalizeTimestampValue(st.lastUpdated) || new Date().toISOString();
+        const ev = evaluate(parsed);
+        setStatus({ state: ev.state, lastUpdated: parsed });
       } else {
         setStatus({ state: 'Niet geladen', lastUpdated: null });
       }
@@ -258,7 +312,10 @@ function wireDataUpload() {
       const norm = normalizeRows(rows || []);
       const res = await importRowsToFirestore(norm);
 
-      await updateDataStatus({ lastUpdated: new Date().toISOString(), filename: file.name });
+      // update globals/dataStatus so the UI shows 'Up-to-date' relative to the next ride
+      try {
+        await updateDataStatus({ lastUpdated: new Date().toISOString(), filename: file.name });
+      } catch (e) { /* ignore */ }
 
       setStatus({ state: 'Up-to-date', lastUpdated: new Date().toISOString() });
       try { if (typeof window !== 'undefined' && typeof window.showScanSuccess === 'function') window.showScanSuccess(`Geüpload (${res.updated} records)`); } catch(_) {}

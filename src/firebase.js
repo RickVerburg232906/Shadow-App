@@ -134,6 +134,44 @@ async function getLunchOptions() {
     } catch (e) { console.warn('getLunchOptions error', e); return null; }
 }
 
+// Update lunch options under globals/lunch (merge)
+async function updateLunchOptions(obj) {
+    try {
+        if (!obj || typeof obj !== 'object') throw new Error('invalid payload');
+        if (!db) initFirebase();
+        if (!db) throw new Error('Firestore not initialized');
+        const dref = doc(db, 'globals', 'lunch');
+        await setDoc(dref, { vastEten: Array.isArray(obj.vastEten) ? obj.vastEten : [], keuzeEten: Array.isArray(obj.keuzeEten) ? obj.keuzeEten : [] }, { merge: true });
+        try { sessionStorage.setItem('lunch', JSON.stringify({ vastEten: Array.isArray(obj.vastEten) ? obj.vastEten : [], keuzeEten: Array.isArray(obj.keuzeEten) ? obj.keuzeEten : [] })); } catch(_){}
+        return { success: true };
+    } catch (e) { console.error('updateLunchOptions error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
+}
+
+// Get dataStatus from globals/dataStatus
+async function getDataStatus() {
+    try {
+        if (!db) initFirebase();
+        if (!db) return null;
+        const dref = doc(db, 'globals', 'dataStatus');
+        const snap = await getDoc(dref).catch(()=>null);
+        if (!snap || (typeof snap.exists === 'function' ? !snap.exists() : !snap._document)) return null;
+        const data = typeof snap.data === 'function' ? snap.data() : snap;
+        return data;
+    } catch (e) { console.error('getDataStatus error', e); return null; }
+}
+
+// Update globals/dataStatus with { lastUpdated, filename }
+async function updateDataStatus(obj) {
+    try {
+        if (!obj || typeof obj !== 'object') throw new Error('invalid payload');
+        if (!db) initFirebase();
+        if (!db) throw new Error('Firestore not initialized');
+        const dref = doc(db, 'globals', 'dataStatus');
+        await setDoc(dref, obj, { merge: true });
+        return { success: true };
+    } catch (e) { console.error('updateDataStatus error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
+}
+
 async function getRideConfig() {
     if (!db) initFirebase();
     if (!db) throw new Error('Firestore not initialized');
@@ -510,6 +548,9 @@ export {
     showFirebaseDebugBanner,
     getAdminPasswords,
     updateAdminPasswords,
+    updateLunchOptions,
+    getDataStatus,
+    updateDataStatus,
     updateRideConfig,
     listAllMembers,
     listMembersByJaarhanger,
