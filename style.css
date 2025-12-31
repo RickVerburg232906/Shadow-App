@@ -1388,6 +1388,39 @@ div[role="button"] > .vast-item.selected,
   color: rgba(15,23,36,0.45);
 }
 
+/* Overlay used to block interaction when lunch is not yet established */
+.page-blocker-overlay{
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(6px) saturate(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.page-blocker-overlay .page-blocker-message{
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 800;
+  padding: 14px 22px;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(2,6,23,0.08);
+  font-size: 20px;
+  line-height: 1.2;
+  display: inline-block;
+  align-self: center;
+  width: auto;
+  max-width: 760px;
+  min-width: 0;
+  text-align: center;
+}
+
 /* Disabled choice label: prevent any pointer interaction and dim visuals */
 .choice-card-label.choice-disabled{
   pointer-events: none;

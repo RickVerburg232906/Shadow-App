@@ -1522,7 +1522,7 @@ try {
 
     		
 // Render lunch preview area (vastEten / keuzeEten) from sessionStorage 'lunch'
-function renderLunchPreview() {
+async function renderLunchPreview() {
 	try {
 		const vastEl = document.getElementById('vastEtenDisplay');
 		const keuzeWrap = document.getElementById('keuzeEtenButtons');
@@ -1624,6 +1624,118 @@ function renderLunchPreview() {
 	} catch (e) { console.warn('renderLunchPreview failed', e); }
 	// ensure footer state updates after initial render and when config becomes available
 	try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', updateLunchFooterState); else updateLunchFooterState(); document.addEventListener('shadow:config-ready', updateLunchFooterState); } catch(_) {}
+
+	// Additional check: if globals/lunch.updatedAt is missing or older-or-equal to the previous ride,
+	// fade the lunch sections and show a "not established" message so members know choices aren't set.
+	try {
+		// normalize various timestamp shapes to ISO string
+		function normalizeTimestampValue(ts) {
+			try {
+				if (!ts) return null;
+				if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+				if (typeof ts === 'object' && ts.seconds && (ts.nanoseconds || ts.nanoseconds === 0)) {
+					const ms = (Number(ts.seconds) * 1000) + Math.floor(Number(ts.nanoseconds) / 1e6);
+					return new Date(ms).toISOString();
+				}
+				if (typeof ts === 'string') { const d = new Date(ts); if (!isNaN(d.getTime())) return d.toISOString(); return null; }
+				if (typeof ts === 'number') { if (ts > 1e12) return new Date(ts).toISOString(); return new Date(ts * 1000).toISOString(); }
+				return null;
+			} catch (e) { return null; }
+		}
+
+		// read planned dates from sessionStorage.rideConfig (prefer current-year map)
+		let planned = [];
+		try {
+			const raw = sessionStorage.getItem('rideConfig');
+			if (raw) {
+				const rc = JSON.parse(raw || '{}');
+				const currentYearKey = String((new Date()).getFullYear());
+				let regions = {};
+				if (rc && rc[currentYearKey] && typeof rc[currentYearKey] === 'object') regions = rc[currentYearKey];
+				else if (rc && rc.regions && typeof rc.regions === 'object') regions = rc.regions;
+				planned = Object.keys(regions || []).filter(Boolean);
+			}
+		} catch (e) { planned = []; }
+		const sorted = (Array.isArray(planned) ? planned.map(s => String(s).slice(0,10)).filter(Boolean).sort() : []);
+
+		// determine previous ride date (the ride immediately before the next or last known ride)
+		const todayIso = new Date().toISOString().slice(0,10);
+		let next = sorted.find(d => d >= todayIso);
+		if (!next) next = sorted[sorted.length - 1] || null;
+		let prev = null;
+		if (next) {
+			const idx = sorted.indexOf(next);
+			if (idx > 0) prev = sorted[idx - 1];
+		} else if (sorted.length > 0) {
+			prev = sorted[sorted.length - 1];
+		}
+
+		// fetch lunch doc to read updatedAt (server timestamp)
+		let lunchUpdatedIso = null;
+		try {
+			if (db) {
+				const lref = doc(db, 'globals', 'lunch');
+				const snap = await getDoc(lref).catch(() => null);
+				if (snap && (typeof snap.exists === 'function' ? snap.exists() : snap._document)) {
+					const ld = typeof snap.data === 'function' ? snap.data() : snap;
+					if (ld) lunchUpdatedIso = normalizeTimestampValue(ld.updatedAt || ld.lastUpdated || null) || null;
+				}
+			}
+		} catch (e) { /* ignore fetch errors */ }
+
+		let shouldHide = false;
+		// if no previous ride, do not hide
+		if (prev) {
+			const prevEnd = new Date(prev + 'T23:59:59').getTime();
+			if (!lunchUpdatedIso) shouldHide = true;
+			else {
+				const lu = new Date(lunchUpdatedIso).getTime();
+				if (!isNaN(lu) && lu <= prevEnd) shouldHide = true; // older-or-equal to previous ride
+			}
+		}
+
+		const overlayId = 'lunch-blocker-overlay';
+		const mainEl = document.querySelector('main.main-content') || null;
+
+		if (shouldHide) {
+			try {
+				const vastEl = document.getElementById('vastEtenDisplay');
+				const keuzeWrap = document.getElementById('keuzeEtenButtons');
+				const keuzeSection = document.getElementById('keuzeEtenSection');
+				const vastSection = document.getElementById('vastEtenSection');
+				if (vastEl) {
+					vastEl.textContent = 'Lunch is nog niet vastgesteld voor de rit.';
+					try { const sc = vastEl.closest && vastEl.closest('.surface-card'); if (sc) sc.classList.remove('surface-card--accent'); } catch(_) {}
+				}
+				if (keuzeWrap) keuzeWrap.innerHTML = '';
+				if (keuzeSection) { keuzeSection.style.display = 'none'; keuzeSection.hidden = true; }
+				if (vastSection) vastSection.classList.add('muted-section');
+				if (keuzeSection) keuzeSection.classList.add('muted-section');
+				// disable footer
+				try { const btn = document.getElementById('agree-lunch'); if (btn) { btn.disabled = true; btn.setAttribute('aria-disabled','true'); btn.classList && btn.classList.add('disabled'); } } catch(_) {}
+
+				// show blocking overlay over the main content so nothing can be filled
+				try {
+					let ov = document.getElementById(overlayId);
+					if (!ov) {
+						ov = document.createElement('div');
+						ov.id = overlayId;
+						ov.className = 'page-blocker-overlay';
+						ov.innerHTML = '<div class="page-blocker-message">Lunch is nog niet vastgesteld voor de rit.</div>';
+						if (mainEl) {
+							try { const cs = getComputedStyle(mainEl); if (!cs || cs.position === 'static') mainEl.style.position = 'relative'; } catch(_) {}
+							mainEl.appendChild(ov);
+						} else {
+							document.body.appendChild(ov);
+						}
+					}
+				} catch(_) {}
+			} catch(_) {}
+		} else {
+			// remove overlay if present
+			try { const existing = document.getElementById(overlayId); if (existing) existing.remove(); } catch(_) {}
+		}
+	} catch (_) {}
 }
 
 try {

@@ -156,7 +156,8 @@ async function updateLunchOptions(obj) {
         if (!db) initFirebase();
         if (!db) throw new Error('Firestore not initialized');
         const dref = doc(db, 'globals', 'lunch');
-        await setDoc(dref, { vastEten: Array.isArray(obj.vastEten) ? obj.vastEten : [], keuzeEten: Array.isArray(obj.keuzeEten) ? obj.keuzeEten : [] }, { merge: true });
+        // Include an `updatedAt` server timestamp so callers can detect when lunch options changed
+        await setDoc(dref, { vastEten: Array.isArray(obj.vastEten) ? obj.vastEten : [], keuzeEten: Array.isArray(obj.keuzeEten) ? obj.keuzeEten : [], updatedAt: serverTimestamp() }, { merge: true });
         try { sessionStorage.setItem('lunch', JSON.stringify({ vastEten: Array.isArray(obj.vastEten) ? obj.vastEten : [], keuzeEten: Array.isArray(obj.keuzeEten) ? obj.keuzeEten : [] })); } catch(_){}
         return { success: true };
     } catch (e) { console.error('updateLunchOptions error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -182,7 +183,13 @@ async function updateDataStatus(obj) {
         if (!db) initFirebase();
         if (!db) throw new Error('Firestore not initialized');
         const dref = doc(db, 'globals', 'dataStatus');
-        await setDoc(dref, obj, { merge: true });
+        // Ensure `lastupload` is stored as a Firestore timestamp (server-side) rather than a string.
+        // Preserve other provided fields (e.g. filename, lastUpdated) for backward compatibility.
+        const payload = Object.assign({}, obj);
+        try { delete payload.lastupload; } catch(_) {}
+        // use serverTimestamp() so Firestore stores a true timestamp value
+        payload.lastupload = serverTimestamp();
+        await setDoc(dref, payload, { merge: true });
         return { success: true };
     } catch (e) { console.error('updateDataStatus error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
 }
