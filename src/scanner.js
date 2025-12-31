@@ -194,18 +194,46 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
                 } catch (_) {}
 
                 console.info('Attempting to play audio from:', resolved);
-                const a = new Audio(resolved);
-                try { a.crossOrigin = 'anonymous'; } catch(_) {}
-                try { a.playsInline = true; } catch(_) {}
-                try { a.preload = 'auto'; } catch(_) {}
-                const playPromise = a.play();
-                if (playPromise && typeof playPromise.then === 'function') {
-                  playPromise.then(() => console.info('Audio playback started'))
-                    .catch(err => console.warn('Audio playback promise rejected', err));
-                }
-                a.addEventListener('ended', () => console.info('Audio ended'));
-                a.addEventListener('error', (ev) => console.error('Audio element error', ev));
-                // Do not stop the scanner here so continuous scanning remains active
+                // Use a single hidden Audio element for scanner playback — more reliable on iOS.
+                try {
+                  if (!window._scannerAudio) {
+                    const aa = document.createElement('audio');
+                    aa.style.display = 'none';
+                    aa.setAttribute('playsinline', '');
+                    aa.setAttribute('webkit-playsinline', '');
+                    aa.preload = 'auto';
+                    try { aa.crossOrigin = 'anonymous'; } catch(_) {}
+                    aa.addEventListener('ended', () => console.info('Audio ended'));
+                    aa.addEventListener('error', (ev) => console.error('Audio element error', ev));
+                    try { document.body.appendChild(aa); } catch(_) {}
+                    window._scannerAudio = aa;
+                  }
+                  const a = window._scannerAudio;
+                  try { a.pause(); } catch(_) {}
+                  try { a.currentTime = 0; } catch(_) {}
+                  if (a.src !== resolved) {
+                    try { a.src = resolved; } catch(_) { a.setAttribute('src', resolved); }
+                  } else {
+                    try { a.load(); } catch(_) {}
+                  }
+                  a.muted = false;
+                  // Attempt play and retry once after attempting to resume AudioContext if rejected
+                  try {
+                    const p = a.play();
+                    if (p && typeof p.then === 'function') {
+                      p.then(() => console.info('Audio playback started'))
+                        .catch(async (err) => {
+                          console.warn('Audio playback promise rejected, attempting resume', err);
+                          try {
+                            const Ctx = window.AudioContext || window.webkitAudioContext;
+                            if (Ctx && window._audioCtx) await window._audioCtx.resume().catch(()=>null);
+                            else if (Ctx) { window._audioCtx = new Ctx(); await window._audioCtx.resume().catch(()=>null); }
+                          } catch(e2) { console.warn('resume attempt failed', e2); }
+                          try { const p2 = a.play(); if (p2 && typeof p2.then === 'function') p2.then(()=>console.info('Audio playback started (retry)')).catch(e3=>console.warn('Audio retry failed', e3)); } catch(e4){ console.warn('retry play failed', e4); }
+                        });
+                    }
+                  } catch (eplay) { console.warn('play audio error', eplay); }
+                } catch (eAudio) { console.warn('scanner audio handling failed', eAudio); }
               } catch (e) { console.warn('play audio error', e); }
             } else {
               console.debug('No audioUrl resolved from scanned data');
