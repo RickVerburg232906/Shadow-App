@@ -107,6 +107,48 @@ function showScanError(msg, visibleMs = 5000) {
 try { if (typeof window !== 'undefined') window.showScanSuccess = showScanSuccess; } catch(_) {}
 try { if (typeof window !== 'undefined') window.showScanError = showScanError; } catch(_) {}
 
+// Play a random Inschrijf sound from assets/Inschrijf_sounds on successful scan
+function playRandomInschrijfSound() {
+  try {
+    const files = ['Inschrijf_sound.mp3','Inschrijf_sound2.mp3','Inschrijf_sound3.mp3','Inschrijf_sound4.mp3'];
+    const idx = Math.floor(Math.random() * files.length);
+    const url = '/assets/Inschrijf_sounds/' + files[idx];
+    let a = null;
+    try { a = window._inschrijfAudio; } catch(_) { a = null; }
+    if (!a) {
+      a = document.createElement('audio');
+      a.style.display = 'none';
+      a.setAttribute('playsinline', '');
+      a.setAttribute('webkit-playsinline', '');
+      a.preload = 'auto';
+      try { a.crossOrigin = 'anonymous'; } catch(_) {}
+      try { document.body.appendChild(a); } catch(_) {}
+      try { window._inschrijfAudio = a; } catch(_) {}
+    }
+    try { a.pause(); } catch(_) {}
+    try { a.currentTime = 0; } catch(_) {}
+    if (a.src !== url) {
+      try { a.src = url; } catch(_) { a.setAttribute('src', url); }
+    } else {
+      try { a.load(); } catch(_) {}
+    }
+    try {
+      const p = a.play();
+      if (p && typeof p.then === 'function') {
+        p.catch(async (err) => {
+          console.warn('playRandomInschrijfSound: play rejected, attempting resume', err);
+          try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (Ctx && window._audioCtx) await window._audioCtx.resume().catch(()=>null);
+            else if (Ctx) { window._audioCtx = new Ctx(); await window._audioCtx.resume().catch(()=>null); }
+          } catch(e2) { console.warn('playRandomInschrijfSound: resume failed', e2); }
+          try { const p2 = a.play(); if (p2 && typeof p2.then === 'function') p2.catch(()=>{}); } catch(_) {}
+        });
+      }
+    } catch (e) { console.warn('playRandomInschrijfSound failed', e); }
+  } catch (e) { console.warn('playRandomInschrijfSound top-level failed', e); }
+}
+
 // Recent scan guard: map of memberId -> timestamp(ms) to prevent spammy duplicate scans
 const _recentScans = new Map();
 // Members registered during this session (to prevent re-processing the same QR)
@@ -497,24 +539,8 @@ export async function initInschrijftafel() {
                 }
               } catch (e) { /* ignore date-check errors and continue */ }
 
-              // Attempt to play audio if the QR contained an audioUrl
-              try {
-                let audioUrl = null;
-                if (parsed && typeof parsed === 'object') audioUrl = parsed.audioUrl || parsed.audioURL || parsed.audio || null;
-                if (!audioUrl) {
-                  // fallback: look for any URL-like part in the raw decoded string
-                  try {
-                    const m = String(decoded || '').match(/https?:\/\/[^\s",'}]+/i);
-                    if (m && m[0]) audioUrl = m[0];
-                  } catch(_) { }
-                }
-                if (audioUrl) {
-                  try { console.info('inschrijftafel: triggering checkin sound for', audioUrl); } catch(_){}
-                  try { playCheckinSound(audioUrl); } catch(e) { console.warn('inschrijftafel: playCheckinSound failed', e); }
-                } else {
-                  console.debug('inschrijftafel: no audioUrl found in QR');
-                }
-              } catch (e) { console.warn('inschrijftafel: audio playback flow failed', e); }
+              // Audio playback from QR codes removed
+              try { console.debug('inschrijftafel: audio playback removed from QR handling'); } catch(_) {}
               if (!memberId) {
                 alert('Gescand: geen lidnummer gevonden in QR');
                 return;
@@ -544,6 +570,7 @@ export async function initInschrijftafel() {
                 if (r && r.success) {
                   try { playCheckinSound('/assets/Inschrijf_sound.mp3'); } catch(_) {}
                   try { showScanSuccess('Ingeschreven: ' + (memberId || '')); } catch(_) {}
+                  try { playRandomInschrijfSound(); } catch(_) {}
                   try { _registeredThisSession.add(String(memberId)); } catch(_){}
                   
                   // Immediately lock member check-in UI if visible so it's clear the member is registered

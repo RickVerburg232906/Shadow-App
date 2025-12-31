@@ -1,5 +1,3 @@
-// Scanner helpers extracted from admin.js
-// Handles loading html5-qrcode, camera selection and start/stop logic
 let _html5qrcodeLoading = false;
 export function ensureHtml5Qrcode(timeout = 10000) {
   return new Promise((resolve, reject) => {
