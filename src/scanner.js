@@ -27,7 +27,7 @@ export async function selectRearCameraDeviceId() {
   try {
     // helper: call global toast if available, then invoke provided onDecode
     // Do not emit a generic scan toast here; pages should show domain-specific toasts.
-    const wrappedOnDecode = (decoded) => {
+    const wrappedOnDecode = async (decoded) => {
       try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
     };
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -167,8 +167,37 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
             console.debug('wrappedOnDecode - resolved audioUrl:', audioUrl);
             if (audioUrl) {
               try {
-                console.info('Attempting to play audio from:', audioUrl);
-                const a = new Audio(audioUrl);
+                // Sanitize URL: prefer same-origin or https. If page is https and audio is http localhost, use relative pathname.
+                let resolved = audioUrl;
+                try {
+                  const u = new URL(audioUrl, location.href);
+                  if (location.protocol === 'https:' && u.protocol === 'http:') {
+                    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+                      resolved = u.pathname; // load from same host (relative)
+                      console.debug('wrappedOnDecode - converted localhost http->relative', resolved);
+                    } else {
+                      resolved = 'https:' + audioUrl.slice(audioUrl.indexOf(':')+1);
+                      console.debug('wrappedOnDecode - switched to https', resolved);
+                    }
+                  } else {
+                    resolved = u.href;
+                  }
+                } catch (_) { /* leave resolved as-is */ }
+
+                // Try a HEAD request to surface CORS/status in logs (best-effort)
+                try {
+                  const t0 = Date.now();
+                  fetch(resolved, { method: 'HEAD', mode: 'cors' }).then(r => {
+                    console.debug('wrappedOnDecode - HEAD', resolved, r.status, r.statusText, `${Date.now()-t0}ms`);
+                    try { const ac = r.headers && r.headers.get ? r.headers.get('access-control-allow-origin') : null; if (ac) console.debug('wrappedOnDecode - CORS:', ac); } catch(_){}
+                  }).catch(err => console.warn('wrappedOnDecode - HEAD failed', resolved, err));
+                } catch (_) {}
+
+                console.info('Attempting to play audio from:', resolved);
+                const a = new Audio(resolved);
+                try { a.crossOrigin = 'anonymous'; } catch(_) {}
+                try { a.playsInline = true; } catch(_) {}
+                try { a.preload = 'auto'; } catch(_) {}
                 const playPromise = a.play();
                 if (playPromise && typeof playPromise.then === 'function') {
                   playPromise.then(() => console.info('Audio playback started'))
