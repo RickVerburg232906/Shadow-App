@@ -482,7 +482,7 @@ export async function initInschrijftafel() {
               try {
                 // global short cooldown to avoid multiple rapid decode handling
                 if (_scanCooldown) { try { console.debug('inschrijftafel: scan ignored due to cooldown'); } catch(_){}; return; }
-                _scanCooldown = true; setTimeout(() => { try { _scanCooldown = false; } catch(_){} }, 500);
+                _scanCooldown = true; setTimeout(() => { try { _scanCooldown = false; } catch(_){} }, 1500);
                 console.log('QR decoded:', decoded);
               // Attempt to parse JSON payload; fall back to raw string
               let parsed = null;
