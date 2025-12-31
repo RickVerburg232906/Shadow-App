@@ -60,19 +60,7 @@ function resolveDbEnv() {
                 const q = params.get('db');
                 if (q === 'dev' || q === 'prod') return q;
             } catch(_) {}
-            // Prefer explicit global flag set by assets/firebase-config.js
-            try {
-                if (typeof window.FIREBASE_MODE !== 'undefined') {
-                    const m = String(window.FIREBASE_MODE || '').toLowerCase();
-                    if (m === 'dev' || m === 'prod') return m;
-                }
-            } catch(_) {}
-            // Respect newer localStorage key `firebaseMode` if present
-            try {
-                const lsNew = localStorage.getItem('firebaseMode');
-                if (lsNew === 'dev' || lsNew === 'prod') return lsNew;
-            } catch(_) {}
-            // Backwards-compat: legacy `shadow_db_env`
+            // Respect explicit legacy localStorage override first
             try {
                 const ls = localStorage.getItem('shadow_db_env');
                 if (ls === 'dev' || ls === 'prod') return ls;
@@ -90,8 +78,6 @@ function setDbEnv(env, doReload = true) {
     try {
         if (env !== 'dev' && env !== 'prod') throw new Error('invalid env');
         try { localStorage.setItem('shadow_db_env', env); } catch(_) {}
-        try { localStorage.setItem('firebaseMode', env); } catch(_) {}
-        try { window.FIREBASE_MODE = env; } catch(_) {}
         if (doReload && typeof window !== 'undefined' && window.location) {
             // reload to ensure full reinitialization
             window.location.reload();
