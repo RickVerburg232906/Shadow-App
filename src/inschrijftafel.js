@@ -319,6 +319,37 @@ export async function initInschrijftafel() {
       // save original HTML to restore later
       if (!startBtn.dataset.origHtml) startBtn.dataset.origHtml = startBtn.innerHTML;
       // (Removed request-camera-button and handler)
+
+      // Unlock audio on first user gesture so mobile browsers allow playback later
+      async function unlockAudio() {
+        try {
+          if (window._audioUnlocked) return true;
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) {
+            window._audioUnlocked = true;
+            console.debug('unlockAudio: no AudioContext available — treating as unlocked');
+            return true;
+          }
+          const ctx = new Ctx();
+          try { window._audioCtx = ctx; } catch(_){}
+          // create tiny silent oscillator to prime audio stack
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          gain.gain.value = 0;
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.01);
+          try {
+            await ctx.resume();
+            window._audioUnlocked = true;
+            console.info('unlockAudio: audio unlocked');
+            return true;
+          } catch (e) {
+            console.warn('unlockAudio: resume failed', e);
+            return false;
+          }
+        } catch (e) { console.warn('unlockAudio failed', e); return false; }
+      }
       startBtn.addEventListener('click', async () => {
         try {
           if (running) {
@@ -327,6 +358,9 @@ export async function initInschrijftafel() {
             try { startBtn.innerHTML = startBtn.dataset.origHtml || 'Start Scanner'; } catch(_){ }
             return;
           }
+
+          // First unlock audio (user gesture) so mobile allows playback later
+          try { await unlockAudio(); } catch(_) {}
 
           // Prepare preview area: hide placeholder overlay and remove background image so scanner becomes visible
           try {

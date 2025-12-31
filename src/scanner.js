@@ -1,58 +1,6 @@
 // Scanner helpers extracted from admin.js
 // Handles loading html5-qrcode, camera selection and start/stop logic
 let _html5qrcodeLoading = false;
-
-// On iOS Safari audio playback is blocked unless allowed by a user gesture.
-// Install a one-time listener that resumes an AudioContext (and briefly plays a silent oscillator)
-// when the user first taps/clicks the page. This unlocks audio for later `new Audio(...).play()` calls.
-function unlockAudioOnUserGesture() {
-  try {
-    if (typeof window === 'undefined') return;
-    if (window._audioUnlocked) return;
-    const tryUnlock = async () => {
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC) {
-          try {
-            const ctx = new AC();
-            // Resume if suspended (iOS often starts suspended)
-            if (ctx.state === 'suspended' || ctx.state === 'running') {
-              try { await ctx.resume(); } catch(_) {}
-            }
-            // briefly create an inaudible oscillator to ensure the context is playable
-            try {
-              const gain = ctx.createGain();
-              gain.gain.value = 0;
-              const osc = ctx.createOscillator();
-              osc.connect(gain);
-              gain.connect(ctx.destination);
-              osc.start();
-              setTimeout(() => { try { osc.stop(); } catch(_) {} try { if (typeof ctx.close === 'function') ctx.close().catch(()=>{}); } catch(_) {} }, 50);
-            } catch(_) {}
-            window._audioCtx = ctx;
-          } catch (e) {
-            console.debug('unlockAudio: AudioContext init failed', e);
-          }
-        } else {
-          // Fallback: create a short silent HTMLAudioElement and play/pause it
-          try {
-            const a = new Audio();
-            a.src = '';
-            a.play && a.play().catch(()=>{});
-            try { a.pause(); } catch(_) {}
-          } catch(_) {}
-        }
-        window._audioUnlocked = true;
-        console.info('unlockAudioOnUserGesture: audio unlocked');
-      } catch (e) { console.warn('unlockAudioOnUserGesture failed', e); }
-    };
-    document.addEventListener('touchend', tryUnlock, { once: true, passive: true });
-    document.addEventListener('click', tryUnlock, { once: true, passive: true });
-  } catch (e) { try { console.warn('unlockAudioOnUserGesture init failed', e); } catch(_) {} }
-}
-
-// Install on module load so pages have the handler ready
-try { unlockAudioOnUserGesture(); } catch(_) {}
 export function ensureHtml5Qrcode(timeout = 10000) {
   return new Promise((resolve, reject) => {
     if (typeof window !== 'undefined' && window.Html5QrcodeScanner) return resolve(true);
