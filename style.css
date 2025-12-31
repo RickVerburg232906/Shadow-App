@@ -673,12 +673,12 @@ body.app{
 
 /* No mobile override: keep unscanned (empty) stars grey on all viewports */
 
-/* Today's unscanned star: use blue color and ensure filled glyph for visibility */
-.stats-stars .star.today-unscanned,
-.material-symbols-outlined.star.today-unscanned{
+/* Upcoming unscanned star (future ride): use blue color and ensure filled glyph for visibility */
+.stats-stars .star.upcoming-unscanned,
+.material-symbols-outlined.star.upcoming-unscanned{
   font-variation-settings: 'FILL' 1, 'wght' 400 !important;
   -webkit-font-variation-settings: 'FILL' 1, 'wght' 400 !important;
-  color: #163E8C !important;
+  color: var(--blue) !important;
 }
 
 /* Mijn Keuzes styles removed — section deleted from memberInfoPage.html */

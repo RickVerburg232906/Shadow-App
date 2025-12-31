@@ -731,6 +731,9 @@ function renderMemberInfoChoices() {
 					// rebuild stars with date metadata; mark filled if member scanned on that date
 					starsContainer.innerHTML = '';
 					let filledCount = 0;
+					// determine the next planned ride: first planned date >= today
+					const todayForStars = todayYMD();
+					const nextRide = (Array.isArray(sortedPlanned) ? sortedPlanned.find(d => String(d) >= String(todayForStars)) : null) || null;
 					for (let i=0;i<numStars;i++) {
 						const date = starDates[i] || '';
 						const sp = document.createElement('span');
@@ -740,14 +743,12 @@ function renderMemberInfoChoices() {
 							sp.dataset.date = String(date);
 							try { sp.title = formatDateLocal(date); } catch(_) {}
 							if (scanSet.has(String(date))) {
-								/* debug removed */
 								sp.classList.add('filled'); filledCount++;
 							} else {
-								// If this date is today and not scanned, mark specially so CSS can color it blue
 								try {
-									const today = todayYMD();
-									if (String(date) === String(today)) {
-										sp.classList.add('today-unscanned');
+									// Only mark the very next planned ride (today or future) as special blue when unscanned
+									if (nextRide && String(date) === String(nextRide)) {
+										sp.classList.add('upcoming-unscanned');
 									} else {
 										sp.classList.add('empty');
 									}
@@ -1054,10 +1055,16 @@ async function updateQROverlay() {
 							if (!qrImg || !qrImg.src) return;
 							const res = await fetch(qrImg.src, { mode: 'cors' });
 							const blob = await res.blob();
-							const filename = `QR_${String(payload.LidNr||'member')}.png`;
 							const url = URL.createObjectURL(blob);
-							const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-							setTimeout(() => URL.revokeObjectURL(url), 1500);
+							// Open the image in a new tab/window so mobile users can long-press and "Save Image" to Photos
+							try {
+								window.open(url, '_blank', 'noopener');
+							} catch (_) {
+								// Fallback: create an anchor without download attribute so it opens instead of forcing download
+								const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+							}
+							// Revoke the object URL after a delay to allow the new tab to load the resource
+							setTimeout(() => URL.revokeObjectURL(url), 30000);
 						} catch (e) { console.warn('save-qr failed', e); }
 					});
 					if (saveBtn.dataset) saveBtn.dataset._bound = '1';
