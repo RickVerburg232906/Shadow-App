@@ -1,6 +1,8 @@
 // Minimal member-side helpers for signupPage
-import { getPlannedDates, getLunchOptions, getRideConfig, searchMembers, listAllMembers, getMemberById } from './firebase.js';
+import { getPlannedDates, getLunchOptions, getRideConfig, searchMembers, listAllMembers, getMemberById, initFirebase } from './firebase.js';
 import { db, doc, onSnapshot, getDoc } from './firebase.js';
+// Ensure Firebase is initialized early so `db` binding is ready for doc()/collection() calls
+try { initFirebase(); } catch (e) { try { console.warn('early initFirebase failed', e); } catch(_) {} }
 // Keeps only what `lid-ui/signupPage.html` (and index) require: footer binding, simple suggestions glue,
 // sessionStorage diagnostics and safe helpers. Other features removed.
 
@@ -305,7 +307,10 @@ function setupMemberScanListener() {
 	try {
 		(async () => {
 			try {
+				// Ensure Firebase is initialized so `db` binding is valid
+				try { await initFirebase(); } catch (e) { console.warn('setupMemberScanListener: initFirebase failed', e); }
 				let memberId = window._selectedMemberId || '';
+				try { console.debug('setupMemberScanListener: start, window._selectedMemberId=', window._selectedMemberId); } catch(_) {}
 				if (!memberId) {
 					try {
 						for (const k of Object.keys(sessionStorage || {})) {
@@ -313,9 +318,17 @@ function setupMemberScanListener() {
 						}
 					} catch(_) { memberId = '' }
 				}
-				if (!memberId) return;
+				try { console.debug('setupMemberScanListener: resolved memberId=', memberId); } catch(_) {}
+				if (!memberId) { console.debug('setupMemberScanListener: no memberId found - skipping listener'); return; }
 
-				const ref = doc(db, 'members', String(memberId));
+				let ref = null;
+				try {
+					ref = doc(db, 'members', String(memberId));
+					try { console.debug('setupMemberScanListener: created doc ref for', String(memberId)); } catch(_) {}
+				} catch (e) {
+					console.warn('setupMemberScanListener: creating doc ref failed', e);
+					ref = null;
+				}
 				// One-time check: fetch current document to verify read access and data shape
 				try {
 					try {
@@ -347,7 +360,10 @@ function setupMemberScanListener() {
 
 				// If a previous listener exists for another member, unsubscribe it first
 				try { if (window._memberScanUnsub && typeof window._memberScanUnsub === 'function') { try { window._memberScanUnsub(); } catch(_) {} } } catch(_) {}
-				const unsub = onSnapshot(ref, (snap) => {
+				if (!ref) {
+					console.warn('setupMemberScanListener: no doc ref available, aborting onSnapshot');
+				} else {
+					const unsub = onSnapshot(ref, (snap) => {
 					try {
 						if (!snap.exists || (typeof snap.exists === 'function' && !snap.exists())) return;
 						const data = (typeof snap.data === 'function') ? snap.data() : (snap._document ? snap._document.data.value.mapValue.fields : null);
@@ -401,12 +417,16 @@ function setupMemberScanListener() {
 						const key = `shadow_ui_member_${String(memberId)}`;
 						let obj = null;
 						try { const raw = sessionStorage.getItem(key); obj = raw ? JSON.parse(raw) : {}; } catch(_) { obj = {}; }
+						try { console.debug('member onSnapshot handler: newScans=', newScans, 'storing under', key); } catch(_) {}
 						// Update only ScanDatums field
 						try { obj.ScanDatums = newScans; sessionStorage.setItem(key, JSON.stringify(obj)); } catch(_) {}
 						try { document.dispatchEvent(new CustomEvent('shadow:member-updated', { detail: { memberId, full: obj } })); } catch(_) {}
 						try { renderMemberInfoChoices(); } catch(_) {}
 					} catch (e) { console.warn('member onSnapshot handler failed', e); }
-				}, (err) => { console.warn('member onSnapshot error', err); });
+					}, (err) => { console.warn('member onSnapshot error', err); });
+					// Store the unsubscribe so future calls can replace it when member changes
+					try { window._memberScanUnsub = unsub; } catch(_) {}
+				}
 
 				// Unsubscribe on unload
 								try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
@@ -425,6 +445,13 @@ try {
 		if (!window._memberScanListenerBound) {
 			document.addEventListener('member:selected', () => setupMemberScanListener());
 			window._memberScanListenerBound = true;
+		}
+	} catch(_) {}
+	// Also re-run when sessionStorage snapshot updates (populated later)
+	try {
+		if (!window._memberScanSessionBound) {
+			document.addEventListener('sessionStorageSnapshot', () => setupMemberScanListener());
+			window._memberScanSessionBound = true;
 		}
 	} catch(_) {}
 } catch(_) {}
@@ -563,7 +590,7 @@ function setupIndexFooterNavigation() {
 				}, (err) => { console.warn('member onSnapshot error', err); });
 
 				// Unsubscribe on unload
-				try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
+				try { window.addEventListener('beforeunload', () => { try { if (window._memberScanUnsub) { window._memberScanUnsub(); } } catch(_) {} }); } catch(_) {}
 			} catch (e) { console.warn('setupMemberScanListener import/init failed', e); }
 		})();
 	} catch (e) { console.warn('setupMemberScanListener failed', e); }
