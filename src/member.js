@@ -1049,9 +1049,9 @@ async function updateQROverlay() {
 		try {
 			const dataStr = JSON.stringify(payload);
 				if (qrImg) {
-					// Provide an audio URL and include it inside the JSON payload so scanners still receive the member data.
+					// Provide a root-relative audio URL so it works on Vercel (HTTPS).
+					// Use a leading slash to ensure same-origin relative path (`/assets/...`).
 					let audioUrl = '/assets/wet-fart-335478.mp3';
-					try { audioUrl = new URL('../assets/wet-fart-335478.mp3', location.href).href; } catch(_) {}
 					try { payload.audioUrl = audioUrl; } catch(_) {}
 					const qrData = JSON.stringify(payload);
 					// Debug: log payload and audio URL so we can inspect what's encoded
@@ -1723,7 +1723,7 @@ async function renderLunchPreview() {
 				const keuzeSection = document.getElementById('keuzeEtenSection');
 				const vastSection = document.getElementById('vastEtenSection');
 				if (vastEl) {
-					vastEl.textContent = 'Lunch is nog niet vastgesteld voor de rit.';
+					vastEl.textContent = 'Lunch is nog niet vastgesteld voor de rit, probeer het later opnieuw.';
 					try { const sc = vastEl.closest && vastEl.closest('.surface-card'); if (sc) sc.classList.remove('surface-card--accent'); } catch(_) {}
 				}
 				if (keuzeWrap) keuzeWrap.innerHTML = '';
@@ -1740,7 +1740,7 @@ async function renderLunchPreview() {
 						ov = document.createElement('div');
 						ov.id = overlayId;
 						ov.className = 'page-blocker-overlay';
-						ov.innerHTML = '<div class="page-blocker-message">Lunch is nog niet vastgesteld voor de rit.</div>';
+						ov.innerHTML = '<div class="page-blocker-message">Lunch is nog niet vastgesteld voor de rit, probeer het later opnieuw.</div>';
 						if (mainEl) {
 							try { const cs = getComputedStyle(mainEl); if (!cs || cs.position === 'static') mainEl.style.position = 'relative'; } catch(_) {}
 							mainEl.appendChild(ov);

@@ -1,58 +1,6 @@
 // Scanner helpers extracted from admin.js
 // Handles loading html5-qrcode, camera selection and start/stop logic
 let _html5qrcodeLoading = false;
-
-// On iOS Safari audio playback is blocked unless allowed by a user gesture.
-// Install a one-time listener that resumes an AudioContext (and briefly plays a silent oscillator)
-// when the user first taps/clicks the page. This unlocks audio for later `new Audio(...).play()` calls.
-function unlockAudioOnUserGesture() {
-  try {
-    if (typeof window === 'undefined') return;
-    if (window._audioUnlocked) return;
-    const tryUnlock = async () => {
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC) {
-          try {
-            const ctx = new AC();
-            // Resume if suspended (iOS often starts suspended)
-            if (ctx.state === 'suspended' || ctx.state === 'running') {
-              try { await ctx.resume(); } catch(_) {}
-            }
-            // briefly create an inaudible oscillator to ensure the context is playable
-            try {
-              const gain = ctx.createGain();
-              gain.gain.value = 0;
-              const osc = ctx.createOscillator();
-              osc.connect(gain);
-              gain.connect(ctx.destination);
-              osc.start();
-              setTimeout(() => { try { osc.stop(); } catch(_) {} try { if (typeof ctx.close === 'function') ctx.close().catch(()=>{}); } catch(_) {} }, 50);
-            } catch(_) {}
-            window._audioCtx = ctx;
-          } catch (e) {
-            console.debug('unlockAudio: AudioContext init failed', e);
-          }
-        } else {
-          // Fallback: create a short silent HTMLAudioElement and play/pause it
-          try {
-            const a = new Audio();
-            a.src = '';
-            a.play && a.play().catch(()=>{});
-            try { a.pause(); } catch(_) {}
-          } catch(_) {}
-        }
-        window._audioUnlocked = true;
-        console.info('unlockAudioOnUserGesture: audio unlocked');
-      } catch (e) { console.warn('unlockAudioOnUserGesture failed', e); }
-    };
-    document.addEventListener('touchend', tryUnlock, { once: true, passive: true });
-    document.addEventListener('click', tryUnlock, { once: true, passive: true });
-  } catch (e) { try { console.warn('unlockAudioOnUserGesture init failed', e); } catch(_) {} }
-}
-
-// Install on module load so pages have the handler ready
-try { unlockAudioOnUserGesture(); } catch(_) {}
 export function ensureHtml5Qrcode(timeout = 10000) {
   return new Promise((resolve, reject) => {
     if (typeof window !== 'undefined' && window.Html5QrcodeScanner) return resolve(true);
@@ -79,7 +27,7 @@ export async function selectRearCameraDeviceId() {
   try {
     // helper: call global toast if available, then invoke provided onDecode
     // Do not emit a generic scan toast here; pages should show domain-specific toasts.
-    const wrappedOnDecode = (decoded) => {
+    const wrappedOnDecode = async (decoded) => {
       try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
     };
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -219,16 +167,73 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
             console.debug('wrappedOnDecode - resolved audioUrl:', audioUrl);
             if (audioUrl) {
               try {
-                console.info('Attempting to play audio from:', audioUrl);
-                const a = new Audio(audioUrl);
-                const playPromise = a.play();
-                if (playPromise && typeof playPromise.then === 'function') {
-                  playPromise.then(() => console.info('Audio playback started'))
-                    .catch(err => console.warn('Audio playback promise rejected', err));
-                }
-                a.addEventListener('ended', () => console.info('Audio ended'));
-                a.addEventListener('error', (ev) => console.error('Audio element error', ev));
-                try { if (typeof html5Qr.stop === 'function') { html5Qr.stop().catch(()=>{}); } } catch (_) {}
+                // Sanitize URL: prefer same-origin or https. If page is https and audio is http localhost, use relative pathname.
+                let resolved = audioUrl;
+                try {
+                  const u = new URL(audioUrl, location.href);
+                  if (location.protocol === 'https:' && u.protocol === 'http:') {
+                    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+                      resolved = u.pathname; // load from same host (relative)
+                      console.debug('wrappedOnDecode - converted localhost http->relative', resolved);
+                    } else {
+                      resolved = 'https:' + audioUrl.slice(audioUrl.indexOf(':')+1);
+                      console.debug('wrappedOnDecode - switched to https', resolved);
+                    }
+                  } else {
+                    resolved = u.href;
+                  }
+                } catch (_) { /* leave resolved as-is */ }
+
+                // Try a HEAD request to surface CORS/status in logs (best-effort)
+                try {
+                  const t0 = Date.now();
+                  fetch(resolved, { method: 'HEAD', mode: 'cors' }).then(r => {
+                    console.debug('wrappedOnDecode - HEAD', resolved, r.status, r.statusText, `${Date.now()-t0}ms`);
+                    try { const ac = r.headers && r.headers.get ? r.headers.get('access-control-allow-origin') : null; if (ac) console.debug('wrappedOnDecode - CORS:', ac); } catch(_){}
+                  }).catch(err => console.warn('wrappedOnDecode - HEAD failed', resolved, err));
+                } catch (_) {}
+
+                console.info('Attempting to play audio from:', resolved);
+                // Use a single hidden Audio element for scanner playback — more reliable on iOS.
+                try {
+                  if (!window._scannerAudio) {
+                    const aa = document.createElement('audio');
+                    aa.style.display = 'none';
+                    aa.setAttribute('playsinline', '');
+                    aa.setAttribute('webkit-playsinline', '');
+                    aa.preload = 'auto';
+                    try { aa.crossOrigin = 'anonymous'; } catch(_) {}
+                    aa.addEventListener('ended', () => console.info('Audio ended'));
+                    aa.addEventListener('error', (ev) => console.error('Audio element error', ev));
+                    try { document.body.appendChild(aa); } catch(_) {}
+                    window._scannerAudio = aa;
+                  }
+                  const a = window._scannerAudio;
+                  try { a.pause(); } catch(_) {}
+                  try { a.currentTime = 0; } catch(_) {}
+                  if (a.src !== resolved) {
+                    try { a.src = resolved; } catch(_) { a.setAttribute('src', resolved); }
+                  } else {
+                    try { a.load(); } catch(_) {}
+                  }
+                  a.muted = false;
+                  // Attempt play and retry once after attempting to resume AudioContext if rejected
+                  try {
+                    const p = a.play();
+                    if (p && typeof p.then === 'function') {
+                      p.then(() => console.info('Audio playback started'))
+                        .catch(async (err) => {
+                          console.warn('Audio playback promise rejected, attempting resume', err);
+                          try {
+                            const Ctx = window.AudioContext || window.webkitAudioContext;
+                            if (Ctx && window._audioCtx) await window._audioCtx.resume().catch(()=>null);
+                            else if (Ctx) { window._audioCtx = new Ctx(); await window._audioCtx.resume().catch(()=>null); }
+                          } catch(e2) { console.warn('resume attempt failed', e2); }
+                          try { const p2 = a.play(); if (p2 && typeof p2.then === 'function') p2.then(()=>console.info('Audio playback started (retry)')).catch(e3=>console.warn('Audio retry failed', e3)); } catch(e4){ console.warn('retry play failed', e4); }
+                        });
+                    }
+                  } catch (eplay) { console.warn('play audio error', eplay); }
+                } catch (eAudio) { console.warn('scanner audio handling failed', eAudio); }
               } catch (e) { console.warn('play audio error', e); }
             } else {
               console.debug('No audioUrl resolved from scanned data');
