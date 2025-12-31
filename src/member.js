@@ -1723,7 +1723,7 @@ async function renderLunchPreview() {
 				const keuzeSection = document.getElementById('keuzeEtenSection');
 				const vastSection = document.getElementById('vastEtenSection');
 				if (vastEl) {
-					vastEl.textContent = 'Lunch is nog niet vastgesteld voor de rit, probeer het later opnieuw.';
+					vastEl.textContent = 'Lunch is nog niet vastgesteld voor de rit.';
 					try { const sc = vastEl.closest && vastEl.closest('.surface-card'); if (sc) sc.classList.remove('surface-card--accent'); } catch(_) {}
 				}
 				if (keuzeWrap) keuzeWrap.innerHTML = '';
@@ -1740,7 +1740,7 @@ async function renderLunchPreview() {
 						ov = document.createElement('div');
 						ov.id = overlayId;
 						ov.className = 'page-blocker-overlay';
-						ov.innerHTML = '<div class="page-blocker-message">Lunch is nog niet vastgesteld voor de rit, probeer het later opnieuw.</div>';
+						ov.innerHTML = '<div class="page-blocker-message">Lunch is nog niet vastgesteld voor de rit.</div>';
 						if (mainEl) {
 							try { const cs = getComputedStyle(mainEl); if (!cs || cs.position === 'static') mainEl.style.position = 'relative'; } catch(_) {}
 							mainEl.appendChild(ov);
