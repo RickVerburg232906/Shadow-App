@@ -352,6 +352,37 @@ export async function initInschrijftafel() {
           }
         } catch (e) { console.warn('unlockAudio failed', e); return false; }
       }
+
+      // Play check-in sound robustly (reuses hidden audio element)
+      function playCheckinSound(url) {
+        try {
+          const src = String(url || '/assets/Inschrijf_sound.mp3');
+          if (!window._scannerAudio) {
+            const aa = document.createElement('audio');
+            aa.style.display = 'none';
+            aa.setAttribute('playsinline', '');
+            aa.setAttribute('webkit-playsinline', '');
+            aa.preload = 'auto';
+            try { aa.crossOrigin = 'anonymous'; } catch(_) {}
+            try { document.body.appendChild(aa); } catch(_) {}
+            window._scannerAudio = aa;
+          }
+          const a = window._scannerAudio;
+          try { a.pause(); } catch(_) {}
+          try { a.currentTime = 0; } catch(_) {}
+          if (a.src !== src) { try { a.src = src; } catch(_) { a.setAttribute('src', src); } }
+          try { a.load(); } catch(_) {}
+          // Delay slightly to give iOS time to reset before playing again
+          setTimeout(() => {
+            try {
+              const p = a.play();
+              if (p && typeof p.then === 'function') {
+                p.then(() => console.info('playCheckinSound: started')).catch(err => console.warn('playCheckinSound: rejected', err));
+              }
+            } catch (e) { console.warn('playCheckinSound error', e); }
+          }, 50);
+        } catch (e) { console.warn('playCheckinSound failed', e); }
+      }
       startBtn.addEventListener('click', async () => {
         try {
           if (running) {
@@ -478,18 +509,8 @@ export async function initInschrijftafel() {
                   } catch(_) { }
                 }
                 if (audioUrl) {
-                  console.info('inschrijftafel: attempting to play audio from', audioUrl);
-                    try {
-                      const audio = new Audio(audioUrl);
-                      const p = audio.play();
-                      if (p && typeof p.then === 'function') {
-                        p.then(() => console.info('inschrijftafel: audio playback started'))
-                          .catch(err => console.warn('inschrijftafel: audio playback rejected', err));
-                      }
-                      audio.addEventListener('error', (ev) => console.error('inschrijftafel: audio element error', ev));
-                      audio.addEventListener('ended', () => console.info('inschrijftafel: audio ended'));
-                      // Keep scanner running after success so multiple scans can be performed
-                    } catch (e) { console.warn('inschrijftafel: play audio failed', e); }
+                  try { console.info('inschrijftafel: triggering checkin sound for', audioUrl); } catch(_){}
+                  try { playCheckinSound(audioUrl); } catch(e) { console.warn('inschrijftafel: playCheckinSound failed', e); }
                 } else {
                   console.debug('inschrijftafel: no audioUrl found in QR');
                 }
@@ -521,6 +542,7 @@ export async function initInschrijftafel() {
               try {
                 const r = await checkInMemberById(String(memberId), { lunchDeelname, lunchKeuze, Jaarhanger });
                 if (r && r.success) {
+                  try { playCheckinSound('/assets/Inschrijf_sound.mp3'); } catch(_) {}
                   try { showScanSuccess('Ingeschreven: ' + (memberId || '')); } catch(_) {}
                   try { _registeredThisSession.add(String(memberId)); } catch(_){}
                   
@@ -1509,7 +1531,9 @@ try { if (typeof window !== 'undefined') {
               }
             } catch (e) { console.warn('manualRegisterRide error', e); }
             // optionally update UI state
-            try { updateManualSaveState(); } catch(_){}
+            try { updateManualSaveState(); } catch(_){ }
+            // play check-in sound for manual saves as well
+            try { playCheckinSound('/assets/Inschrijf_sound.mp3'); } catch(_) {}
             // navigate back to inschrijftafel
             try { window.location.href = '../admin-ui/inschrijftafel.html'; } catch(_) { window.location.href = './inschrijftafel.html'; }
             return;
