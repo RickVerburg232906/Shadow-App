@@ -1,6 +1,58 @@
 // Scanner helpers extracted from admin.js
 // Handles loading html5-qrcode, camera selection and start/stop logic
 let _html5qrcodeLoading = false;
+
+// On iOS Safari audio playback is blocked unless allowed by a user gesture.
+// Install a one-time listener that resumes an AudioContext (and briefly plays a silent oscillator)
+// when the user first taps/clicks the page. This unlocks audio for later `new Audio(...).play()` calls.
+function unlockAudioOnUserGesture() {
+  try {
+    if (typeof window === 'undefined') return;
+    if (window._audioUnlocked) return;
+    const tryUnlock = async () => {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) {
+          try {
+            const ctx = new AC();
+            // Resume if suspended (iOS often starts suspended)
+            if (ctx.state === 'suspended' || ctx.state === 'running') {
+              try { await ctx.resume(); } catch(_) {}
+            }
+            // briefly create an inaudible oscillator to ensure the context is playable
+            try {
+              const gain = ctx.createGain();
+              gain.gain.value = 0;
+              const osc = ctx.createOscillator();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.start();
+              setTimeout(() => { try { osc.stop(); } catch(_) {} try { if (typeof ctx.close === 'function') ctx.close().catch(()=>{}); } catch(_) {} }, 50);
+            } catch(_) {}
+            window._audioCtx = ctx;
+          } catch (e) {
+            console.debug('unlockAudio: AudioContext init failed', e);
+          }
+        } else {
+          // Fallback: create a short silent HTMLAudioElement and play/pause it
+          try {
+            const a = new Audio();
+            a.src = '';
+            a.play && a.play().catch(()=>{});
+            try { a.pause(); } catch(_) {}
+          } catch(_) {}
+        }
+        window._audioUnlocked = true;
+        console.info('unlockAudioOnUserGesture: audio unlocked');
+      } catch (e) { console.warn('unlockAudioOnUserGesture failed', e); }
+    };
+    document.addEventListener('touchend', tryUnlock, { once: true, passive: true });
+    document.addEventListener('click', tryUnlock, { once: true, passive: true });
+  } catch (e) { try { console.warn('unlockAudioOnUserGesture init failed', e); } catch(_) {} }
+}
+
+// Install on module load so pages have the handler ready
+try { unlockAudioOnUserGesture(); } catch(_) {}
 export function ensureHtml5Qrcode(timeout = 10000) {
   return new Promise((resolve, reject) => {
     if (typeof window !== 'undefined' && window.Html5QrcodeScanner) return resolve(true);
@@ -137,7 +189,55 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
 
   try {
     // Do not emit a generic scan toast here; the admin flow will show registration toast.
-    const wrappedOnDecode = (decoded) => { try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); } };
+    // If opts.autoPlayAudio is truthy, attempt to play audio from the scanned text or JSON payload.
+    // Always enable auto-play of audio on successful scan
+    const autoPlayAudio = true;
+    const wrappedOnDecode = (decoded) => {
+      try {
+        console.debug('wrappedOnDecode - raw decoded:', decoded);
+        if (autoPlayAudio) {
+          try {
+            const maybe = (typeof decoded === 'string') ? decoded : (decoded && decoded.decodedText) ? decoded.decodedText : (decoded && decoded.text) ? decoded.text : null;
+            console.debug('wrappedOnDecode - candidate text:', maybe);
+            let audioUrl = null;
+            if (maybe) {
+              try {
+                const parsed = JSON.parse(maybe);
+                console.debug('wrappedOnDecode - parsed JSON:', parsed);
+                if (parsed && parsed.audioUrl) audioUrl = parsed.audioUrl;
+              } catch (_) {
+                // not JSON
+                console.debug('wrappedOnDecode - not JSON payload');
+              }
+              if (!audioUrl) {
+                // If the scanned text itself is a URL or references an mp3, use it
+                if (typeof maybe === 'string' && (maybe.match(/\.mp3($|\?|#)/i) || maybe.startsWith('http') || maybe.startsWith('/'))) {
+                  audioUrl = maybe;
+                }
+              }
+            }
+            console.debug('wrappedOnDecode - resolved audioUrl:', audioUrl);
+            if (audioUrl) {
+              try {
+                console.info('Attempting to play audio from:', audioUrl);
+                const a = new Audio(audioUrl);
+                const playPromise = a.play();
+                if (playPromise && typeof playPromise.then === 'function') {
+                  playPromise.then(() => console.info('Audio playback started'))
+                    .catch(err => console.warn('Audio playback promise rejected', err));
+                }
+                a.addEventListener('ended', () => console.info('Audio ended'));
+                a.addEventListener('error', (ev) => console.error('Audio element error', ev));
+                try { if (typeof html5Qr.stop === 'function') { html5Qr.stop().catch(()=>{}); } } catch (_) {}
+              } catch (e) { console.warn('play audio error', e); }
+            } else {
+              console.debug('No audioUrl resolved from scanned data');
+            }
+          } catch (e) { console.warn('autoPlayAudio handler failed', e); }
+        }
+      } catch (e) { console.error('wrappedOnDecode audio branch failed', e); }
+      try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
+    };
 
     const startWithDevice = async (device) => {
       try {

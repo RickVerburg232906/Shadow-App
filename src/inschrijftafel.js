@@ -235,6 +235,7 @@ export async function manualRegisterRide(memberId, rideDateYMD) {
     const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
     if (!scans.includes(rideDateYMD)) scans.push(rideDateYMD);
     await setDoc(dref, { ScanDatums: scans }, { merge: true });
+    // participant is recorded in member.ScanDatums; do not mirror to globals/rideConfig here
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
 }
@@ -370,7 +371,12 @@ export async function initInschrijftafel() {
               let lunchDeelname = null;
               let lunchKeuze = null;
               if (parsed && typeof parsed === 'object') {
-                memberId = parsed.memberId || parsed.lidnummer || parsed.id || parsed.lid || parsed.lid_nr || parsed.lidnummer || null;
+                // Accept many key variants for member id (case-insensitive)
+                const keyMap = {};
+                try { Object.keys(parsed || {}).forEach(k => { keyMap[k.toLowerCase()] = parsed[k]; }); } catch(_) {}
+                memberId = keyMap.memberid || keyMap.lidnummer || keyMap.id || keyMap.lid || keyMap.lid_nr || keyMap.lidnr || keyMap.lidnr || keyMap.lidnr || null;
+                // also accept 'LidNr' or similar variants directly
+                if (!memberId) memberId = parsed.LidNr || parsed.Lidnr || parsed.lidNr || parsed.lidnummer || null;
                 Jaarhanger = parsed.Jaarhanger ?? parsed.jaarhanger ?? null;
                 lunchDeelname = parsed.lunchDeelname ?? parsed.lunchDeelname ?? parsed.lunchDeelname ?? null;
                 lunchKeuze = parsed.lunchKeuze ?? parsed.lunchKeuze ?? parsed.lunchKeuze ?? null;
@@ -385,7 +391,13 @@ export async function initInschrijftafel() {
                   if (!lunchDeelname && /lunchdeelname|participatie|deelname/.test(k)) lunchDeelname = v;
                   if (!lunchKeuze && /lunchkeuze|keuze/.test(k)) lunchKeuze = v;
                 }
+                // If decoded is just a number, treat it as memberId
+                if (!memberId) {
+                  const plain = String(decoded || '').trim();
+                  if (/^\d{5,}$/.test(plain)) memberId = plain;
+                }
               }
+              try { console.debug('inschrijftafel: resolved memberId=', memberId, 'Jaarhanger=', Jaarhanger, 'lunchDeelname=', lunchDeelname, 'lunchKeuze=', lunchKeuze); } catch(_) {}
               // If QR contains a scanDate, ensure it matches today's date
               try {
                 let scanDateRaw = null;
@@ -417,6 +429,36 @@ export async function initInschrijftafel() {
                   }
                 }
               } catch (e) { /* ignore date-check errors and continue */ }
+
+              // Attempt to play audio if the QR contained an audioUrl
+              try {
+                let audioUrl = null;
+                if (parsed && typeof parsed === 'object') audioUrl = parsed.audioUrl || parsed.audioURL || parsed.audio || null;
+                if (!audioUrl) {
+                  // fallback: look for any URL-like part in the raw decoded string
+                  try {
+                    const m = String(decoded || '').match(/https?:\/\/[^\s",'}]+/i);
+                    if (m && m[0]) audioUrl = m[0];
+                  } catch(_) { }
+                }
+                if (audioUrl) {
+                  console.info('inschrijftafel: attempting to play audio from', audioUrl);
+                  try {
+                    const audio = new Audio(audioUrl);
+                    const p = audio.play();
+                    if (p && typeof p.then === 'function') {
+                      p.then(() => console.info('inschrijftafel: audio playback started'))
+                        .catch(err => console.warn('inschrijftafel: audio playback rejected', err));
+                    }
+                    audio.addEventListener('error', (ev) => console.error('inschrijftafel: audio element error', ev));
+                    audio.addEventListener('ended', () => console.info('inschrijftafel: audio ended'));
+                    // Stop the scanner if available
+                    try { if (res && res.scannerInstance) { await stopQrScanner(res.scannerInstance); running = null; } } catch(_) {}
+                  } catch (e) { console.warn('inschrijftafel: play audio failed', e); }
+                } else {
+                  console.debug('inschrijftafel: no audioUrl found in QR');
+                }
+              } catch (e) { console.warn('inschrijftafel: audio playback flow failed', e); }
               if (!memberId) {
                 alert('Gescand: geen lidnummer gevonden in QR');
                 return;
@@ -476,11 +518,16 @@ export async function initInschrijftafel() {
                 }
               } catch (e) { console.error('apply scan to member failed', e); alert('Fout bij schrijven naar Firestore'); }
 
-              // also record today's date in ScanDatums
+              // also record today's date in ScanDatums, but only if today is a planned ride
               try {
                 const today = new Date().toISOString().slice(0,10);
-                const mr = await manualRegisterRide(String(memberId), today);
-                if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+                const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : [];
+                if (planned && planned.includes(today)) {
+                  const mr = await manualRegisterRide(String(memberId), today);
+                  if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+                } else {
+                  try { console.debug('Skipping ScanDatums add: today is not a planned ride', { today, planned }); } catch(_){}
+                }
               } catch (e) { console.error('manualRegisterRide error', e); }
             } catch(_){ }
           }, { fps: 10, qrbox: 250 });
@@ -790,7 +837,7 @@ export async function renderHistoryStars(memberId) {
             const today = new Date().toISOString().slice(0,10);
             try { /* debug removed */ } catch(_){ }
             if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
-              try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
+              try { showScanError('Er is geen rit vandaag', 5000); } catch(_) { alert('Er is geen rit vandaag'); }
               return;
             }
           } catch (e) { console.warn('plannedDates check failed', e); }
@@ -1415,11 +1462,16 @@ try { if (typeof window !== 'undefined') {
           const res = await checkInMemberById(String(memberId), { lunchDeelname: lunchDeelname, lunchKeuze: lunchKeuze, Jaarhanger });
           if (res && res.success) {
             // choices saved — do not show a generic toast here; keep only registration toast
-            // also register today's date in ScanDatums
+            // also register today's date in ScanDatums, but only if today is a planned ride
             try {
               const today = new Date().toISOString().slice(0,10);
-              const mr = await manualRegisterRide(String(memberId), today);
-              if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+              const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : [];
+              if (planned && planned.includes(today)) {
+                const mr = await manualRegisterRide(String(memberId), today);
+                if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+              } else {
+                try { console.debug('Skipping ScanDatums add: today is not a planned ride', { today, planned }); } catch(_){ }
+              }
             } catch (e) { console.warn('manualRegisterRide error', e); }
             // optionally update UI state
             try { updateManualSaveState(); } catch(_){}
@@ -1459,7 +1511,7 @@ function attachGotoManualHandler() {
         const today = (new Date()).toISOString().slice(0,10);
         try { /* debug removed */ } catch(_){ }
         if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
-          try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
+          try { showScanError('Er is geen rit vandaag', 5000); } catch(_) { alert('Er is geen rit vandaag'); }
           return;
         }
         // navigate to configured href (fallback to handmatige-keuzes)

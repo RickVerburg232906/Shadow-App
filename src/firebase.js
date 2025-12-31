@@ -60,6 +60,7 @@ function resolveDbEnv() {
                 const q = params.get('db');
                 if (q === 'dev' || q === 'prod') return q;
             } catch(_) {}
+            // Respect explicit legacy localStorage override first
             try {
                 const ls = localStorage.getItem('shadow_db_env');
                 if (ls === 'dev' || ls === 'prod') return ls;
@@ -156,7 +157,8 @@ async function updateLunchOptions(obj) {
         if (!db) initFirebase();
         if (!db) throw new Error('Firestore not initialized');
         const dref = doc(db, 'globals', 'lunch');
-        await setDoc(dref, { vastEten: Array.isArray(obj.vastEten) ? obj.vastEten : [], keuzeEten: Array.isArray(obj.keuzeEten) ? obj.keuzeEten : [] }, { merge: true });
+        // Include an `updatedAt` server timestamp so callers can detect when lunch options changed
+        await setDoc(dref, { vastEten: Array.isArray(obj.vastEten) ? obj.vastEten : [], keuzeEten: Array.isArray(obj.keuzeEten) ? obj.keuzeEten : [], updatedAt: serverTimestamp() }, { merge: true });
         try { sessionStorage.setItem('lunch', JSON.stringify({ vastEten: Array.isArray(obj.vastEten) ? obj.vastEten : [], keuzeEten: Array.isArray(obj.keuzeEten) ? obj.keuzeEten : [] })); } catch(_){}
         return { success: true };
     } catch (e) { console.error('updateLunchOptions error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -182,7 +184,13 @@ async function updateDataStatus(obj) {
         if (!db) initFirebase();
         if (!db) throw new Error('Firestore not initialized');
         const dref = doc(db, 'globals', 'dataStatus');
-        await setDoc(dref, obj, { merge: true });
+        // Ensure `lastupload` is stored as a Firestore timestamp (server-side) rather than a string.
+        // Preserve other provided fields (e.g. filename, lastUpdated) for backward compatibility.
+        const payload = Object.assign({}, obj);
+        try { delete payload.lastupload; } catch(_) {}
+        // use serverTimestamp() so Firestore stores a true timestamp value
+        payload.lastupload = serverTimestamp();
+        await setDoc(dref, payload, { merge: true });
         return { success: true };
     } catch (e) { console.error('updateDataStatus error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
 }
@@ -205,9 +213,47 @@ async function getRideConfig() {
 }
 
 async function getPlannedDates() {
+    // Prefer a local cached sessionStorage copy when available to avoid a network fetch
+    try {
+        if (typeof sessionStorage !== 'undefined') {
+            const raw = sessionStorage.getItem('rideConfig');
+            if (raw) {
+                try {
+                    const obj = JSON.parse(raw);
+                    const currentYear = String((new Date()).getFullYear());
+                    if (obj && obj[currentYear] && typeof obj[currentYear] === 'object') {
+                        const keys = Object.keys(obj[currentYear]).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+                        keys.sort();
+                        return keys;
+                    }
+                    if (obj && obj.regions && typeof obj.regions === 'object') {
+                        const keys = Object.keys(obj.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+                        keys.sort();
+                        return keys;
+                    }
+                    if (obj && Array.isArray(obj.plannedDates)) return obj.plannedDates.slice();
+                } catch (_) { /* fall through to fetching from Firestore */ }
+            }
+        }
+    } catch (_) {}
+
     const cfg = await getRideConfig();
     if (!cfg || typeof cfg !== 'object') return [];
+    const currentYear = String((new Date()).getFullYear());
+    // Prefer per-year storage under cfg.<year> (top-level field for each year)
+    try {
+        if (cfg && cfg[currentYear] && typeof cfg[currentYear] === 'object') {
+            const datesObj = cfg[currentYear];
+            if (datesObj && typeof datesObj === 'object') {
+                const keys = Object.keys(datesObj).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+                keys.sort();
+                return keys;
+            }
+        }
+    } catch (_) { /* fall through to legacy behavior */ }
+    // Backwards-compatible: respect explicit plannedDates array if present
     if (Array.isArray(cfg.plannedDates)) return cfg.plannedDates.slice();
+    // Legacy: fall back to using regions keys as dates
     if (cfg.regions && typeof cfg.regions === 'object') {
         const keys = Object.keys(cfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
         keys.sort();
@@ -286,7 +332,7 @@ async function updateAdminPasswords(obj) {
 // Update rideConfig (merge) under globals/rideConfig
 async function updateRideConfig(obj) {
     try {
-        try { console.debug('updateRideConfig: start', obj); } catch(_){}
+        try { console.debug('updateRideConfig: start', obj); } catch(_){ }
         if (!obj || typeof obj !== 'object') throw new Error('invalid payload');
         if (!db) initFirebase();
         if (!db) throw new Error('Firestore not initialized');
@@ -294,6 +340,14 @@ async function updateRideConfig(obj) {
         const updatePayload = {};
         // If caller provided a full regions map, set it (will replace the regions field)
         if (obj.regions && typeof obj.regions === 'object') updatePayload['regions'] = obj.regions;
+        // If caller provided per-year data, set it under top-level field for that year (merge)
+        if (obj.years && typeof obj.years === 'object') {
+            for (const yk of Object.keys(obj.years)) {
+                if (!yk) continue;
+                // set top-level field named after the year, value is expected to be a map date->region
+                updatePayload[`${yk}`] = obj.years[yk];
+            }
+        }
         // If caller asked to remove specific region keys, mark them for deletion
         if (Array.isArray(obj.removeRegions) && obj.removeRegions.length > 0) {
             for (const k of obj.removeRegions) {
@@ -302,31 +356,78 @@ async function updateRideConfig(obj) {
                 updatePayload[`regions.${k}`] = deleteField();
             }
         }
+        // If caller asked to remove specific year/date keys, support removeYearsDates: [{ year: '2025', date: '2025-06-01' }, ...]
+        if (Array.isArray(obj.removeYearsDates) && obj.removeYearsDates.length > 0) {
+            for (const it of obj.removeYearsDates) {
+                try {
+                    const y = (it && it.year) ? String(it.year) : null;
+                    const d = (it && it.date) ? String(it.date) : null;
+                    if (!y || !d) continue;
+                    // remove top-level field for that year/date: <year>.<date>
+                    updatePayload[`${y}.${d}`] = deleteField();
+                } catch (_) { /* ignore malformed entries */ }
+            }
+        }
         // Ensure document exists before attempting updates that require it
         const existingSnap = await getDoc(dref).catch(() => null);
         const exists = !!(existingSnap && (typeof existingSnap.exists === 'function' ? existingSnap.exists() : existingSnap._document));
         if (!exists) {
-            // If doc doesn't exist, create it with provided `regions` (if any).
-            if (obj.regions && typeof obj.regions === 'object') {
-                await setDoc(dref, { regions: obj.regions }, { merge: true });
+            // If doc doesn't exist, create it with provided fields (regions/years)
+            const createPayload = {};
+            if (obj.regions && typeof obj.regions === 'object') createPayload.regions = obj.regions;
+            if (obj.years && typeof obj.years === 'object') {
+                for (const yk of Object.keys(obj.years)) {
+                    if (!yk) continue; createPayload[yk] = obj.years[yk];
+                }
+            }
+            if (Object.keys(createPayload).length > 0) {
+                await setDoc(dref, createPayload, { merge: true });
             } else {
                 // nothing to create; nothing else to delete
-                try { console.debug('updateRideConfig: doc missing and no regions to create'); } catch(_){}
+                try { console.debug('updateRideConfig: doc missing and no payload to create'); } catch(_){ }
             }
-            // If removeRegions was requested but doc didn't exist, nothing to delete.
         } else {
             // If we have a payload with fields to update/delete, use updateDoc
             if (Object.keys(updatePayload).length > 0) {
                 await updateDoc(dref, updatePayload);
             } else {
-                try { console.debug('updateRideConfig: nothing to update'); } catch(_){}
+                try { console.debug('updateRideConfig: nothing to update'); } catch(_){ }
             }
         }
-        // Refresh in-memory copy by merging provided regions
-        try { if (typeof window !== 'undefined' && obj.regions && typeof obj.regions === 'object') window._rideConfig = Object.assign({}, window._rideConfig || {}, { regions: obj.regions }); } catch(_){}
-        try { console.debug('updateRideConfig: success'); } catch(_){}
+        // Refresh in-memory copy by merging provided regions/years (top-level year fields)
+        try {
+            if (typeof window !== 'undefined') {
+                if (obj.regions && typeof obj.regions === 'object') window._rideConfig = Object.assign({}, window._rideConfig || {}, { regions: obj.regions });
+                if (obj.years && typeof obj.years === 'object') {
+                    window._rideConfig = Object.assign({}, window._rideConfig || {});
+                    for (const yk of Object.keys(obj.years)) {
+                        try { window._rideConfig[yk] = obj.years[yk]; } catch(_){}
+                    }
+                }
+            }
+        } catch(_){ }
+        try { console.debug('updateRideConfig: success'); } catch(_){ }
         return { success: true };
     } catch (e) { console.error('updateRideConfig error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
+}
+
+// Add a participant for a given ride date — store participants separately so
+// `globals/rideConfig` remains a pure map of dates/regions per year.
+async function addRideParticipant(rideDateYMD, memberId) {
+    try {
+        if (!rideDateYMD || !memberId) throw new Error('invalid args');
+        if (!db) initFirebase();
+        if (!db) throw new Error('Firestore not initialized');
+        const ymd = String(rideDateYMD).slice(0,10);
+        const year = String(ymd).slice(0,4);
+        // Write participant info into a separate globals document to avoid
+        // polluting `globals/rideConfig` which must only contain date -> region mappings.
+        const dref = doc(db, 'globals', 'rideParticipants');
+        // merge map: <year>.<date>.<memberId> = true
+        const payload = { [year]: { [ymd]: { [String(memberId)]: true } } };
+        await setDoc(dref, payload, { merge: true });
+        return { success: true };
+    } catch (e) { console.error('addRideParticipant error', e); return { success: false, error: (e && e.message) ? e.message : String(e) }; }
 }
 
 // Snapshot sessionStorage into an object and expose it via `getSessionSnapshot()`.
@@ -463,10 +564,22 @@ async function _loadIfIndex() {
         if (!isIndex) return;
         const run = async () => {
             const [lunchRes, rideCfg] = await Promise.all([getLunchOptions(), getRideConfig()]);
-            // Persist only the regions map to sessionStorage (never plannedDates)
+            // Persist only the regions map and current-year ride entries to sessionStorage
             try {
-                const regions = (rideCfg && rideCfg.regions && typeof rideCfg.regions === 'object') ? rideCfg.regions : {};
-                sessionStorage.setItem('rideConfig', JSON.stringify({ regions }));
+                const currentYear = String((new Date()).getFullYear());
+                let ridesForYear = {};
+                try {
+                    if (rideCfg && rideCfg[currentYear] && typeof rideCfg[currentYear] === 'object') {
+                        // expect structure: <year> -> map of date -> object of memberId:true or region
+                        ridesForYear = rideCfg[currentYear] && typeof rideCfg[currentYear] === 'object' ? rideCfg[currentYear] : {};
+                    }
+                } catch (_) { ridesForYear = {}; }
+                // Persist only the current-year rides under sessionStorage.rideConfig as { "<year>": { ... } }
+                try { sessionStorage.setItem('rideConfig', JSON.stringify({ [currentYear]: ridesForYear })); } catch(_) {}
+                // Notify other scripts that the rideConfig is ready for consumption
+                try {
+                    if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('shadow:config-ready'));
+                } catch(_) {}
             } catch (_) {}
             const snap = _snapshotSession();
             console.debug('sessionStorage snapshot after load', snap);
@@ -567,6 +680,7 @@ export {
     getDataStatus,
     updateDataStatus,
     updateRideConfig,
+    // addRideParticipant removed: participants are stored in members.ScanDatums
     listAllMembers,
     listMembersByJaarhanger,
     collection,

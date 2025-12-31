@@ -1,6 +1,8 @@
 // Minimal member-side helpers for signupPage
-import { getPlannedDates, getLunchOptions, getRideConfig, searchMembers, listAllMembers, getMemberById } from './firebase.js';
+import { getPlannedDates, getLunchOptions, getRideConfig, searchMembers, listAllMembers, getMemberById, initFirebase } from './firebase.js';
 import { db, doc, onSnapshot, getDoc } from './firebase.js';
+// Ensure Firebase is initialized early so `db` binding is ready for doc()/collection() calls
+try { initFirebase(); } catch (e) { try { console.warn('early initFirebase failed', e); } catch(_) {} }
 // Keeps only what `lid-ui/signupPage.html` (and index) require: footer binding, simple suggestions glue,
 // sessionStorage diagnostics and safe helpers. Other features removed.
 
@@ -305,7 +307,10 @@ function setupMemberScanListener() {
 	try {
 		(async () => {
 			try {
+				// Ensure Firebase is initialized so `db` binding is valid
+				try { await initFirebase(); } catch (e) { console.warn('setupMemberScanListener: initFirebase failed', e); }
 				let memberId = window._selectedMemberId || '';
+				try { console.debug('setupMemberScanListener: start, window._selectedMemberId=', window._selectedMemberId); } catch(_) {}
 				if (!memberId) {
 					try {
 						for (const k of Object.keys(sessionStorage || {})) {
@@ -313,9 +318,17 @@ function setupMemberScanListener() {
 						}
 					} catch(_) { memberId = '' }
 				}
-				if (!memberId) return;
+				try { console.debug('setupMemberScanListener: resolved memberId=', memberId); } catch(_) {}
+				if (!memberId) { console.debug('setupMemberScanListener: no memberId found - skipping listener'); return; }
 
-				const ref = doc(db, 'members', String(memberId));
+				let ref = null;
+				try {
+					ref = doc(db, 'members', String(memberId));
+					try { console.debug('setupMemberScanListener: created doc ref for', String(memberId)); } catch(_) {}
+				} catch (e) {
+					console.warn('setupMemberScanListener: creating doc ref failed', e);
+					ref = null;
+				}
 				// One-time check: fetch current document to verify read access and data shape
 				try {
 					try {
@@ -345,7 +358,12 @@ function setupMemberScanListener() {
 					} catch(e) { console.warn('setupMemberScanListener getDoc failed', e); }
 				} catch(_) {}
 
-				const unsub = onSnapshot(ref, (snap) => {
+				// If a previous listener exists for another member, unsubscribe it first
+				try { if (window._memberScanUnsub && typeof window._memberScanUnsub === 'function') { try { window._memberScanUnsub(); } catch(_) {} } } catch(_) {}
+				if (!ref) {
+					console.warn('setupMemberScanListener: no doc ref available, aborting onSnapshot');
+				} else {
+					const unsub = onSnapshot(ref, (snap) => {
 					try {
 						if (!snap.exists || (typeof snap.exists === 'function' && !snap.exists())) return;
 						const data = (typeof snap.data === 'function') ? snap.data() : (snap._document ? snap._document.data.value.mapValue.fields : null);
@@ -399,21 +417,44 @@ function setupMemberScanListener() {
 						const key = `shadow_ui_member_${String(memberId)}`;
 						let obj = null;
 						try { const raw = sessionStorage.getItem(key); obj = raw ? JSON.parse(raw) : {}; } catch(_) { obj = {}; }
+						try { console.debug('member onSnapshot handler: newScans=', newScans, 'storing under', key); } catch(_) {}
 						// Update only ScanDatums field
 						try { obj.ScanDatums = newScans; sessionStorage.setItem(key, JSON.stringify(obj)); } catch(_) {}
 						try { document.dispatchEvent(new CustomEvent('shadow:member-updated', { detail: { memberId, full: obj } })); } catch(_) {}
 						try { renderMemberInfoChoices(); } catch(_) {}
 					} catch (e) { console.warn('member onSnapshot handler failed', e); }
-				}, (err) => { console.warn('member onSnapshot error', err); });
+					}, (err) => { console.warn('member onSnapshot error', err); });
+					// Store the unsubscribe so future calls can replace it when member changes
+					try { window._memberScanUnsub = unsub; } catch(_) {}
+				}
 
 				// Unsubscribe on unload
-				try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
+								try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
+								// Store the unsubscribe so future calls can replace it when member changes
+								try { window._memberScanUnsub = unsub; } catch(_) {}
 			} catch (e) { console.warn('setupMemberScanListener import/init failed', e); }
 		})();
 	} catch (e) { console.warn('setupMemberScanListener failed', e); }
 }
 
-try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setupMemberScanListener()); else setupMemberScanListener(); document.addEventListener('shadow:config-ready', () => setupMemberScanListener()); } catch(_) {}
+try {
+	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setupMemberScanListener()); else setupMemberScanListener();
+	document.addEventListener('shadow:config-ready', () => setupMemberScanListener());
+	// Re-run listener when a different member is selected elsewhere in the app
+	try {
+		if (!window._memberScanListenerBound) {
+			document.addEventListener('member:selected', () => setupMemberScanListener());
+			window._memberScanListenerBound = true;
+		}
+	} catch(_) {}
+	// Also re-run when sessionStorage snapshot updates (populated later)
+	try {
+		if (!window._memberScanSessionBound) {
+			document.addEventListener('sessionStorageSnapshot', () => setupMemberScanListener());
+			window._memberScanSessionBound = true;
+		}
+	} catch(_) {}
+} catch(_) {}
 					} catch (e) { console.warn('showSuggestions failed', e); }
 				}
 				function schedule(prefix) { if (timer) clearTimeout(timer); console.debug('schedule suggestion for', prefix); timer = setTimeout(() => { showSuggestions(prefix); }, 300); }
@@ -549,7 +590,7 @@ function setupIndexFooterNavigation() {
 				}, (err) => { console.warn('member onSnapshot error', err); });
 
 				// Unsubscribe on unload
-				try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
+				try { window.addEventListener('beforeunload', () => { try { if (window._memberScanUnsub) { window._memberScanUnsub(); } } catch(_) {} }); } catch(_) {}
 			} catch (e) { console.warn('setupMemberScanListener import/init failed', e); }
 		})();
 	} catch (e) { console.warn('setupMemberScanListener failed', e); }
@@ -666,13 +707,15 @@ function renderMemberInfoChoices() {
 		try {
 			const statCountEl = document.querySelector('.stat-count');
 			const starsContainer = document.querySelector('.stats-stars');
-			// read planned dates from sessionStorage.rideConfig.regions only
+			// read planned dates from sessionStorage.rideConfig (prefer current-year map)
 			let planned = [];
 			try {
 				const raw = sessionStorage.getItem('rideConfig');
 				const obj = raw ? JSON.parse(raw) : null;
 				if (obj) {
-					if (obj.regions && typeof obj.regions === 'object') planned = Object.keys(obj.regions).map(d => toYMDString(d)).filter(Boolean);
+					const currentYearKey = String((new Date()).getFullYear());
+					if (obj[currentYearKey] && typeof obj[currentYearKey] === 'object') planned = Object.keys(obj[currentYearKey]).map(d => toYMDString(d)).filter(Boolean);
+					else if (obj.regions && typeof obj.regions === 'object') planned = Object.keys(obj.regions).map(d => toYMDString(d)).filter(Boolean);
 					else if (Array.isArray(obj.plannedDates)) planned = obj.plannedDates.map(d => toYMDString(d)).filter(Boolean);
 				}
 			} catch(_) { planned = []; }
@@ -729,6 +772,9 @@ function renderMemberInfoChoices() {
 					// rebuild stars with date metadata; mark filled if member scanned on that date
 					starsContainer.innerHTML = '';
 					let filledCount = 0;
+					// determine the next planned ride: first planned date >= today
+					const todayForStars = todayYMD();
+					const nextRide = (Array.isArray(sortedPlanned) ? sortedPlanned.find(d => String(d) >= String(todayForStars)) : null) || null;
 					for (let i=0;i<numStars;i++) {
 						const date = starDates[i] || '';
 						const sp = document.createElement('span');
@@ -738,14 +784,12 @@ function renderMemberInfoChoices() {
 							sp.dataset.date = String(date);
 							try { sp.title = formatDateLocal(date); } catch(_) {}
 							if (scanSet.has(String(date))) {
-								/* debug removed */
 								sp.classList.add('filled'); filledCount++;
 							} else {
-								// If this date is today and not scanned, mark specially so CSS can color it blue
 								try {
-									const today = todayYMD();
-									if (String(date) === String(today)) {
-										sp.classList.add('today-unscanned');
+									// Only mark the very next planned ride (today or future) as special blue when unscanned
+									if (nextRide && String(date) === String(nextRide)) {
+										sp.classList.add('upcoming-unscanned');
 									} else {
 										sp.classList.add('empty');
 									}
@@ -952,7 +996,6 @@ try { if (document.readyState === 'loading') document.addEventListener('DOMConte
 async function updateQROverlay() {
 	try {
 		const qrImg = document.getElementById('memberInfoQRImg');
-		const saveBtn = document.getElementById('save-qr-btn');
 		// resolve member object
 		let memberObj2 = null;
 		try {
@@ -1005,10 +1048,20 @@ async function updateQROverlay() {
 		const isScannedToday = Array.isArray(scansFromObj) && scansFromObj.includes(todayYMD());
 		try {
 			const dataStr = JSON.stringify(payload);
-			if (qrImg) {
-				qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(dataStr);
-				qrImg.alt = `QR: ${dataStr}`;
-				qrImg.setAttribute('data-qrcode-payload', dataStr);
+				if (qrImg) {
+					// Provide an audio URL and include it inside the JSON payload so scanners still receive the member data.
+					let audioUrl = '/assets/wet-fart-335478.mp3';
+					try { audioUrl = new URL('../assets/wet-fart-335478.mp3', location.href).href; } catch(_) {}
+					try { payload.audioUrl = audioUrl; } catch(_) {}
+					const qrData = JSON.stringify(payload);
+					// Debug: log payload and audio URL so we can inspect what's encoded
+					try { console.debug('updateQROverlay - qr payload:', qrData); } catch(_) {}
+					try { console.debug('updateQROverlay - audioUrl:', audioUrl); } catch(_) {}
+					// Encode the full JSON payload in the QR so external scanners can parse `LidNr` etc.
+					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(qrData);
+					qrImg.alt = `QR: ${qrData}`;
+					qrImg.setAttribute('data-qrcode-payload', qrData);
+					qrImg.setAttribute('data-audio-url', audioUrl);
 				// show overlay when scanned today
 				try {
 					const wrap = document.getElementById('memberInfoQRWrap');
@@ -1029,39 +1082,7 @@ async function updateQROverlay() {
 					}
 				} catch(_) {}
 			}
-			if (saveBtn) {
-				saveBtn.style.display = '';
-				// lock the save button when the member is already scanned today
-				if (isScannedToday) {
-					saveBtn.disabled = true;
-					saveBtn.setAttribute('aria-disabled', 'true');
-					saveBtn.classList && saveBtn.classList.add('disabled');
-				} else {
-					saveBtn.disabled = false;
-					saveBtn.removeAttribute('aria-disabled');
-					saveBtn.classList && saveBtn.classList.remove('disabled');
-				}
-				// ensure button has icon + label markup
-				if (!saveBtn.dataset || !saveBtn.dataset._labelled) {
-					try { saveBtn.innerHTML = '<span class="material-symbols-outlined">file_download</span><span class="btn-text">Sla QR code op</span>'; } catch(_) {}
-					if (saveBtn.dataset) saveBtn.dataset._labelled = '1';
-				}
-				if (!saveBtn.dataset._bound) {
-					saveBtn.addEventListener('click', async () => {
-						try {
-							if (!qrImg || !qrImg.src) return;
-							const res = await fetch(qrImg.src, { mode: 'cors' });
-							const blob = await res.blob();
-							const filename = `QR_${String(payload.LidNr||'member')}.png`;
-							const url = URL.createObjectURL(blob);
-							const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-							setTimeout(() => URL.revokeObjectURL(url), 1500);
-						} catch (e) { console.warn('save-qr failed', e); }
-					});
-					if (saveBtn.dataset) saveBtn.dataset._bound = '1';
-				}
-				try { updateChoiceLocks(); } catch(_) {}
-			}
+			// The explicit "save" button was removed; mobile users can long-press the QR image to save it.
 		} catch (e) { console.warn('updateQROverlay failed', e); }
 	} catch(_) {}
 }
@@ -1205,11 +1226,17 @@ try {
 				const [rideCfg, lunchOptions] = await Promise.all([getRideConfig(), getLunchOptions()]);
 				// Persist only regions into sessionStorage (never plannedDates)
 				try {
-					if (rideCfg && rideCfg.regions && typeof rideCfg.regions === 'object') {
-						setSessionAndDump('rideConfig', JSON.stringify({ regions: rideCfg.regions }));
-					} else {
-						try { sessionStorage.removeItem('rideConfig'); } catch(_) {}
-					}
+					const currentYear = String((new Date()).getFullYear());
+					try {
+						if (rideCfg && rideCfg[currentYear] && typeof rideCfg[currentYear] === 'object') {
+							setSessionAndDump('rideConfig', JSON.stringify({ [currentYear]: rideCfg[currentYear] }));
+						} else if (rideCfg && rideCfg.regions && typeof rideCfg.regions === 'object') {
+							// legacy shape: keep regions under `regions`
+							setSessionAndDump('rideConfig', JSON.stringify({ regions: rideCfg.regions }));
+						} else {
+							// Do not remove existing rideConfig here — leave it as-is to avoid clobbering other loaders
+						}
+					} catch(_) {}
 				} catch(_) {}
 				try { setSessionAndDump('lunch', JSON.stringify(lunchOptions || { vastEten: [], keuzeEten: [] })); } catch(_) {}
 				// Hide any loading indicator if present
@@ -1370,24 +1397,26 @@ function renderPlannedRides() {
 		if (!container) return;
 		// Clear
 		container.innerHTML = '';
-		// Read rideConfig.regions from sessionStorage only (do not fetch from Firebase)
+		// Read rideConfig for the current year from sessionStorage only (do not fetch from Firebase)
 		let cfg = null;
-		try {
-			const raw = sessionStorage.getItem('rideConfig');
-			cfg = raw ? JSON.parse(raw) : null;
-		} catch(_) { cfg = null; }
+		try { const raw = sessionStorage.getItem('rideConfig'); cfg = raw ? JSON.parse(raw) : null; } catch(_) { cfg = null; }
 		if (!cfg) return;
-		// Derive dates from regions keys (prefer indices in regions)
+		const currentYear = String((new Date()).getFullYear());
+		// Prefer per-year top-level field: e.g. { "2025": { "2025-12-30": "Zuid" } }
+		let yearMap = null;
+		try {
+			if (cfg && typeof cfg === 'object' && cfg[currentYear] && typeof cfg[currentYear] === 'object') yearMap = cfg[currentYear];
+			else if (cfg && cfg.regions && typeof cfg.regions === 'object') yearMap = cfg.regions; // legacy fallback
+		} catch(_) { yearMap = null; }
+		// Derive dates from available shape
 		let dates = [];
 		try {
-			if (cfg && cfg.regions && typeof cfg.regions === 'object') dates = Object.keys(cfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+			if (yearMap && typeof yearMap === 'object') dates = Object.keys(yearMap).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
 			else if (cfg && Array.isArray(cfg.plannedDates)) dates = cfg.plannedDates.filter(Boolean);
 		} catch(_) { dates = []; }
 		// Show only today and future rides
-		const upcoming = dates.filter(d => {
-			try { return daysUntil(d) >= 0; } catch(_) { return false; }
-		});
-		const regions = (cfg && cfg.regions) ? cfg.regions : {};
+		const upcoming = dates.filter(d => { try { return daysUntil(d) >= 0; } catch(_) { return false; } });
+		const regions = yearMap || {};
 		// If no upcoming rides, show friendly season-over message
 		if (!Array.isArray(upcoming) || upcoming.length === 0) {
 			const msgWrap = document.createElement('div');
@@ -1419,7 +1448,17 @@ function renderPlannedRides() {
 		upcoming.sort((a,b) => (a < b ? -1 : a > b ? 1 : 0));
 		for (const iso of upcoming) {
 			try {
-				const regionText = regions && (regions[iso] || regions[String(iso)]) ? (regions[iso] || regions[String(iso)]) : '';
+				let regionText = '';
+				try {
+					const rawVal = regions ? (regions[iso] || regions[String(iso)]) : undefined;
+					if (typeof rawVal === 'string') regionText = rawVal;
+					else if (rawVal && typeof rawVal === 'object') {
+						// accept { region: 'Zuid' } or legacy participant map; prefer explicit region if present
+						if (typeof rawVal.region === 'string' && rawVal.region) regionText = rawVal.region;
+						else if (typeof rawVal.regio === 'string' && rawVal.regio) regionText = rawVal.regio;
+						else regionText = '';
+					}
+				} catch(_) { regionText = ''; }
 
 				const wrapper = document.createElement('div');
 				wrapper.className = 'card-wrapper';
@@ -1470,10 +1509,22 @@ function renderPlannedRides() {
 try {
 	async function ensureConfigAnd(fn) {
 		try {
-			// Only proceed if sessionStorage contains rideConfig.regions; do NOT fetch from Firebase here
+			// Only proceed if sessionStorage contains rideConfig for current year (or legacy regions/plannedDates)
 			const raw = sessionStorage.getItem('rideConfig');
 			if (!raw) {
 				console.warn('sessionStorage.rideConfig missing; skipping render (per config)');
+				return;
+			}
+			let ok = false;
+			try {
+				const cfg = JSON.parse(raw);
+				const currentYear = String((new Date()).getFullYear());
+				if (cfg && typeof cfg === 'object' && cfg[currentYear] && typeof cfg[currentYear] === 'object') ok = true;
+				else if (cfg && cfg.regions && typeof cfg.regions === 'object') ok = true;
+				else if (cfg && Array.isArray(cfg.plannedDates) && cfg.plannedDates.length > 0) ok = true;
+			} catch(_) { ok = false; }
+			if (!ok) {
+				console.warn('sessionStorage.rideConfig does not contain expected current-year data; skipping render');
 				return;
 			}
 		} catch (e) {
@@ -1490,7 +1541,7 @@ try {
 
     		
 // Render lunch preview area (vastEten / keuzeEten) from sessionStorage 'lunch'
-function renderLunchPreview() {
+async function renderLunchPreview() {
 	try {
 		const vastEl = document.getElementById('vastEtenDisplay');
 		const keuzeWrap = document.getElementById('keuzeEtenButtons');
@@ -1592,6 +1643,118 @@ function renderLunchPreview() {
 	} catch (e) { console.warn('renderLunchPreview failed', e); }
 	// ensure footer state updates after initial render and when config becomes available
 	try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', updateLunchFooterState); else updateLunchFooterState(); document.addEventListener('shadow:config-ready', updateLunchFooterState); } catch(_) {}
+
+	// Additional check: if globals/lunch.updatedAt is missing or older-or-equal to the previous ride,
+	// fade the lunch sections and show a "not established" message so members know choices aren't set.
+	try {
+		// normalize various timestamp shapes to ISO string
+		function normalizeTimestampValue(ts) {
+			try {
+				if (!ts) return null;
+				if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+				if (typeof ts === 'object' && ts.seconds && (ts.nanoseconds || ts.nanoseconds === 0)) {
+					const ms = (Number(ts.seconds) * 1000) + Math.floor(Number(ts.nanoseconds) / 1e6);
+					return new Date(ms).toISOString();
+				}
+				if (typeof ts === 'string') { const d = new Date(ts); if (!isNaN(d.getTime())) return d.toISOString(); return null; }
+				if (typeof ts === 'number') { if (ts > 1e12) return new Date(ts).toISOString(); return new Date(ts * 1000).toISOString(); }
+				return null;
+			} catch (e) { return null; }
+		}
+
+		// read planned dates from sessionStorage.rideConfig (prefer current-year map)
+		let planned = [];
+		try {
+			const raw = sessionStorage.getItem('rideConfig');
+			if (raw) {
+				const rc = JSON.parse(raw || '{}');
+				const currentYearKey = String((new Date()).getFullYear());
+				let regions = {};
+				if (rc && rc[currentYearKey] && typeof rc[currentYearKey] === 'object') regions = rc[currentYearKey];
+				else if (rc && rc.regions && typeof rc.regions === 'object') regions = rc.regions;
+				planned = Object.keys(regions || []).filter(Boolean);
+			}
+		} catch (e) { planned = []; }
+		const sorted = (Array.isArray(planned) ? planned.map(s => String(s).slice(0,10)).filter(Boolean).sort() : []);
+
+		// determine previous ride date (the ride immediately before the next or last known ride)
+		const todayIso = new Date().toISOString().slice(0,10);
+		let next = sorted.find(d => d >= todayIso);
+		if (!next) next = sorted[sorted.length - 1] || null;
+		let prev = null;
+		if (next) {
+			const idx = sorted.indexOf(next);
+			if (idx > 0) prev = sorted[idx - 1];
+		} else if (sorted.length > 0) {
+			prev = sorted[sorted.length - 1];
+		}
+
+		// fetch lunch doc to read updatedAt (server timestamp)
+		let lunchUpdatedIso = null;
+		try {
+			if (db) {
+				const lref = doc(db, 'globals', 'lunch');
+				const snap = await getDoc(lref).catch(() => null);
+				if (snap && (typeof snap.exists === 'function' ? snap.exists() : snap._document)) {
+					const ld = typeof snap.data === 'function' ? snap.data() : snap;
+					if (ld) lunchUpdatedIso = normalizeTimestampValue(ld.updatedAt || ld.lastUpdated || null) || null;
+				}
+			}
+		} catch (e) { /* ignore fetch errors */ }
+
+		let shouldHide = false;
+		// if no previous ride, do not hide
+		if (prev) {
+			const prevEnd = new Date(prev + 'T23:59:59').getTime();
+			if (!lunchUpdatedIso) shouldHide = true;
+			else {
+				const lu = new Date(lunchUpdatedIso).getTime();
+				if (!isNaN(lu) && lu <= prevEnd) shouldHide = true; // older-or-equal to previous ride
+			}
+		}
+
+		const overlayId = 'lunch-blocker-overlay';
+		const mainEl = document.querySelector('main.main-content') || null;
+
+		if (shouldHide) {
+			try {
+				const vastEl = document.getElementById('vastEtenDisplay');
+				const keuzeWrap = document.getElementById('keuzeEtenButtons');
+				const keuzeSection = document.getElementById('keuzeEtenSection');
+				const vastSection = document.getElementById('vastEtenSection');
+				if (vastEl) {
+					vastEl.textContent = 'Lunch is nog niet vastgesteld voor de rit.';
+					try { const sc = vastEl.closest && vastEl.closest('.surface-card'); if (sc) sc.classList.remove('surface-card--accent'); } catch(_) {}
+				}
+				if (keuzeWrap) keuzeWrap.innerHTML = '';
+				if (keuzeSection) { keuzeSection.style.display = 'none'; keuzeSection.hidden = true; }
+				if (vastSection) vastSection.classList.add('muted-section');
+				if (keuzeSection) keuzeSection.classList.add('muted-section');
+				// disable footer
+				try { const btn = document.getElementById('agree-lunch'); if (btn) { btn.disabled = true; btn.setAttribute('aria-disabled','true'); btn.classList && btn.classList.add('disabled'); } } catch(_) {}
+
+				// show blocking overlay over the main content so nothing can be filled
+				try {
+					let ov = document.getElementById(overlayId);
+					if (!ov) {
+						ov = document.createElement('div');
+						ov.id = overlayId;
+						ov.className = 'page-blocker-overlay';
+						ov.innerHTML = '<div class="page-blocker-message">Lunch is nog niet vastgesteld voor de rit.</div>';
+						if (mainEl) {
+							try { const cs = getComputedStyle(mainEl); if (!cs || cs.position === 'static') mainEl.style.position = 'relative'; } catch(_) {}
+							mainEl.appendChild(ov);
+						} else {
+							document.body.appendChild(ov);
+						}
+					}
+				} catch(_) {}
+			} catch(_) {}
+		} else {
+			// remove overlay if present
+			try { const existing = document.getElementById(overlayId); if (existing) existing.remove(); } catch(_) {}
+		}
+	} catch (_) {}
 }
 
 try {

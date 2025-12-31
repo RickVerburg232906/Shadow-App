@@ -132,6 +132,9 @@ body.app{
 .primary-button:hover{ background:#123273; }
 .primary-button:active{ transform: scale(0.98); }
 
+/* enforce non-interactive state when we mark button as disabled via script */
+
+
 /* Small icon toggle used to show/hide password */
 .icon-toggle{ position:absolute; right:8px; top:50%; transform:translateY(-50%); background:transparent; border:0; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:6px; color:rgba(15,23,36,0.45); }
 .icon-toggle .material-symbols-outlined{ font-size:20px; }
@@ -670,12 +673,12 @@ body.app{
 
 /* No mobile override: keep unscanned (empty) stars grey on all viewports */
 
-/* Today's unscanned star: use blue color and ensure filled glyph for visibility */
-.stats-stars .star.today-unscanned,
-.material-symbols-outlined.star.today-unscanned{
+/* Upcoming unscanned star (future ride): use blue color and ensure filled glyph for visibility */
+.stats-stars .star.upcoming-unscanned,
+.material-symbols-outlined.star.upcoming-unscanned{
   font-variation-settings: 'FILL' 1, 'wght' 400 !important;
   -webkit-font-variation-settings: 'FILL' 1, 'wght' 400 !important;
-  color: #163E8C !important;
+  color: var(--blue) !important;
 }
 
 /* Mijn Keuzes styles removed — section deleted from memberInfoPage.html */
@@ -1129,19 +1132,7 @@ div[role="button"] > .vast-item.selected,
   .qr-box{ padding:18px; min-height:200px; }
 }
 
-/* Save QR button */
-.save-qr-btn{ background: var(--blue); color: #fff; border: none; padding: 8px 16px; border-radius: 999px; font-weight:700; cursor:pointer; box-shadow: 0 6px 18px rgba(16,24,40,0.08); display:inline-flex; align-items:center; gap:10px; }
-.save-qr-btn .material-symbols-outlined{ font-size:18px; line-height:1; }
-.save-qr-btn .btn-text{ font-weight:700; }
-.save-qr-btn:active{ transform: translateY(1px); }
-.save-qr-btn[disabled]{ opacity:0.5; cursor:default; }
 
-/* Make the specific save-qr button twice as large (double padding and icon/text sizes) */
-#save-qr-btn{
-  padding: 16px 32px;
-}
-#save-qr-btn .material-symbols-outlined{ font-size:36px; }
-#save-qr-btn .btn-text{ font-size:1.125rem; }
 
 /* Jaarhanger photo */
 .jaarhanger-photo-wrap{ margin-top:12px; }
@@ -1383,6 +1374,39 @@ div[role="button"] > .vast-item.selected,
 .muted-section .badge-pill{
   opacity: 0.6;
   color: rgba(15,23,36,0.45);
+}
+
+/* Overlay used to block interaction when lunch is not yet established */
+.page-blocker-overlay{
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(6px) saturate(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.page-blocker-overlay .page-blocker-message{
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 800;
+  padding: 14px 22px;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(2,6,23,0.08);
+  font-size: 20px;
+  line-height: 1.2;
+  display: inline-block;
+  align-self: center;
+  width: auto;
+  max-width: 760px;
+  min-width: 0;
+  text-align: center;
 }
 
 /* Disabled choice label: prevent any pointer interaction and dim visuals */

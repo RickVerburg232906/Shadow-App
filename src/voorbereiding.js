@@ -18,13 +18,16 @@ async function setNextRide() {
     const el = document.getElementById('next-ride-date');
     if (!el) return;
     el.textContent = 'Laden...';
-    // Read planned dates from sessionStorage.rideConfig.regions (do NOT fetch from Firebase)
+    // Read planned dates from sessionStorage.rideConfig (prefer current-year map)
     let planned = [];
     try {
       const raw = sessionStorage.getItem('rideConfig');
       if (raw) {
         const rc = JSON.parse(raw || '{}');
-        const regions = rc && rc.regions ? rc.regions : {};
+        const currentYearKey = String((new Date()).getFullYear());
+        let regions = {};
+        if (rc && rc[currentYearKey] && typeof rc[currentYearKey] === 'object') regions = rc[currentYearKey];
+        else if (rc && rc.regions && typeof rc.regions === 'object') regions = rc.regions;
         planned = Object.keys(regions || []).filter(Boolean);
       }
     } catch (e) { planned = []; }
@@ -246,7 +249,10 @@ function wireDataUpload() {
         const raw = sessionStorage.getItem('rideConfig');
         if (raw) {
           const rc = JSON.parse(raw || '{}');
-          const regions = rc && rc.regions ? rc.regions : {};
+          const currentYearKey = String((new Date()).getFullYear());
+          let regions = {};
+          if (rc && rc[currentYearKey] && typeof rc[currentYearKey] === 'object') regions = rc[currentYearKey];
+          else if (rc && rc.regions && typeof rc.regions === 'object') regions = rc.regions;
           planned = Object.keys(regions || []).filter(Boolean);
         }
       } catch (e) { planned = []; }
