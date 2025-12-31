@@ -142,28 +142,44 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
     const autoPlayAudio = true;
     const wrappedOnDecode = (decoded) => {
       try {
+        console.debug('wrappedOnDecode - raw decoded:', decoded);
         if (autoPlayAudio) {
           try {
             const maybe = (typeof decoded === 'string') ? decoded : (decoded && decoded.decodedText) ? decoded.decodedText : (decoded && decoded.text) ? decoded.text : null;
+            console.debug('wrappedOnDecode - candidate text:', maybe);
             let audioUrl = null;
             if (maybe) {
               try {
                 const parsed = JSON.parse(maybe);
+                console.debug('wrappedOnDecode - parsed JSON:', parsed);
                 if (parsed && parsed.audioUrl) audioUrl = parsed.audioUrl;
               } catch (_) {
                 // not JSON
+                console.debug('wrappedOnDecode - not JSON payload');
               }
               if (!audioUrl) {
                 // If the scanned text itself is a URL or references an mp3, use it
-                if (typeof maybe === 'string' && (maybe.match(/\.mp3($|\?|#)/i) || maybe.startsWith('http') || maybe.startsWith('/'))) audioUrl = maybe;
+                if (typeof maybe === 'string' && (maybe.match(/\.mp3($|\?|#)/i) || maybe.startsWith('http') || maybe.startsWith('/'))) {
+                  audioUrl = maybe;
+                }
               }
             }
+            console.debug('wrappedOnDecode - resolved audioUrl:', audioUrl);
             if (audioUrl) {
               try {
+                console.info('Attempting to play audio from:', audioUrl);
                 const a = new Audio(audioUrl);
-                a.play().catch(e => console.warn('audio play failed', e));
-                try { if (typeof html5Qr.stop === 'function') html5Qr.stop(); } catch (_) {}
+                const playPromise = a.play();
+                if (playPromise && typeof playPromise.then === 'function') {
+                  playPromise.then(() => console.info('Audio playback started'))
+                    .catch(err => console.warn('Audio playback promise rejected', err));
+                }
+                a.addEventListener('ended', () => console.info('Audio ended'));
+                a.addEventListener('error', (ev) => console.error('Audio element error', ev));
+                try { if (typeof html5Qr.stop === 'function') { html5Qr.stop().catch(()=>{}); } } catch (_) {}
               } catch (e) { console.warn('play audio error', e); }
+            } else {
+              console.debug('No audioUrl resolved from scanned data');
             }
           } catch (e) { console.warn('autoPlayAudio handler failed', e); }
         }

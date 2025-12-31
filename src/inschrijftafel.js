@@ -371,7 +371,12 @@ export async function initInschrijftafel() {
               let lunchDeelname = null;
               let lunchKeuze = null;
               if (parsed && typeof parsed === 'object') {
-                memberId = parsed.memberId || parsed.lidnummer || parsed.id || parsed.lid || parsed.lid_nr || parsed.lidnummer || null;
+                // Accept many key variants for member id (case-insensitive)
+                const keyMap = {};
+                try { Object.keys(parsed || {}).forEach(k => { keyMap[k.toLowerCase()] = parsed[k]; }); } catch(_) {}
+                memberId = keyMap.memberid || keyMap.lidnummer || keyMap.id || keyMap.lid || keyMap.lid_nr || keyMap.lidnr || keyMap.lidnr || keyMap.lidnr || null;
+                // also accept 'LidNr' or similar variants directly
+                if (!memberId) memberId = parsed.LidNr || parsed.Lidnr || parsed.lidNr || parsed.lidnummer || null;
                 Jaarhanger = parsed.Jaarhanger ?? parsed.jaarhanger ?? null;
                 lunchDeelname = parsed.lunchDeelname ?? parsed.lunchDeelname ?? parsed.lunchDeelname ?? null;
                 lunchKeuze = parsed.lunchKeuze ?? parsed.lunchKeuze ?? parsed.lunchKeuze ?? null;
@@ -386,7 +391,13 @@ export async function initInschrijftafel() {
                   if (!lunchDeelname && /lunchdeelname|participatie|deelname/.test(k)) lunchDeelname = v;
                   if (!lunchKeuze && /lunchkeuze|keuze/.test(k)) lunchKeuze = v;
                 }
+                // If decoded is just a number, treat it as memberId
+                if (!memberId) {
+                  const plain = String(decoded || '').trim();
+                  if (/^\d{5,}$/.test(plain)) memberId = plain;
+                }
               }
+              try { console.debug('inschrijftafel: resolved memberId=', memberId, 'Jaarhanger=', Jaarhanger, 'lunchDeelname=', lunchDeelname, 'lunchKeuze=', lunchKeuze); } catch(_) {}
               // If QR contains a scanDate, ensure it matches today's date
               try {
                 let scanDateRaw = null;
@@ -418,6 +429,36 @@ export async function initInschrijftafel() {
                   }
                 }
               } catch (e) { /* ignore date-check errors and continue */ }
+
+              // Attempt to play audio if the QR contained an audioUrl
+              try {
+                let audioUrl = null;
+                if (parsed && typeof parsed === 'object') audioUrl = parsed.audioUrl || parsed.audioURL || parsed.audio || null;
+                if (!audioUrl) {
+                  // fallback: look for any URL-like part in the raw decoded string
+                  try {
+                    const m = String(decoded || '').match(/https?:\/\/[^\s",'}]+/i);
+                    if (m && m[0]) audioUrl = m[0];
+                  } catch(_) { }
+                }
+                if (audioUrl) {
+                  console.info('inschrijftafel: attempting to play audio from', audioUrl);
+                  try {
+                    const audio = new Audio(audioUrl);
+                    const p = audio.play();
+                    if (p && typeof p.then === 'function') {
+                      p.then(() => console.info('inschrijftafel: audio playback started'))
+                        .catch(err => console.warn('inschrijftafel: audio playback rejected', err));
+                    }
+                    audio.addEventListener('error', (ev) => console.error('inschrijftafel: audio element error', ev));
+                    audio.addEventListener('ended', () => console.info('inschrijftafel: audio ended'));
+                    // Stop the scanner if available
+                    try { if (res && res.scannerInstance) { await stopQrScanner(res.scannerInstance); running = null; } } catch(_) {}
+                  } catch (e) { console.warn('inschrijftafel: play audio failed', e); }
+                } else {
+                  console.debug('inschrijftafel: no audioUrl found in QR');
+                }
+              } catch (e) { console.warn('inschrijftafel: audio playback flow failed', e); }
               if (!memberId) {
                 alert('Gescand: geen lidnummer gevonden in QR');
                 return;

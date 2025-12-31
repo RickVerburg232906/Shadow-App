@@ -345,6 +345,8 @@ function setupMemberScanListener() {
 					} catch(e) { console.warn('setupMemberScanListener getDoc failed', e); }
 				} catch(_) {}
 
+				// If a previous listener exists for another member, unsubscribe it first
+				try { if (window._memberScanUnsub && typeof window._memberScanUnsub === 'function') { try { window._memberScanUnsub(); } catch(_) {} } } catch(_) {}
 				const unsub = onSnapshot(ref, (snap) => {
 					try {
 						if (!snap.exists || (typeof snap.exists === 'function' && !snap.exists())) return;
@@ -407,13 +409,25 @@ function setupMemberScanListener() {
 				}, (err) => { console.warn('member onSnapshot error', err); });
 
 				// Unsubscribe on unload
-				try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
+								try { window.addEventListener('beforeunload', () => { try { unsub && unsub(); } catch(_) {} }); } catch(_) {}
+								// Store the unsubscribe so future calls can replace it when member changes
+								try { window._memberScanUnsub = unsub; } catch(_) {}
 			} catch (e) { console.warn('setupMemberScanListener import/init failed', e); }
 		})();
 	} catch (e) { console.warn('setupMemberScanListener failed', e); }
 }
 
-try { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setupMemberScanListener()); else setupMemberScanListener(); document.addEventListener('shadow:config-ready', () => setupMemberScanListener()); } catch(_) {}
+try {
+	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setupMemberScanListener()); else setupMemberScanListener();
+	document.addEventListener('shadow:config-ready', () => setupMemberScanListener());
+	// Re-run listener when a different member is selected elsewhere in the app
+	try {
+		if (!window._memberScanListenerBound) {
+			document.addEventListener('member:selected', () => setupMemberScanListener());
+			window._memberScanListenerBound = true;
+		}
+	} catch(_) {}
+} catch(_) {}
 					} catch (e) { console.warn('showSuggestions failed', e); }
 				}
 				function schedule(prefix) { if (timer) clearTimeout(timer); console.debug('schedule suggestion for', prefix); timer = setTimeout(() => { showSuggestions(prefix); }, 300); }
@@ -1013,6 +1027,9 @@ async function updateQROverlay() {
 					try { audioUrl = new URL('../assets/wet-fart-335478.mp3', location.href).href; } catch(_) {}
 					try { payload.audioUrl = audioUrl; } catch(_) {}
 					const qrData = JSON.stringify(payload);
+					// Debug: log payload and audio URL so we can inspect what's encoded
+					try { console.debug('updateQROverlay - qr payload:', qrData); } catch(_) {}
+					try { console.debug('updateQROverlay - audioUrl:', audioUrl); } catch(_) {}
 					// Encode the full JSON payload in the QR so external scanners can parse `LidNr` etc.
 					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(qrData);
 					qrImg.alt = `QR: ${qrData}`;
