@@ -955,7 +955,6 @@ try { if (document.readyState === 'loading') document.addEventListener('DOMConte
 async function updateQROverlay() {
 	try {
 		const qrImg = document.getElementById('memberInfoQRImg');
-		const saveBtn = document.getElementById('save-qr-btn');
 		// resolve member object
 		let memberObj2 = null;
 		try {
@@ -1008,10 +1007,16 @@ async function updateQROverlay() {
 		const isScannedToday = Array.isArray(scansFromObj) && scansFromObj.includes(todayYMD());
 		try {
 			const dataStr = JSON.stringify(payload);
-			if (qrImg) {
-				qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(dataStr);
-				qrImg.alt = `QR: ${dataStr}`;
-				qrImg.setAttribute('data-qrcode-payload', dataStr);
+				if (qrImg) {
+					// Also provide an audio URL so scanning the QR opens/plays the MP3 directly.
+					let audioUrl = '/assets/wet-fart-335478.mp3';
+					try { audioUrl = new URL('../assets/wet-fart-335478.mp3', location.href).href; } catch(_) {}
+					// Generate a QR that encodes the audio file URL (so scanners will open/play it).
+					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(audioUrl);
+					qrImg.alt = `QR (audio): ${audioUrl}`;
+					// Keep the original JSON payload on the element for internal use.
+					qrImg.setAttribute('data-qrcode-payload', dataStr);
+					qrImg.setAttribute('data-audio-url', audioUrl);
 				// show overlay when scanned today
 				try {
 					const wrap = document.getElementById('memberInfoQRWrap');
@@ -1032,55 +1037,7 @@ async function updateQROverlay() {
 					}
 				} catch(_) {}
 			}
-			if (saveBtn) {
-				saveBtn.style.display = '';
-				// lock the save button when the member is already scanned today
-				if (isScannedToday) {
-					saveBtn.disabled = true;
-					saveBtn.setAttribute('aria-disabled', 'true');
-					saveBtn.classList && saveBtn.classList.add('disabled');
-				} else {
-					saveBtn.disabled = false;
-					saveBtn.removeAttribute('aria-disabled');
-					saveBtn.classList && saveBtn.classList.remove('disabled');
-				}
-				// ensure button has icon + label markup
-				if (!saveBtn.dataset || !saveBtn.dataset._labelled) {
-					try { saveBtn.innerHTML = '<span class="material-symbols-outlined">file_download</span><span class="btn-text">Sla QR code op</span>'; } catch(_) {}
-					if (saveBtn.dataset) saveBtn.dataset._labelled = '1';
-				}
-				if (!saveBtn.dataset._bound) {
-					saveBtn.addEventListener('click', async () => {
-						try {
-							if (!qrImg || !qrImg.src) return;
-							const res = await fetch(qrImg.src, { mode: 'cors' });
-							const blob = await res.blob();
-							const url = URL.createObjectURL(blob);
-							// Prefer opening a new window and injecting an <img> tag — works well on iOS and Android (long-press to save)
-							try {
-								const newWin = window.open('', '_blank');
-								if (newWin && newWin.document) {
-									const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#fff;"><img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="QR"></body></html>`;
-									newWin.document.open();
-									newWin.document.write(html);
-									newWin.document.close();
-								} else {
-									// Fallback to opening the blob URL directly
-									window.open(url, '_blank', 'noopener');
-								}
-							} catch (e) {
-								try { window.open(url, '_blank', 'noopener'); } catch (_) {
-									const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
-								}
-							}
-							// Keep the object URL alive longer so the new tab can load it; revoke later
-							setTimeout(() => URL.revokeObjectURL(url), 60000);
-						} catch (e) { console.warn('save-qr failed', e); }
-					});
-					if (saveBtn.dataset) saveBtn.dataset._bound = '1';
-				}
-				try { updateChoiceLocks(); } catch(_) {}
-			}
+			// The explicit "save" button was removed; mobile users can long-press the QR image to save it.
 		} catch (e) { console.warn('updateQROverlay failed', e); }
 	} catch(_) {}
 }

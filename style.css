@@ -1132,19 +1132,7 @@ div[role="button"] > .vast-item.selected,
   .qr-box{ padding:18px; min-height:200px; }
 }
 
-/* Save QR button */
-.save-qr-btn{ background: var(--blue); color: #fff; border: none; padding: 8px 16px; border-radius: 999px; font-weight:700; cursor:pointer; box-shadow: 0 6px 18px rgba(16,24,40,0.08); display:inline-flex; align-items:center; gap:10px; }
-.save-qr-btn .material-symbols-outlined{ font-size:18px; line-height:1; }
-.save-qr-btn .btn-text{ font-weight:700; }
-.save-qr-btn:active{ transform: translateY(1px); }
-.save-qr-btn[disabled]{ opacity:0.5; cursor:default; }
 
-/* Make the specific save-qr button twice as large (double padding and icon/text sizes) */
-#save-qr-btn{
-  padding: 16px 32px;
-}
-#save-qr-btn .material-symbols-outlined{ font-size:36px; }
-#save-qr-btn .btn-text{ font-size:1.125rem; }
 
 /* Jaarhanger photo */
 .jaarhanger-photo-wrap{ margin-top:12px; }
