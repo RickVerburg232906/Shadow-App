@@ -319,6 +319,39 @@ export async function initInschrijftafel() {
       // save original HTML to restore later
       if (!startBtn.dataset.origHtml) startBtn.dataset.origHtml = startBtn.innerHTML;
       // (Removed request-camera-button and handler)
+
+      // Mobile debug overlay removed in production build.
+
+      // Unlock audio on first user gesture so mobile browsers allow playback later
+      async function unlockAudio() {
+        try {
+          if (window._audioUnlocked) return true;
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) {
+            window._audioUnlocked = true;
+            console.debug('unlockAudio: no AudioContext available — treating as unlocked');
+            return true;
+          }
+          const ctx = new Ctx();
+          try { window._audioCtx = ctx; } catch(_){}
+          // create tiny silent oscillator to prime audio stack
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          gain.gain.value = 0;
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.01);
+          try {
+            await ctx.resume();
+            window._audioUnlocked = true;
+            console.info('unlockAudio: audio unlocked');
+            return true;
+          } catch (e) {
+            console.warn('unlockAudio: resume failed', e);
+            return false;
+          }
+        } catch (e) { console.warn('unlockAudio failed', e); return false; }
+      }
       startBtn.addEventListener('click', async () => {
         try {
           if (running) {
@@ -327,6 +360,9 @@ export async function initInschrijftafel() {
             try { startBtn.innerHTML = startBtn.dataset.origHtml || 'Start Scanner'; } catch(_){ }
             return;
           }
+
+          // First unlock audio (user gesture) so mobile allows playback later
+          try { await unlockAudio(); } catch(_) {}
 
           // Prepare preview area: hide placeholder overlay and remove background image so scanner becomes visible
           try {
@@ -443,18 +479,17 @@ export async function initInschrijftafel() {
                 }
                 if (audioUrl) {
                   console.info('inschrijftafel: attempting to play audio from', audioUrl);
-                  try {
-                    const audio = new Audio(audioUrl);
-                    const p = audio.play();
-                    if (p && typeof p.then === 'function') {
-                      p.then(() => console.info('inschrijftafel: audio playback started'))
-                        .catch(err => console.warn('inschrijftafel: audio playback rejected', err));
-                    }
-                    audio.addEventListener('error', (ev) => console.error('inschrijftafel: audio element error', ev));
-                    audio.addEventListener('ended', () => console.info('inschrijftafel: audio ended'));
-                    // Stop the scanner if available
-                    try { if (res && res.scannerInstance) { await stopQrScanner(res.scannerInstance); running = null; } } catch(_) {}
-                  } catch (e) { console.warn('inschrijftafel: play audio failed', e); }
+                    try {
+                      const audio = new Audio(audioUrl);
+                      const p = audio.play();
+                      if (p && typeof p.then === 'function') {
+                        p.then(() => console.info('inschrijftafel: audio playback started'))
+                          .catch(err => console.warn('inschrijftafel: audio playback rejected', err));
+                      }
+                      audio.addEventListener('error', (ev) => console.error('inschrijftafel: audio element error', ev));
+                      audio.addEventListener('ended', () => console.info('inschrijftafel: audio ended'));
+                      // Keep scanner running after success so multiple scans can be performed
+                    } catch (e) { console.warn('inschrijftafel: play audio failed', e); }
                 } else {
                   console.debug('inschrijftafel: no audioUrl found in QR');
                 }
