@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host --port 3000 --strictPort",
-    "build": "vite build && node scripts/copy-static.js",
+    "gen:firebase-config": "node scripts/gen-firebase-config.js",
+    "dev": "npm run gen:firebase-config && vite --host --port 3000 --strictPort",
+    "build": "npm run gen:firebase-config && vite build && node scripts/copy-static.js",
     "preview": "vite preview"
   },
   "dependencies": {

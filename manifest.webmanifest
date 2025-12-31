@@ -1,6 +1,6 @@
 {
-  "name": "Inschrijven LR",
-  "short_name": "Inschrijven",
+  "name": "ShadowClub",
+  "short_name": "ShadowClub",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
