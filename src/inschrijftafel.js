@@ -320,88 +320,7 @@ export async function initInschrijftafel() {
       if (!startBtn.dataset.origHtml) startBtn.dataset.origHtml = startBtn.innerHTML;
       // (Removed request-camera-button and handler)
 
-      // Create an in-page debug overlay (shows console logs on-screen for mobile debugging)
-      function createDebugOverlay() {
-        try {
-          if (window.__inpageLogger) return;
-          window.__inpageLogger = true;
-          const panel = document.createElement('div');
-          panel.id = '__dbg';
-          panel.style.position = 'fixed';
-          panel.style.right = '8px';
-          panel.style.bottom = '8px';
-          panel.style.width = '320px';
-          panel.style.maxHeight = '45vh';
-          panel.style.overflow = 'auto';
-          panel.style.background = 'rgba(0,0,0,0.8)';
-          panel.style.color = '#0f0';
-          panel.style.fontSize = '12px';
-          panel.style.zIndex = 2147483647;
-          panel.style.padding = '8px';
-          panel.style.borderRadius = '8px';
-          panel.style.fontFamily = 'monospace';
-          panel.innerHTML = '<b style="color:#fff">DEBUG</b><br/>';
-          try { document.body.appendChild(panel); } catch(_) { return; }
-          function appendLine(type, msg){
-            try{
-              const el = document.createElement('div');
-              el.style.marginTop = '6px';
-              el.style.wordBreak = 'break-word';
-              el.innerHTML = '<span style="color:#9cf">['+type+']</span> '+String(msg);
-              panel.appendChild(el);
-              panel.scrollTop = panel.scrollHeight;
-            }catch(e){}
-          }
-          // Network logging helper
-          async function logFetch(input, init){
-            try{
-              const url = (typeof input === 'string') ? input : (input && input.url) || String(input);
-              const method = (init && init.method) || (input && input.method) || 'GET';
-              appendLine('net', `→ ${method} ${url}`);
-              const t0 = Date.now();
-              try{
-                const resp = await origFetch(input, init);
-                appendLine('net', `← ${resp.status} ${resp.statusText} ${url} (${Date.now()-t0}ms)`);
-                try { const ac = resp.headers && resp.headers.get ? resp.headers.get('access-control-allow-origin') : null; if (ac) appendLine('net', `CORS: ${ac}`); } catch(_){}
-                return resp;
-              }catch(e){ appendLine('net', `ERR ${String(e)} ${url}`); throw e; }
-            }catch(e){ try{ appendLine('net','logFetch failed '+String(e)); }catch(_){} throw e; }
-          }
-          // expose a head helper
-          window.__netHead = async function(u){ try{ appendLine('net','HEAD '+u); const r = await origFetch(u, { method: 'HEAD' }); appendLine('net', `HEAD → ${r.status} ${r.statusText} (${u})`); try { const ac = r.headers && r.headers.get ? r.headers.get('access-control-allow-origin') : null; if (ac) appendLine('net', `CORS: ${ac}`); } catch(_){} return r; } catch(e){ appendLine('net','HEAD ERR '+String(e)); throw e; } };
-          // wrap fetch and XHR
-          try{
-            const origFetch = window.fetch.bind(window);
-            window.fetch = function(input, init){ return logFetch(input, init); };
-          }catch(_){}
-          try{
-            const OrigX = window.XMLHttpRequest;
-            function WrappedXHR(){
-              const xhr = new OrigX();
-              let _url = '';
-              let _method = '';
-              const origOpen = xhr.open;
-              xhr.open = function(method, url){ _method = method; _url = url; try{ appendLine('net', `XHR → ${method} ${url}`); }catch(_){} return origOpen.apply(xhr, arguments); };
-              xhr.addEventListener('load', function(){ try{ appendLine('net', `XHR ← ${xhr.status} ${xhr.responseURL || _url}`); }catch(_){} });
-              xhr.addEventListener('error', function(e){ try{ appendLine('net', `XHR ERR ${_url}`); }catch(_){} });
-              return xhr;
-            }
-            try{ window.XMLHttpRequest = WrappedXHR; } catch(_){}
-          }catch(_){}
-          ['log','info','warn','error','debug'].forEach(k=>{
-            try{
-              const orig = console[k] && console[k].bind(console) || function(){};
-              console[k] = function(...args){
-                try{ appendLine(k, args.map(a=> typeof a==='object' ? JSON.stringify(a) : String(a)).join(' ')); }catch(_){}
-                try{ orig(...args); }catch(_){}
-              };
-            }catch(_){}
-          });
-          window.__dbg = function(t,m){ appendLine(t||'log', m); };
-        } catch (e) { try { console.warn('createDebugOverlay failed', e); } catch(_){} }
-      }
-
-      try { createDebugOverlay(); } catch(_) {}
+      // Mobile debug overlay removed in production build.
 
       // Unlock audio on first user gesture so mobile browsers allow playback later
       async function unlockAudio() {
@@ -634,13 +553,16 @@ export async function initInschrijftafel() {
                 }
               } catch (e) { console.error('apply scan to member failed', e); alert('Fout bij schrijven naar Firestore'); }
 
-              // also record today's date in ScanDatums (always write today's scan)
+              // also record today's date in ScanDatums, but only if today is a planned ride
               try {
                 const today = new Date().toISOString().slice(0,10);
-                try {
+                const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : [];
+                if (planned && planned.includes(today)) {
                   const mr = await manualRegisterRide(String(memberId), today);
                   if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
-                } catch(e2) { console.warn('manualRegisterRide failed', e2); }
+                } else {
+                  try { console.debug('Skipping ScanDatums add: today is not a planned ride', { today, planned }); } catch(_){}
+                }
               } catch (e) { console.error('manualRegisterRide error', e); }
             } catch(_){ }
           }, { fps: 10, qrbox: 250 });
@@ -1575,13 +1497,16 @@ try { if (typeof window !== 'undefined') {
           const res = await checkInMemberById(String(memberId), { lunchDeelname: lunchDeelname, lunchKeuze: lunchKeuze, Jaarhanger });
           if (res && res.success) {
             // choices saved — do not show a generic toast here; keep only registration toast
-            // also register today's date in ScanDatums (always write today's scan)
+            // also register today's date in ScanDatums, but only if today is a planned ride
             try {
               const today = new Date().toISOString().slice(0,10);
-              try {
+              const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : [];
+              if (planned && planned.includes(today)) {
                 const mr = await manualRegisterRide(String(memberId), today);
                 if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
-              } catch(e2) { console.warn('manualRegisterRide failed', e2); }
+              } else {
+                try { console.debug('Skipping ScanDatums add: today is not a planned ride', { today, planned }); } catch(_){ }
+              }
             } catch (e) { console.warn('manualRegisterRide error', e); }
             // optionally update UI state
             try { updateManualSaveState(); } catch(_){}
