@@ -60,6 +60,7 @@ function resolveDbEnv() {
                 const q = params.get('db');
                 if (q === 'dev' || q === 'prod') return q;
             } catch(_) {}
+            // Respect explicit legacy localStorage override first
             try {
                 const ls = localStorage.getItem('shadow_db_env');
                 if (ls === 'dev' || ls === 'prod') return ls;
