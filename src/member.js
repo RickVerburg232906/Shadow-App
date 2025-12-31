@@ -1056,15 +1056,25 @@ async function updateQROverlay() {
 							const res = await fetch(qrImg.src, { mode: 'cors' });
 							const blob = await res.blob();
 							const url = URL.createObjectURL(blob);
-							// Open the image in a new tab/window so mobile users can long-press and "Save Image" to Photos
+							// Prefer opening a new window and injecting an <img> tag — works well on iOS and Android (long-press to save)
 							try {
-								window.open(url, '_blank', 'noopener');
-							} catch (_) {
-								// Fallback: create an anchor without download attribute so it opens instead of forcing download
-								const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+								const newWin = window.open('', '_blank');
+								if (newWin && newWin.document) {
+									const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#fff;"><img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="QR"></body></html>`;
+									newWin.document.open();
+									newWin.document.write(html);
+									newWin.document.close();
+								} else {
+									// Fallback to opening the blob URL directly
+									window.open(url, '_blank', 'noopener');
+								}
+							} catch (e) {
+								try { window.open(url, '_blank', 'noopener'); } catch (_) {
+									const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
+								}
 							}
-							// Revoke the object URL after a delay to allow the new tab to load the resource
-							setTimeout(() => URL.revokeObjectURL(url), 30000);
+							// Keep the object URL alive longer so the new tab can load it; revoke later
+							setTimeout(() => URL.revokeObjectURL(url), 60000);
 						} catch (e) { console.warn('save-qr failed', e); }
 					});
 					if (saveBtn.dataset) saveBtn.dataset._bound = '1';
