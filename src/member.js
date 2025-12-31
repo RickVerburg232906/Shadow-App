@@ -1008,14 +1008,15 @@ async function updateQROverlay() {
 		try {
 			const dataStr = JSON.stringify(payload);
 				if (qrImg) {
-					// Also provide an audio URL so scanning the QR opens/plays the MP3 directly.
+					// Provide an audio URL and include it inside the JSON payload so scanners still receive the member data.
 					let audioUrl = '/assets/wet-fart-335478.mp3';
 					try { audioUrl = new URL('../assets/wet-fart-335478.mp3', location.href).href; } catch(_) {}
-					// Generate a QR that encodes the audio file URL (so scanners will open/play it).
-					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(audioUrl);
-					qrImg.alt = `QR (audio): ${audioUrl}`;
-					// Keep the original JSON payload on the element for internal use.
-					qrImg.setAttribute('data-qrcode-payload', dataStr);
+					try { payload.audioUrl = audioUrl; } catch(_) {}
+					const qrData = JSON.stringify(payload);
+					// Encode the full JSON payload in the QR so external scanners can parse `LidNr` etc.
+					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(qrData);
+					qrImg.alt = `QR: ${qrData}`;
+					qrImg.setAttribute('data-qrcode-payload', qrData);
 					qrImg.setAttribute('data-audio-url', audioUrl);
 				// show overlay when scanned today
 				try {
