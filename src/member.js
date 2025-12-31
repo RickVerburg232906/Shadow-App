@@ -1013,12 +1013,9 @@ async function updateQROverlay() {
 					try { audioUrl = new URL('../assets/wet-fart-335478.mp3', location.href).href; } catch(_) {}
 					try { payload.audioUrl = audioUrl; } catch(_) {}
 					const qrData = JSON.stringify(payload);
-					// Build a local wrapper URL that will show member info and attempt to play the audio.
-					let qrTarget = '/assets/qr-player.html?data=' + encodeURIComponent(qrData);
-					try { qrTarget = new URL('../assets/qr-player.html?data=' + encodeURIComponent(qrData), location.href).href; } catch(_) {}
-					// Encode the wrapper page URL in the QR so scanners open that page (which then plays the audio).
-					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(qrTarget);
-					qrImg.alt = `QR -> ${qrTarget}`;
+					// Encode the full JSON payload in the QR so external scanners can parse `LidNr` etc.
+					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(qrData);
+					qrImg.alt = `QR: ${qrData}`;
 					qrImg.setAttribute('data-qrcode-payload', qrData);
 					qrImg.setAttribute('data-audio-url', audioUrl);
 				// show overlay when scanned today

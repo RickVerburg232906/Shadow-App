@@ -137,7 +137,39 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
 
   try {
     // Do not emit a generic scan toast here; the admin flow will show registration toast.
-    const wrappedOnDecode = (decoded) => { try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); } };
+    // If opts.autoPlayAudio is truthy, attempt to play audio from the scanned text or JSON payload.
+    // Always enable auto-play of audio on successful scan
+    const autoPlayAudio = true;
+    const wrappedOnDecode = (decoded) => {
+      try {
+        if (autoPlayAudio) {
+          try {
+            const maybe = (typeof decoded === 'string') ? decoded : (decoded && decoded.decodedText) ? decoded.decodedText : (decoded && decoded.text) ? decoded.text : null;
+            let audioUrl = null;
+            if (maybe) {
+              try {
+                const parsed = JSON.parse(maybe);
+                if (parsed && parsed.audioUrl) audioUrl = parsed.audioUrl;
+              } catch (_) {
+                // not JSON
+              }
+              if (!audioUrl) {
+                // If the scanned text itself is a URL or references an mp3, use it
+                if (typeof maybe === 'string' && (maybe.match(/\.mp3($|\?|#)/i) || maybe.startsWith('http') || maybe.startsWith('/'))) audioUrl = maybe;
+              }
+            }
+            if (audioUrl) {
+              try {
+                const a = new Audio(audioUrl);
+                a.play().catch(e => console.warn('audio play failed', e));
+                try { if (typeof html5Qr.stop === 'function') html5Qr.stop(); } catch (_) {}
+              } catch (e) { console.warn('play audio error', e); }
+            }
+          } catch (e) { console.warn('autoPlayAudio handler failed', e); }
+        }
+      } catch (e) { console.error('wrappedOnDecode audio branch failed', e); }
+      try { if (typeof onDecode === 'function') onDecode(decoded); } catch (e) { console.error('onDecode', e); }
+    };
 
     const startWithDevice = async (device) => {
       try {
