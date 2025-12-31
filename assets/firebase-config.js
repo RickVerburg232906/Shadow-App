@@ -3,7 +3,7 @@
     // Editable default: change this value to 'dev' or 'prod' to force an environment
     // Example: set to 'dev' during local testing, then revert to 'prod' for production
     const DEFAULT_SHADOW_ENV = 'dev';
-    try { if (!window.SHADOW_ENV) window.SHADOW_ENV = DEFAULT_SHADOW_ENV; } catch(_) {}
+    try { window.SHADOW_ENV = DEFAULT_SHADOW_ENV; } catch(_) {}
 
     // Support quick override via URL: ?firebase=dev|prod or ?db=dev|prod
     const params = (typeof URLSearchParams !== 'undefined') ? new URLSearchParams(window.location.search) : null;
