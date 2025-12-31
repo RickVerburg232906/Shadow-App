@@ -1049,15 +1049,9 @@ async function updateQROverlay() {
 		try {
 			const dataStr = JSON.stringify(payload);
 				if (qrImg) {
-<<<<<<< Updated upstream
-					// Provide an audio URL and include it inside the JSON payload so scanners still receive the member data.
-					let audioUrl = '/assets/wet-fart-335478.mp3';
-					try { audioUrl = new URL('../assets/wet-fart-335478.mp3', location.href).href; } catch(_) {}
-=======
 					// Provide a root-relative audio URL so it works on Vercel (HTTPS).
-					// Use the official sign-in sound asset in `/assets`.
+					// Use a leading slash to ensure same-origin relative path (`/assets/...`).
 					let audioUrl = '/assets/Inschrijf_sound.mp3';
->>>>>>> Stashed changes
 					try { payload.audioUrl = audioUrl; } catch(_) {}
 					const qrData = JSON.stringify(payload);
 					// Debug: log payload and audio URL so we can inspect what's encoded
