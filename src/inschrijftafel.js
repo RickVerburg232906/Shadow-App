@@ -235,6 +235,7 @@ export async function manualRegisterRide(memberId, rideDateYMD) {
     const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums.map(String) : [];
     if (!scans.includes(rideDateYMD)) scans.push(rideDateYMD);
     await setDoc(dref, { ScanDatums: scans }, { merge: true });
+    // participant is recorded in member.ScanDatums; do not mirror to globals/rideConfig here
     return { success: true };
   } catch (e) { return { success: false, error: String(e) }; }
 }
@@ -476,11 +477,16 @@ export async function initInschrijftafel() {
                 }
               } catch (e) { console.error('apply scan to member failed', e); alert('Fout bij schrijven naar Firestore'); }
 
-              // also record today's date in ScanDatums
+              // also record today's date in ScanDatums, but only if today is a planned ride
               try {
                 const today = new Date().toISOString().slice(0,10);
-                const mr = await manualRegisterRide(String(memberId), today);
-                if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+                const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : [];
+                if (planned && planned.includes(today)) {
+                  const mr = await manualRegisterRide(String(memberId), today);
+                  if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+                } else {
+                  try { console.debug('Skipping ScanDatums add: today is not a planned ride', { today, planned }); } catch(_){}
+                }
               } catch (e) { console.error('manualRegisterRide error', e); }
             } catch(_){ }
           }, { fps: 10, qrbox: 250 });
@@ -790,7 +796,7 @@ export async function renderHistoryStars(memberId) {
             const today = new Date().toISOString().slice(0,10);
             try { /* debug removed */ } catch(_){ }
             if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
-              try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
+              try { showScanError('Er is geen rit vandaag', 5000); } catch(_) { alert('Er is geen rit vandaag'); }
               return;
             }
           } catch (e) { console.warn('plannedDates check failed', e); }
@@ -1415,11 +1421,16 @@ try { if (typeof window !== 'undefined') {
           const res = await checkInMemberById(String(memberId), { lunchDeelname: lunchDeelname, lunchKeuze: lunchKeuze, Jaarhanger });
           if (res && res.success) {
             // choices saved — do not show a generic toast here; keep only registration toast
-            // also register today's date in ScanDatums
+            // also register today's date in ScanDatums, but only if today is a planned ride
             try {
               const today = new Date().toISOString().slice(0,10);
-              const mr = await manualRegisterRide(String(memberId), today);
-              if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+              const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : [];
+              if (planned && planned.includes(today)) {
+                const mr = await manualRegisterRide(String(memberId), today);
+                if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
+              } else {
+                try { console.debug('Skipping ScanDatums add: today is not a planned ride', { today, planned }); } catch(_){ }
+              }
             } catch (e) { console.warn('manualRegisterRide error', e); }
             // optionally update UI state
             try { updateManualSaveState(); } catch(_){}
@@ -1459,7 +1470,7 @@ function attachGotoManualHandler() {
         const today = (new Date()).toISOString().slice(0,10);
         try { /* debug removed */ } catch(_){ }
         if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
-          try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
+          try { showScanError('Er is geen rit vandaag', 5000); } catch(_) { alert('Er is geen rit vandaag'); }
           return;
         }
         // navigate to configured href (fallback to handmatige-keuzes)

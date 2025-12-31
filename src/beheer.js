@@ -10,7 +10,12 @@ export async function initBeheer() {
       if (raw) {
         try {
           const obj = JSON.parse(raw);
-          if (obj && obj.regions && typeof obj.regions === 'object') {
+          const currentYearKey = String((new Date()).getFullYear());
+          if (obj && obj[currentYearKey] && typeof obj[currentYearKey] === 'object') {
+            regions = obj[currentYearKey];
+            dates = Object.keys(regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+          } else if (obj && obj.regions && typeof obj.regions === 'object') {
+            // legacy fallback
             regions = obj.regions;
             dates = Object.keys(regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
           }
@@ -62,9 +67,15 @@ export async function initBeheer() {
             const btn = form.querySelector('button[type="submit"]');
             if (btn) { btn.disabled = true; btn.classList.add('disabled'); }
             try {
-              // Persist only `regions` to sessionStorage (runtime-only canonical source)
-              sessionStorage.setItem('rideConfig', JSON.stringify({ regions: newRegions }));
-              try { window._rideConfig = { regions: newRegions }; } catch(_){ }
+              // Persist current-year map to sessionStorage (runtime-only canonical source)
+              try {
+                const currentYear = String((new Date()).getFullYear());
+                sessionStorage.setItem('rideConfig', JSON.stringify({ [currentYear]: newRegions }));
+                try { window._rideConfig = { [currentYear]: newRegions }; } catch(_){ }
+              } catch(_) {
+                try { sessionStorage.setItem('rideConfig', JSON.stringify({ regions: newRegions })); } catch(_) {}
+                try { window._rideConfig = { regions: newRegions }; } catch(_){ }
+              }
 
               // Determine if we have at least one valid date+region pair to push to Firestore
               const regionKeys = Object.keys(newRegions || {}).filter(k => k && newRegions[k]);
@@ -72,16 +83,22 @@ export async function initBeheer() {
                 try {
                   try { console.debug('beheer: calling updateRideConfig', { regionKeys, newRegions }); } catch(_){}
                   // compute keys that existed previously but are now removed so we can delete them server-side
-                  let oldRegions = {};
+                  let oldMap = {};
                   try {
-                    if (window && window._rideConfig && window._rideConfig.regions) oldRegions = window._rideConfig.regions;
-                    else {
-                      try { const r = await getRideConfig(); oldRegions = (r && r.regions) ? r.regions : {}; } catch(_) { oldRegions = {}; }
+                    const r = await getRideConfig().catch(()=>({}));
+                    const currentYearKey = String(new Date().getFullYear());
+                    if (r && r[currentYearKey] && typeof r[currentYearKey] === 'object') {
+                      oldMap = r[currentYearKey] || {};
+                    } else if (r && r.regions) {
+                      oldMap = r.regions || {};
                     }
-                  } catch(_) { oldRegions = {}; }
-                  const oldKeys = Object.keys(oldRegions || {}).filter(k => k && /^\d{4}-\d{2}-\d{2}$/.test(k));
+                  } catch(_) { oldMap = {}; }
+                  const oldKeys = Object.keys(oldMap || {}).filter(k => k && /^\d{4}-\d{2}-\d{2}$/.test(k));
                   const removed = oldKeys.filter(k => !(k in (newRegions || {})));
-                  const up = await updateRideConfig({ regions: newRegions, removeRegions: removed.length ? removed : undefined });
+                  const currentYear = String((new Date()).getFullYear());
+                  const yearsPayload = { [currentYear]: newRegions };
+                  const removeYearsDates = removed.length ? removed.map(d => ({ year: currentYear, date: d })) : undefined;
+                  const up = await updateRideConfig({ years: yearsPayload, removeRegions: removed.length ? removed : undefined, removeYearsDates });
                   try { console.debug('beheer: updateRideConfig result', up, { removed }); } catch(_){}
                   if (up && up.success) {
                     window.showScanSuccess && window.showScanSuccess('Automatisch opgeslagen');

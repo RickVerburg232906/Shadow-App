@@ -132,6 +132,9 @@ body.app{
 .primary-button:hover{ background:#123273; }
 .primary-button:active{ transform: scale(0.98); }
 
+/* enforce non-interactive state when we mark button as disabled via script */
+
+
 /* Small icon toggle used to show/hide password */
 .icon-toggle{ position:absolute; right:8px; top:50%; transform:translateY(-50%); background:transparent; border:0; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:6px; color:rgba(15,23,36,0.45); }
 .icon-toggle .material-symbols-outlined{ font-size:20px; }

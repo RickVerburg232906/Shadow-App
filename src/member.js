@@ -666,13 +666,15 @@ function renderMemberInfoChoices() {
 		try {
 			const statCountEl = document.querySelector('.stat-count');
 			const starsContainer = document.querySelector('.stats-stars');
-			// read planned dates from sessionStorage.rideConfig.regions only
+			// read planned dates from sessionStorage.rideConfig (prefer current-year map)
 			let planned = [];
 			try {
 				const raw = sessionStorage.getItem('rideConfig');
 				const obj = raw ? JSON.parse(raw) : null;
 				if (obj) {
-					if (obj.regions && typeof obj.regions === 'object') planned = Object.keys(obj.regions).map(d => toYMDString(d)).filter(Boolean);
+					const currentYearKey = String((new Date()).getFullYear());
+					if (obj[currentYearKey] && typeof obj[currentYearKey] === 'object') planned = Object.keys(obj[currentYearKey]).map(d => toYMDString(d)).filter(Boolean);
+					else if (obj.regions && typeof obj.regions === 'object') planned = Object.keys(obj.regions).map(d => toYMDString(d)).filter(Boolean);
 					else if (Array.isArray(obj.plannedDates)) planned = obj.plannedDates.map(d => toYMDString(d)).filter(Boolean);
 				}
 			} catch(_) { planned = []; }
@@ -1205,11 +1207,17 @@ try {
 				const [rideCfg, lunchOptions] = await Promise.all([getRideConfig(), getLunchOptions()]);
 				// Persist only regions into sessionStorage (never plannedDates)
 				try {
-					if (rideCfg && rideCfg.regions && typeof rideCfg.regions === 'object') {
-						setSessionAndDump('rideConfig', JSON.stringify({ regions: rideCfg.regions }));
-					} else {
-						try { sessionStorage.removeItem('rideConfig'); } catch(_) {}
-					}
+					const currentYear = String((new Date()).getFullYear());
+					try {
+						if (rideCfg && rideCfg[currentYear] && typeof rideCfg[currentYear] === 'object') {
+							setSessionAndDump('rideConfig', JSON.stringify({ [currentYear]: rideCfg[currentYear] }));
+						} else if (rideCfg && rideCfg.regions && typeof rideCfg.regions === 'object') {
+							// legacy shape: keep regions under `regions`
+							setSessionAndDump('rideConfig', JSON.stringify({ regions: rideCfg.regions }));
+						} else {
+							// Do not remove existing rideConfig here — leave it as-is to avoid clobbering other loaders
+						}
+					} catch(_) {}
 				} catch(_) {}
 				try { setSessionAndDump('lunch', JSON.stringify(lunchOptions || { vastEten: [], keuzeEten: [] })); } catch(_) {}
 				// Hide any loading indicator if present
@@ -1370,24 +1378,26 @@ function renderPlannedRides() {
 		if (!container) return;
 		// Clear
 		container.innerHTML = '';
-		// Read rideConfig.regions from sessionStorage only (do not fetch from Firebase)
+		// Read rideConfig for the current year from sessionStorage only (do not fetch from Firebase)
 		let cfg = null;
-		try {
-			const raw = sessionStorage.getItem('rideConfig');
-			cfg = raw ? JSON.parse(raw) : null;
-		} catch(_) { cfg = null; }
+		try { const raw = sessionStorage.getItem('rideConfig'); cfg = raw ? JSON.parse(raw) : null; } catch(_) { cfg = null; }
 		if (!cfg) return;
-		// Derive dates from regions keys (prefer indices in regions)
+		const currentYear = String((new Date()).getFullYear());
+		// Prefer per-year top-level field: e.g. { "2025": { "2025-12-30": "Zuid" } }
+		let yearMap = null;
+		try {
+			if (cfg && typeof cfg === 'object' && cfg[currentYear] && typeof cfg[currentYear] === 'object') yearMap = cfg[currentYear];
+			else if (cfg && cfg.regions && typeof cfg.regions === 'object') yearMap = cfg.regions; // legacy fallback
+		} catch(_) { yearMap = null; }
+		// Derive dates from available shape
 		let dates = [];
 		try {
-			if (cfg && cfg.regions && typeof cfg.regions === 'object') dates = Object.keys(cfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+			if (yearMap && typeof yearMap === 'object') dates = Object.keys(yearMap).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
 			else if (cfg && Array.isArray(cfg.plannedDates)) dates = cfg.plannedDates.filter(Boolean);
 		} catch(_) { dates = []; }
 		// Show only today and future rides
-		const upcoming = dates.filter(d => {
-			try { return daysUntil(d) >= 0; } catch(_) { return false; }
-		});
-		const regions = (cfg && cfg.regions) ? cfg.regions : {};
+		const upcoming = dates.filter(d => { try { return daysUntil(d) >= 0; } catch(_) { return false; } });
+		const regions = yearMap || {};
 		// If no upcoming rides, show friendly season-over message
 		if (!Array.isArray(upcoming) || upcoming.length === 0) {
 			const msgWrap = document.createElement('div');
@@ -1419,7 +1429,17 @@ function renderPlannedRides() {
 		upcoming.sort((a,b) => (a < b ? -1 : a > b ? 1 : 0));
 		for (const iso of upcoming) {
 			try {
-				const regionText = regions && (regions[iso] || regions[String(iso)]) ? (regions[iso] || regions[String(iso)]) : '';
+				let regionText = '';
+				try {
+					const rawVal = regions ? (regions[iso] || regions[String(iso)]) : undefined;
+					if (typeof rawVal === 'string') regionText = rawVal;
+					else if (rawVal && typeof rawVal === 'object') {
+						// accept { region: 'Zuid' } or legacy participant map; prefer explicit region if present
+						if (typeof rawVal.region === 'string' && rawVal.region) regionText = rawVal.region;
+						else if (typeof rawVal.regio === 'string' && rawVal.regio) regionText = rawVal.regio;
+						else regionText = '';
+					}
+				} catch(_) { regionText = ''; }
 
 				const wrapper = document.createElement('div');
 				wrapper.className = 'card-wrapper';
@@ -1470,10 +1490,22 @@ function renderPlannedRides() {
 try {
 	async function ensureConfigAnd(fn) {
 		try {
-			// Only proceed if sessionStorage contains rideConfig.regions; do NOT fetch from Firebase here
+			// Only proceed if sessionStorage contains rideConfig for current year (or legacy regions/plannedDates)
 			const raw = sessionStorage.getItem('rideConfig');
 			if (!raw) {
 				console.warn('sessionStorage.rideConfig missing; skipping render (per config)');
+				return;
+			}
+			let ok = false;
+			try {
+				const cfg = JSON.parse(raw);
+				const currentYear = String((new Date()).getFullYear());
+				if (cfg && typeof cfg === 'object' && cfg[currentYear] && typeof cfg[currentYear] === 'object') ok = true;
+				else if (cfg && cfg.regions && typeof cfg.regions === 'object') ok = true;
+				else if (cfg && Array.isArray(cfg.plannedDates) && cfg.plannedDates.length > 0) ok = true;
+			} catch(_) { ok = false; }
+			if (!ok) {
+				console.warn('sessionStorage.rideConfig does not contain expected current-year data; skipping render');
 				return;
 			}
 		} catch (e) {
