@@ -55,6 +55,10 @@ function isProdHost() {
 function resolveDbEnv() {
     try {
         if (typeof window !== 'undefined') {
+            // Honor explicit global override `window.SHADOW_ENV` when set to 'dev' or 'prod'
+            try {
+                if (typeof window.SHADOW_ENV === 'string' && (window.SHADOW_ENV === 'dev' || window.SHADOW_ENV === 'prod')) return window.SHADOW_ENV;
+            } catch(_) {}
             try {
                 const params = new URLSearchParams(window.location.search || '');
                 const q = params.get('db');
