@@ -352,6 +352,42 @@ export async function initInschrijftafel() {
               panel.scrollTop = panel.scrollHeight;
             }catch(e){}
           }
+          // Network logging helper
+          async function logFetch(input, init){
+            try{
+              const url = (typeof input === 'string') ? input : (input && input.url) || String(input);
+              const method = (init && init.method) || (input && input.method) || 'GET';
+              appendLine('net', `→ ${method} ${url}`);
+              const t0 = Date.now();
+              try{
+                const resp = await origFetch(input, init);
+                appendLine('net', `← ${resp.status} ${resp.statusText} ${url} (${Date.now()-t0}ms)`);
+                try { const ac = resp.headers && resp.headers.get ? resp.headers.get('access-control-allow-origin') : null; if (ac) appendLine('net', `CORS: ${ac}`); } catch(_){}
+                return resp;
+              }catch(e){ appendLine('net', `ERR ${String(e)} ${url}`); throw e; }
+            }catch(e){ try{ appendLine('net','logFetch failed '+String(e)); }catch(_){} throw e; }
+          }
+          // expose a head helper
+          window.__netHead = async function(u){ try{ appendLine('net','HEAD '+u); const r = await origFetch(u, { method: 'HEAD' }); appendLine('net', `HEAD → ${r.status} ${r.statusText} (${u})`); try { const ac = r.headers && r.headers.get ? r.headers.get('access-control-allow-origin') : null; if (ac) appendLine('net', `CORS: ${ac}`); } catch(_){} return r; } catch(e){ appendLine('net','HEAD ERR '+String(e)); throw e; } };
+          // wrap fetch and XHR
+          try{
+            const origFetch = window.fetch.bind(window);
+            window.fetch = function(input, init){ return logFetch(input, init); };
+          }catch(_){}
+          try{
+            const OrigX = window.XMLHttpRequest;
+            function WrappedXHR(){
+              const xhr = new OrigX();
+              let _url = '';
+              let _method = '';
+              const origOpen = xhr.open;
+              xhr.open = function(method, url){ _method = method; _url = url; try{ appendLine('net', `XHR → ${method} ${url}`); }catch(_){} return origOpen.apply(xhr, arguments); };
+              xhr.addEventListener('load', function(){ try{ appendLine('net', `XHR ← ${xhr.status} ${xhr.responseURL || _url}`); }catch(_){} });
+              xhr.addEventListener('error', function(e){ try{ appendLine('net', `XHR ERR ${_url}`); }catch(_){} });
+              return xhr;
+            }
+            try{ window.XMLHttpRequest = WrappedXHR; } catch(_){}
+          }catch(_){}
           ['log','info','warn','error','debug'].forEach(k=>{
             try{
               const orig = console[k] && console[k].bind(console) || function(){};
