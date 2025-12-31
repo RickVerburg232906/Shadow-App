@@ -108,8 +108,9 @@ try { if (typeof window !== 'undefined') window.showScanSuccess = showScanSucces
 try { if (typeof window !== 'undefined') window.showScanError = showScanError; } catch(_) {}
 
 // Play a random Inschrijf sound from assets/Inschrijf_sounds on successful scan
-function playRandomInschrijfSound() {
+async function playRandomInschrijfSound() {
   try {
+    await ensureAudioUnlocked().catch(()=>null);
     const files = ['Inschrijf_sound.mp3','Inschrijf_sound2.mp3','Inschrijf_sound3.mp3','Inschrijf_sound4.mp3'];
     const idx = Math.floor(Math.random() * files.length);
     const url = '/assets/Inschrijf_sounds/' + files[idx];
@@ -153,6 +154,44 @@ function playRandomInschrijfSound() {
 const _recentScans = new Map();
 // Members registered during this session (to prevent re-processing the same QR)
 const _registeredThisSession = new Set();
+// Short global cooldown to prevent handling multiple quick scans
+let _scanCooldown = false;
+
+// Ensure audio is unlocked (primed) after a user gesture so later .play() calls succeed on mobile
+export async function ensureAudioUnlocked() {
+  try {
+    if (window._audioUnlocked) return true;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) {
+      window._audioUnlocked = true;
+      console.debug('ensureAudioUnlocked: no AudioContext available — treating as unlocked');
+      return true;
+    }
+    const ctx = new Ctx();
+    try { window._audioCtx = ctx; } catch(_){}
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.01);
+    try {
+      await ctx.resume();
+      window._audioUnlocked = true;
+      console.info('ensureAudioUnlocked: audio unlocked');
+      return true;
+    } catch (e) {
+      console.warn('ensureAudioUnlocked: resume failed', e);
+      return false;
+    }
+  } catch (e) { console.warn('ensureAudioUnlocked failed', e); return false; }
+}
+
+// Try to unlock audio on first user interaction (help mobile autoplay later)
+try { if (typeof document !== 'undefined') {
+  document.addEventListener('touchstart', () => { try { ensureAudioUnlocked(); } catch(_){} }, { once: true, passive: true });
+  document.addEventListener('click', () => { try { ensureAudioUnlocked(); } catch(_){} }, { once: true, passive: true });
+} } catch(_) {}
 function renderActivityItem(member, whenIso) {
   try {
     const container = document.getElementById('recent-activity-list');
@@ -364,36 +403,7 @@ export async function initInschrijftafel() {
 
       // Mobile debug overlay removed in production build.
 
-      // Unlock audio on first user gesture so mobile browsers allow playback later
-      async function unlockAudio() {
-        try {
-          if (window._audioUnlocked) return true;
-          const Ctx = window.AudioContext || window.webkitAudioContext;
-          if (!Ctx) {
-            window._audioUnlocked = true;
-            console.debug('unlockAudio: no AudioContext available — treating as unlocked');
-            return true;
-          }
-          const ctx = new Ctx();
-          try { window._audioCtx = ctx; } catch(_){}
-          // create tiny silent oscillator to prime audio stack
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          gain.gain.value = 0;
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.01);
-          try {
-            await ctx.resume();
-            window._audioUnlocked = true;
-            console.info('unlockAudio: audio unlocked');
-            return true;
-          } catch (e) {
-            console.warn('unlockAudio: resume failed', e);
-            return false;
-          }
-        } catch (e) { console.warn('unlockAudio failed', e); return false; }
-      }
+      // Audio unlock handled by top-level `ensureAudioUnlocked()` (bound to first user gesture)
 
       // Play check-in sound robustly (reuses hidden audio element)
       function playCheckinSound(url) {
@@ -435,7 +445,7 @@ export async function initInschrijftafel() {
           }
 
           // First unlock audio (user gesture) so mobile allows playback later
-          try { await unlockAudio(); } catch(_) {}
+          try { await ensureAudioUnlocked(); } catch(_) {}
 
           // Prepare preview area: hide placeholder overlay and remove background image so scanner becomes visible
           try {
@@ -469,8 +479,11 @@ export async function initInschrijftafel() {
           let res = null;
           try {
             res = await startQrScanner('adminQRReader', async (decoded) => {
-            try {
-              console.log('QR decoded:', decoded);
+              try {
+                // global short cooldown to avoid multiple rapid decode handling
+                if (_scanCooldown) { try { console.debug('inschrijftafel: scan ignored due to cooldown'); } catch(_){}; return; }
+                _scanCooldown = true; setTimeout(() => { try { _scanCooldown = false; } catch(_){} }, 500);
+                console.log('QR decoded:', decoded);
               // Attempt to parse JSON payload; fall back to raw string
               let parsed = null;
               try { parsed = JSON.parse(decoded); } catch(_) { parsed = null; }
