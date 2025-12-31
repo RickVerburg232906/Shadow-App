@@ -107,6 +107,61 @@ function showScanError(msg, visibleMs = 5000) {
 try { if (typeof window !== 'undefined') window.showScanSuccess = showScanSuccess; } catch(_) {}
 try { if (typeof window !== 'undefined') window.showScanError = showScanError; } catch(_) {}
 
+<<<<<<< Updated upstream
+=======
+      // unlockAudio handled at module scope
+
+// Attempt to unlock audio on first user touch/click so mobile users don't need to press Start explicitly
+try {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('touchstart', () => { try { unlockAudio().catch(()=>{}); } catch(_){} }, { once: true, passive: true });
+    document.addEventListener('click', () => { try { unlockAudio().catch(()=>{}); } catch(_){} }, { once: true });
+  }
+} catch(_) {}
+
+// Play a random Inschrijf sound from assets/Inschrijf_sounds on successful scan
+function playRandomInschrijfSound() {
+  try {
+    const files = ['Inschrijf_sound.mp3','Inschrijf_sound2.mp3','Inschrijf_sound3.mp3','Inschrijf_sound4.mp3'];
+    const idx = Math.floor(Math.random() * files.length);
+    const url = '/assets/Inschrijf_sounds/' + files[idx];
+    let a = null;
+    try { a = window._inschrijfAudio; } catch(_) { a = null; }
+    if (!a) {
+      a = document.createElement('audio');
+      a.style.display = 'none';
+      a.setAttribute('playsinline', '');
+      a.setAttribute('webkit-playsinline', '');
+      a.preload = 'auto';
+      try { a.crossOrigin = 'anonymous'; } catch(_) {}
+      try { document.body.appendChild(a); } catch(_) {}
+      try { window._inschrijfAudio = a; } catch(_) {}
+    }
+    try { a.pause(); } catch(_) {}
+    try { a.currentTime = 0; } catch(_) {}
+    if (a.src !== url) {
+      try { a.src = url; } catch(_) { a.setAttribute('src', url); }
+    } else {
+      try { a.load(); } catch(_) {}
+    }
+    try {
+      const p = a.play();
+      if (p && typeof p.then === 'function') {
+        p.catch(async (err) => {
+          console.warn('playRandomInschrijfSound: play rejected, attempting resume', err);
+          try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (Ctx && window._audioCtx) await window._audioCtx.resume().catch(()=>null);
+            else if (Ctx) { window._audioCtx = new Ctx(); await window._audioCtx.resume().catch(()=>null); }
+          } catch(e2) { console.warn('playRandomInschrijfSound: resume failed', e2); }
+          try { const p2 = a.play(); if (p2 && typeof p2.then === 'function') p2.catch(()=>{}); } catch(_) {}
+        });
+      }
+    } catch (e) { console.warn('playRandomInschrijfSound failed', e); }
+  } catch (e) { console.warn('playRandomInschrijfSound top-level failed', e); }
+}
+
+>>>>>>> Stashed changes
 // Recent scan guard: map of memberId -> timestamp(ms) to prevent spammy duplicate scans
 const _recentScans = new Map();
 // Members registered during this session (to prevent re-processing the same QR)
@@ -322,6 +377,7 @@ export async function initInschrijftafel() {
 
       // Mobile debug overlay removed in production build.
 
+<<<<<<< Updated upstream
       // Unlock audio on first user gesture so mobile browsers allow playback later
       async function unlockAudio() {
         try {
