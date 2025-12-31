@@ -634,16 +634,13 @@ export async function initInschrijftafel() {
                 }
               } catch (e) { console.error('apply scan to member failed', e); alert('Fout bij schrijven naar Firestore'); }
 
-              // also record today's date in ScanDatums, but only if today is a planned ride
+              // also record today's date in ScanDatums (always write today's scan)
               try {
                 const today = new Date().toISOString().slice(0,10);
-                const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : [];
-                if (planned && planned.includes(today)) {
+                try {
                   const mr = await manualRegisterRide(String(memberId), today);
                   if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
-                } else {
-                  try { console.debug('Skipping ScanDatums add: today is not a planned ride', { today, planned }); } catch(_){}
-                }
+                } catch(e2) { console.warn('manualRegisterRide failed', e2); }
               } catch (e) { console.error('manualRegisterRide error', e); }
             } catch(_){ }
           }, { fps: 10, qrbox: 250 });
@@ -1578,16 +1575,13 @@ try { if (typeof window !== 'undefined') {
           const res = await checkInMemberById(String(memberId), { lunchDeelname: lunchDeelname, lunchKeuze: lunchKeuze, Jaarhanger });
           if (res && res.success) {
             // choices saved — do not show a generic toast here; keep only registration toast
-            // also register today's date in ScanDatums, but only if today is a planned ride
+            // also register today's date in ScanDatums (always write today's scan)
             try {
               const today = new Date().toISOString().slice(0,10);
-              const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : [];
-              if (planned && planned.includes(today)) {
+              try {
                 const mr = await manualRegisterRide(String(memberId), today);
                 if (!mr || !mr.success) console.warn('manualRegisterRide failed', mr);
-              } else {
-                try { console.debug('Skipping ScanDatums add: today is not a planned ride', { today, planned }); } catch(_){ }
-              }
+              } catch(e2) { console.warn('manualRegisterRide failed', e2); }
             } catch (e) { console.warn('manualRegisterRide error', e); }
             // optionally update UI state
             try { updateManualSaveState(); } catch(_){}
