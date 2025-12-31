@@ -466,34 +466,8 @@ export async function initInschrijftafel() {
                 }
               } catch (e) { /* ignore date-check errors and continue */ }
 
-              // Attempt to play audio if the QR contained an audioUrl
-              try {
-                let audioUrl = null;
-                if (parsed && typeof parsed === 'object') audioUrl = parsed.audioUrl || parsed.audioURL || parsed.audio || null;
-                if (!audioUrl) {
-                  // fallback: look for any URL-like part in the raw decoded string
-                  try {
-                    const m = String(decoded || '').match(/https?:\/\/[^\s",'}]+/i);
-                    if (m && m[0]) audioUrl = m[0];
-                  } catch(_) { }
-                }
-                if (audioUrl) {
-                  console.info('inschrijftafel: attempting to play audio from', audioUrl);
-                    try {
-                      const audio = new Audio(audioUrl);
-                      const p = audio.play();
-                      if (p && typeof p.then === 'function') {
-                        p.then(() => console.info('inschrijftafel: audio playback started'))
-                          .catch(err => console.warn('inschrijftafel: audio playback rejected', err));
-                      }
-                      audio.addEventListener('error', (ev) => console.error('inschrijftafel: audio element error', ev));
-                      audio.addEventListener('ended', () => console.info('inschrijftafel: audio ended'));
-                      // Keep scanner running after success so multiple scans can be performed
-                    } catch (e) { console.warn('inschrijftafel: play audio failed', e); }
-                } else {
-                  console.debug('inschrijftafel: no audioUrl found in QR');
-                }
-              } catch (e) { console.warn('inschrijftafel: audio playback flow failed', e); }
+              // Audio playback from QR codes removed
+              try { console.debug('inschrijftafel: audio playback removed from QR handling'); } catch(_) {}
               if (!memberId) {
                 alert('Gescand: geen lidnummer gevonden in QR');
                 return;
