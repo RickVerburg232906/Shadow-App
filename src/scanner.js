@@ -176,7 +176,7 @@ export async function startQrScanner(targetElementId = 'adminQRReader', onDecode
                 }
                 a.addEventListener('ended', () => console.info('Audio ended'));
                 a.addEventListener('error', (ev) => console.error('Audio element error', ev));
-                try { if (typeof html5Qr.stop === 'function') { html5Qr.stop().catch(()=>{}); } } catch (_) {}
+                // Do not stop the scanner here so continuous scanning remains active
               } catch (e) { console.warn('play audio error', e); }
             } else {
               console.debug('No audioUrl resolved from scanned data');

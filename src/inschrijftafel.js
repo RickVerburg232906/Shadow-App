@@ -320,6 +320,53 @@ export async function initInschrijftafel() {
       if (!startBtn.dataset.origHtml) startBtn.dataset.origHtml = startBtn.innerHTML;
       // (Removed request-camera-button and handler)
 
+      // Create an in-page debug overlay (shows console logs on-screen for mobile debugging)
+      function createDebugOverlay() {
+        try {
+          if (window.__inpageLogger) return;
+          window.__inpageLogger = true;
+          const panel = document.createElement('div');
+          panel.id = '__dbg';
+          panel.style.position = 'fixed';
+          panel.style.right = '8px';
+          panel.style.bottom = '8px';
+          panel.style.width = '320px';
+          panel.style.maxHeight = '45vh';
+          panel.style.overflow = 'auto';
+          panel.style.background = 'rgba(0,0,0,0.8)';
+          panel.style.color = '#0f0';
+          panel.style.fontSize = '12px';
+          panel.style.zIndex = 2147483647;
+          panel.style.padding = '8px';
+          panel.style.borderRadius = '8px';
+          panel.style.fontFamily = 'monospace';
+          panel.innerHTML = '<b style="color:#fff">DEBUG</b><br/>';
+          try { document.body.appendChild(panel); } catch(_) { return; }
+          function appendLine(type, msg){
+            try{
+              const el = document.createElement('div');
+              el.style.marginTop = '6px';
+              el.style.wordBreak = 'break-word';
+              el.innerHTML = '<span style="color:#9cf">['+type+']</span> '+String(msg);
+              panel.appendChild(el);
+              panel.scrollTop = panel.scrollHeight;
+            }catch(e){}
+          }
+          ['log','info','warn','error','debug'].forEach(k=>{
+            try{
+              const orig = console[k] && console[k].bind(console) || function(){};
+              console[k] = function(...args){
+                try{ appendLine(k, args.map(a=> typeof a==='object' ? JSON.stringify(a) : String(a)).join(' ')); }catch(_){}
+                try{ orig(...args); }catch(_){}
+              };
+            }catch(_){}
+          });
+          window.__dbg = function(t,m){ appendLine(t||'log', m); };
+        } catch (e) { try { console.warn('createDebugOverlay failed', e); } catch(_){} }
+      }
+
+      try { createDebugOverlay(); } catch(_) {}
+
       // Unlock audio on first user gesture so mobile browsers allow playback later
       async function unlockAudio() {
         try {
@@ -477,18 +524,17 @@ export async function initInschrijftafel() {
                 }
                 if (audioUrl) {
                   console.info('inschrijftafel: attempting to play audio from', audioUrl);
-                  try {
-                    const audio = new Audio(audioUrl);
-                    const p = audio.play();
-                    if (p && typeof p.then === 'function') {
-                      p.then(() => console.info('inschrijftafel: audio playback started'))
-                        .catch(err => console.warn('inschrijftafel: audio playback rejected', err));
-                    }
-                    audio.addEventListener('error', (ev) => console.error('inschrijftafel: audio element error', ev));
-                    audio.addEventListener('ended', () => console.info('inschrijftafel: audio ended'));
-                    // Stop the scanner if available
-                    try { if (res && res.scannerInstance) { await stopQrScanner(res.scannerInstance); running = null; } } catch(_) {}
-                  } catch (e) { console.warn('inschrijftafel: play audio failed', e); }
+                    try {
+                      const audio = new Audio(audioUrl);
+                      const p = audio.play();
+                      if (p && typeof p.then === 'function') {
+                        p.then(() => console.info('inschrijftafel: audio playback started'))
+                          .catch(err => console.warn('inschrijftafel: audio playback rejected', err));
+                      }
+                      audio.addEventListener('error', (ev) => console.error('inschrijftafel: audio element error', ev));
+                      audio.addEventListener('ended', () => console.info('inschrijftafel: audio ended'));
+                      // Keep scanner running after success so multiple scans can be performed
+                    } catch (e) { console.warn('inschrijftafel: play audio failed', e); }
                 } else {
                   console.debug('inschrijftafel: no audioUrl found in QR');
                 }
