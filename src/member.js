@@ -1049,20 +1049,12 @@ async function updateQROverlay() {
 		try {
 			const dataStr = JSON.stringify(payload);
 				if (qrImg) {
-					// Provide an audio URL and include it inside the JSON payload so scanners still receive the member data.
-					let audioUrl = '/assets/Inschrijf_sound.mp3';
-					try { audioUrl = new URL('../assets/Inschrijf_sound.mp3', location.href).href; } catch(_) {}
-					// Provide a root-relative audio URL so it works on Vercel (HTTPS).
-					try { payload.audioUrl = audioUrl; } catch(_) {}
-					const qrData = JSON.stringify(payload);
-					// Debug: log payload and audio URL so we can inspect what's encoded
-					try { console.debug('updateQROverlay - qr payload:', qrData); } catch(_) {}
-					try { console.debug('updateQROverlay - audioUrl:', audioUrl); } catch(_) {}
-					// Encode the full JSON payload in the QR so external scanners can parse `LidNr` etc.
-					qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(qrData);
-					qrImg.alt = `QR: ${qrData}`;
-					qrImg.setAttribute('data-qrcode-payload', qrData);
-					qrImg.setAttribute('data-audio-url', audioUrl);
+						// Encode the full JSON payload in the QR so external scanners can parse `LidNr` etc.
+						const qrData = JSON.stringify(payload);
+						try { console.debug('updateQROverlay - qr payload:', qrData); } catch(_) {}
+						qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(qrData);
+						qrImg.alt = `QR: ${qrData}`;
+						qrImg.setAttribute('data-qrcode-payload', qrData);
 				// show overlay when scanned today
 				try {
 					const wrap = document.getElementById('memberInfoQRWrap');
