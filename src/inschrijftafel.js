@@ -225,8 +225,6 @@ function renderActivityItem(member, whenIso) {
       <div class="activity-check" aria-hidden="true"><span class="material-symbols-outlined">check</span></div>
     `;
     container.insertBefore(item, container.firstChild);
-    // limit list length to 20 (keep placeholder removed)
-    while (container.children.length > 20) container.removeChild(container.lastChild);
     try { updateActivityScrollState(); } catch(_){}
   } catch (e) { console.warn('renderActivityItem failed', e); }
 }
@@ -732,7 +730,9 @@ export function initLiveActivityListener() {
           // clear list
           container.innerHTML = '';
           const seen = new Set();
-          for (const docSnap of snap.docs) {
+          // Render documents in reverse order so newest entries appear first
+          const docs = Array.isArray(snap.docs) ? Array.from(snap.docs).reverse() : (snap.docs || []);
+          for (const docSnap of docs) {
             try {
               const data = (typeof docSnap.data === 'function') ? docSnap.data() : (docSnap || {});
               const id = docSnap.id || (docSnap.ref && docSnap.ref.id) || null;
