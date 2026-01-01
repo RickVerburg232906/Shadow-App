@@ -8,7 +8,25 @@ import { getRideConfig, initFirebase, db, doc, getDoc, collection, getDocs } fro
     const strip = document.getElementById('ride-years-strip');
     if (!strip) return;
     strip.innerHTML = '<div class="year-loading">Laden…</div>';
-    const cfg = await getRideConfig().catch(()=>null);
+    // Use a dedicated datapage cache object in sessionStorage to avoid colliding
+    let cfg = null;
+    let dataCache = null;
+    try {
+      const rawCache = sessionStorage.getItem('datapage_cache');
+      if (rawCache) dataCache = JSON.parse(rawCache);
+    } catch (_) { dataCache = null; }
+    if (dataCache && dataCache.rideConfig) {
+      cfg = dataCache.rideConfig;
+    } else {
+      try {
+        cfg = await getRideConfig();
+        if (cfg) {
+          dataCache = dataCache || {};
+          dataCache.rideConfig = cfg;
+          try { sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache)); } catch(_){}
+        }
+      } catch(_) { cfg = null; }
+    }
     strip.innerHTML = '';
     if (!cfg || typeof cfg !== 'object') {
       strip.innerHTML = '<div class="year-chip">Geen jaren</div>';
@@ -48,81 +66,109 @@ import { getRideConfig, initFirebase, db, doc, getDoc, collection, getDocs } fro
       chart = document.createElement('div');
       chart.id = 'ride-years-chart';
       chart.className = 'year-chart';
-      // place it after the strip
-      try { strip.insertAdjacentElement('afterend', chart); } catch(_) { document.body.insertBefore(chart, document.body.firstChild); }
+      // Prefer the dedicated container if present, otherwise fall back to title/strip insertion
+      try {
+        const container = document.getElementById('ride-years-chart-container');
+        if (container) {
+          container.appendChild(chart);
+        } else {
+          const staticTitle = document.getElementById('ride-years-chart-title');
+          if (staticTitle && staticTitle.parentNode) staticTitle.insertAdjacentElement('afterend', chart);
+          else strip.insertAdjacentElement('afterend', chart);
+        }
+      } catch(_) { try { strip.insertAdjacentElement('afterend', chart); } catch(_) { document.body.insertBefore(chart, document.body.firstChild); } }
+    }
+
+    // Helper: robust year extractor used for caching and counting
+    function extractYear(val) {
+      try {
+        if (val === null || typeof val === 'undefined') return null;
+        if (typeof val === 'string') {
+          const m = val.match(/^\s*(\d{4})/);
+          if (m) return Number(m[1]);
+          const d = new Date(val);
+          if (!isNaN(d)) return d.getFullYear();
+          return null;
+        }
+        if (typeof val === 'number') {
+          if (String(val).length === 4) return Number(val);
+          const tryMs = new Date(val);
+          if (!isNaN(tryMs)) return tryMs.getFullYear();
+          const trySecs = new Date(val * 1000);
+          if (!isNaN(trySecs)) return trySecs.getFullYear();
+        }
+        if (val instanceof Date) return val.getFullYear();
+        if (typeof val === 'object') {
+          if (typeof val.toDate === 'function') {
+            try { const d = val.toDate(); if (d instanceof Date && !isNaN(d)) return d.getFullYear(); } catch(_){ }
+          }
+          if (typeof val.seconds === 'number') {
+            const d = new Date(val.seconds * 1000);
+            if (!isNaN(d)) return d.getFullYear();
+          }
+        }
+      } catch(_){}
+      return null;
     }
 
     // Helper: fetch participant counts for given years from members/*/ScanDatums
     async function fetchCountsForYears(selectedYears) {
       try {
-        let init = null;
-        try { init = await initFirebase(); } catch (_) { init = { app: null, db: null }; }
-        const usedDb = (init && init.db) ? init.db : db;
         const out = {};
         for (const y of selectedYears) out[y] = 0;
-        // if no db available, return zeros
-        if (!usedDb) return out;
-        // fetch all members documents
-        const coll = collection(usedDb, 'members');
-        let snap = null;
-        try { snap = await getDocs(coll); } catch(_) { snap = null; }
-        if (!snap || !Array.isArray(snap.docs)) return out;
 
-        function extractYear(val) {
+        // Try to reuse cached per-member year counts in sessionStorage
+        let membersCache = null;
+        if (dataCache && dataCache.members_year_counts) {
+          membersCache = dataCache.members_year_counts;
+        }
+        if (!membersCache) {
+          // fetch and build cache
+          let init = null;
+          try { init = await initFirebase(); } catch (_) { init = { app: null, db: null }; }
+          const usedDb = (init && init.db) ? init.db : db;
+          if (!usedDb) return out;
+          const coll = collection(usedDb, 'members');
+          let snap = null;
+          try { snap = await getDocs(coll); } catch(_) { snap = null; }
+          if (!snap || !Array.isArray(snap.docs)) return out;
+
+          membersCache = [];
+          for (const sdoc of snap.docs) {
+            try {
+              const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
+              const rawArr = data && (data.ScanDatums || data.scandatums || data.scans) ? (data.ScanDatums || data.scandatums || data.scans) : null;
+              if (!rawArr || !Array.isArray(rawArr)) { membersCache.push({ id: sdoc.id || null, yearCounts: {} }); continue; }
+              const yc = {};
+              for (const entry of rawArr) {
+                try {
+                  const yr = extractYear(entry);
+                  if (!yr) continue;
+                  const ystr = String(yr);
+                  yc[ystr] = (yc[ystr] || 0) + 1;
+                } catch(_){}
+              }
+              membersCache.push({ id: sdoc.id || null, yearCounts: yc });
+            } catch(_) { membersCache.push({ id: (sdoc && sdoc.id) || null, yearCounts: {} }); }
+          }
           try {
-            if (val === null || typeof val === 'undefined') return null;
-            // Fast path: YYYY-MM-DD or YYYY format strings
-            if (typeof val === 'string') {
-              const m = val.match(/^\s*(\d{4})/);
-              if (m) return Number(m[1]);
-              const d = new Date(val);
-              if (!isNaN(d)) return d.getFullYear();
-              return null;
-            }
-            if (typeof val === 'number') {
-              // If it's a 4-digit year
-              if (String(val).length === 4) return Number(val);
-              // treat as ms or seconds timestamp
-              const tryMs = new Date(val);
-              if (!isNaN(tryMs)) return tryMs.getFullYear();
-              const trySecs = new Date(val * 1000);
-              if (!isNaN(trySecs)) return trySecs.getFullYear();
-            }
-            if (val instanceof Date) return val.getFullYear();
-            // Firestore Timestamp-like objects
-            if (typeof val === 'object') {
-              if (typeof val.toDate === 'function') {
-                try { const d = val.toDate(); if (d instanceof Date && !isNaN(d)) return d.getFullYear(); } catch(_){}
-              }
-              if (typeof val.seconds === 'number') {
-                const d = new Date(val.seconds * 1000);
-                if (!isNaN(d)) return d.getFullYear();
-              }
-            }
+            dataCache = dataCache || {};
+            dataCache.members_year_counts = membersCache;
+            sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache));
           } catch(_){}
-          return null;
         }
 
-        for (const sdoc of snap.docs) {
+        // Sum cached counts
+        for (const m of membersCache) {
           try {
-            const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
-            const rawArr = data && (data.ScanDatums || data.scandatums || data.scans) ? (data.ScanDatums || data.scandatums || data.scans) : null;
-            if (!rawArr || !Array.isArray(rawArr)) { /* nothing to count for this member */ continue; }
-            
-            if (!rawArr || !Array.isArray(rawArr)) continue;
-            for (const entry of rawArr) {
-              try {
-                const yr = extractYear(entry);
-                if (!yr) continue;
-                const ystr = String(yr);
-                if (selectedYears.indexOf(ystr) >= 0) {
-                  out[ystr] = (out[ystr] || 0) + 1;
-                }
-              } catch(_){}
+            const yc = m && m.yearCounts ? m.yearCounts : {};
+            for (const y of selectedYears) {
+              const c = yc[String(y)] || 0;
+              out[String(y)] = (out[String(y)] || 0) + c;
             }
           } catch(_){}
         }
-        
+
         return out;
       } catch (e) { return selectedYears.reduce((acc,y)=>(acc[y]=0,acc),{}); }
     }
@@ -172,12 +218,6 @@ import { getRideConfig, initFirebase, db, doc, getDoc, collection, getDocs } fro
           bars.appendChild(barWrap);
         }
         chart.innerHTML = '';
-        // Title
-        const title = document.createElement('div');
-        title.className = 'chart-title';
-        title.textContent = 'Inschrijvingen per jaar';
-        chart.appendChild(title);
-
         // Chart area (bars + grid overlay)
         const chartArea = document.createElement('div');
         chartArea.className = 'chart-area';

@@ -31,9 +31,14 @@
 </header>
 
 <!-- Year strip: populated from rideConfig (generated from Firestore) -->
+
 <div id="ride-years-strip" class="year-strip" aria-hidden="false" style="display:block"></div>
 
 <main class="main-content">
+ <!-- Static chart title always visible -->
+<div id="ride-years-chart-title" class="chart-title">Inschrijvingen per jaar</div>
+<!-- Dedicated container for the chart so placement can be changed in HTML -->
+<div id="ride-years-chart-container" class="chart-container"></div>
 
 </main>
 <footer class="app-footer" role="contentinfo">
