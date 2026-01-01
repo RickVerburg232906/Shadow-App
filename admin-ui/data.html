@@ -39,9 +39,12 @@
 <div id="ride-years-chart-title" class="chart-title">Inschrijvingen per jaar</div>
 <!-- Dedicated container for the chart so placement can be changed in HTML -->
 <div id="ride-years-chart-container" class="chart-container"></div>
-<!-- Per-ride chart title + container -->
-<div id="ride-rides-chart-title" class="chart-title">Inschrijvingen per rit</div>
-<div id="ride-rides-chart-container" class="chart-container"></div>
+<!-- Canvas for Chart.js year-summary chart -->
+<canvas id="yearSummaryChart" style="width:100%;height:320px;display:block"></canvas>
+<!-- Per-ride chart -->
+<div id="ride-perride-chart-title" class="chart-title">Inschrijvingen per rit</div>
+<div id="ride-perride-chart-container" class="chart-container"></div>
+<canvas id="perRideChart" style="width:100%;height:320px;display:block"></canvas>
 
 </main>
 <footer class="app-footer" role="contentinfo">
@@ -66,6 +69,8 @@
   </div>
 </nav>
 </footer>
+<!-- Chart.js (UMD build) loaded as a global `Chart` to avoid broken ESM CDN imports -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script type="module" src="../src/member.js"></script>
 <script type="module" src="../src/data.js"></script>
 <script type="module">
