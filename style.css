@@ -604,6 +604,7 @@ body.app{
 
 /* Year strip (horizontal scroll) */
 .year-strip{
+  min-height: 35px;
   display:flex;
   gap:8px;
   align-items:center;
@@ -632,6 +633,20 @@ body.app{
 /* Year chart below the chips */
 .year-chart{ width:100%; box-sizing:border-box; padding:10px 12px 18px; }
 .year-chart{ width:100%; box-sizing:border-box; padding:12px; background: #fff; border: 1px solid rgba(16,24,40,0.04); border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); }
+
+/* When showing the year-summary list, avoid doubling the card background
+  by making the outer .year-chart container transparent. The inner
+  .year-summary-list provides the visible card. */
+.year-chart.year-summary-mode{ background: transparent; border: none; box-shadow: none; padding: 0; }
+/* hide axis/tick UI when rendering summary mode to avoid leftover elements */
+.year-chart.year-summary-mode .chart-x-axis,
+.year-chart.year-summary-mode .chart-x-label,
+.year-chart.year-summary-mode .chart-tick,
+.year-chart.year-summary-mode .chart-grid,
+.year-chart.year-summary-mode .chart-tick-line,
+.year-chart.year-summary-mode .chart-y-axis {
+  display: none !important;
+}
 .year-chart-bars{ display:flex; flex-direction:column; gap:12px; width:100%; }
 .year-bar{ display:flex; align-items:center; gap:12px; width:100%; }
 .bar-label{ width:96px; flex:0 0 96px; text-align:left; font-weight:700; font-size:13px; color:#0f1724; }
@@ -645,13 +660,50 @@ body.app{
 .chart-container, #ride-years-chart-container { width:100%; box-sizing:border-box; padding:0 12px; max-width:100%; }
 .chart-area{ position:relative; }
 .chart-grid{ position:absolute; left:96px; right:12px; top:0; bottom:0; pointer-events:none; }
+
+/* Grouped rides chart styles */
+.group-track{ display:flex; flex-direction:column; gap:8px; align-items:stretch; flex:1 1 auto; padding:6px 12px; }
+.series-wrap{ display:flex; align-items:center; gap:8px; }
+.series-track{ flex:1 1 auto; background: rgba(16,24,40,0.04); border-radius:8px; height:20px; overflow:hidden; }
+.series-fill{ height:100%; width:0%; border-radius:6px; transition: width 420ms cubic-bezier(.2,.8,.2,1); box-shadow: 0 6px 18px rgba(16,24,40,0.06); }
+.series-value{ min-width:36px; text-align:right; font-weight:700; color:#0f1724; }
+
+.chart-legend{ display:flex; gap:12px; align-items:center; padding:6px 12px 0 12px; flex-wrap:wrap; justify-content:flex-end; }
+.legend-item{ display:flex; align-items:center; gap:8px; font-size:13px; color:#0f1724; }
+.legend-swatch{ width:14px; height:14px; border-radius:4px; display:inline-block; }
+.legend-label{ font-weight:600; }
+
+/* Vertical per-ride chart styles */
+.rides-vertical-chart{ display:flex; flex-direction:column; gap:12px; width:100%; box-sizing:border-box; }
+.rides-vertical-chart .chart-legend{ margin-bottom:6px; }
+/* axis wrapper removed for per-ride chart */
+.y-tick{ padding:4px 0; }
+.rides-chart-inner{ overflow:auto; }
+.rides-chart-inner{ background: #fff; border:1px solid rgba(16,24,40,0.04); border-radius:12px; padding:16px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); }
+.rides-cols{ display:flex; gap:18px; align-items:flex-end; padding:8px 6px; overflow-x:auto; }
+.ride-col{ display:flex; flex-direction:column; align-items:center; width:96px; box-sizing:border-box; position:relative; }
+.ride-bars-wrap{ display:flex; flex-direction:row; align-items:flex-end; gap:0; height:260px; }
+.ride-bar-col{ display:flex; flex-direction:column; align-items:center; width:48px; box-sizing:border-box; position:relative; height:100%; }
+.ride-bar-value{ font-weight:800; font-size:12px; color:#fff; margin-bottom:6px; position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:2; background:transparent; padding:2px 6px; border-radius:6px; }
+.ride-square{ width:44px; height:44px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:700; margin:0; box-shadow:0 1px 0 rgba(0,0,0,0.08); flex:0 0 auto; }
+.ride-bar-track{ width:100%; height:100%; background: rgba(16,24,40,0.04); border-radius:4px; display:flex; align-items:flex-end; overflow:hidden; }
+.ride-bar-fill{ width:100%; height:0%; background: var(--blue); border-radius:2px; transition: height 560ms cubic-bezier(.2,.8,.2,1); box-shadow: 0 8px 20px rgba(16,24,40,0.06); display:block; }
+.ride-x-label{ margin-top:12px; font-size:12px; color:#6b7280; text-align:center; }
+
+@media (max-width:520px){
+  .ride-col{ width:56px; }
+  .ride-bars-wrap{ height:140px; }
+  .ride-bar-col{ width:22px; }
+}
+
+@media (max-width:520px){ .small-track{ height:20px; } }
 .chart-tick-line{ position:absolute; top:6px; bottom:36px; width:0; border-left:1px dashed rgba(16,24,40,0.06); transform:translateX(-0.5px); }
 .chart-x-axis{ position:relative; height:28px; margin-top:10px; }
 .chart-tick{ position:absolute; transform:translateX(-50%); font-size:12px; color:#6b7280; }
 .chart-x-label{ text-align:center; margin-top:6px; color:#374151; font-weight:700; }
 
-/* Hide x-axis and label when not desired */
-.chart-x-axis, .chart-x-label { display: none !important; }
+/* y-axis line (left of tracks) */
+.chart-y-axis{ position:absolute; left:96px; top:6px; bottom:36px; width:0; border-left:2px solid rgba(15,23,36,0.08); pointer-events:none; }
 .chart-loading, .chart-error{ color:#6b7280; font-weight:600; padding:10px 0; }
 
 /* Make bar chart responsive on small screens */
@@ -659,6 +711,17 @@ body.app{
 
 /* Empty chart placeholder */
 .chart-empty{ color: #6b7280; font-weight:600; padding:22px 12px; text-align:center; border: 1px dashed rgba(16,24,40,0.04); border-radius:8px; background: transparent; }
+
+/* Year summary (vertical list with horizontal bars) */
+.year-summary-card{ width:100%; box-sizing:border-box; }
+.year-summary-list{ display:flex; flex-direction:column; gap:12px; padding:12px; background: #fff; border:1px solid rgba(16,24,40,0.04); border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); }
+.year-summary-row{ display:flex; align-items:center; gap:12px; }
+.year-summary-year{ width:64px; flex:0 0 64px; font-size:16px; font-weight:700; color:#0f1724; }
+.year-summary-bar-container{ flex:1 1 auto; display:flex; align-items:center; }
+.year-summary-bar{ height:48px; background:var(--blue); color:#fff; display:flex; align-items:center; justify-content:flex-end; padding:0 12px; font-weight:700; font-size:16px; border-radius:6px; box-shadow: 0 8px 20px rgba(16,24,40,0.06); }
+.year-summary-value{ color:#fff; font-weight:800; }
+
+@media (max-width:520px){ .year-summary-year{ width:56px; font-size:14px; } .year-summary-bar{ height:40px; font-size:14px; } }
 
 /* Admin bottom nav (mobile-style footer) */
 #admin-bottom-nav{display:none;position:fixed;left:0;right:0;bottom:0;height:12vh;background:#ffffff;border-top:1px solid rgba(16,24,40,0.06);box-shadow:0 -6px 18px rgba(16,24,40,0.06);z-index:60}
