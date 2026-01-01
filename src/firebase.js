@@ -11,7 +11,7 @@ let db = null;
 let storage = null;
 let firebaseConfig = null;
 
-import runtimeConfig from '../assets/firebase-runtime-config.json';
+import runtimeConfig from '../assets/firebase-runtime-config.js';
 try { if (typeof window !== 'undefined' && !window.__FIREBASE_RUNTIME_CONFIG) window.__FIREBASE_RUNTIME_CONFIG = runtimeConfig; } catch(_) {}
 
 function initFirebase() {
