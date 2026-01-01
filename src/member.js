@@ -199,13 +199,13 @@ function setupMemberSuggestions() {
 								console.debug('member cache size', Array.isArray(cache) ? cache.length : 0);
 								if (!Array.isArray(cache) || cache.length === 0) { closeList(); return; }
 
-								// Substring match across `voor` and `naam` (case-insensitive)
+								// Prefix match across `voor` and `naam` (case-insensitive)
 								const ql = q.toLowerCase();
 								const matches = cache.filter(m => {
 									try {
 										const n = (m.naam || '').toLowerCase();
 										const v = (m.voor || '').toLowerCase();
-										return n.includes(ql) || v.includes(ql) || (`${v} ${n}`).includes(ql) || (`${n} ${v}`).includes(ql);
+										return n.startsWith(ql) || v.startsWith(ql);
 									} catch(_) { return false; }
 								}).slice(0, 20);
 								console.debug('matches found', matches.length);
