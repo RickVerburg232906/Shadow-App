@@ -61,22 +61,6 @@
   </div>
 </footer>
 
-<script type="module">
-  (async ()=>{
-    try{
-      await import('../src/member.js');
-    }catch(err){
-      console.error('Failed importing ../src/member.js', err);
-      try{
-        const url = new URL('../src/member.js', location.href).href;
-        const resp = await fetch(url, { cache: 'no-store' });
-        const text = await resp.text().catch(()=>'<no-body>');
-        console.error('Server response for', url, ':', resp.status, resp.statusText);
-        console.error('Response body (first 2000 chars):\n', String(text).slice(0,2000));
-      }catch(e){ console.error('Failed fetching module body', e); }
-      throw err;
-    }
-  })();
-</script>
+<script type="module" src="../src/member.js"></script>
 </body>
 </html>
