@@ -4,94 +4,22 @@ import { initializeApp, getApps, getApp, deleteApp } from 'https://www.gstatic.c
 import { getFirestore, doc, getDoc, collection, onSnapshot, setDoc, updateDoc, writeBatch, serverTimestamp, getDocs, query, where, orderBy, deleteField } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js';
 
-const devConfig = {
-    apiKey: "AIzaSyCwHJ1VIqM9s4tfh2hn8KZxqunuYySzuwQ",
-    authDomain: "shadow-app-b3fb3.firebaseapp.com",
-    projectId: "shadow-app-b3fb3",
-    storageBucket: "shadow-app-b3fb3.firebasestorage.app",
-    messagingSenderId: "38812973319",
-    appId: "1:38812973319:web:1dd89a0ffa61af564f2da2"
-};
-
-const prodConfig = {
-    apiKey: "AIzaSyBiV580AjErqJlOhwXR8VTNbY0b1DZJDwM",
-    authDomain: "landelijke-rit.firebaseapp.com",
-    projectId: "landelijke-rit",
-    storageBucket: "landelijke-rit.firebasestorage.app",
-    messagingSenderId: "1001186852750",
-    appId: "1:1001186852750:web:317122d6d230188cd1eedf",
-};
-
+// Runtime-only configuration: read the generated `assets/firebase-runtime-config.js`
 let app = null;
 let db = null;
 let storage = null;
 let firebaseConfig = null;
 
-function isProdHost() {
-    try {
-        if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-            const h = window.location.hostname || '';
-            // Vercel: production deployments use <project>.vercel.app (no branch prefix).
-            // Preview deployments use the form <branch>--<project>.vercel.app
-            try {
-                if (h.endsWith('.vercel.app')) {
-                    // If hostname does NOT include the branch separator `--`, it's the production deployment
-                    if (!h.includes('--')) return true;
-                    // If it does include `--`, the branch is the prefix before `--` — treat `main` or `master` as prod
-                    const parts = h.split('--');
-                    if (parts && parts.length >= 2) {
-                        const branch = parts[0] || '';
-                        if (branch === 'main' || branch === 'master') return true;
-                    }
-                }
-            } catch (_) {}
-            return h.includes('landelijke-rit') || h === 'landelijke-rit.firebaseapp.com' || h === 'landelijke-rit.web.app';
-        }
-    } catch (e) {}
-    return false;
-}
-
-// Resolve DB environment: url param `?db=dev|prod` overrides localStorage `shadow_db_env`.
-function resolveDbEnv() {
-    try {
-        if (typeof window !== 'undefined') {
-            try {
-                const params = new URLSearchParams(window.location.search || '');
-                const q = params.get('db');
-                if (q === 'dev' || q === 'prod') return q;
-            } catch(_) {}
-            // Respect explicit legacy localStorage override first
-            try {
-                const ls = localStorage.getItem('shadow_db_env');
-                if (ls === 'dev' || ls === 'prod') return ls;
-            } catch(_) {}
-            // fall back to host detection
-            return isProdHost() ? 'prod' : 'dev';
-        }
-    } catch(_) {}
-    return 'dev';
-}
-
-function getDbEnv() { return resolveDbEnv(); }
-
-function setDbEnv(env, doReload = true) {
-    try {
-        if (env !== 'dev' && env !== 'prod') throw new Error('invalid env');
-        try { localStorage.setItem('shadow_db_env', env); } catch(_) {}
-        if (doReload && typeof window !== 'undefined' && window.location) {
-            // reload to ensure full reinitialization
-            window.location.reload();
-        }
-        return true;
-    } catch (e) { console.warn('setDbEnv failed', e); return false; }
-}
-
 function initFirebase() {
     if (db) return { app, db };
-    const env = resolveDbEnv();
-    const cfg = (env === 'prod') ? prodConfig : devConfig;
-    // attach active env to firebaseConfig for debugging
-    firebaseConfig = Object.assign({ _env: env }, cfg);
+    // Expect a generated runtime config to be present on the window
+    const runtime = (typeof window !== 'undefined' && window.__FIREBASE_RUNTIME_CONFIG) ? window.__FIREBASE_RUNTIME_CONFIG : null;
+    if (!runtime || !runtime.config) {
+        console.warn('No runtime firebase config found (window.__FIREBASE_RUNTIME_CONFIG).');
+        return { app: null, db: null };
+    }
+    const cfg = runtime.config;
+    firebaseConfig = Object.assign({ _env: runtime.env || 'prod' }, cfg);
     try {
         if (getApps().length) {
             try { const existing = getApp(); deleteApp(existing); } catch(_) {}
@@ -101,7 +29,7 @@ function initFirebase() {
     try { db = getFirestore(app); } catch(_) { db = null; }
     try { storage = getStorage(app); } catch(_) { storage = null; }
     try {
-        const env = (firebaseConfig && firebaseConfig._env) ? firebaseConfig._env : resolveDbEnv();
+        const env = (firebaseConfig && firebaseConfig._env) ? firebaseConfig._env : 'prod';
         try { if (typeof window !== 'undefined') window._firebaseEnv = env; } catch(_) {}
         try { console.info('Firebase initialized — env:', env, firebaseConfig && firebaseConfig.projectId ? firebaseConfig.projectId : ''); } catch(_) {}
         try { window.dispatchEvent(new CustomEvent('firebase:env', { detail: { env: env, projectId: firebaseConfig && firebaseConfig.projectId } })); } catch(_) {}
@@ -115,7 +43,7 @@ function showFirebaseDebugBanner() {
         if (typeof document === 'undefined') return;
         const existing = document.getElementById('shadow-db-debug');
         if (existing) return;
-        const env = (firebaseConfig && firebaseConfig._env) ? firebaseConfig._env : resolveDbEnv();
+        const env = (firebaseConfig && firebaseConfig._env) ? firebaseConfig._env : 'prod';
         const pid = (firebaseConfig && firebaseConfig.projectId) ? firebaseConfig.projectId : '';
         const el = document.createElement('div');
         el.id = 'shadow-db-debug';
@@ -671,8 +599,6 @@ export {
     getMemberById,
     searchMembers,
     getSessionSnapshot,
-    getDbEnv,
-    setDbEnv,
     showFirebaseDebugBanner,
     getAdminPasswords,
     updateAdminPasswords,
