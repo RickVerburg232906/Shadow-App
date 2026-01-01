@@ -2,13 +2,18 @@
 // Generates assets/firebase-runtime-config.js from environment variables.
 // Usage: NODE_ENV=production node scripts/gen-firebase-config.js
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Load .env when running locally
+// Load .env when running locally (try to import dotenv if available)
 try {
-  require('dotenv').config();
+  const dotenv = await import('dotenv');
+  dotenv.config();
 } catch (_) {}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function readEnv(prefix, key) {
   return process.env[`${prefix}${key}`] || '';
@@ -27,7 +32,9 @@ function ensureDir(dir) {
 }
 
 function main() {
-  const target = (process.env.SHADOW_TARGET === 'dev' || process.env.SHADOW_TARGET === 'prod') ? process.env.SHADOW_TARGET : (process.env.VERCEL_ENV === 'development' ? 'dev' : 'prod');
+  // Only use FIREBASE_TARGET ('dev' or 'prod'). Default to 'prod' when not set.
+  const env = process.env;
+  const target = (env.FIREBASE_TARGET === 'dev' || env.FIREBASE_TARGET === 'prod') ? env.FIREBASE_TARGET : 'dev';
   const outObj = buildConfig(target);
   const outPath = path.join(__dirname, '..', 'assets', 'firebase-runtime-config.js');
   ensureDir(path.dirname(outPath));
