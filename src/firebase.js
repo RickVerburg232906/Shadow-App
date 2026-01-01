@@ -4,11 +4,15 @@ import { initializeApp, getApps, getApp, deleteApp } from 'https://www.gstatic.c
 import { getFirestore, doc, getDoc, collection, onSnapshot, setDoc, updateDoc, writeBatch, serverTimestamp, getDocs, query, where, orderBy, deleteField } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js';
 
-// Runtime-only configuration: read the generated `assets/firebase-runtime-config.js`
+// Runtime-only configuration: import the generated JSON runtime config so bundlers
+// can inline it and we avoid top-level await issues.
 let app = null;
 let db = null;
 let storage = null;
 let firebaseConfig = null;
+
+import runtimeConfig from '../assets/firebase-runtime-config.json';
+try { if (typeof window !== 'undefined' && !window.__FIREBASE_RUNTIME_CONFIG) window.__FIREBASE_RUNTIME_CONFIG = runtimeConfig; } catch(_) {}
 
 function initFirebase() {
     if (db) return { app, db };
