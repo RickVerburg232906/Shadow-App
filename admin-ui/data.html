@@ -30,6 +30,9 @@
     </div>
 </header>
 
+<!-- Year strip: populated from rideConfig (generated from Firestore) -->
+<div id="ride-years-strip" class="year-strip" aria-hidden="false" style="display:block"></div>
+
 <main class="main-content">
 
 </main>
@@ -56,6 +59,7 @@
 </nav>
 </footer>
 <script type="module" src="../src/member.js"></script>
+<script type="module" src="../src/data.js"></script>
 <script type="module">
   import { initInschrijftafel } from '../src/inschrijftafel.js';
   initInschrijftafel();
