@@ -713,20 +713,42 @@ export function initLiveActivityListener() {
           // clear list
           container.innerHTML = '';
           const seen = new Set();
-          // Render documents in reverse order so newest entries appear first
-          const docs = Array.isArray(snap.docs) ? Array.from(snap.docs).reverse() : (snap.docs || []);
+          // Build an array of entries with an associated activity time so we can
+          // sort by newest-first. Prefer `lunchExpires` (used as a checked-in marker)
+          // and fall back to other common timestamp shapes. If no time is available
+          // use now as a fallback so the item still appears.
+          const entries = [];
+          const docs = Array.isArray(snap.docs) ? Array.from(snap.docs) : (snap.docs || []);
           for (const docSnap of docs) {
             try {
               const data = (typeof docSnap.data === 'function') ? docSnap.data() : (docSnap || {});
               const id = docSnap.id || (docSnap.ref && docSnap.ref.id) || null;
               if (!id || seen.has(id)) continue;
               seen.add(id);
-              // normalize a lightweight member object
+              // attempt to resolve a time value from common fields
+              let timeIso = null;
+              try {
+                const cand = data && (data.lunchExpires || data.lunch_expires || data.lunch_exptime || data.lastScannedAt || data.lastScanned || data.lastScan || null);
+                if (cand) {
+                  if (typeof cand === 'string') timeIso = cand;
+                  else if (typeof cand === 'number') timeIso = new Date(Number(cand)).toISOString();
+                  else if (typeof cand === 'object') {
+                    if (typeof cand.toDate === 'function') timeIso = cand.toDate().toISOString();
+                    else if (typeof cand.seconds === 'number') timeIso = new Date(Number(cand.seconds) * 1000).toISOString();
+                    else if (typeof cand._seconds === 'number') timeIso = new Date(Number(cand._seconds) * 1000).toISOString();
+                  }
+                }
+              } catch(_) { timeIso = null; }
+              const epoch = (timeIso ? Date.parse(timeIso) : Date.now()) || Date.now();
               const memberObj = Object.assign({}, data || {});
               memberObj.id = id;
-              // render with current time as display (server timestamps are not stored per-scan)
-              renderActivityItem(memberObj, new Date().toISOString());
+              entries.push({ id, docSnap, memberObj, epoch });
             } catch (e) { console.warn('live activity per-doc parse failed', e); }
+          }
+          // sort newest first
+          entries.sort((a,b) => (b.epoch || 0) - (a.epoch || 0));
+          for (const it of entries) {
+            try { renderActivityItem(it.memberObj, new Date(it.epoch).toISOString()); } catch (e) { console.warn('renderActivityItem failed after sort', e); }
           }
           if (seen.size === 0) {
             try {
