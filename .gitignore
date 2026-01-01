@@ -2,4 +2,4 @@
 /dist
 /.env
 .env
-assets/firebase-runtime-config.js
+assets\firebase-runtime-config.json

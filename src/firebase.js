@@ -10,6 +10,24 @@ let db = null;
 let storage = null;
 let firebaseConfig = null;
 
+async function loadRuntimeConfig() {
+    if (typeof window === 'undefined') return null;
+    if (window.__FIREBASE_RUNTIME_CONFIG) return window.__FIREBASE_RUNTIME_CONFIG;
+    try {
+        const res = await fetch('/assets/firebase-runtime-config.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error('runtime config not found');
+        const runtime = await res.json();
+        try { window.__FIREBASE_RUNTIME_CONFIG = runtime; } catch(_) {}
+        return runtime;
+    } catch (e) {
+        console.warn('Failed to load runtime firebase config', e);
+        return null;
+    }
+}
+
+// Ensure runtime config is loaded before module evaluation continues
+try { await loadRuntimeConfig(); } catch (_) {}
+
 function initFirebase() {
     if (db) return { app, db };
     // Expect a generated runtime config to be present on the window
