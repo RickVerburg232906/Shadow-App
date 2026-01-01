@@ -9,6 +9,31 @@ import { getRideConfig, initFirebase, db, doc, getDoc, collection, getDocs, getP
     try { dataCache = JSON.parse(sessionStorage.getItem('datapage_cache') || 'null'); } catch(_) { dataCache = null; }
     const strip = document.getElementById('ride-years-strip') || document.body;
 
+    // Simple sessionStorage-backed cache with TTL (milliseconds)
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    function cacheRead(key) {
+      try {
+        if (!dataCache || !dataCache._cache || !dataCache._cache[key]) return null;
+        const e = dataCache._cache[key];
+        if (!e || typeof e.ts !== 'number') return null;
+        if ((Date.now() - e.ts) > (e.ttl || CACHE_TTL)) {
+          // expired
+          delete dataCache._cache[key];
+          try { sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache)); } catch(_){}
+          return null;
+        }
+        return e.value;
+      } catch(_) { return null; }
+    }
+    function cacheWrite(key, value, ttl) {
+      try {
+        dataCache = dataCache || {};
+        dataCache._cache = dataCache._cache || {};
+        dataCache._cache[key] = { ts: Date.now(), ttl: (typeof ttl === 'number' ? ttl : CACHE_TTL), value };
+        try { sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache)); } catch(_){}
+      } catch(_){}
+    }
+
 // Global date extractor usable by functions outside the init IIFE
 function extractDateGlobal(val) {
   try {
@@ -197,10 +222,8 @@ function extractDateGlobal(val) {
       try {
         const out = {};
         for (const y of selectedYears) out[y] = 0;
-
-        // Rebuild per-member year counts fresh each run to ensure accuracy
-        // (avoid using potentially stale `dataCache.members_year_counts` from sessionStorage)
-        let membersCache = null;
+        // Try cached per-member year counts first
+        let membersCache = cacheRead('members_year_counts');
         if (!membersCache) {
           // fetch and build cache
           let init = null;
@@ -230,11 +253,7 @@ function extractDateGlobal(val) {
               membersCache.push({ id: sdoc.id || null, yearCounts: yc });
             } catch(_) { membersCache.push({ id: (sdoc && sdoc.id) || null, yearCounts: {} }); }
           }
-          try {
-            dataCache = dataCache || {};
-            dataCache.members_year_counts = membersCache;
-            sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache));
-          } catch(_){}
+          try { cacheWrite('members_year_counts', membersCache); } catch(_){ }
         }
 
         // Sum cached counts
@@ -344,6 +363,12 @@ function extractDateGlobal(val) {
         const out = { labels: [], countsByYear: {}, datesPerPosition: [] };
         if (!Array.isArray(selectedYears) || selectedYears.length === 0) return out;
 
+        // Cache per-combination of years to avoid repeated heavy scans
+        const yearsKey = String(selectedYears.slice().sort().join(','));
+        const cacheKey = 'perride_counts_' + yearsKey;
+        const cached = cacheRead(cacheKey);
+        if (cached) return cached;
+
         // Load rideConfig from cache or Firestore
         let cfg = (dataCache && dataCache.rideConfig) ? dataCache.rideConfig : null;
         if (!cfg) {
@@ -449,6 +474,7 @@ function extractDateGlobal(val) {
         out.datesPerPosition = repDates;
         out.yearDates = yearDates;
         out.yearRegions = yearRegions;
+        try { cacheWrite(cacheKey, out); } catch(_){}
         return out;
       } catch(_) { return { labels: [], countsByYear: {}, datesPerPosition: [] }; }
     }
@@ -498,7 +524,7 @@ function extractDateGlobal(val) {
       try {
         const container = document.getElementById('ride-perride-chart-container') || chart;
         // ensure mode controls exist and will trigger re-render on change
-        try { ensurePerRideModeControls(container, ()=>{ try { renderPerRideChart(selectedYears); } catch(_){} }); } catch(_){ }
+        try { ensurePerRideModeControls(container, ()=>{ try { const yrs = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year); renderPerRideChart(yrs); } catch(_){} }); } catch(_){ }
         if (!container) return;
         // handle empty selection
         if (!Array.isArray(selectedYears) || selectedYears.length === 0) {
@@ -585,6 +611,9 @@ function extractDateGlobal(val) {
     async function fetchDateCountsForYear(year) {
       try {
         const out = {};
+        const cacheKey = 'datecounts_' + String(year);
+        const cached = cacheRead(cacheKey);
+        if (cached) return cached;
         // Ensure Firebase available
         try { await initFirebase(); } catch(_){ }
         const usedDb = (typeof db !== 'undefined' && db) ? db : null;
@@ -607,6 +636,7 @@ function extractDateGlobal(val) {
             }
           } catch(_){ }
         }
+        try { cacheWrite(cacheKey, out); } catch(_){}
         return out;
       } catch(_) { return {}; }
     }
