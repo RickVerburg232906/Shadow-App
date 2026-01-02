@@ -203,6 +203,8 @@ body.app{
   font-size: 1.125rem; /* text-xl */
   font-weight: 700;
   margin: 8px 0 8px 0;
+  width:100%;
+  text-align: left;
 }
 .planned-list{
   display:flex;
@@ -405,6 +407,35 @@ body.app{
 .perride-mode .mode-btn{ background: transparent; border:1px solid rgba(15,23,36,0.06); padding:6px 10px; border-radius:8px; cursor:pointer; font-size:0.95rem; }
 .perride-mode .mode-btn.active{ background: rgba(15,23,36,0.95); color:#fff; border-color: rgba(15,23,36,0.95); }
 .vast-item + .vast-item{ border-top: 1px solid rgba(240,241,242,1); }
+
+/* Global legend under the year chips */
+.data-legend {
+  margin: 10px 0 20px 0;
+  display: flex;
+  justify-content: center;
+}
+.data-legend-inner {
+  display: flex;
+  padding: 8px 8px;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #222;
+}
+.legend-swatch {
+  width: 16px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.06) inset;
+}
+.legend-label { white-space: nowrap; }
 
 /* Accent variant for surface-card when vast eten exists */
 
@@ -640,8 +671,10 @@ body.app{
 .year-chart{ width:100%; box-sizing:border-box; padding:12px; background: #fff; border: 1px solid rgba(16,24,40,0.04); border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); }
 
 /* Per-ride chart container - match look and feel of year-chart */
-#ride-perride-chart-container{ width:100%; box-sizing:border-box; padding:12px; background: #fff; border: 1px solid rgba(16,24,40,0.04); border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); margin-top:8px; }
-#ride-perride-chart-container canvas{ display:block; width:100% !important; height:320px; }
+/* Chart containers: unified padding and visual style so axes align consistently */
+#ride-perride-chart-container{ width:100%; box-sizing:border-box; padding:12px; background: #fff; border: 1px solid rgba(16,24,40,0.04); border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); margin-top:8px; overflow: visible; }
+/* ensure canvases inside chart containers fill the box and account for padding */
+.chart-container canvas, #ride-perride-chart-container canvas, #ride-years-chart-container canvas { display:block; width:100% !important; box-sizing: border-box; }
 
 /* When showing the year-summary list, avoid doubling the card background
   by making the outer .year-chart container transparent. The inner
@@ -666,7 +699,9 @@ body.app{
 
 /* Plot title and axes */
 .chart-title{ display:block; width:100%; box-sizing:border-box; text-align: left; font-size:16px; font-weight:800; color:#0f1724; margin:8px 0 8px 0; padding:0 12px; }
-.chart-container, #ride-years-chart-container { width:100%; box-sizing:border-box; padding:0 12px; max-width:100%; }
+.chart-container, #ride-years-chart-container, #ride-perride-chart-container { width:100%; box-sizing:border-box; padding:12px; max-width:100%; overflow: visible; }
+/* extra bottom padding for per-ride container to keep axis inside rounded card */
+#ride-perride-chart-container { padding-bottom: 28px; }
 .chart-area{ position:relative; }
 .chart-grid{ position:absolute; left:96px; right:12px; top:0; bottom:0; pointer-events:none; }
 
