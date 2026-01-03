@@ -204,7 +204,6 @@ body.app{
   font-weight: 700;
   margin: 8px 0 8px 0;
   width:100%;
-  text-align: left;
 }
 .planned-list{
   display:flex;
@@ -843,10 +842,11 @@ body.app{
 }
 
 /* Updated Gereden Ritten visual style to match design */
-.stats-card{ background: #ffffff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 0 rgba(15,23,36,0.04); }
-.stats-header{ margin-bottom:12px; }
+stats-card{ background: #ffffff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 0 rgba(15,23,36,0.04); }
+/* Ensure header uses flex so title and count align horizontally */
+.stats-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .stats-header .section-title{ margin:0; font-size:16px; font-weight:700; color:#0f1724; }
-.stat-count{ color:#9ca3af; font-weight:600; font-size:14px; }
+.stat-count{ color:#9ca3af; font-weight:600; font-size:14px; white-space:nowrap; }
 .stats-stars{ display:flex; gap:18px; justify-content:center; align-items:center; padding:14px; background:#f3f4f6; border-radius:10px; max-width:420px; margin:8px auto 0; }
 .stats-stars .star{ font-size:28px; line-height:1; }
 .stats-stars .star.filled{ color: #F2C438; }
@@ -1326,7 +1326,7 @@ div[role="button"] > .vast-item.selected,
 .bg-surface-light{ background: var(--bg-light); }
 
 /* Reusable surface card used for small panels and forms */
-.surface-card{ box-sizing:border-box; width:100%; border-radius:14px; background:var(--bg-light); border:1px solid rgba(243,244,246,0.9); box-shadow: 0 8px 20px rgba(16,24,40,0.04); }
+.surface-card{ padding: 16px; box-sizing:border-box; width:100%; border-radius:14px; background:var(--bg-light); border:1px solid rgba(243,244,246,0.9); box-shadow: 0 8px 20px rgba(16,24,40,0.04); }
 
 /* Make the fixed-food text inside the surface-card centered, larger and darker */
 .surface-card #vastEtenDisplay{
