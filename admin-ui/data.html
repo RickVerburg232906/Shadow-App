@@ -30,20 +30,27 @@
     </div>
 </header>
 
-<!-- Year strip: populated from rideConfig (generated from Firestore) -->
-
-<div id="ride-years-strip" class="year-strip" aria-hidden="false" style="display:block"></div>
+ <!-- Year strip (moved here): populated dynamically by src/data.js -->
+ <div id="ride-years-strip" class="year-strip" aria-hidden="false" style="display:block"></div>
 
 <main class="main-content">
  <!-- Global heading for data section (static HTML) -->
  <div class="section-title" id="inschrijvingen-heading">Inschrijvingen</div>
+ <!-- Regions legend for Inschrijvingen removed -->
  <!-- Static chart title always visible -->
- <div id="ride-years-chart-title" class="chart-title">Inschrijvingen per jaar</div>
 <!-- Dedicated container for the chart so placement can be changed in HTML -->
 <div id="ride-years-chart-container" class="chart-container"></div>
-<!-- Per-ride chart -->
-<div id="ride-perride-chart-title" class="chart-title">Inschrijvingen per rit</div>
-<div id="ride-perride-chart-container" class="chart-container"></div>
+<!-- Per-ride chart: shows registrations per rit (Rit 1, Rit 2, ...) -->
+<div id="per-ride-chart-container" class="chart-container"></div>
+<!-- Per-ride sort control -->
+<div class="chart-controls per-ride-controls" role="toolbar" aria-label="Per-rit sortering">
+  <span class="control-label">Sorteer x-as:</span>
+  <div class="segmented" id="per-ride-sort-mode" role="tablist" aria-label="Sorteer per rit">
+    <button type="button" class="seg-btn active" data-mode="chronologisch" role="tab" aria-pressed="true">Chronologisch</button>
+    <button type="button" class="seg-btn" data-mode="regio" role="tab" aria-pressed="false">Op regio</button>
+  </div>
+</div>
+<!-- Per-ride chart removed -->
 
 
 </main>

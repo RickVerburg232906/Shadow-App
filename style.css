@@ -406,11 +406,26 @@ body.app{
 .perride-mode{ margin-bottom:10px; }
 .perride-mode .mode-btn{ background: transparent; border:1px solid rgba(15,23,36,0.06); padding:6px 10px; border-radius:8px; cursor:pointer; font-size:0.95rem; }
 .perride-mode .mode-btn.active{ background: rgba(15,23,36,0.95); color:#fff; border-color: rgba(15,23,36,0.95); }
+
 .vast-item + .vast-item{ border-top: 1px solid rgba(240,241,242,1); }
+
+/* Segmented control used on admin data page for per-ride sort mode */
+.per-ride-controls{ display:flex; align-items:center; justify-content:center; gap:12px; padding:12px 8px; }
+.per-ride-controls .control-label{ color:#374151; font-weight:700; font-size:0.875rem; display:inline-block; }
+.segmented{ display:inline-flex; background: #f8fafc; padding:4px; border-radius:999px; gap:4px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); border: 1px solid rgba(226,232,240,1); }
+.seg-btn{ appearance:none; border:0; background:transparent; padding:8px 14px; border-radius:999px; cursor:pointer; font-weight:700; color:#0f1724; font-size:0.9rem; min-width:110px; transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 80ms ease; }
+.seg-btn.active{ background: var(--blue); color: #fff; box-shadow: 0 8px 20px rgba(22,62,141,0.12); }
+.seg-btn:focus{ outline: 3px solid rgba(22,62,141,0.12); outline-offset:2px; }
+.seg-btn:active{ transform: translateY(1px); }
+
+@media (max-width:520px){
+  .seg-btn{ min-width:82px; padding:8px 10px; font-size:0.85rem; }
+  .per-ride-controls{ gap:8px; padding:8px 6px; }
+}
 
 /* Global legend under the year chips */
 .data-legend {
-  margin: 10px 0 20px 0;
+  width: 100%;
   display: flex;
   justify-content: center;
 }
