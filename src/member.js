@@ -1,6 +1,6 @@
 // Minimal member-side helpers for signupPage
 import { getPlannedDates, getLunchOptions, getRideConfig, searchMembers, listAllMembers, getMemberById, initFirebase } from './firebase.js';
-import { db, doc, onSnapshot, getDoc } from './firebase.js';
+import { db, doc, onSnapshot, getDoc, setDoc, serverTimestamp } from './firebase.js';
 // Ensure Firebase is initialized early so `db` binding is ready for doc()/collection() calls
 try { initFirebase(); } catch (e) { try { console.warn('early initFirebase failed', e); } catch(_) {} }
 // Keeps only what `lid-ui/signupPage.html` (and index) require: footer binding, simple suggestions glue,
@@ -48,7 +48,24 @@ function setMemberSessionField(field, val) {
 			try {
 				const raw = sessionStorage.getItem(key);
 				const obj = raw ? JSON.parse(raw) : {};
-				if (val === null) delete obj[field]; else obj[field] = val;
+								if (field && field.indexOf('/') !== -1) {
+									// support nested path like 'Jaarhanger/2026'
+									try {
+										const parts = String(field).split('/').filter(Boolean);
+										let cur = obj;
+										for (let i = 0; i < parts.length - 1; i++) {
+											const p = parts[i];
+											if (!Object.prototype.hasOwnProperty.call(cur, p) || typeof cur[p] !== 'object') cur[p] = {};
+											cur = cur[p];
+										}
+										const last = parts[parts.length - 1];
+										if (val === null) delete cur[last]; else cur[last] = val;
+									} catch(_) {
+										if (val === null) delete obj[field]; else obj[field] = val;
+									}
+								} else {
+									if (val === null) delete obj[field]; else obj[field] = val;
+								}
 				try { setSessionAndDump(key, JSON.stringify(obj)); } catch(e) { sessionStorage.setItem(key, JSON.stringify(obj)); }
 				return true;
 				} catch (e) { /* debug removed */ }
@@ -73,14 +90,35 @@ function getMemberSessionField(field) {
 				}
 			} catch(_) { memberId = ''; }
 		}
-		if (memberId) {
+				if (memberId) {
 			try {
 				const key = `shadow_ui_member_${String(memberId)}`;
 				const raw = sessionStorage.getItem(key);
 				if (raw) {
 					try {
-						const obj = JSON.parse(raw);
-						if (Object.prototype.hasOwnProperty.call(obj, field)) return obj[field];
+								const obj = JSON.parse(raw);
+								if (field && String(field).indexOf('/') !== -1) {
+									try {
+										const parts = String(field).split('/').filter(Boolean);
+										let cur = obj;
+										for (const p of parts) {
+											if (!cur || typeof cur !== 'object' || !Object.prototype.hasOwnProperty.call(cur, p)) { cur = undefined; break; }
+											cur = cur[p];
+										}
+										if (typeof cur !== 'undefined') return cur;
+									} catch(_) { }
+								} else {
+									if (Object.prototype.hasOwnProperty.call(obj, field)) {
+										// Compatibility: if Jaarhanger stored as object per-year, return current year value when asking for 'Jaarhanger'
+										if (field === 'Jaarhanger' && obj[field] && typeof obj[field] === 'object') {
+											try {
+												const cy = String((new Date()).getFullYear());
+												if (Object.prototype.hasOwnProperty.call(obj[field], cy)) return obj[field][cy];
+											} catch(_) {}
+										}
+										return obj[field];
+									}
+								}
 					} catch(_) {}
 				}
 			} catch(_) {}
@@ -1950,8 +1988,13 @@ function updateJaarhangerFooterState() {
 		} catch(_) { enabled = false; }
 		if (!enabled) {
 			try {
-				let val = getMemberSessionField('Jaarhanger');
-				if (!val) val = sessionStorage.getItem('Jaarhanger');
+				const curYear = String((new Date()).getFullYear());
+				let val = getMemberSessionField(`Jaarhanger/${curYear}`);
+				if (!val) {
+				  // fallback to old top-level Jaarhanger
+				  val = getMemberSessionField('Jaarhanger');
+				  if (!val) val = sessionStorage.getItem('Jaarhanger');
+				}
 				if (val && String(val).trim() !== '') enabled = true;
 			} catch(_) {}
 		}
@@ -1987,9 +2030,30 @@ function setupJaarhangerFooterNavigation() {
 					else if (v === 'no' || v.indexOf('nee') !== -1) toSave = 'nee';
 					else toSave = v || '';
 				}
-							if (toSave) {
-								try { setMemberSessionField('Jaarhanger', toSave); } catch(_) { try { sessionStorage.setItem('Jaarhanger', toSave); } catch(_) {} }
-							}
+								if (toSave) {
+																try { const y = String((new Date()).getFullYear()); setMemberSessionField(`Jaarhanger/${y}`, toSave); } catch(_) { try { sessionStorage.setItem('Jaarhanger', toSave); } catch(_) {} }
+																// Also persist to Firestore under members/<id>/Jaarhanger/<year>
+																(async ()=>{
+																	try {
+																		await initFirebase();
+																		let memberId = window._selectedMemberId || '';
+																		if (!memberId) {
+																			try {
+																				for (const k of Object.keys(sessionStorage || {})) {
+																					if (String(k).indexOf('shadow_ui_member_') === 0) { memberId = String(k).slice('shadow_ui_member_'.length); break; }
+																				}
+																			} catch(_) { memberId = ''; }
+																		}
+																		if (memberId && db && typeof setDoc === 'function') {
+																			try {
+																				const dref = doc(db, 'members', String(memberId));
+																				const payload = { Jaarhanger: { [y]: toSave }, updatedAt: serverTimestamp() };
+																				await setDoc(dref, payload, { merge: true });
+																			} catch(e) { console.warn('persist Jaarhanger to Firestore failed', e); }
+																		}
+																	} catch(e) { console.warn('persist Jaarhanger async error', e); }
+																})();
+														}
 				// After saving, navigate to member info
 				try { window.location.href = '../lid-ui/memberInfoPage.html'; } catch(_) { window.location.href = '/lid-ui/memberInfoPage.html'; }
 			} catch(_) {}

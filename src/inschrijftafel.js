@@ -290,7 +290,15 @@ export async function checkInMemberById(memberId, { lunchDeelname = null, lunchK
     const updates = {};
     if (lunchDeelname !== null) updates.lunchDeelname = String(lunchDeelname);
     if (lunchKeuze !== null) updates.lunchKeuze = String(lunchKeuze);
-    if (Jaarhanger !== null) updates.Jaarhanger = String(Jaarhanger);
+    if (Jaarhanger !== null) {
+      try {
+        // Prefer storing Jaarhanger per-year to avoid overwriting legacy values
+        const year = (new Date()).getFullYear();
+        updates.Jaarhanger = { [String(year)]: String(Jaarhanger) };
+      } catch(_) {
+        updates.Jaarhanger = String(Jaarhanger);
+      }
+    }
     // set an expiry for lunch fields (24h); activity UI uses `lunchExpires`
     const expires = new Date(Date.now() + (24 * 60 * 60 * 1000));
     updates.lunchExpires = expires.toISOString();

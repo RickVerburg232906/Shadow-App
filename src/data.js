@@ -651,15 +651,31 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
         for (const sdoc of snap.docs) {
           try {
             const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
-            // determine Jaarhanger truthy value (accept 'Ja', 'ja', true)
-            let hasJaarhanger = false;
+            // determine Jaarhanger truthy value per requested year (accept 'Ja', 'ja', true)
+            const jaarEnabled = {};
             try {
-              const v = data && (data.Jaarhanger || data.jaarhanger || data.JaarHanger || data.jaarHanger);
-              if (typeof v === 'string') { if (v.toLowerCase().indexOf('j') === 0) hasJaarhanger = true; }
-              else if (typeof v === 'boolean') { hasJaarhanger = Boolean(v); }
-              else if (typeof v === 'number') { hasJaarhanger = v === 1; }
-            } catch(_){ }
-            if (!hasJaarhanger) continue;
+              // prefer per-year stored object like { Jaarhanger: { '2025': 'ja' } }
+              if (data && data.Jaarhanger && typeof data.Jaarhanger === 'object') {
+                for (const y of uniqYears) {
+                  try {
+                    const vv = data.Jaarhanger && (data.Jaarhanger[y] || data.Jaarhanger[String(y)]);
+                    let ok = false;
+                    if (typeof vv === 'string' && vv.toLowerCase().indexOf('j') === 0) ok = true;
+                    else if (typeof vv === 'boolean' && vv) ok = true;
+                    else if (typeof vv === 'number' && vv === 1) ok = true;
+                    jaarEnabled[String(y)] = ok;
+                  } catch(_){ jaarEnabled[String(y)] = false; }
+                }
+              } else {
+                // fallback to legacy top-level Jaarhanger field (apply same value for all requested years)
+                const v = data && (data.Jaarhanger || data.jaarhanger || data.JaarHanger || data.jaarHanger);
+                let ok = false;
+                if (typeof v === 'string') { if (v.toLowerCase().indexOf('j') === 0) ok = true; }
+                else if (typeof v === 'boolean') { ok = Boolean(v); }
+                else if (typeof v === 'number') { ok = v === 1; }
+                for (const y of uniqYears) jaarEnabled[String(y)] = ok;
+              }
+            } catch(_){ for (const y of uniqYears) jaarEnabled[String(y)] = false; }
             // collect scans
             const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums : (Array.isArray(data.scandatums) ? data.scandatums : (Array.isArray(data.scans) ? data.scans : []));
             if (!Array.isArray(scans) || scans.length === 0) continue;
@@ -668,14 +684,20 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
             for (const s of scans) {
               try { const yr = extractYear(s); if (yr) scanYears.set(String(yr), (scanYears.get(String(yr))||0) + 1); } catch(_){}
             }
-            // for each requested year, compute count and bucket
+            // for each requested year, compute count and bucket only if Jaarhanger enabled for that year
             for (const y of uniqYears) {
-              const count = scanYears.get(y) || 0;
-              if (count <= 0) continue;
-              const bucket = count >= 5 ? '5' : String(Math.max(1, Math.min(5, Math.floor(count))));
-              out.bucketsByYear[y][bucket] = (out.bucketsByYear[y][bucket] || 0) + 1;
-              out.bucketsByYear[y].totalMembers = (out.bucketsByYear[y].totalMembers || 0) + 1;
-              try { console.debug('fetchStarsByYear counted member', { year: y, memberId: (sdoc.id||sdoc._id||null), count, bucket }); } catch(_){}
+              try {
+                if (!jaarEnabled[String(y)]) {
+                  try { console.debug('fetchStarsByYear skip member for year (no Jaarhanger)', { year: y, memberId: (sdoc.id||sdoc._id||null) }); } catch(_){ }
+                  continue;
+                }
+                const count = scanYears.get(y) || 0;
+                if (count <= 0) continue;
+                const bucket = count >= 5 ? '5' : String(Math.max(1, Math.min(5, Math.floor(count))));
+                out.bucketsByYear[y][bucket] = (out.bucketsByYear[y][bucket] || 0) + 1;
+                out.bucketsByYear[y].totalMembers = (out.bucketsByYear[y].totalMembers || 0) + 1;
+                try { console.debug('fetchStarsByYear counted member', { year: y, memberId: (sdoc.id||sdoc._id||null), count, bucket }); } catch(_){ }
+              } catch(_){ }
             }
           } catch(_){ }
         }
@@ -728,9 +750,13 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
           type: 'bar',
           data: { labels: labels.map(s=>s + ' sterren'), datasets: datasets },
           options: {
+            indexAxis: 'y',
             plugins: { legend:{ display:true }, title:{ display:true, text: 'Jaarhanger sterren' } },
             responsive:true, maintainAspectRatio:false,
-            scales: { y: { beginAtZero:true, suggestedMax: suggestedMax, ticks:{ stepSize:1, precision:0 } } }
+            scales: {
+              x: { beginAtZero:true, suggestedMax: suggestedMax, ticks:{ stepSize:1, precision:0 } },
+              y: { beginAtZero:false }
+            }
           }
         });
       } catch(e){ console.warn('renderStarsChart error', e); }
