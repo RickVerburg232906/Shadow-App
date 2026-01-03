@@ -290,10 +290,19 @@ export async function checkInMemberById(memberId, { lunchDeelname = null, lunchK
     const updates = {};
     if (lunchDeelname !== null) updates.lunchDeelname = String(lunchDeelname);
     if (lunchKeuze !== null) updates.lunchKeuze = String(lunchKeuze);
-    if (Jaarhanger !== null) updates.Jaarhanger = String(Jaarhanger);
+    if (Jaarhanger !== null) {
+      try {
+        // Prefer storing Jaarhanger per-year to avoid overwriting legacy values
+        const year = (new Date()).getFullYear();
+        updates.Jaarhanger = { [String(year)]: String(Jaarhanger) };
+      } catch(_) {
+        updates.Jaarhanger = String(Jaarhanger);
+      }
+    }
     // set an expiry for lunch fields (24h); activity UI uses `lunchExpires`
     const expires = new Date(Date.now() + (24 * 60 * 60 * 1000));
-    updates.lunchExpires = expires.toISOString();
+    // store a Date so Firestore saves it as a Timestamp (not an ISO string)
+    updates.lunchExpires = expires;
     await setDoc(dref, updates, { merge: true });
     return { success: true };
   } catch (e) {
@@ -1145,7 +1154,16 @@ async function populateManualWithMember(memberId) {
 
     // Prefill eetmee (lunch participation)
     try {
-      const deel = (doc.lunchDeelname || doc.lunchDeelname || doc.lunch || doc.lunchDeelname || '').toString().toLowerCase();
+      // Prefer any per-member session override stored under `shadow_ui_member_<id>`
+      let deel = null;
+      try {
+        const ssKey = `shadow_ui_member_${String(memberId)}`;
+        const raw = sessionStorage.getItem(ssKey);
+        if (raw) {
+          try { const sobj = JSON.parse(raw); if (sobj && sobj.lunchDeelname) deel = String(sobj.lunchDeelname).toLowerCase(); } catch(_){}
+        }
+      } catch(_){}
+      if (!deel) deel = (doc.lunchDeelname || doc.lunch || '').toString().toLowerCase();
       const eetRadios = Array.from(document.querySelectorAll('#lunch-choices-host input[name="eetmee"]'));
       if (eetRadios && eetRadios.length > 0) {
         for (const r of eetRadios) {
@@ -1166,7 +1184,15 @@ async function populateManualWithMember(memberId) {
 
     // Prefill lunchKeuze
     try {
-      const keuzeVal = (doc.lunchKeuze || doc.lunchChoice || doc.keuze || '').toString();
+      let keuzeVal = null;
+      try {
+        const ssKey = `shadow_ui_member_${String(memberId)}`;
+        const raw = sessionStorage.getItem(ssKey);
+        if (raw) {
+          try { const sobj = JSON.parse(raw); if (sobj && sobj.lunchKeuze) keuzeVal = String(sobj.lunchKeuze); } catch(_){}
+        }
+      } catch(_){}
+      if (!keuzeVal) keuzeVal = (doc.lunchKeuze || doc.lunchChoice || doc.keuze || '').toString();
       if (keuzeVal) {
         const keuzeRadios = Array.from(document.querySelectorAll('#lunch-choices-list input[name="keuzeEten"]'));
         for (const r of keuzeRadios) {
@@ -1177,20 +1203,57 @@ async function populateManualWithMember(memberId) {
       }
     } catch (e) { console.warn('prefill lunchKeuze failed', e); }
 
-    // Prefill Jaarhanger
+    // Prefill Jaarhanger (prefer per-year stored value, then session overrides, then legacy field)
     try {
-      const jVal = (doc.Jaarhanger || doc.jaarhanger || '').toString().toLowerCase();
       const jaarRadios = Array.from(document.querySelectorAll('#jaarhanger-host input[name="jaarhanger"]'));
       if (jaarRadios && jaarRadios.length > 0) {
-        for (const r of jaarRadios) {
+        let jVal = null;
+        const yearStr = String((new Date()).getFullYear());
+        // session override
+        try {
+          const ssKey = `shadow_ui_member_${String(memberId)}`;
+          const raw = sessionStorage.getItem(ssKey);
+          if (raw) {
+            try {
+              const sobj = JSON.parse(raw);
+              if (sobj && sobj.Jaarhanger && typeof sobj.Jaarhanger === 'object') {
+                if (Object.prototype.hasOwnProperty.call(sobj.Jaarhanger, yearStr)) jVal = String(sobj.Jaarhanger[yearStr]).toLowerCase();
+              }
+              // also check nested path fallback
+              if (!jVal && Object.prototype.hasOwnProperty.call(sobj, 'Jaarhanger')) {
+                const cand = sobj.Jaarhanger;
+                if (typeof cand === 'string') jVal = cand.toLowerCase();
+              }
+            } catch(_){}
+          }
+        } catch(_){}
+        // document field (per-year object or legacy)
+        if (!jVal) {
           try {
-            const v = String(r.value || '').toLowerCase();
-            if (jVal && (jVal.indexOf('nee') !== -1 || jVal === 'no')) {
-              if (v.indexOf('nee') !== -1 || v === 'no') { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
-            } else if (jVal && (jVal.indexOf('ja') !== -1 || jVal === 'yes')) {
-              if (v.indexOf('ja') !== -1 || v === 'yes') { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+            if (doc && doc.Jaarhanger && typeof doc.Jaarhanger === 'object') {
+              const vv = doc.Jaarhanger && (doc.Jaarhanger[yearStr] || doc.Jaarhanger[String(yearStr)]);
+              if (typeof vv === 'string') jVal = vv.toLowerCase();
+              else if (typeof vv === 'boolean') jVal = vv ? 'ja' : 'nee';
+              else if (typeof vv === 'number') jVal = (vv === 1) ? 'ja' : 'nee';
             }
           } catch(_){}
+        }
+        if (!jVal) {
+          const legacy = (doc.Jaarhanger || doc.jaarhanger || '').toString().toLowerCase();
+          if (legacy) jVal = legacy;
+        }
+
+        if (jVal) {
+          for (const r of jaarRadios) {
+            try {
+              const v = String(r.value || '').toLowerCase();
+              if (jVal && (jVal.indexOf('nee') !== -1 || jVal === 'no')) {
+                if (v.indexOf('nee') !== -1 || v === 'no') { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+              } else if (jVal && (jVal.indexOf('ja') !== -1 || jVal === 'yes')) {
+                if (v.indexOf('ja') !== -1 || v === 'yes') { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+              }
+            } catch(_){ }
+          }
         }
       }
     } catch (e) { console.warn('prefill Jaarhanger failed', e); }

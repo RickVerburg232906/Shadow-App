@@ -203,6 +203,7 @@ body.app{
   font-size: 1.125rem; /* text-xl */
   font-weight: 700;
   margin: 8px 0 8px 0;
+  width:100%;
 }
 .planned-list{
   display:flex;
@@ -399,7 +400,69 @@ body.app{
   color: #0f1724;
   background: transparent;
 }
+
+/* Per-ride mode toggle (Rit / Regio) */
+.perride-mode{ margin-bottom:10px; }
+.perride-mode .mode-btn{ background: transparent; border:1px solid rgba(15,23,36,0.06); padding:6px 10px; border-radius:8px; cursor:pointer; font-size:0.95rem; }
+.perride-mode .mode-btn.active{ background: rgba(15,23,36,0.95); color:#fff; border-color: rgba(15,23,36,0.95); }
+
 .vast-item + .vast-item{ border-top: 1px solid rgba(240,241,242,1); }
+
+/* Segmented control used on admin data page for per-ride sort mode */
+.per-ride-controls{ display:flex; align-items:center; justify-content:center; gap:12px; padding:12px 8px; }
+.per-ride-controls .control-label{ color:#374151; font-weight:700; font-size:0.875rem; display:inline-block; }
+.segmented{ display:inline-flex; background: #f8fafc; padding:4px; border-radius:999px; gap:4px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); border: 1px solid rgba(226,232,240,1); }
+.seg-btn{ appearance:none; border:0; background:transparent; padding:8px 14px; border-radius:999px; cursor:pointer; font-weight:700; color:#0f1724; font-size:0.9rem; min-width:110px; transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 80ms ease; }
+.seg-btn.active{ background: var(--blue); color: #fff; box-shadow: 0 8px 20px rgba(22,62,141,0.12); }
+.seg-btn:focus{ outline: 3px solid rgba(22,62,141,0.12); outline-offset:2px; }
+.seg-btn:active{ transform: translateY(1px); }
+
+@media (max-width:520px){
+  .seg-btn{ min-width:82px; padding:8px 10px; font-size:0.85rem; }
+  .per-ride-controls{ gap:8px; padding:8px 6px; }
+}
+
+/* Chart section card to make charts stand out */
+.chart-section{ width:100%; display:flex; justify-content:center; padding:12px 8px; box-sizing:border-box; }
+.chart-card{ width:100%; max-width:920px; background: #fff; border-radius:14px; box-shadow: 0 10px 30px rgba(15,23,42,0.06); border: 1px solid rgba(240,241,242,1); padding:14px; box-sizing:border-box; }
+.chart-header{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.chart-title{ font-size:1rem; font-weight:800; color:#0f1724; }
+.chart-subtitle{ font-size:0.9rem; color:#6b7280; }
+.chart-container{ width:100%; height:320px; background: transparent; }
+
+@media (max-width:520px){
+  .chart-card{ padding:10px; border-radius:12px; }
+  .chart-container{ height:360px; }
+}
+
+/* Global legend under the year chips */
+.data-legend {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.data-legend-inner {
+  display: flex;
+  padding: 8px 8px;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #222;
+}
+.legend-swatch {
+  width: 16px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.06) inset;
+}
+.legend-label { white-space: nowrap; }
 
 /* Accent variant for surface-card when vast eten exists */
 
@@ -602,6 +665,126 @@ body.app{
 .activity-list.scrollable{ max-height: calc( (56px + 12px) * 3 ); overflow-y: auto; padding-right: 6px; }
 .activity-item{ min-height:56px; }
 
+/* Year strip (horizontal scroll) */
+.year-strip{
+  min-height: 35px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  padding:10px 12px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  white-space:nowrap;
+  background:transparent;
+  border-bottom: 1px solid rgba(16,24,40,0.06);
+}
+.year-strip{
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.year-strip::-webkit-scrollbar{ height: 0; display: none; }
+.year-chip{ margin-right: 8px; flex:0 0 auto; padding:8px 12px; border-radius:999px; background:#fff; border:1px solid rgba(0,0,0,0.06); cursor:pointer; font-weight:600; }
+.year-chip:active{ transform:translateY(1px); }
+/* Selected state for year chips */
+.year-chip.selected, .year-chip[aria-pressed="true"]{
+  background: #ffcc00;
+  color: #000000;
+  border-color: rgba(0,0,0,0.12);
+}
+.year-chip:focus{ outline: 3px solid rgba(18,50,115,0.12); outline-offset: 2px; }
+
+/* Year chart below the chips */
+.year-chart{ width:100%; box-sizing:border-box; padding:10px 12px 18px; }
+.year-chart{ width:100%; box-sizing:border-box; padding:12px; background: #fff; border: 1px solid rgba(16,24,40,0.04); border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); }
+
+/* Per-ride chart container - match look and feel of year-chart */
+/* Chart containers: unified padding and visual style so axes align consistently */
+#ride-perride-chart-container{ width:100%; box-sizing:border-box; padding:12px; background: #fff; border: 1px solid rgba(16,24,40,0.04); border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); margin-top:8px; overflow: visible; }
+/* ensure canvases inside chart containers fill the box and account for padding */
+.chart-container canvas, #ride-perride-chart-container canvas, #ride-years-chart-container canvas { display:block; width:100% !important; box-sizing: border-box; }
+
+/* When showing the year-summary list, avoid doubling the card background
+  by making the outer .year-chart container transparent. The inner
+  .year-summary-list provides the visible card. */
+.year-chart.year-summary-mode{ background: transparent; border: none; box-shadow: none; padding: 0; }
+/* hide axis/tick UI when rendering summary mode to avoid leftover elements */
+.year-chart.year-summary-mode .chart-x-axis,
+.year-chart.year-summary-mode .chart-x-label,
+.year-chart.year-summary-mode .chart-tick,
+.year-chart.year-summary-mode .chart-grid,
+.year-chart.year-summary-mode .chart-tick-line,
+.year-chart.year-summary-mode .chart-y-axis {
+  display: none !important;
+}
+.year-chart-bars{ display:flex; flex-direction:column; gap:12px; width:100%; }
+.year-bar{ display:flex; align-items:center; gap:12px; width:100%; }
+.bar-label{ width:96px; flex:0 0 96px; text-align:left; font-weight:700; font-size:13px; color:#0f1724; }
+.bar-track{ position:relative; flex:1 1 auto; height:36px; background: rgba(16,24,40,0.04); border-radius:8px; overflow:hidden; }
+.bar-fill{ position:absolute; left:0; top:0; bottom:0; height:100%; width:0%; background: var(--blue); border-radius:8px; transition: width 420ms cubic-bezier(.2,.8,.2,1), background 120ms ease; box-shadow: 0 6px 18px rgba(16,24,40,0.06); }
+.bar-fill:hover{ filter:brightness(1.03); }
+.bar-value{ margin-left:12px; min-width:48px; text-align:right; font-weight:700; color:#0f1724; }
+
+/* Plot title and axes */
+.chart-title{ display:block; width:100%; box-sizing:border-box; text-align: left; font-size:16px; font-weight:800; color:#0f1724; margin:8px 0 8px 0; padding:0 12px; }
+.chart-container, #ride-years-chart-container, #ride-perride-chart-container { width:100%; box-sizing:border-box; padding:12px; max-width:100%; overflow: visible; }
+/* extra bottom padding for per-ride container to keep axis inside rounded card */
+#ride-perride-chart-container { padding-bottom: 28px; }
+.chart-area{ position:relative; }
+.chart-grid{ position:absolute; left:96px; right:12px; top:0; bottom:0; pointer-events:none; }
+
+/* Grouped rides chart styles */
+.group-track{ display:flex; flex-direction:column; gap:8px; align-items:stretch; flex:1 1 auto; padding:6px 12px; }
+.series-wrap{ display:flex; align-items:center; gap:8px; }
+.series-track{ flex:1 1 auto; background: rgba(16,24,40,0.04); border-radius:8px; height:20px; overflow:hidden; }
+.series-fill{ height:100%; width:0%; border-radius:6px; transition: width 420ms cubic-bezier(.2,.8,.2,1); box-shadow: 0 6px 18px rgba(16,24,40,0.06); }
+.series-value{ min-width:36px; text-align:right; font-weight:700; color:#0f1724; }
+
+.chart-legend{ display:flex; gap:12px; align-items:center; padding:6px 12px 0 12px; flex-wrap:wrap; justify-content:flex-end; }
+.legend-item{ display:flex; align-items:center; gap:8px; font-size:13px; color:#0f1724; }
+.legend-swatch{ width:14px; height:14px; border-radius:4px; display:inline-block; }
+.legend-label{ font-weight:600; }
+
+/* Per-ride chart styles removed */
+
+/* Legend tweaks */
+.chart-legend{ display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; padding:6px 0 0 0; }
+.legend-swatch{ width:12px; height:12px; border-radius:3px; display:inline-block; box-shadow: 0 1px 0 rgba(0,0,0,0.06); }
+.legend-item{ font-size:13px; color:#0f1724; }
+
+@media (max-width:520px){ .small-track{ height:20px; } }
+.chart-tick-line{ position:absolute; top:6px; bottom:36px; width:0; border-left:1px dashed rgba(16,24,40,0.06); transform:translateX(-0.5px); }
+.chart-x-axis{ position:relative; height:28px; margin-top:10px; }
+.chart-tick{ position:absolute; transform:translateX(-50%); font-size:12px; color:#6b7280; }
+.chart-x-label{ text-align:center; margin-top:6px; color:#374151; font-weight:700; }
+
+/* y-axis line (left of tracks) */
+.chart-y-axis{ position:absolute; left:96px; top:6px; bottom:36px; width:0; border-left:2px solid rgba(15,23,36,0.08); pointer-events:none; }
+.chart-loading, .chart-error{ color:#6b7280; font-weight:600; padding:10px 0; }
+
+/* Make bar chart responsive on small screens */
+@media (max-width:520px){ .year-chart-bars{ gap:8px; } .bar-label{ font-size:12px; width:64px; flex:0 0 64px; } .bar-track{ height:22px; } .bar-value{ min-width:36px; font-size:12px; } }
+
+/* Empty chart placeholder */
+.chart-empty{ color: #6b7280; font-weight:600; padding:22px 12px; text-align:center; border: 1px dashed rgba(16,24,40,0.04); border-radius:8px; background: transparent; }
+
+/* Year summary (vertical list with horizontal bars) */
+.year-summary-card{ width:100%; box-sizing:border-box; }
+.year-summary-list{ display:flex; flex-direction:column; gap:12px; padding:12px; background: #fff; border:1px solid rgba(16,24,40,0.04); border-radius:10px; box-shadow: 0 6px 18px rgba(16,24,40,0.03); }
+.year-summary-row{ display:flex; align-items:center; gap:12px; }
+.year-summary-year{ width:64px; flex:0 0 64px; font-size:16px; font-weight:700; color:#0f1724; }
+.year-summary-bar-container{ flex:1 1 auto; display:flex; align-items:center; }
+.year-summary-bar{ height:48px; background:var(--blue); color:#fff; display:flex; align-items:center; justify-content:flex-end; padding:0 12px; font-weight:700; font-size:16px; border-radius:6px; box-shadow: 0 8px 20px rgba(16,24,40,0.06); }
+.year-summary-value{ color:#fff; font-weight:800; }
+
+/* Expanded detail when clicking a year */
+.year-detail{ padding:10px 12px; margin:6px 0 0 0; background: rgba(243,244,246,0.9); border-radius:8px; border:1px solid rgba(230,232,235,1); box-shadow: 0 4px 12px rgba(16,24,40,0.04); }
+.year-detail-list{ display:flex; gap:8px; align-items:center; justify-content:flex-start; flex-wrap:wrap; }
+.year-detail-item{ display:flex; gap:8px; align-items:center; background: #fff; padding:6px 8px; border-radius:8px; box-shadow:0 2px 6px rgba(16,24,40,0.04); border:1px solid rgba(240,241,242,1); }
+.year-detail-date{ color:#0f1724; font-weight:700; font-size:13px; }
+.year-detail-count{ color:#6b7280; font-weight:700; font-size:13px; }
+
+@media (max-width:520px){ .year-summary-year{ width:56px; font-size:14px; } .year-summary-bar{ height:40px; font-size:14px; } }
+
 /* Admin bottom nav (mobile-style footer) */
 #admin-bottom-nav{display:none;position:fixed;left:0;right:0;bottom:0;height:12vh;background:#ffffff;border-top:1px solid rgba(16,24,40,0.06);box-shadow:0 -6px 18px rgba(16,24,40,0.06);z-index:60}
 #admin-bottom-nav[aria-hidden="false"]{display:block}
@@ -659,10 +842,11 @@ body.app{
 }
 
 /* Updated Gereden Ritten visual style to match design */
-.stats-card{ background: #ffffff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 0 rgba(15,23,36,0.04); }
-.stats-header{ margin-bottom:12px; }
+stats-card{ background: #ffffff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 0 rgba(15,23,36,0.04); }
+/* Ensure header uses flex so title and count align horizontally */
+.stats-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .stats-header .section-title{ margin:0; font-size:16px; font-weight:700; color:#0f1724; }
-.stat-count{ color:#9ca3af; font-weight:600; font-size:14px; }
+.stat-count{ color:#9ca3af; font-weight:600; font-size:14px; white-space:nowrap; }
 .stats-stars{ display:flex; gap:18px; justify-content:center; align-items:center; padding:14px; background:#f3f4f6; border-radius:10px; max-width:420px; margin:8px auto 0; }
 .stats-stars .star{ font-size:28px; line-height:1; }
 .stats-stars .star.filled{ color: #F2C438; }
@@ -1142,7 +1326,7 @@ div[role="button"] > .vast-item.selected,
 .bg-surface-light{ background: var(--bg-light); }
 
 /* Reusable surface card used for small panels and forms */
-.surface-card{ box-sizing:border-box; width:100%; border-radius:14px; background:var(--bg-light); border:1px solid rgba(243,244,246,0.9); box-shadow: 0 8px 20px rgba(16,24,40,0.04); }
+.surface-card{ padding: 16px; box-sizing:border-box; width:100%; border-radius:14px; background:var(--bg-light); border:1px solid rgba(243,244,246,0.9); box-shadow: 0 8px 20px rgba(16,24,40,0.04); }
 
 /* Make the fixed-food text inside the surface-card centered, larger and darker */
 .surface-card #vastEtenDisplay{
