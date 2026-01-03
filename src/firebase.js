@@ -201,8 +201,8 @@ async function getLunchChoiceCount(choice) {
         if (!choice) return 0;
         if (!db) initFirebase();
         if (!db) return 'ERROR';
-        const nowIso = new Date().toISOString();
-        const q = query(collection(db, 'members'), where('lunchKeuze', '==', String(choice)), where('lunchExpires', '>', nowIso));
+        const now = new Date();
+        const q = query(collection(db, 'members'), where('lunchKeuze', '==', String(choice)), where('lunchExpires', '>', now));
         const snap = await getDocs(q).catch(() => null);
         if (!snap || !Array.isArray(snap.docs)) return 0;
         return snap.docs.length;
@@ -223,11 +223,11 @@ async function getParticipationCount(choice) {
 
         let total = 0;
         const seen = new Set();
-        const nowIso = new Date().toISOString();
+        const now = new Date();
         for (const v of variants) {
             if (!v) continue;
             if (seen.has(v)) continue; seen.add(v);
-            const q = query(collection(db, 'members'), where('lunchDeelname', '==', String(v)), where('lunchExpires', '>', nowIso));
+            const q = query(collection(db, 'members'), where('lunchDeelname', '==', String(v)), where('lunchExpires', '>', now));
             try {
                 const snap = await getDocs(q).catch(()=>null);
                 if (snap && Array.isArray(snap.docs)) total += snap.docs.length;
@@ -569,24 +569,64 @@ async function listAllMembers(limit = 500) {
 }
 
 // List members that have a Jaarhanger-like value (case-insensitive variants)
-async function listMembersByJaarhanger(limit = 500, variants = null) {
+async function listMembersByJaarhanger(limit = 500, variants = null, year = null) {
     try {
         if (!db) initFirebase();
         if (!db) return [];
-        const vals = Array.isArray(variants) && variants.length > 0 ? variants : ['ja','Ja','JA','yes','Yes','YES','true','True','1'];
-        // Try server-side IN query (limited to 10 values)
-        const q = query(collection(db, 'members'), where('Jaarhanger', 'in', vals));
-        const snap = await getDocs(q).catch(()=>null);
+        const yearStr = year ? String(year) : String((new Date()).getFullYear());
+        const vals = Array.isArray(variants) && variants.length > 0 ? variants : ['ja','Ja','yes','Yes','true', true, '1', 1, 'JA', 'YES'];
         const out = [];
-        if (snap && Array.isArray(snap.docs) && snap.docs.length) {
-            for (const s of snap.docs) {
-                try {
-                    const d = typeof s.data === 'function' ? s.data() : (s || {});
-                    out.push(Object.assign({ id: s.id || (s.ref && s.ref.id) || null }, d));
-                    if (out.length >= limit) break;
-                } catch(_){ }
+        // Prefer server-side query on per-year subfield when possible
+        try {
+            const fieldPath = `Jaarhanger.${yearStr}`;
+            const q = query(collection(db, 'members'), where(fieldPath, 'in', vals));
+            const snap = await getDocs(q).catch(()=>null);
+            if (snap && Array.isArray(snap.docs) && snap.docs.length) {
+                for (const s of snap.docs) {
+                    try {
+                        const d = typeof s.data === 'function' ? s.data() : (s || {});
+                        out.push(Object.assign({ id: s.id || (s.ref && s.ref.id) || null }, d));
+                        if (out.length >= limit) break;
+                    } catch(_){ }
+                }
+                return out;
             }
+        } catch (e) {
+            try { console.debug('listMembersByJaarhanger: per-year query failed, falling back', e); } catch(_){}
         }
+
+        // Fallback: full scan and client-side filter (handles legacy top-level Jaarhanger or per-year object)
+        try {
+            const collSnap = await getDocs(collection(db, 'members')).catch(()=>null);
+            if (collSnap && Array.isArray(collSnap.docs) && collSnap.docs.length) {
+                for (const s of collSnap.docs) {
+                    try {
+                        const d = typeof s.data === 'function' ? s.data() : (s || {});
+                        // check per-year object first
+                        let match = false;
+                        try {
+                            if (d && d.Jaarhanger && typeof d.Jaarhanger === 'object') {
+                                const vv = d.Jaarhanger && (d.Jaarhanger[yearStr] || d.Jaarhanger[String(yearStr)]);
+                                if (typeof vv === 'string' && vv.toLowerCase().indexOf('j') === 0) match = true;
+                                else if (typeof vv === 'boolean' && vv) match = true;
+                                else if (typeof vv === 'number' && vv === 1) match = true;
+                            }
+                            if (!match) {
+                                const v = d && (d.Jaarhanger || d.jaarhanger || d.JaarHanger || d.jaarHanger);
+                                if (typeof v === 'string') { if (v.toLowerCase().indexOf('j') === 0) match = true; }
+                                else if (typeof v === 'boolean') { if (v) match = true; }
+                                else if (typeof v === 'number') { if (v === 1) match = true; }
+                            }
+                        } catch(_){ }
+                        if (match) {
+                            out.push(Object.assign({ id: s.id || (s.ref && s.ref.id) || null }, d));
+                            if (out.length >= limit) break;
+                        }
+                    } catch(_){ }
+                }
+            }
+        } catch (e) { console.error('listMembersByJaarhanger fallback scan failed', e); }
+
         return out;
     } catch (e) { console.error('listMembersByJaarhanger error', e); return []; }
 }
