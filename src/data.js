@@ -70,6 +70,7 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
         if (isSelected) { btn.classList.remove('selected'); btn.setAttribute('aria-pressed','false'); }
         else { btn.classList.add('selected'); btn.setAttribute('aria-pressed','true'); }
         const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year);
+        try { console.debug('year-chip clicked', { clicked: btn.dataset.year, isSelected: !isSelected, selectedYears }); } catch(_){}
         document.dispatchEvent(new CustomEvent('ride:years:changed', { detail: { years: selectedYears } }));
       });
       strip.appendChild(btn);
@@ -595,10 +596,13 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
 
     // renderRegionsLegend removed — legend container and rendering are no longer used
 
-    document.addEventListener('ride:years:changed', (ev)=>{ try{ const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : []; renderChartForYears(yrs); }catch(_){}});
+    document.addEventListener('ride:years:changed', (ev)=>{ try{ const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : []; try{ console.debug('ride:years:changed -> renderChartForYears', yrs); }catch(_){} renderChartForYears(yrs); }catch(_){}});
 
     // Also render per-ride chart on years change
-    document.addEventListener('ride:years:changed', (ev)=>{ try{ const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : []; renderPerRideChart(yrs); }catch(_){}});
+    document.addEventListener('ride:years:changed', (ev)=>{ try{ const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : []; try{ console.debug('ride:years:changed -> renderPerRideChart', yrs); }catch(_){} renderPerRideChart(yrs); }catch(_){}});
+
+    // Also render stars chart on years change
+    document.addEventListener('ride:years:changed', (ev)=>{ try{ const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : []; try{ console.debug('ride:years:changed -> renderStarsChart', yrs); }catch(_){} renderStarsChart(yrs); }catch(_){}});
 
     // Re-render per-ride chart when sort mode changes (segmented control)
     try {
@@ -623,8 +627,117 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
       }
     } catch(_){ }
 
+    // Fetch and bucket stars (1..5) for members with Jaarhanger == Ja
+    // Returns per-year buckets so multi-year rendering can show one dataset per year
+    async function fetchStarsByYear(selectedYears) {
+      try {
+        const years = (Array.isArray(selectedYears) ? selectedYears.slice().map(String) : []).filter(Boolean);
+        // normalize and sort years for cache key
+        const uniqYears = Array.from(new Set(years)).sort((a,b)=>Number(a)-Number(b));
+        const cacheKey = 'members_stars_counts_by_year_' + uniqYears.join(',');
+        const cached = cacheRead(cacheKey);
+        try { console.debug('fetchStarsByYear start', { selectedYears, uniqYears, cacheKey, cached: !!cached }); } catch(_){}
+        if (cached) {
+          try { console.debug('fetchStarsByYear using cached result', cacheKey, cached); } catch(_){}
+          return cached;
+        }
+        try { await initFirebase(); } catch(_){ }
+        const out = { years: uniqYears, bucketsByYear: {} };
+        for (const y of uniqYears) out.bucketsByYear[y] = { '1':0,'2':0,'3':0,'4':0,'5':0, totalMembers:0 };
+        if (!db) return out;
+        const coll = collection(db, 'members');
+        const snap = await getDocs(coll).catch(()=>null);
+        if (!snap || !Array.isArray(snap.docs)) { try { cacheWrite(cacheKey, out, 30*1000); } catch(_){} return out; }
+        for (const sdoc of snap.docs) {
+          try {
+            const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
+            // determine Jaarhanger truthy value (accept 'Ja', 'ja', true)
+            let hasJaarhanger = false;
+            try {
+              const v = data && (data.Jaarhanger || data.jaarhanger || data.JaarHanger || data.jaarHanger);
+              if (typeof v === 'string') { if (v.toLowerCase().indexOf('j') === 0) hasJaarhanger = true; }
+              else if (typeof v === 'boolean') { hasJaarhanger = Boolean(v); }
+              else if (typeof v === 'number') { hasJaarhanger = v === 1; }
+            } catch(_){ }
+            if (!hasJaarhanger) continue;
+            // collect scans
+            const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums : (Array.isArray(data.scandatums) ? data.scandatums : (Array.isArray(data.scans) ? data.scans : []));
+            if (!Array.isArray(scans) || scans.length === 0) continue;
+            // build normalized set of scan years for this member
+            const scanYears = new Map();
+            for (const s of scans) {
+              try { const yr = extractYear(s); if (yr) scanYears.set(String(yr), (scanYears.get(String(yr))||0) + 1); } catch(_){}
+            }
+            // for each requested year, compute count and bucket
+            for (const y of uniqYears) {
+              const count = scanYears.get(y) || 0;
+              if (count <= 0) continue;
+              const bucket = count >= 5 ? '5' : String(Math.max(1, Math.min(5, Math.floor(count))));
+              out.bucketsByYear[y][bucket] = (out.bucketsByYear[y][bucket] || 0) + 1;
+              out.bucketsByYear[y].totalMembers = (out.bucketsByYear[y].totalMembers || 0) + 1;
+              try { console.debug('fetchStarsByYear counted member', { year: y, memberId: (sdoc.id||sdoc._id||null), count, bucket }); } catch(_){}
+            }
+          } catch(_){ }
+        }
+        try { cacheWrite(cacheKey, out, 60*1000); } catch(_){ }
+        try { console.debug('fetchStarsByYear result', out); } catch(_){}
+        return out;
+      } catch(_) { return { years: [], bucketsByYear: {} }; }
+    }
+
+    // Render stars chart
+    let starsChartInstance = null;
+    async function renderStarsChart(selectedYears) {
+      try {
+        const container = document.getElementById('stars-chart-container') || document.body;
+        try {
+          const existingCanvas = document.getElementById('starsChart');
+          if (existingCanvas) {
+            try { const existingChart = (typeof Chart !== 'undefined' && Chart && typeof Chart.getChart === 'function') ? Chart.getChart(existingCanvas) : null; if (existingChart) try{ existingChart.destroy(); }catch(_){} } catch(_){ }
+            try { existingCanvas.remove(); } catch(_){ }
+          }
+        } catch(_){ }
+        const canvas = document.createElement('canvas'); canvas.id = 'starsChart'; canvas.style.width='100%'; canvas.style.height='260px'; container.innerHTML = ''; container.appendChild(canvas);
+        if (!Array.isArray(selectedYears) || selectedYears.length === 0) {
+          if (starsChartInstance) try{ starsChartInstance.destroy(); }catch(_){ }
+          starsChartInstance = null;
+          container.innerHTML = '<div class="chart-empty">Geen jaar geselecteerd</div>';
+          return;
+        }
+        const info = await fetchStarsByYear(selectedYears).catch(()=>({ years: [], bucketsByYear: {} }));
+        const labels = ['1','2','3','4','5'];
+        try { ensureCanvasHeight(canvas, 240); } catch(_){ }
+        // determine years to show: prefer the explicit selectedYears argument
+        const yearsToShow = (Array.isArray(selectedYears) && selectedYears.length) ? Array.from(new Set(selectedYears.map(String))).sort((a,b)=>Number(a)-Number(b)) : (Array.isArray(info.years) ? info.years.slice() : []);
+        if (!yearsToShow || yearsToShow.length === 0) {
+          container.innerHTML = '<div class="chart-empty">Geen jaar geselecteerd</div>';
+          return;
+        }
+        // build datasets (one per year) using returned buckets when available, otherwise zeros
+        const datasets = [];
+        for (const y of yearsToShow) {
+          const by = info.bucketsByYear && info.bucketsByYear[y] ? info.bucketsByYear[y] : { '1':0,'2':0,'3':0,'4':0,'5':0 };
+          const dataArr = labels.map(l => Number(by[l] || 0));
+          datasets.push({ label: String(y), data: dataArr, backgroundColor: getColorForYear(y) });
+        }
+        // compute max across datasets
+        let maxv = 0; for (const ds of datasets) for (const v of (ds.data||[])) if (Number(v) > maxv) maxv = Number(v);
+        const suggestedMax = Math.max(1, Math.ceil(maxv));
+        if (starsChartInstance) try{ starsChartInstance.destroy(); }catch(_){ }
+        starsChartInstance = new Chart(canvas, {
+          type: 'bar',
+          data: { labels: labels.map(s=>s + ' sterren'), datasets: datasets },
+          options: {
+            plugins: { legend:{ display:true }, title:{ display:true, text: 'Jaarhanger sterren' } },
+            responsive:true, maintainAspectRatio:false,
+            scales: { y: { beginAtZero:true, suggestedMax: suggestedMax, ticks:{ stepSize:1, precision:0 } } }
+          }
+        });
+      } catch(e){ console.warn('renderStarsChart error', e); }
+    }
+
     // initial render
-    try { const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year); if (selectedYears && selectedYears.length) { renderChartForYears(selectedYears); renderPerRideChart(selectedYears); } else { renderChartForYears([]); renderPerRideChart([]); } } catch(_){ renderChartForYears([]); renderPerRideChart([]); }
+    try { const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year); if (selectedYears && selectedYears.length) { renderChartForYears(selectedYears); renderPerRideChart(selectedYears); renderStarsChart(selectedYears); } else { renderChartForYears([]); renderPerRideChart([]); renderStarsChart([]); } } catch(_){ renderChartForYears([]); renderPerRideChart([]); renderStarsChart([]); }
 
   } catch(e){ console.warn('populate ride years failed', e); }
 })();
