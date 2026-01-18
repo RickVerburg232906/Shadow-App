@@ -128,6 +128,7 @@ async function playRandomInschrijfSound() {
     }
     try { a.pause(); } catch(_) {}
     try { a.currentTime = 0; } catch(_) {}
+    try { a.muted = false; a.volume = 1; } catch(_) {}
     if (a.src !== url) {
       try { a.src = url; } catch(_) { a.setAttribute('src', url); }
     } else {
@@ -437,7 +438,7 @@ export async function initInschrijftafel() {
                 try { pa.crossOrigin = 'anonymous'; } catch(_) {}
                 // use a small bundled file; if missing this will be a no-op
                 try { pa.src = '/assets/Inschrijf_sounds/Inschrijf_sound.mp3'; } catch(_) {}
-                try { pa.volume = 0; } catch(_) {}
+                try { pa.muted = true; pa.volume = 0; } catch(_) {}
                 try { document.body.appendChild(pa); } catch(_) {}
                 try { const pp = pa.play(); if (pp && typeof pp.then === 'function') pp.then(() => { try { pa.pause(); pa.currentTime = 0; } catch(_){} }).catch(()=>{}); } catch(_) {}
                 try { window._inschrijfAudio = pa; } catch(_) {}
