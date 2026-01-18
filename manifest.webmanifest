@@ -7,6 +7,16 @@
   "theme_color": "#163e8d",
   "icons": [
     {
+      "src": "/assets/app-logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/assets/app-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    },
+    {
       "src": "/assets/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
