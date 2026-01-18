@@ -942,7 +942,7 @@ function renderMemberInfoChoices() {
 					let displayText = '';
 					if (keuze && String(keuze).trim()) displayText = String(keuze).trim();
 					else if (!hasKeuzeOptions) displayText = 'Eet mee';
-					else displayText = (valueEl && valueEl.textContent) ? valueEl.textContent : '';
+					else displayText = ''; // avoid showing template placeholder from HTML
 					if (valueEl) valueEl.textContent = displayText;
 					if (icon) icon.textContent = 'check';
 					if (badge) { badge.classList.remove('mk-badge-no'); badge.classList.add('mk-badge-yes'); }
