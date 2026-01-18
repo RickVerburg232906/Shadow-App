@@ -424,6 +424,26 @@ export async function initInschrijftafel() {
 
           // First unlock audio (user gesture) so mobile allows playback later
           try { await ensureAudioUnlocked(); } catch(_) {}
+          // Prime an HTMLAudioElement during this direct user gesture so
+          // iOS standalone/webapp will allow later .play() calls.
+          try {
+            if (!window._inschrijfAudio) {
+              try {
+                const pa = document.createElement('audio');
+                pa.style.display = 'none';
+                pa.setAttribute('playsinline', '');
+                pa.setAttribute('webkit-playsinline', '');
+                pa.preload = 'auto';
+                try { pa.crossOrigin = 'anonymous'; } catch(_) {}
+                // use a small bundled file; if missing this will be a no-op
+                try { pa.src = '/assets/Inschrijf_sounds/Inschrijf_sound.mp3'; } catch(_) {}
+                try { pa.volume = 0; } catch(_) {}
+                try { document.body.appendChild(pa); } catch(_) {}
+                try { const pp = pa.play(); if (pp && typeof pp.then === 'function') pp.then(() => { try { pa.pause(); pa.currentTime = 0; } catch(_){} }).catch(()=>{}); } catch(_) {}
+                try { window._inschrijfAudio = pa; } catch(_) {}
+              } catch(e) { console.warn('prime inschrijf audio failed', e); }
+            }
+          } catch(_) {}
 
           // Prepare preview area: hide placeholder overlay and remove background image so scanner becomes visible
           try {
