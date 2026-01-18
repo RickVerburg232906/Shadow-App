@@ -3,6 +3,7 @@
   "ignoreCommand": "",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/assets/:path*", "destination": "/assets/:path*" },
     { "source": "/new-ui/:path*", "destination": "/new-ui/:path*" },
     { "source": "/admin-ui/:path*", "destination": "/admin-ui/:path*" },
     { "source": "/lid-ui/:path*", "destination": "/lid-ui/:path*" },
