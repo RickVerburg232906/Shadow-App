@@ -699,6 +699,46 @@ function renderMemberInfoChoices() {
 				const naam = (memberObj.Naam || memberObj.naam || memberObj.lastName || memberObj.Naam || '') || '';
 				displayName = `${String(voor).trim()} ${String(naam).trim()}`.replace(/\s+/g,' ').trim();
 			}
+			// If member object contains a lunch expiry that's already past, clear stored lunch fields
+			try {
+				const cand = memberObj && (memberObj.lunchExpires || memberObj.lunch_expires || memberObj.lunch_exptime || null);
+				if (cand) {
+					let expMs = 0;
+					try {
+						if (typeof cand.toMillis === 'function') expMs = cand.toMillis();
+						else if (typeof cand.seconds === 'number') expMs = Number(cand.seconds) * 1000;
+						else expMs = Date.parse(String(cand)) || 0;
+					} catch(_) { expMs = 0; }
+					if (expMs && expMs <= Date.now()) {
+						try { setMemberSessionField('lunchDeelname', null); } catch(_) {}
+						try { setMemberSessionField('lunchKeuze', null); } catch(_) {}
+						try { sessionStorage.removeItem('lunchDeelname'); } catch(_) {}
+						try { sessionStorage.removeItem('lunchKeuze'); } catch(_) {}
+						// Also remove from stored shadow object if present
+						try {
+							let mid = window._selectedMemberId || '';
+							if (!mid) {
+								for (const k of Object.keys(sessionStorage || {})) {
+									if (String(k).indexOf('shadow_ui_member_') === 0) { mid = String(k).slice('shadow_ui_member_'.length); break; }
+								}
+							}
+							if (mid) {
+								const key = `shadow_ui_member_${String(mid)}`;
+								try {
+									const raw = sessionStorage.getItem(key);
+									if (raw) {
+										const obj = JSON.parse(raw);
+										if (obj) {
+											delete obj.lunchDeelname; delete obj.lunchKeuze;
+											try { sessionStorage.setItem(key, JSON.stringify(obj)); } catch(_) {}
+										}
+									}
+								} catch(_) {}
+							}
+						} catch(_) {}
+					}
+				}
+			} catch(_) {}
 			if (nameEl) {
 				try { nameEl.textContent = displayName || (memberObj && (memberObj.Naam || memberObj.naam || memberObj.id) ) || '' ; } catch(_) {}
 			}
