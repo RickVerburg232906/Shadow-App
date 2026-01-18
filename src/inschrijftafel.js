@@ -1154,6 +1154,28 @@ async function populateManualWithMember(memberId) {
 
     // Prefill eetmee (lunch participation)
     try {
+      // If the stored `lunchExpires` on the member document is in the past,
+      // do not prefill lunch fields (treat as no registration).
+      try {
+        const cand = doc && (doc.lunchExpires || doc.lunch_expires || doc.lunch_exptime || null);
+        if (cand) {
+          let expMs = 0;
+          try {
+            if (typeof cand.toMillis === 'function') expMs = cand.toMillis();
+            else if (typeof cand.seconds === 'number') expMs = Number(cand.seconds) * 1000;
+            else expMs = Date.parse(String(cand)) || 0;
+          } catch(_) { expMs = 0; }
+          if (expMs && expMs <= Date.now()) {
+            // clear any session/shadow overrides for this member so they are not used for prefilling
+            try { const ssKey = `shadow_ui_member_${String(memberId)}`; const raw = sessionStorage.getItem(ssKey); if (raw) { const sobj = JSON.parse(raw); if (sobj) { delete sobj.lunchDeelname; delete sobj.lunchKeuze; try { sessionStorage.setItem(ssKey, JSON.stringify(sobj)); } catch(_){} } } } catch(_) {}
+            // also remove top-level session keys
+            try { sessionStorage.removeItem('lunchDeelname'); } catch(_) {}
+            try { sessionStorage.removeItem('lunchKeuze'); } catch(_) {}
+            // treat as if no fields present
+            try { if (doc) { doc.lunchDeelname = null; doc.lunch = null; doc.lunchKeuze = null; doc.lunchChoice = null; doc.keuze = null; } } catch(_) {}
+          }
+        }
+      } catch(_) {}
       // Prefer any per-member session override stored under `shadow_ui_member_<id>`
       let deel = null;
       try {
