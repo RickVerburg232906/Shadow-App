@@ -304,7 +304,10 @@ function setupMemberSuggestions() {
 									item.style.gap = '12px';
 									item.dataset.memberId = r.id || '';
 									
-									// Create avatar with initials
+									const nameDisplay = `${(r.voor||'').trim()} ${(r.tussen||'').trim()} ${(r.naam||'').trim()}`.replace(/\s+/g,' ').trim();
+									const initials = (nameDisplay || (r.naam || r.voor || r.id || '')).split(' ').map(n => n.charAt(0).toUpperCase()).join('').slice(0, 2);
+
+									// Create avatar for dropdown item (visible in suggestions only)
 									const avatar = document.createElement('div');
 									avatar.style.width = '40px';
 									avatar.style.height = '40px';
@@ -317,11 +320,8 @@ function setupMemberSuggestions() {
 									avatar.style.fontSize = '14px';
 									avatar.style.fontWeight = '600';
 									avatar.style.flexShrink = 0;
-									
-									const nameDisplay = `${(r.voor||'').trim()} ${(r.tussen||'').trim()} ${(r.naam||'').trim()}`.replace(/\s+/g,' ').trim();
-									const initials = (nameDisplay || (r.naam || r.voor || r.id || '')).split(' ').map(n => n.charAt(0).toUpperCase()).join('').slice(0, 2);
 									avatar.textContent = initials || '?';
-									
+
 									// Create text content wrapper
 									const textWrapper = document.createElement('div');
 									textWrapper.style.flex = 1;
@@ -341,7 +341,7 @@ function setupMemberSuggestions() {
 									memberNoEl.style.whiteSpace = 'nowrap';
 									memberNoEl.style.textOverflow = 'ellipsis';
 									memberNoEl.style.overflow = 'hidden';
-									memberNoEl.textContent = 'Lidnummer: ' + (r.id || '');
+									memberNoEl.textContent = (r.id || '');
 									
 									textWrapper.appendChild(nameEl);
 									textWrapper.appendChild(memberNoEl);
@@ -361,16 +361,13 @@ function setupMemberSuggestions() {
 									
 									// Show selected member card
 									try {
-										const initials = (pickedName || '').split(' ').map(n => n.charAt(0).toUpperCase()).join('').slice(0, 2);
 										const displayCard = document.getElementById('selected-member-display');
-										const avatarEl = document.getElementById('selected-member-avatar');
 										const nameElDisplay = document.getElementById('selected-member-name');
 										const numberElDisplay = document.getElementById('selected-member-number');
-										
-										if (displayCard && avatarEl && nameElDisplay && numberElDisplay) {
-											avatarEl.textContent = initials || '?';
+                                        
+										if (displayCard && nameElDisplay && numberElDisplay) {
 											nameElDisplay.textContent = pickedName;
-											numberElDisplay.textContent = 'Lidnummer: ' + pickedId;
+											numberElDisplay.textContent = pickedId || '';
 											displayCard.style.display = 'block';
 										}
 									} catch(_) {}
