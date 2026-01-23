@@ -244,10 +244,16 @@ function setupMemberSuggestions() {
 				if (!el || (el.dataset && el.dataset._suggestBound)) { console.debug('setupMemberSuggestions: skipping bound or missing el'); continue; }
 				let timer = null;
 				let listEl = null;
+				let infoEl = null;
 				function closeList() {
-					try { if (listEl && listEl.__cleanup) try { listEl.__cleanup(); } catch(_){} } catch(_){}
-					try { if (listEl && listEl.parentNode) listEl.parentNode.removeChild(listEl); } catch(_){}
+					try { if (listEl && listEl.__cleanup) try { listEl.__cleanup(); } catch(_){} } catch(_){ }
+					try { if (listEl && listEl.parentNode) listEl.parentNode.removeChild(listEl); } catch(_){ }
 					listEl = null;
+					// hide static no-results box if present
+					try { const staticEl = document.getElementById('member-no-results'); if (staticEl) staticEl.style.display = 'none'; } catch(_){}
+					// remove any dynamically created infoEl fallback
+					try { if (infoEl && infoEl.parentNode) infoEl.parentNode.removeChild(infoEl); } catch(_){}
+					infoEl = null;
 				}
 				async function showSuggestions(prefix) {
 					console.debug('showSuggestions called for prefix', prefix);
@@ -277,23 +283,53 @@ function setupMemberSuggestions() {
 									} catch(_) { return false; }
 								}).slice(0, 20);
 								console.debug('matches found', matches.length);
-								if (!Array.isArray(matches) || matches.length === 0) { closeList(); return; }
+								// If there are no matches, show a red info item instead of closing the list
 								closeList();
 								listEl = document.createElement('div');
-						listEl.className = 'member-suggestions';
-						listEl.style.position = 'absolute';
-						listEl.style.zIndex = 9999;
-						listEl.style.background = '#fff';
-						listEl.style.border = '1px solid rgba(0,0,0,0.08)';
-						listEl.style.borderRadius = '8px';
+							listEl.className = 'member-suggestions';
+							listEl.style.position = 'absolute';
+							listEl.style.zIndex = 9999;
+							listEl.style.background = '#fff';
+							listEl.style.border = '1px solid rgba(0,0,0,0.08)';
+							listEl.style.borderRadius = '8px';
 								listEl.style.overflow = 'hidden';
 								listEl.style.minWidth = (el.offsetWidth || 200) + 'px';
 								listEl.style.maxHeight = '320px';
 								listEl.style.overflowY = 'auto';
-						listEl.setAttribute('role','listbox');
-						const rect = el.getBoundingClientRect();
-						listEl.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-						listEl.style.left = (rect.left + window.scrollX) + 'px';
+							listEl.setAttribute('role','listbox');
+							const rect = el.getBoundingClientRect();
+							listEl.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+							listEl.style.left = (rect.left + window.scrollX) + 'px';
+								if (!Array.isArray(matches) || matches.length === 0) {
+									// Populate a static no-results div in the signup page if present
+									try {
+										const staticEl = document.getElementById('member-no-results');
+										if (staticEl) {
+											staticEl.textContent = 'Geen lid gevonden — ga naar de inschrijftafel voor meer info.';
+											staticEl.style.display = 'block';
+											// ensure it uses full width of its parent container
+											try { staticEl.style.width = '100%'; staticEl.style.boxSizing = 'border-box'; } catch(_){}
+											return;
+										}
+									} catch(_){}
+									// Fallback to dynamic info element if static div not present
+									try {
+										if (infoEl && infoEl.parentNode) infoEl.parentNode.removeChild(infoEl);
+									} catch(_){ }
+									infoEl = document.createElement('div');
+									infoEl.className = 'member-no-results';
+									infoEl.style.marginTop = '8px';
+									infoEl.style.padding = '10px 12px';
+									infoEl.style.color = '#b91c1c';
+									infoEl.style.background = '#fff5f5';
+									infoEl.style.border = '1px solid #fca5a5';
+									infoEl.style.borderRadius = '8px';
+									infoEl.style.fontSize = '14px';
+									infoEl.style.lineHeight = '1.3';
+									infoEl.textContent = 'Geen lid gevonden — ga naar de inschrijftafel voor meer info.';
+									try { document.body.appendChild(infoEl); } catch(_){}
+									return;
+								}
 								matches.forEach((r) => {
 									const item = document.createElement('div');
 									item.className = 'member-suggestion-item';
@@ -594,10 +630,10 @@ try {
 				});
 				el.addEventListener('focus', (ev) => {
 					try {
+						// Hide selected member display and any no-results / suggestion lists
+						try { closeList(); } catch(_){}
 						const displayCard = document.getElementById('selected-member-display');
-						if (displayCard) {
-							displayCard.style.display = 'none';
-						}
+						if (displayCard) displayCard.style.display = 'none';
 					} catch(_) {}
 				});
 				if (el.dataset) el.dataset._suggestBound = '1';

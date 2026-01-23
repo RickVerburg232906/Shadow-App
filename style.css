@@ -1198,6 +1198,14 @@ stats-card{ background: #ffffff; border-radius: 12px; padding: 16px; box-shadow:
 
 @media (prefers-reduced-motion: reduce){ .choice-card, .check-circle, .choice-card-input:focus + .choice-card{ transition: none !important; } }
 
+/* No-results box used on signup page */
+.member-no-results{
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: none;
+}
+
 
 /* Ensure the provided snippet shows a white pill background
    Target only new-ui styles so changes are scoped to this UI.
