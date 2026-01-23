@@ -114,18 +114,30 @@ body.app{
   flex:1 1 auto;
   display:flex;
   flex-direction: column;
-  align-items: center; /* center children horizontally when stacked */
+  align-items: stretch; /* make children take full available width */
   justify-content: flex-start;
-  padding: 8px 8px;
-  text-align:center;
+  padding: 12px 12px;
+  text-align:left;
   min-height: 0; /* allow flex child to shrink and enable internal scrolling */
   overflow: auto; /* make main the scroll container between header and footer */
-  padding-bottom: calc(var(--footer-height) + 8px); /* reserve space above fixed footer */
+  padding-bottom: calc(var(--footer-height) + 12px); /* reserve space above fixed footer */
 }
 
 /* Password page specific small utilities */
 .page-spacer{ height: 4rem; }
-.page-container{ display:flex; flex:1 1 auto; flex-direction:column; padding: 16px 24px 96px; max-width:420px; margin:0 auto; width:100%; box-sizing:border-box; }
+.page-container{ display:flex; flex:1 1 auto; flex-direction:column; padding: 16px 20px 96px; max-width:640px; margin:0 auto; width:100%; box-sizing:border-box; }
+
+/* On small screens ensure cards and form elements span edge-to-edge with small gutters */
+@media (max-width: 640px) {
+  .main-content { padding-left: 10px; padding-right: 10px; }
+  .surface-card, .selected-member-card, .icon-input, .choice-card { width: 100%; }
+  .form-label { width: 100%; }
+}
+
+@media (min-width: 641px) {
+  .main-content { padding-left: 24px; padding-right: 24px; }
+  .page-container { padding-left: 24px; padding-right: 24px; }
+}
 
 /* Primary button matching footer style but usable inline on pages */
 .primary-button{ width:100%; background: var(--blue); color: #fff; font-weight:700; font-size:1rem; height:48px; border-radius:12px; border:0; display:inline-flex; align-items:center; justify-content:center; box-shadow: 0 10px 20px rgba(22,62,141,0.12); cursor:pointer; margin-top:12px; padding:0 16px; }
@@ -1005,12 +1017,15 @@ stats-card{ background: #ffffff; border-radius: 12px; padding: 16px; box-shadow:
 .scanner-placeholder{ position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
 .scanner-icon-wrap{ width:84px; height:84px; border-radius:18px; border:4px solid rgba(255,255,255,0.9); background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; box-shadow: 0 8px 20px rgba(16,24,40,0.08); }
 .scanner-icon{ font-size:36px; color: rgba(15,23,36,0.9); }
-.scanner-body{ display:flex; gap:16px; align-items:center; justify-content:space-between; padding:18px; background: #ffffff; border-bottom-left-radius:14px; border-bottom-right-radius:14px;}
-.scanner-copy{ flex:1 1 auto; }
+.scanner-body{ display:flex; flex-direction:column; gap:12px; align-items:stretch; padding:18px; background: #ffffff; border-bottom-left-radius:14px; border-bottom-right-radius:14px;}
+.scanner-copy{ flex:0 0 auto; }
 .scanner-title{ margin:0; font-size:18px; font-weight:800; color:#0f1724; }
 .scanner-sub{ margin:6px 0 0 0; color:#6b7280; font-size:14px; }
 .scanner-button{ background: var(--blue); color: #fff; border:0; padding:12px 20px; border-radius:12px; display:inline-flex; align-items:center; gap:10px; font-weight:800; font-size:16px; box-shadow: 0 12px 30px rgba(22,62,141,0.16); cursor:pointer; }
 .scanner-button-icon{ font-size:20px; }
+
+/* Ensure primary-button inside scanner-body behaves like scanner-button */
+.scanner-body .primary-button { width:100%; justify-content:center; }
 
 @media (max-width:520px){
   .scanner-body{ flex-direction:column; align-items:stretch; }
@@ -1383,11 +1398,90 @@ div[role="button"] > .vast-item.selected,
 /* Dark mode rules removed */
 
 /* Alias styles for member-suggestions used in handmatige-keuzes.html */
-.member-suggestions{ position:absolute; left:0; top: calc(100% + 6px); min-width:100%; box-sizing:border-box; background: var(--bg-light); border: 1px solid rgba(243,244,246,1); border-radius: 10px; box-shadow: 0 10px 30px rgba(16,24,40,0.08); z-index:12000; max-height:260px; overflow:auto; margin-bottom: 12px;}
+.member-suggestions{ position:absolute; left:0; top: calc(100% + 6px); min-width:100%; box-sizing:border-box; background: var(--bg-light); border: 1px solid rgba(243,244,246,1); border-radius: 10px; box-shadow: 0 10px 30px rgba(16,24,40,0.08); z-index:12000; max-height:320px; overflow:auto; margin-bottom: 12px;}
 .member-suggestions:empty{ display:none; }
-.member-suggestion-item{ padding:8px 12px; cursor:pointer; color:#0f1724; font-weight:500; }
+.member-suggestion-item{ padding:12px 12px; cursor:pointer; color:#0f1724; font-weight:500; display:flex; align-items:center; gap:12px; transition: background-color 0.2s; }
 .member-suggestion-item:hover{ background: #f3f4f6; }
 
+/* Selected member card */
+.selected-member-card {
+  background: linear-gradient(135deg, #1a4a9f 0%, #163e8d 50%, #0f2d66 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 16px;
+  box-shadow: 0 8px 32px rgba(22, 62, 141, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.selected-member-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+}
+
+.selected-member-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.selected-member-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffdd33 0%, #ffcc00 50%, #f5b800 100%);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+  color: #163e8d;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(255, 204, 0, 0.3);
+}
+
+.selected-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.selected-member-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+}
+
+.selected-member-number {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.selected-member-logo {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
 
 /* Footer component (semantic, no Tailwind) */
 .app-footer{
