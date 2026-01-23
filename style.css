@@ -1383,11 +1383,90 @@ div[role="button"] > .vast-item.selected,
 /* Dark mode rules removed */
 
 /* Alias styles for member-suggestions used in handmatige-keuzes.html */
-.member-suggestions{ position:absolute; left:0; top: calc(100% + 6px); min-width:100%; box-sizing:border-box; background: var(--bg-light); border: 1px solid rgba(243,244,246,1); border-radius: 10px; box-shadow: 0 10px 30px rgba(16,24,40,0.08); z-index:12000; max-height:260px; overflow:auto; margin-bottom: 12px;}
+.member-suggestions{ position:absolute; left:0; top: calc(100% + 6px); min-width:100%; box-sizing:border-box; background: var(--bg-light); border: 1px solid rgba(243,244,246,1); border-radius: 10px; box-shadow: 0 10px 30px rgba(16,24,40,0.08); z-index:12000; max-height:320px; overflow:auto; margin-bottom: 12px;}
 .member-suggestions:empty{ display:none; }
-.member-suggestion-item{ padding:8px 12px; cursor:pointer; color:#0f1724; font-weight:500; }
+.member-suggestion-item{ padding:12px 12px; cursor:pointer; color:#0f1724; font-weight:500; display:flex; align-items:center; gap:12px; transition: background-color 0.2s; }
 .member-suggestion-item:hover{ background: #f3f4f6; }
 
+/* Selected member card */
+.selected-member-card {
+  background: linear-gradient(135deg, #1a4a9f 0%, #163e8d 50%, #0f2d66 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 16px;
+  box-shadow: 0 8px 32px rgba(22, 62, 141, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.selected-member-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+}
+
+.selected-member-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.selected-member-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffdd33 0%, #ffcc00 50%, #f5b800 100%);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+  color: #163e8d;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(255, 204, 0, 0.3);
+}
+
+.selected-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.selected-member-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+}
+
+.selected-member-number {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.selected-member-logo {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
 
 /* Footer component (semantic, no Tailwind) */
 .app-footer{

@@ -22,6 +22,36 @@ function dumpSessionStorage() {
 	} catch (e) { console.warn('dumpSessionStorage failed', e); }
 }
 
+// Prevent label clicks from focusing the input unless the input itself was clicked
+function restrictLabelFocusToInput() {
+	try {
+		const bind = () => {
+			try {
+				const labels = Array.from(document.querySelectorAll('label.form-label'));
+				for (const label of labels) {
+					// Avoid double-binding
+					if (label.__restrictBound) continue;
+					label.__restrictBound = true;
+					label.addEventListener('click', (ev) => {
+						try {
+							const input = label.querySelector('input.form-input');
+							if (!input) { ev.preventDefault(); return; }
+							// If the click target is the input (or inside it), allow default focusing
+							if (ev.target === input || input.contains(ev.target)) return;
+							// Otherwise prevent label from forwarding focus
+							ev.preventDefault();
+						} catch (_) {}
+					});
+				}
+			} catch (_) {}
+		};
+		if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+		else bind();
+	} catch (_) {}
+}
+
+try { restrictLabelFocusToInput(); } catch(_) {}
+
 // Safe session setter that prints diagnostics
 function setSessionAndDump(key, value) {
 	try {
@@ -269,24 +299,85 @@ function setupMemberSuggestions() {
 									item.className = 'member-suggestion-item';
 									item.style.padding = '8px 12px';
 									item.style.cursor = 'pointer';
-									item.style.whiteSpace = 'nowrap';
-									item.style.textOverflow = 'ellipsis';
-									item.style.overflow = 'hidden';
-									const nameDisplay = `${(r.voor||'').trim()} ${(r.tussen||'').trim()} ${(r.naam||'').trim()}`.replace(/\s+/g,' ').trim();
-									item.textContent = nameDisplay || (r.naam || r.voor || r.id || '');
+									item.style.display = 'flex';
+									item.style.alignItems = 'center';
+									item.style.gap = '12px';
 									item.dataset.memberId = r.id || '';
+									
+									// Create avatar with initials
+									const avatar = document.createElement('div');
+									avatar.style.width = '40px';
+									avatar.style.height = '40px';
+									avatar.style.borderRadius = '50%';
+									avatar.style.backgroundColor = '#163e8d';
+									avatar.style.color = '#ffffff';
+									avatar.style.display = 'flex';
+									avatar.style.alignItems = 'center';
+									avatar.style.justifyContent = 'center';
+									avatar.style.fontSize = '14px';
+									avatar.style.fontWeight = '600';
+									avatar.style.flexShrink = 0;
+									
+									const nameDisplay = `${(r.voor||'').trim()} ${(r.tussen||'').trim()} ${(r.naam||'').trim()}`.replace(/\s+/g,' ').trim();
+									const initials = (nameDisplay || (r.naam || r.voor || r.id || '')).split(' ').map(n => n.charAt(0).toUpperCase()).join('').slice(0, 2);
+									avatar.textContent = initials || '?';
+									
+									// Create text content wrapper
+									const textWrapper = document.createElement('div');
+									textWrapper.style.flex = 1;
+									textWrapper.style.minWidth = 0;
+									
+									const nameEl = document.createElement('div');
+									nameEl.style.fontWeight = '500';
+									nameEl.style.color = '#0f1724';
+									nameEl.style.whiteSpace = 'nowrap';
+									nameEl.style.textOverflow = 'ellipsis';
+									nameEl.style.overflow = 'hidden';
+									nameEl.textContent = nameDisplay || (r.naam || r.voor || r.id || '');
+									
+									const memberNoEl = document.createElement('div');
+									memberNoEl.style.fontSize = '12px';
+									memberNoEl.style.color = '#888';
+									memberNoEl.style.whiteSpace = 'nowrap';
+									memberNoEl.style.textOverflow = 'ellipsis';
+									memberNoEl.style.overflow = 'hidden';
+									memberNoEl.textContent = 'Lidnummer: ' + (r.id || '');
+									
+									textWrapper.appendChild(nameEl);
+									textWrapper.appendChild(memberNoEl);
+									item.appendChild(avatar);
+									item.appendChild(textWrapper);
+							
 							item.addEventListener('click', (ev) => {
 								try {
 									ev.preventDefault();
-									el.value = item.textContent;
+									el.value = nameEl.textContent;
 									const pickedId = item.dataset.memberId || '';
+									const pickedName = nameEl.textContent;
 									try { clearAllMemberSessionData(); } catch(_) {}
 									try { if (el.dataset) el.dataset.selectedMember = pickedId; } catch(_) {}
 									try { window._selectedMemberId = pickedId || ''; } catch(_) {}
 									closeList();
+									
+									// Show selected member card
+									try {
+										const initials = (pickedName || '').split(' ').map(n => n.charAt(0).toUpperCase()).join('').slice(0, 2);
+										const displayCard = document.getElementById('selected-member-display');
+										const avatarEl = document.getElementById('selected-member-avatar');
+										const nameElDisplay = document.getElementById('selected-member-name');
+										const numberElDisplay = document.getElementById('selected-member-number');
+										
+										if (displayCard && avatarEl && nameElDisplay && numberElDisplay) {
+											avatarEl.textContent = initials || '?';
+											nameElDisplay.textContent = pickedName;
+											numberElDisplay.textContent = 'Lidnummer: ' + pickedId;
+											displayCard.style.display = 'block';
+										}
+									} catch(_) {}
+									
 									try { updateSignupFooterState(); } catch(_) {}
 									// Notify other parts of the app that a member was selected
-									try { document.dispatchEvent(new CustomEvent('member:selected', { detail: { memberId: pickedId, name: item.textContent, sourceInputId: el.id || null } })); } catch(_) {}
+									try { document.dispatchEvent(new CustomEvent('member:selected', { detail: { memberId: pickedId, name: nameEl.textContent, sourceInputId: el.id || null } })); } catch(_) {}
 									// Do not fetch full member here; fetching happens when the footer button is pressed
 								} catch (e) { console.warn('suggestion click failed', e); }
 							});
@@ -502,6 +593,14 @@ try {
 						try { window._selectedMemberId = ''; } catch(_) {}
 						schedule(el.value || '');
 						try { updateSignupFooterState(); } catch(_) {}
+					} catch(_) {}
+				});
+				el.addEventListener('focus', (ev) => {
+					try {
+						const displayCard = document.getElementById('selected-member-display');
+						if (displayCard) {
+							displayCard.style.display = 'none';
+						}
 					} catch(_) {}
 				});
 				if (el.dataset) el.dataset._suggestBound = '1';
