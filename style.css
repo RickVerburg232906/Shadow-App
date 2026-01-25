@@ -121,7 +121,9 @@ body.app{
   padding: 12px 12px;
   text-align:left;
   min-height: 0; /* allow flex child to shrink and enable internal scrolling */
-  overflow: auto; /* make main the scroll container between header and footer */
+  overflow-y: auto; /* vertical scrolling only */
+  overflow-x: hidden; /* prevent horizontal swipe/pan on mobile */
+  -webkit-overflow-scrolling: touch;
   padding-bottom: calc(var(--footer-height) + 12px); /* reserve space above fixed footer */
 }
 
