@@ -52,9 +52,31 @@ function ensureScanToastStyles() {
     if (typeof window === 'undefined') return;
     if (window.__scanToastStylesInjected) return;
     const css = `
-      .scan-toast{position:fixed;left:50%;transform:translateX(-50%) translateY(-10px);bottom:24px;background:var(--green, #16a34a);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700;box-shadow:0 8px 24px rgba(16,24,40,0.2);z-index:99999;opacity:0;pointer-events:none;transition:transform .22s ease,opacity .18s ease}
-      .scan-toast.show-in{opacity:1;transform:translateX(-50%) translateY(0)}
-      .scan-toast.show-out{opacity:0;transform:translateX(-50%) translateY(-10px)}
+      /* Toast container */
+      .scan-toast{position:fixed;left:50%;transform:translateX(-50%) translateY(-10px);bottom:24px;min-width:240px;max-width:min(92vw,520px);color:#0f1724;padding:12px 14px;border-radius:10px;font-weight:700;box-shadow:0 10px 30px rgba(16,24,40,0.12);z-index:99999;opacity:0;pointer-events:none;display:flex;align-items:center;gap:12px;transition:transform .22s ease,opacity .18s ease}
+      .scan-toast.show-in{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+      .scan-toast.show-out{opacity:0;transform:translateX(-50%) translateY(-10px);pointer-events:none}
+
+      .scan-toast__icon{width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:18px}
+      .scan-toast__body{flex:1 1 auto;display:flex;flex-direction:column;gap:2px}
+      .scan-toast__title{font-weight:800;font-size:14px;color:inherit}
+      .scan-toast__close{background:transparent;border:0;cursor:pointer;color:inherit;padding:6px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center}
+
+      /* Variants */
+      .scan-toast--success{background:#e6f8ed;color:#064e3b}
+      .scan-toast--success .scan-toast__icon{background:#10b981;color:white}
+
+      .scan-toast--error{background:#fee2e2;color:#7f1d1d}
+      .scan-toast--error .scan-toast__icon{background:#ef4444;color:white}
+
+      .scan-toast--warning{background:#fffbeb;color:#664d03}
+      .scan-toast--warning .scan-toast__icon{background:#f59e0b;color:white}
+
+      .scan-toast--info{background:#eef2ff;color:#3730a3}
+      .scan-toast--info .scan-toast__icon{background:#6366f1;color:white}
+
+      /* Truncate long messages while keeping accessibility */
+      .scan-toast__text{font-size:13px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     `;
     const s = document.createElement('style');
     s.setAttribute('data-generated','scan-toast-styles');
@@ -64,43 +86,72 @@ function ensureScanToastStyles() {
   } catch (e) { /* ignore */ }
 }
 
-function showScanSuccess(msg) {
+function showToast(type, msg, visibleMs = 4000) {
   try {
     ensureScanToastStyles();
     const el = document.createElement('div');
-    el.className = 'scan-toast show-in';
-    el.textContent = String(msg || 'Gescand');
-    document.body.appendChild(el);
-    // Trigger out animation after a short delay so in animation plays first
-    requestAnimationFrame(() => {
-      // move to out after 1s visible time
-      setTimeout(() => {
-        el.classList.remove('show-in');
-        el.classList.add('show-out');
-      }, 1000);
+    el.className = 'scan-toast scan-toast--' + (String(type || 'info') || 'info');
+
+    // icon
+    const icon = document.createElement('div');
+    icon.className = 'scan-toast__icon';
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'material-symbols-outlined';
+    switch (String(type)) {
+      case 'success': iconSpan.textContent = 'check_circle'; break;
+      case 'error': iconSpan.textContent = 'error'; break;
+      case 'warning': iconSpan.textContent = 'warning'; break;
+      default: iconSpan.textContent = 'info'; break;
+    }
+    icon.appendChild(iconSpan);
+
+    // body
+    const body = document.createElement('div');
+    body.className = 'scan-toast__body';
+    const title = document.createElement('div');
+    title.className = 'scan-toast__title scan-toast__text';
+    title.textContent = String(msg || '');
+    body.appendChild(title);
+
+    // close
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'scan-toast__close';
+    closeBtn.setAttribute('aria-label','Close notification');
+    const closeIcon = document.createElement('span');
+    closeIcon.className = 'material-symbols-outlined';
+    closeIcon.textContent = 'close';
+    closeBtn.appendChild(closeIcon);
+    closeBtn.addEventListener('click', () => {
+      try { el.classList.remove('show-in'); el.classList.add('show-out'); setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 400); } catch(_){}
     });
-    // Remove after out animation completes (1s delay + 420ms)
-    setTimeout(() => { try { if (el && el.parentNode) el.parentNode.removeChild(el); } catch(_){} }, 1500);
-  } catch (e) { console.warn('showScanSuccess failed', e); }
+
+    el.appendChild(icon);
+    el.appendChild(body);
+    el.appendChild(closeBtn);
+
+    document.body.appendChild(el);
+
+    // animate in, then out
+    requestAnimationFrame(() => {
+      el.classList.add('show-in');
+      el.classList.remove('show-out');
+      if (visibleMs > 0) {
+        setTimeout(() => {
+          try { el.classList.remove('show-in'); el.classList.add('show-out'); } catch(_){}
+          setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 420);
+        }, visibleMs);
+      }
+    });
+    return el;
+  } catch (e) { console.warn('showToast failed', e); return null; }
+}
+
+function showScanSuccess(msg) {
+  try { showToast('success', String(msg || 'Gescand'), 2000); } catch (e) { console.warn('showScanSuccess failed', e); }
 }
 
 function showScanError(msg, visibleMs = 5000) {
-  try {
-    ensureScanToastStyles();
-    const el = document.createElement('div');
-    el.className = 'scan-toast show-in';
-    el.textContent = String(msg || 'Fout');
-    el.style.background = 'var(--red, #dc2626)';
-    document.body.appendChild(el);
-    requestAnimationFrame(() => {
-      // keep visible for visibleMs, then animate out
-      setTimeout(() => {
-        try { el.classList.remove('show-in'); el.classList.add('show-out'); } catch(_){}
-      }, visibleMs);
-    });
-    // Remove after out animation completes (visibleMs + 420ms + small buffer)
-    setTimeout(() => { try { if (el && el.parentNode) el.parentNode.removeChild(el); } catch(_){} }, visibleMs + 600);
-  } catch (e) { console.warn('showScanError failed', e); }
+  try { showToast('error', String(msg || 'Fout'), visibleMs); } catch (e) { console.warn('showScanError failed', e); }
 }
 
 // Expose a global helper so shared scanner module can trigger the same toast
