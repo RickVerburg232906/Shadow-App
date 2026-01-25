@@ -13,7 +13,7 @@ function formatDutchShort(dateStr) {
   } catch (e) { return dateStr; }
 }
 
-async function setNextRide() {
+export async function setNextRide() {
   try {
     const el = document.getElementById('next-ride-date');
     if (!el) return;

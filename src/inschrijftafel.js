@@ -949,26 +949,7 @@ export async function renderHistoryStars(memberId) {
       btn.addEventListener('click', async (ev) => {
         try {
           ev.preventDefault();
-          // Block manual save when today is not a planned ride date
-          try {
-            const plannedRaw = await getPlannedDates().catch(() => []);
-            const planned = Array.isArray(plannedRaw) ? plannedRaw.map(d => String(d).slice(0,10)) : [];
-            const today = new Date().toISOString().slice(0,10);
-            try { /* debug removed */ } catch(_){ }
-            if (!Array.isArray(planned) || planned.length === 0 || !planned.includes(today)) {
-              try { showScanError('Er is geen rit vandaag', 5000); } catch(_) { alert('Er is geen rit vandaag'); }
-              return;
-            }
-          } catch (e) { console.warn('plannedDates check failed', e); }
-          // Ensure today is a planned ride date before allowing manual check-in
-          try {
-            const planned = Array.isArray(await getPlannedDates().catch(()=>[])) ? await getPlannedDates().catch(()=>[]) : await getPlannedDates().catch(()=>[]);
-            const today = new Date().toISOString().slice(0,10);
-            if (!Array.isArray(planned) || !planned.includes(today)) {
-              try { showScanError('Vandaag is geen landelijke rit', 5000); } catch(_) { alert('Vandaag is geen landelijke rit'); }
-              return;
-            }
-          } catch (e) { /* if planned check fails, allow operation to continue */ }
+          // (Allow manual history registration for past dates even when today is not a planned ride)
           ev.stopPropagation();
           if (!memberId) { alert('Geen lid geselecteerd'); return; }
           const d = btn.getAttribute('data-date');

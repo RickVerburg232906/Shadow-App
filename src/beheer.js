@@ -214,6 +214,31 @@ export async function initBeheer() {
       });
       adminBtn._bound = true;
     }
+
+    // Lunch password save
+    try {
+      const lunchInput = document.getElementById('pwd-lunch-input');
+      const lunchBtn = document.getElementById('pwd-lunch-save');
+      if (lunchBtn && lunchInput && !lunchBtn._bound) {
+        lunchBtn.addEventListener('click', async () => {
+          try {
+            const v = (lunchInput.value || '').trim();
+            if (!v) { window.showScanError && window.showScanError('Vul een nieuw lunch wachtwoord in'); return; }
+            lunchBtn.disabled = true;
+            const res = await updateAdminPasswords({ lunch: v });
+            lunchBtn.disabled = false;
+            if (res && res.success) {
+              try { window.showScanSuccess && window.showScanSuccess('Lunch wachtwoord opgeslagen'); } catch(_){ }
+              lunchInput.value = '';
+            } else {
+              console.warn('update lunch pwd failed', res);
+              window.showScanError && window.showScanError('Opslaan mislukt');
+            }
+          } catch (e) { console.error('lunch pwd save error', e); window.showScanError && window.showScanError('Opslaan mislukt'); }
+        });
+        lunchBtn._bound = true;
+      }
+    } catch (e) { console.error('Lunch password handler wiring failed', e); }
   } catch (e) { console.error('Password handlers wiring failed', e); }
 }
 
@@ -317,5 +342,28 @@ try {
     btn._exportBound = true;
   }
 } catch (_) {}
+
+// Password visibility toggle: delegated handler for any `.icon-toggle` button
+try {
+  document.addEventListener('click', (ev) => {
+    try {
+      const btn = ev.target && (ev.target.closest ? ev.target.closest('.icon-toggle') : (ev.target.classList && ev.target.classList.contains('icon-toggle') ? ev.target : null));
+      if (!btn) return;
+      // find nearest input.form-input within same container
+      const container = btn.closest ? btn.closest('.icon-input') : null;
+      if (!container) return;
+      const input = container.querySelector && container.querySelector('.form-input');
+      if (!input) return;
+      const iconSpan = btn.querySelector('span') || null;
+      if (String(input.type) === 'password') {
+        input.type = 'text';
+        if (iconSpan) iconSpan.textContent = 'visibility_off';
+      } else {
+        input.type = 'password';
+        if (iconSpan) iconSpan.textContent = 'visibility';
+      }
+    } catch (_) { /* ignore toggle errors */ }
+  });
+} catch (_) { }
 
 export default { initBeheer };

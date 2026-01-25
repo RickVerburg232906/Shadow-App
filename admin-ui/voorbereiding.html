@@ -147,8 +147,17 @@
   initInschrijftafel();
 </script>
 <script type="module">
-  import { initVoorbereiding } from '../src/voorbereiding.js';
-  initVoorbereiding();
+  import { initVoorbereiding, initLunchUI, setNextRide } from '../src/voorbereiding.js';
+  const role = (localStorage.getItem('role') || '').trim().toLowerCase();
+  if (role === 'lunch') {
+    try { document.querySelector('.data-section')?.remove(); } catch(_){ }
+    try { document.querySelector('footer.app-footer')?.remove(); } catch(_){ }
+    // Ensure the next ride date is populated even in the lunch-only view
+    try { setNextRide(); } catch(_){}
+    initLunchUI();
+  } else {
+    initVoorbereiding();
+  }
 </script>
 <!-- Admin bottom navigation (visible only for admins via JS) -->
 </body></html>

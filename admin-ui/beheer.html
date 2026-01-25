@@ -150,12 +150,34 @@
             </div>
             <div style="display:flex; flex-direction:column; gap:8px;">
               <label class="form-label">
-                <div class="icon-input" style="position:relative; padding-right:12px;">
+                <div class="icon-input">
                   <span class="material-symbols-outlined icon-left">lock</span>
                   <input id="pwd-inschrijf-input" class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                  <button aria-label="Toggle password visibility" class="icon-toggle" type="button">
+                    <span class="material-symbols-outlined">visibility</span>
+                  </button>
                 </div>
               </label>
               <button id="pwd-inschrijf-save" class="primary-button">Opslaan</button>
+            </div>
+          </div>
+
+          <div class="terms-card__card" style="padding:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; border-bottom:1px solid rgba(243,244,246,1); padding-bottom:8px;">
+              <span class="material-symbols-outlined">lunch_dining</span>
+              <h4 style="margin:0; font-weight:700; color:#0f1724;">Wachtwoord Lunch</h4>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label class="form-label">
+                <div class="icon-input">
+                  <span class="material-symbols-outlined icon-left">lock</span>
+                  <input id="pwd-lunch-input" class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                  <button aria-label="Toggle password visibility" class="icon-toggle" type="button">
+                    <span class="material-symbols-outlined">visibility</span>
+                  </button>
+                </div>
+              </label>
+              <button id="pwd-lunch-save" class="primary-button">Opslaan</button>
             </div>
           </div>
 
@@ -166,15 +188,21 @@
             </div>
             <div style="display:flex; flex-direction:column; gap:8px;">
               <label class="form-label">
-                <div class="icon-input" style="position:relative; padding-right:12px;">
+                <div class="icon-input">
                   <span class="material-symbols-outlined icon-left">lock</span>
                   <input id="pwd-admin-current" class="form-input" placeholder="Huidig wachtwoord" type="password" />
+                  <button aria-label="Toggle password visibility" class="icon-toggle" type="button">
+                    <span class="material-symbols-outlined">visibility</span>
+                  </button>
                 </div>
               </label>
               <label class="form-label">
-                <div class="icon-input" style="position:relative; padding-right:12px;">
+                <div class="icon-input">
                   <span class="material-symbols-outlined icon-left">lock</span>
                   <input id="pwd-admin-new" class="form-input" placeholder="Nieuw wachtwoord" type="password" />
+                  <button aria-label="Toggle password visibility" class="icon-toggle" type="button">
+                    <span class="material-symbols-outlined">visibility</span>
+                  </button>
                 </div>
               </label>
               <button id="pwd-admin-save" class="primary-button">Wijzig Admin Wachtwoord</button>

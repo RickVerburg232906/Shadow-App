@@ -57,6 +57,7 @@ body.app{
   justify-content:center;
   width: calc(100% - 160px);
   pointer-events:none; /* avoid intercepting clicks */
+  z-index: 3;
 }
 
 .back-button{
@@ -96,6 +97,7 @@ body.app{
   max-height:56px;
   display:block;
   object-fit:contain;
+  z-index: 1;
 }
 
 /* Small date shown under the header */
@@ -151,8 +153,21 @@ body.app{
 .icon-toggle{ position:absolute; right:8px; top:50%; transform:translateY(-50%); background:transparent; border:0; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:6px; color:rgba(15,23,36,0.45); }
 .icon-toggle .material-symbols-outlined{ font-size:20px; }
 
+/* container helper so we don't need inline position styles everywhere */
+.icon-input{ position:relative; }
+
+/* ensure inputs leave room for the toggle button */
+.icon-input .form-input, .icon-input .date-input{ padding-right:44px; }
+
+/* make the toggle a consistent tappable target */
+.icon-toggle{ width:36px; height:36px; border-radius:8px; box-sizing:border-box; }
+.icon-toggle:hover{ background: rgba(15,23,36,0.03); }
+
 /* page-container uses .form-input rules already defined; ensure .form-label stacks vertically */
-.form-label{ display:flex; flex-direction:column; gap:8px; text-align:left; }
+.form-label{ display:flex; flex-direction:column; gap:8px; text-align:left; padding-left:8px; padding-right:8px; box-sizing:border-box; }
+
+/* Small padding for rows that contain date/select pairs so inputs don't touch edges */
+.date-row{ padding-left:8px; padding-right:8px; box-sizing:border-box; }
 
 /* unified form input used across admin cards */
 .form-input, .date-input {

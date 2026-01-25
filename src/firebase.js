@@ -246,8 +246,9 @@ async function getAdminPasswords() {
         const snap = await getDoc(dref).catch(()=>null);
         if (!snap || (typeof snap.exists === 'function' ? !snap.exists() : !snap._document)) return { inschrijftafel: 'Shadow', hoofdadmin: '1100' };
         const data = typeof snap.data === 'function' ? snap.data() : snap;
-        return { inschrijftafel: String(data.inschrijftafel || 'Shadow'), hoofdadmin: String(data.hoofdadmin || '1100') };
+        return { inschrijftafel: String(data.inschrijftafel || 'Shadow'), hoofdadmin: String(data.hoofdadmin || '1100'), lunch: String(data.lunch || 'lunch') };
     } catch (e) { console.error('getAdminPasswords sdk error', e); return { inschrijftafel: 'ERROR', hoofdadmin: 'ERROR' }; }
+
 }
 
 // Update admin passwords (merge)
