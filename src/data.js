@@ -249,21 +249,70 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
               title: { display: true, text: (document.getElementById('ride-years-chart-title')||{}).textContent || 'Inschrijvingen per jaar' },
               legend: { display: true },
               tooltip: {
-                displayColors: false,
-                callbacks: {
-                  label: function(context) {
-                    try {
-                      const year = String(context.label || context.raw);
-                      const info = regionBreakdown && regionBreakdown[year] ? regionBreakdown[year] : null;
-                      if (info && info.regions) {
-                        const regs = Object.keys(info.regions).sort((a,b)=> (info.regions[b]||0) - (info.regions[a]||0));
-                        const lines = [];
-                        for (const r of regs) lines.push(r + ': ' + (info.regions[r]||0));
-                        return lines;
+                enabled: false,
+                external: function(context) {
+                  try {
+                    const tooltipModel = context.tooltip;
+                    let tooltipEl = document.getElementById('year-tooltip');
+                    const chartCanvas = canvas;
+                    const parent = container || (chartCanvas && chartCanvas.parentElement) || document.body;
+                    if (!tooltipEl) {
+                      tooltipEl = document.createElement('div');
+                      tooltipEl.id = 'year-tooltip';
+                      tooltipEl.style.position = 'absolute';
+                      tooltipEl.style.pointerEvents = 'none';
+                      tooltipEl.style.zIndex = 9999;
+                      tooltipEl.style.minWidth = '160px';
+                      tooltipEl.style.background = 'white';
+                      tooltipEl.style.border = '1px solid rgba(0,0,0,0.12)';
+                      tooltipEl.style.borderRadius = '6px';
+                      tooltipEl.style.padding = '8px 10px';
+                      tooltipEl.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)';
+                      tooltipEl.style.fontSize = '13px';
+                      tooltipEl.style.color = '#111';
+                      parent.appendChild(tooltipEl);
+                    }
+
+                    if (!tooltipModel || tooltipModel.opacity === 0) { tooltipEl.style.display = 'none'; return; }
+
+                    const dataIndex = (tooltipModel.dataPoints && tooltipModel.dataPoints[0]) ? tooltipModel.dataPoints[0].dataIndex : null;
+                    if (dataIndex === null) { tooltipEl.style.display = 'none'; return; }
+
+                    // Aggregate region counts for this year (dataIndex corresponds to index in yearsToShow)
+                    const yearKey = String(yearsToShow[dataIndex]);
+                    const info = regionBreakdown && regionBreakdown[yearKey] ? regionBreakdown[yearKey] : null;
+                    const agg = Object.create(null);
+                    if (info && info.regions) {
+                      for (const r of Object.keys(info.regions || {})) agg[r] = info.regions[r] || 0;
+                    }
+
+                    // Build HTML: list regions sorted by count with color swatches
+                    const entries = Object.keys(agg).map(r => ({ region: r, count: agg[r] })).filter(e=>e.count>0).sort((a,b)=>b.count-a.count);
+                    let html = '';
+                    if (!entries.length) html += '<div style="color:#666">Geen inschrijvingen</div>';
+                    else {
+                      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+                      for (const e of entries) {
+                        const color = getColorForRegion(e.region) || '#999';
+                        html += '<div style="display:flex;align-items:center;gap:8px;">';
+                        html += '<span style="width:12px;height:12px;border-radius:2px;display:inline-block;background:' + color + ';"></span>';
+                        html += '<span style="flex:1;color:#111">' + String(e.region || 'Onbekend') + '</span>';
+                        html += '<span style="color:#222;font-weight:600">' + String(e.count) + '</span>';
+                        html += '</div>';
                       }
-                      return '';
-                    } catch(_) { return ''; }
-                  }
+                      html += '</div>';
+                    }
+
+                    tooltipEl.innerHTML = html;
+                    tooltipEl.style.display = 'block';
+                    const canvasRect = chartCanvas.getBoundingClientRect();
+                    const caretX = tooltipModel.caretX || (canvasRect.width/2);
+                    const caretY = tooltipModel.caretY || 0;
+                    const left = Math.round(canvasRect.left + window.scrollX + caretX + 12);
+                    const top = Math.round(canvasRect.top + window.scrollY + caretY - 10);
+                    tooltipEl.style.left = left + 'px';
+                    tooltipEl.style.top = top + 'px';
+                  } catch(_) { }
                 }
               }
             },
@@ -529,33 +578,104 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
             plugins: {
               legend: { display: true },
               title: { display: true, text: 'Inschrijvingen per rit' },
+              // Use an external tooltip so we can aggregate region counts for the whole bar
               tooltip: {
-                displayColors: false,
-                callbacks: {
-                  label: function(context) {
+                enabled: false,
+                external: function(context) {
+                  try {
+                    const tooltipModel = context.tooltip;
+                    let tooltipEl = document.getElementById('perride-tooltip');
+                    const chartCanvas = canvas;
+                    const parent = container || (chartCanvas && chartCanvas.parentElement) || document.body;
+                    if (!tooltipEl) {
+                      tooltipEl = document.createElement('div');
+                      tooltipEl.id = 'perride-tooltip';
+                      tooltipEl.style.position = 'absolute';
+                      tooltipEl.style.pointerEvents = 'none';
+                      tooltipEl.style.zIndex = 9999;
+                      tooltipEl.style.minWidth = '140px';
+                      tooltipEl.style.background = 'white';
+                      tooltipEl.style.border = '1px solid rgba(0,0,0,0.12)';
+                      tooltipEl.style.borderRadius = '6px';
+                      tooltipEl.style.padding = '8px 10px';
+                      tooltipEl.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)';
+                      tooltipEl.style.fontSize = '13px';
+                      tooltipEl.style.color = '#111';
+                      parent.appendChild(tooltipEl);
+                    }
+
+                    // Hide if no tooltip
+                    if (!tooltipModel || tooltipModel.opacity === 0) {
+                      tooltipEl.style.display = 'none';
+                      return;
+                    }
+
+                    // Determine index of hovered bar
+                    const dataIndex = (tooltipModel.dataPoints && tooltipModel.dataPoints[0]) ? tooltipModel.dataPoints[0].dataIndex : null;
+                    if (dataIndex === null) {
+                      tooltipEl.style.display = 'none';
+                      return;
+                    }
+
+                    // Aggregate region counts across all years for this position
+                    const agg = Object.create(null);
                     try {
-                      const datasetIndex = typeof context.datasetIndex === 'number' ? context.datasetIndex : 0;
-                      const dataIndex = typeof context.dataIndex === 'number' ? context.dataIndex : (parseInt(String(context.label||'').replace(/\D/g,''),10)-1);
-                      const year = (perRideDetail.years && perRideDetail.years[datasetIndex]) ? perRideDetail.years[datasetIndex] : null;
-                      // if datasets include aggregatedBreakdown (regio mode), use it
-                      const ds = (perRideChartInstance && perRideChartInstance.data && perRideChartInstance.data.datasets && perRideChartInstance.data.datasets[datasetIndex]) ? perRideChartInstance.data.datasets[datasetIndex] : null;
-                      let info = null;
-                      if (ds && ds.aggregatedBreakdown && Array.isArray(ds.aggregatedBreakdown) && typeof ds.aggregatedBreakdown[dataIndex] !== 'undefined') {
-                        info = ds.aggregatedBreakdown[dataIndex];
-                      } else {
-                        // fallback to original perRideDetail mapping (chronological)
-                        const origIndex = dataIndex;
-                        info = year && perRideDetail.breakdown && perRideDetail.breakdown[year] && perRideDetail.breakdown[year][origIndex] ? perRideDetail.breakdown[year][origIndex] : null;
+                      if (perRideDetail && perRideDetail.years && Array.isArray(perRideDetail.years)) {
+                        for (const y of perRideDetail.years) {
+                          try {
+                            const info = perRideDetail.breakdown && perRideDetail.breakdown[y] && perRideDetail.breakdown[y][dataIndex] ? perRideDetail.breakdown[y][dataIndex] : null;
+                            if (info && info.regions) {
+                              for (const r of Object.keys(info.regions)) agg[r] = (agg[r] || 0) + (info.regions[r] || 0);
+                            }
+                          } catch(_){ }
+                        }
                       }
-                      if (info && info.regions) {
-                        const regs = Object.keys(info.regions).sort((a,b)=> (info.regions[b]||0) - (info.regions[a]||0));
-                        const lines = [];
-                        for (const r of regs) lines.push(r + ': ' + (info.regions[r]||0));
-                        return lines;
+                      // In 'regio' aggregated datasets mode, also include aggregatedBreakdown if present on datasets
+                      if (datasets && datasets.length) {
+                        for (const ds of datasets) {
+                          try {
+                            if (ds && Array.isArray(ds.aggregatedBreakdown) && typeof ds.aggregatedBreakdown[dataIndex] !== 'undefined') {
+                              const info = ds.aggregatedBreakdown[dataIndex];
+                              if (info && info.regions) for (const r of Object.keys(info.regions)) agg[r] = (agg[r] || 0) + (info.regions[r] || 0);
+                            }
+                          } catch(_){ }
+                        }
                       }
-                      return '';
-                    } catch(_) { return '' }
-                  }
+                    } catch(_){ }
+
+                    // Build tooltip content (title = label only, then list regions)
+                    const label = String((labels && labels[dataIndex]) ? labels[dataIndex] : ('Rit ' + (dataIndex+1)));
+                    const entries = Object.keys(agg).map(r => ({ region: r, count: agg[r] })).filter(e=>e.count>0).sort((a,b)=>b.count-a.count);
+
+                    let html = '<div style="font-weight:600;margin-bottom:6px;">' + (label || '') + '</div>';
+                    if (!entries.length) {
+                      html += '<div style="color:#666">Geen inschrijvingen</div>';
+                    } else {
+                      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+                      for (const e of entries) {
+                        const color = getColorForRegion(e.region) || '#999';
+                        const safeName = String(e.region || 'Onbekend');
+                        html += '<div style="display:flex;align-items:center;gap:8px;">';
+                        html += '<span style="width:12px;height:12px;border-radius:2px;display:inline-block;background:' + color + ';"></span>';
+                        html += '<span style="flex:1;color:#111">' + safeName + '</span>';
+                        html += '<span style="color:#222;font-weight:600">' + String(e.count) + '</span>';
+                        html += '</div>';
+                      }
+                      html += '</div>';
+                    }
+
+                    tooltipEl.innerHTML = html;
+                    tooltipEl.style.display = 'block';
+
+                    // Position tooltip near caret
+                    const canvasRect = chartCanvas.getBoundingClientRect();
+                    const caretX = tooltipModel.caretX || (canvasRect.width/2);
+                    const caretY = tooltipModel.caretY || 0;
+                    const left = Math.round(canvasRect.left + window.scrollX + caretX + 12);
+                    const top = Math.round(canvasRect.top + window.scrollY + caretY - 10);
+                    tooltipEl.style.left = left + 'px';
+                    tooltipEl.style.top = top + 'px';
+                  } catch(_){ }
                 }
               }
             },
@@ -573,6 +693,18 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
     function getColorForRegion(name) {
       try {
         if (!name) return 'rgba(201,203,207,0.85)';
+        const key = String(name).toLowerCase().trim();
+        const REGION_COLORS = {
+          'zuidwest': 'rgb(255,66,20)',       // CMYK 0/74/92/0
+          'midden': 'rgb(89,255,0)',          // CMYK 65/0/100/0 (approx)
+          'zuid': 'rgb(255,13,20)',           // CMYK 0/95/92/0
+          'noordoost': 'rgb(110,255,217)',    // CMYK 57/0/15/0
+          'noordwest': 'rgb(61,31,255)'       // CMYK 76/88/0/0
+        };
+        for (const k of Object.keys(REGION_COLORS)) {
+          if (key === k || key.includes(k)) return REGION_COLORS[k];
+        }
+        // fallback deterministic color
         let n = 0;
         for (let i = 0; i < name.length; i++) n = (n * 31 + name.charCodeAt(i)) & 0xffffffff;
         const h = Math.abs(n) % 360;
@@ -707,6 +839,77 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
       } catch(_) { return { years: [], bucketsByYear: {} }; }
     }
 
+      // Fetch region breakdown per star-bucket (1..5) aggregated across selected years
+      async function fetchStarsRegionBreakdown(selectedYears) {
+        try {
+          const years = (Array.isArray(selectedYears) ? Array.from(new Set(selectedYears.map(String))) : []).sort((a,b)=>Number(a)-Number(b));
+          const cacheKey = 'members_stars_regions_' + years.join(',');
+          const cached = cacheRead(cacheKey); if (cached) return cached;
+          try { await initFirebase(); } catch(_){ }
+          const out = { '1': {}, '2': {}, '3': {}, '4': {}, '5': {} };
+          if (!db) return out;
+          const coll = collection(db, 'members');
+          const snap = await getDocs(coll).catch(()=>null);
+          if (!snap || !Array.isArray(snap.docs)) { try { cacheWrite(cacheKey, out, 30*1000); } catch(_){} return out; }
+
+          for (const sdoc of snap.docs) {
+            try {
+              const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
+              const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums : (Array.isArray(data.scandatums) ? data.scandatums : (Array.isArray(data.scans) ? data.scans : []));
+              if (!Array.isArray(scans) || scans.length === 0) continue;
+              let memberRegion = 'Onbekend';
+              try {
+                const possible = data && (data['Regio Omschrijving'] || data.RegioOmschrijving || data.regioOmschrijving || data.regio || data.region || data.regionName || data.regionnaam || data.regio_omschrijving);
+                if (possible && String(possible).trim()) memberRegion = String(possible).trim();
+              } catch(_){ }
+
+              // determine Jaarhanger per year (reuse logic from fetchStarsByYear)
+              const jaarEnabled = {};
+              try {
+                if (data && data.Jaarhanger && typeof data.Jaarhanger === 'object') {
+                  for (const y of years) {
+                    try {
+                      const vv = data.Jaarhanger && (data.Jaarhanger[y] || data.Jaarhanger[String(y)]);
+                      let ok = false;
+                      if (typeof vv === 'string' && vv.toLowerCase().indexOf('j') === 0) ok = true;
+                      else if (typeof vv === 'boolean' && vv) ok = true;
+                      else if (typeof vv === 'number' && vv === 1) ok = true;
+                      jaarEnabled[String(y)] = ok;
+                    } catch(_){ jaarEnabled[String(y)] = false; }
+                  }
+                } else {
+                  const v = data && (data.Jaarhanger || data.jaarhanger || data.JaarHanger || data.jaarHanger);
+                  let ok = false;
+                  if (typeof v === 'string') { if (v.toLowerCase().indexOf('j') === 0) ok = true; }
+                  else if (typeof v === 'boolean') { ok = Boolean(v); }
+                  else if (typeof v === 'number') { ok = v === 1; }
+                  for (const y of years) jaarEnabled[String(y)] = ok;
+                }
+              } catch(_){ for (const y of years) jaarEnabled[String(y)] = false; }
+
+              // build normalized scan counts per year
+              const scanYears = new Map();
+              for (const s of scans) {
+                try { const yr = extractYear(s); if (yr) scanYears.set(String(yr), (scanYears.get(String(yr))||0) + 1); } catch(_){ }
+              }
+
+              for (const y of years) {
+                try {
+                  if (!jaarEnabled[String(y)]) continue;
+                  const count = scanYears.get(String(y)) || 0;
+                  if (count <= 0) continue;
+                  const bucket = count >= 5 ? '5' : String(Math.max(1, Math.min(5, Math.floor(count))));
+                  out[bucket][memberRegion] = (out[bucket][memberRegion] || 0) + 1;
+                } catch(_){ }
+              }
+            } catch(_){ }
+          }
+
+          try { cacheWrite(cacheKey, out, 60*1000); } catch(_){ }
+          return out;
+        } catch(_) { return { '1': {}, '2': {}, '3': {}, '4': {}, '5': {} }; }
+      }
+
     // Render stars chart
     let starsChartInstance = null;
     async function renderStarsChart(selectedYears) {
@@ -742,6 +945,8 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
           const dataArr = labels.map(l => Number(by[l] || 0));
           datasets.push({ label: String(y), data: dataArr, backgroundColor: getColorForYear(y) });
         }
+        // prefetch region breakdown per star-bucket for tooltip (aggregated across selected years)
+        const starsRegionBreakdown = await fetchStarsRegionBreakdown(yearsToShow).catch(()=>({ '1':{}, '2':{}, '3':{}, '4':{}, '5':{} }));
         // compute max across datasets
         let maxv = 0; for (const ds of datasets) for (const v of (ds.data||[])) if (Number(v) > maxv) maxv = Number(v);
         const suggestedMax = Math.max(1, Math.ceil(maxv));
@@ -751,7 +956,70 @@ import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase
           data: { labels: labels.map(s=>s + ' sterren'), datasets: datasets },
           options: {
             indexAxis: 'y',
-            plugins: { legend:{ display:true }, title:{ display:true, text: 'Jaarhanger sterren' } },
+            plugins: {
+              legend:{ display:true },
+              title:{ display:true, text: 'Jaarhanger sterren' },
+              tooltip: {
+                enabled: false,
+                external: function(context) {
+                  try {
+                    const tooltipModel = context.tooltip;
+                    let tooltipEl = document.getElementById('stars-tooltip');
+                    const chartCanvas = canvas;
+                    const parent = container || (chartCanvas && chartCanvas.parentElement) || document.body;
+                    if (!tooltipEl) {
+                      tooltipEl = document.createElement('div');
+                      tooltipEl.id = 'stars-tooltip';
+                      tooltipEl.style.position = 'absolute';
+                      tooltipEl.style.pointerEvents = 'none';
+                      tooltipEl.style.zIndex = 9999;
+                      tooltipEl.style.minWidth = '140px';
+                      tooltipEl.style.background = 'white';
+                      tooltipEl.style.border = '1px solid rgba(0,0,0,0.12)';
+                      tooltipEl.style.borderRadius = '6px';
+                      tooltipEl.style.padding = '8px 10px';
+                      tooltipEl.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)';
+                      tooltipEl.style.fontSize = '13px';
+                      tooltipEl.style.color = '#111';
+                      parent.appendChild(tooltipEl);
+                    }
+
+                    if (!tooltipModel || tooltipModel.opacity === 0) { tooltipEl.style.display = 'none'; return; }
+                    const dataIndex = (tooltipModel.dataPoints && tooltipModel.dataPoints[0]) ? tooltipModel.dataPoints[0].dataIndex : null;
+                    if (dataIndex === null) { tooltipEl.style.display = 'none'; return; }
+
+                    // Use precomputed region breakdown for this star bucket
+                    const bucketKey = String((typeof dataIndex === 'number') ? (dataIndex+1) : (labels && labels[0] || '1'));
+                    const map = (starsRegionBreakdown && starsRegionBreakdown[bucketKey]) ? starsRegionBreakdown[bucketKey] : {};
+                    const entries = Object.keys(map).map(r => ({ region: r, count: map[r] })).filter(e=>e.count>0).sort((a,b)=>b.count-a.count);
+                    let html = '';
+                    if (!entries.length) html += '<div style="color:#666">Geen inschrijvingen</div>';
+                    else {
+                      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+                      for (const e of entries) {
+                        const c = getColorForRegion(e.region) || '#999';
+                        html += '<div style="display:flex;align-items:center;gap:8px;">';
+                        html += '<span style="width:12px;height:12px;border-radius:2px;display:inline-block;background:' + c + ';"></span>';
+                        html += '<span style="flex:1;color:#111">' + String(e.region || '') + '</span>';
+                        html += '<span style="color:#222;font-weight:600">' + String(e.count) + '</span>';
+                        html += '</div>';
+                      }
+                      html += '</div>';
+                    }
+
+                    tooltipEl.innerHTML = html;
+                    tooltipEl.style.display = 'block';
+                    const canvasRect = chartCanvas.getBoundingClientRect();
+                    const caretX = tooltipModel.caretX || (canvasRect.width/2);
+                    const caretY = tooltipModel.caretY || 0;
+                    const left = Math.round(canvasRect.left + window.scrollX + caretX + 12);
+                    const top = Math.round(canvasRect.top + window.scrollY + caretY - 10);
+                    tooltipEl.style.left = left + 'px';
+                    tooltipEl.style.top = top + 'px';
+                  } catch(_) { }
+                }
+              }
+            },
             responsive:true, maintainAspectRatio:false,
             scales: {
               x: { beginAtZero:true, suggestedMax: suggestedMax, ticks:{ stepSize:1, precision:0 } },
