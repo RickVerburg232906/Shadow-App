@@ -1,27 +1,20 @@
 // src/data.js
-// Populate the ride years strip on the Data admin page.
-import { getRideConfig, initFirebase, db, doc, getDoc, collection, getDocs, getPlannedDates } from './firebase.js';
+// Populate the ride years strip and the per-year chart on the Data admin page.
+import { getRideConfig, initFirebase, db, collection, getDocs } from './firebase.js';
 
-// Top-level async IIFE to scope variables and start the page logic
-(async function() {
+(async function(){
   try {
     let dataCache = null;
     try { dataCache = JSON.parse(sessionStorage.getItem('datapage_cache') || 'null'); } catch(_) { dataCache = null; }
     const strip = document.getElementById('ride-years-strip') || document.body;
 
-    // Simple sessionStorage-backed cache with TTL (milliseconds)
-    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    const CACHE_TTL = 5 * 60 * 1000;
     function cacheRead(key) {
       try {
         if (!dataCache || !dataCache._cache || !dataCache._cache[key]) return null;
         const e = dataCache._cache[key];
         if (!e || typeof e.ts !== 'number') return null;
-        if ((Date.now() - e.ts) > (e.ttl || CACHE_TTL)) {
-          // expired
-          delete dataCache._cache[key];
-          try { sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache)); } catch(_){}
-          return null;
-        }
+        if ((Date.now() - e.ts) > (e.ttl || CACHE_TTL)) { delete dataCache._cache[key]; try { sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache)); } catch(_){} return null; }
         return e.value;
       } catch(_) { return null; }
     }
@@ -30,123 +23,13 @@ import { getRideConfig, initFirebase, db, doc, getDoc, collection, getDocs, getP
         dataCache = dataCache || {};
         dataCache._cache = dataCache._cache || {};
         dataCache._cache[key] = { ts: Date.now(), ttl: (typeof ttl === 'number' ? ttl : CACHE_TTL), value };
-        try { sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache)); } catch(_){}
-      } catch(_){}
+        try { sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache)); } catch(_){ }
+      } catch(_){ }
     }
 
-// Global date extractor usable by functions outside the init IIFE
-function extractDateGlobal(val) {
-  try {
-    if (val === null || typeof val === 'undefined') return null;
-    if (typeof val === 'string') {
-      const m = val.match(/^(\s*(\d{4}-\d{2}-\d{2}))/);
-      if (m && m[2]) return m[2];
-      const d = new Date(val);
-      if (!isNaN(d)) return d.toISOString().slice(0,10);
-      return null;
-    }
-    if (typeof val === 'number') {
-      const tryMs = new Date(val);
-      if (!isNaN(tryMs)) return tryMs.toISOString().slice(0,10);
-      const trySecs = new Date(val * 1000);
-      if (!isNaN(trySecs)) return trySecs.toISOString().slice(0,10);
-    }
-    if (val instanceof Date) return val.toISOString().slice(0,10);
-    if (typeof val === 'object') {
-      if (typeof val.toDate === 'function') {
-        try { const d = val.toDate(); if (d instanceof Date && !isNaN(d)) return d.toISOString().slice(0,10); } catch(_){ }
-      }
-      if (typeof val.seconds === 'number') {
-        const d = new Date(val.seconds * 1000);
-        if (!isNaN(d)) return d.toISOString().slice(0,10);
-      }
-    }
-    } catch(_){ }
-    return null;
-  }
-
-    let cfg = null;
-
-    if (dataCache && dataCache.rideConfig) {
-      cfg = dataCache.rideConfig;
-    } else {
-      try {
-        cfg = await getRideConfig();
-        if (cfg) {
-          dataCache = dataCache || {};
-          dataCache.rideConfig = cfg;
-          try { sessionStorage.setItem('datapage_cache', JSON.stringify(dataCache)); } catch(_){}
-        }
-      } catch(_) { cfg = null; }
-    }
-    strip.innerHTML = '';
-    if (!cfg || typeof cfg !== 'object') {
-      strip.innerHTML = '<div class="year-chip">Geen jaren</div>';
-      return;
-    }
-    const years = Object.keys(cfg).filter(k => /^\d{4}$/.test(k)).sort((a,b)=>Number(b)-Number(a));
-    if (!years.length) {
-      strip.innerHTML = '<div class="year-chip">Geen jaren</div>';
-      return;
-    }
-    for (const y of years) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'year-chip';
-      btn.textContent = y;
-      btn.dataset.year = y;
-      btn.setAttribute('aria-pressed', 'false');
-      btn.addEventListener('click', (ev) => {
-        try {
-          const isSelected = btn.classList.contains('selected');
-          if (isSelected) {
-            try { btn.classList.remove('selected'); btn.setAttribute('aria-pressed','false'); } catch(_){}
-          } else {
-            try { btn.classList.add('selected'); btn.setAttribute('aria-pressed','true'); } catch(_){}
-          }
-          const selected = !isSelected;
-          document.dispatchEvent(new CustomEvent('ride:year:selected', { detail: { year: y, selected } }));
-          const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el => el.dataset.year);
-          document.dispatchEvent(new CustomEvent('ride:years:changed', { detail: { years: selectedYears } }));
-        } catch(_){}
-      });
-      strip.appendChild(btn);
-    }
-    // Auto-select current year (fallback to first available) to ensure one year selected on page open
-    try {
-      const currentYear = String((new Date()).getFullYear());
-      let selectedChip = strip.querySelector(`.year-chip[data-year="${currentYear}"]`);
-      if (!selectedChip && years.length) selectedChip = strip.querySelector(`.year-chip[data-year="${years[0]}"]`);
-      if (selectedChip) {
-        try { selectedChip.classList.add('selected'); selectedChip.setAttribute('aria-pressed','true'); } catch(_){}
-        const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el => el.dataset.year);
-        try { document.dispatchEvent(new CustomEvent('ride:year:selected', { detail: { year: selectedChip.dataset.year, selected: true } })); } catch(_){}
-        try { document.dispatchEvent(new CustomEvent('ride:years:changed', { detail: { years: selectedYears } })); } catch(_){}
-      }
-    } catch (_) {}
-    // Create chart container under the year strip (full width)
-    let chart = document.getElementById('ride-years-chart');
-    if (!chart) {
-      chart = document.createElement('div');
-      chart.id = 'ride-years-chart';
-      chart.className = 'year-chart';
-      // Prefer the dedicated container if present, otherwise fall back to title/strip insertion
-      try {
-        const container = document.getElementById('ride-years-chart-container');
-        if (container) {
-          container.appendChild(chart);
-        } else {
-          const staticTitle = document.getElementById('ride-years-chart-title');
-          if (staticTitle && staticTitle.parentNode) staticTitle.insertAdjacentElement('afterend', chart);
-          else strip.insertAdjacentElement('afterend', chart);
-        }
-      } catch(_) { try { strip.insertAdjacentElement('afterend', chart); } catch(_) { document.body.insertBefore(chart, document.body.firstChild); } }
-    }
-
-    // Helper: robust year extractor used for caching and counting
     function extractYear(val) {
       try {
-        if (val === null || typeof val === 'undefined') return null;
+        if (!val && val !== 0) return null;
         if (typeof val === 'string') {
           const m = val.match(/^\s*(\d{4})/);
           if (m) return Number(m[1]);
@@ -156,84 +39,540 @@ function extractDateGlobal(val) {
         }
         if (typeof val === 'number') {
           if (String(val).length === 4) return Number(val);
-          const tryMs = new Date(val);
-          if (!isNaN(tryMs)) return tryMs.getFullYear();
-          const trySecs = new Date(val * 1000);
-          if (!isNaN(trySecs)) return trySecs.getFullYear();
+          const d = new Date(val);
+          if (!isNaN(d)) return d.getFullYear();
+          const ds = new Date(val*1000);
+          if (!isNaN(ds)) return ds.getFullYear();
         }
         if (val instanceof Date) return val.getFullYear();
         if (typeof val === 'object') {
           if (typeof val.toDate === 'function') {
             try { const d = val.toDate(); if (d instanceof Date && !isNaN(d)) return d.getFullYear(); } catch(_){ }
           }
-          if (typeof val.seconds === 'number') {
-            const d = new Date(val.seconds * 1000);
-            if (!isNaN(d)) return d.getFullYear();
-          }
+          if (typeof val.seconds === 'number') return (new Date(val.seconds*1000)).getFullYear();
         }
       } catch(_){}
       return null;
     }
 
-    function extractDate(val) {
+    // Build and render year chips
+    let cfg = null;
+    try { cfg = cacheRead('rideConfig') || await getRideConfig(); } catch(_) { cfg = null; }
+    if (cfg) { try { cacheWrite('rideConfig', cfg, 60*1000); } catch(_){} }
+    strip.innerHTML = '';
+    if (!cfg || typeof cfg !== 'object') { strip.innerHTML = '<div class="year-chip">Geen jaren</div>'; return; }
+    const years = Object.keys(cfg).filter(k => /^\d{4}$/.test(k)).sort((a,b)=>Number(b)-Number(a));
+    if (!years.length) { strip.innerHTML = '<div class="year-chip">Geen jaren</div>'; return; }
+    for (const y of years) {
+      const btn = document.createElement('button'); btn.type='button'; btn.className='year-chip'; btn.textContent=y; btn.dataset.year=y; btn.setAttribute('aria-pressed','false');
+      btn.addEventListener('click', ()=>{
+        const isSelected = btn.classList.contains('selected');
+        if (isSelected) { btn.classList.remove('selected'); btn.setAttribute('aria-pressed','false'); }
+        else { btn.classList.add('selected'); btn.setAttribute('aria-pressed','true'); }
+        const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year);
+        try { console.debug('year-chip clicked', { clicked: btn.dataset.year, isSelected: !isSelected, selectedYears }); } catch(_){}
+        document.dispatchEvent(new CustomEvent('ride:years:changed', { detail: { years: selectedYears } }));
+      });
+      strip.appendChild(btn);
+    }
+    // Auto select current or first
+    try {
+      const currentYear = String((new Date()).getFullYear());
+      let sel = strip.querySelector(`.year-chip[data-year="${currentYear}"]`);
+      if (!sel && years.length) sel = strip.querySelector(`.year-chip[data-year="${years[0]}"]`);
+      if (sel) { sel.classList.add('selected'); sel.setAttribute('aria-pressed','true'); const yrs = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year); document.dispatchEvent(new CustomEvent('ride:years:changed', { detail: { years: yrs } })); }
+    } catch(_){ }
+
+    // Fetch simple per-year counts from members collection
+    async function fetchCountsForYears(selectedYears) {
       try {
-        if (val === null || typeof val === 'undefined') return null;
-        if (typeof val === 'string') {
-          const m = val.match(/^(\s*(\d{4}-\d{2}-\d{2}))/);
-          if (m && m[2]) return m[2];
-          const d = new Date(val);
-          if (!isNaN(d)) {
-            return d.toISOString().slice(0,10);
-          }
-          return null;
+        const out = {};
+        for (const y of selectedYears) out[String(y)] = 0;
+        const cacheKey = 'members_year_counts_simple_' + String(selectedYears.slice().sort().join(','));
+        const cached = cacheRead(cacheKey); if (cached) return cached;
+        try { await initFirebase(); } catch(_){ }
+        if (!db) return out;
+        const coll = collection(db, 'members');
+        const snap = await getDocs(coll).catch(()=>null);
+        if (!snap || !Array.isArray(snap.docs)) return out;
+        for (const sdoc of snap.docs) {
+          try {
+            const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
+            const raw = data && (data.ScanDatums || data.scandatums || data.scans) ? (data.ScanDatums || data.scandatums || data.scans) : null;
+            if (!Array.isArray(raw)) continue;
+            for (const entry of raw) {
+              try {
+                const yr = extractYear(entry);
+                if (!yr) continue;
+                const ys = String(yr);
+                if (Object.prototype.hasOwnProperty.call(out, ys)) out[ys] = (out[ys] || 0) + 1;
+              } catch(_){ }
+            }
+          } catch(_){ }
         }
-        if (typeof val === 'number') {
-          // ms or seconds
-          const tryMs = new Date(val);
-          if (!isNaN(tryMs)) return tryMs.toISOString().slice(0,10);
-          const trySecs = new Date(val * 1000);
-          if (!isNaN(trySecs)) return trySecs.toISOString().slice(0,10);
-        }
-        if (val instanceof Date) return val.toISOString().slice(0,10);
-        if (typeof val === 'object') {
-          if (typeof val.toDate === 'function') {
-            try { const d = val.toDate(); if (d instanceof Date && !isNaN(d)) return d.toISOString().slice(0,10); } catch(_){ }
-          }
-          if (typeof val.seconds === 'number') {
-            const d = new Date(val.seconds * 1000);
-            if (!isNaN(d)) return d.toISOString().slice(0,10);
-          }
-        }
-      } catch(_){}
-      return null;
+        try { cacheWrite(cacheKey, out, 60*1000); } catch(_){ }
+        return out;
+      } catch(_) { return selectedYears.reduce((acc,y)=>(acc[y]=0,acc),{}); }
     }
 
-    // Deterministic color per year helper
-    function getColorForYear(y) {
+    // Fetch distinct member-region names from members collection (cached)
+    async function fetchMemberRegions() {
       try {
-        const yr = Number(y) || 0;
-        const h = (yr * 47) % 360;
-        return `hsl(${h},65%,50%)`;
-      } catch(_) { return 'rgba(54,162,235,0.85)'; }
+        const cacheKey = 'member_regions_global';
+        const cached = cacheRead(cacheKey);
+        if (cached) return cached.slice();
+        try { await initFirebase(); } catch(_){ }
+        if (!db) return [];
+        const coll = collection(db, 'members');
+        const snap = await getDocs(coll).catch(()=>null);
+        const set = new Set();
+        if (snap && Array.isArray(snap.docs)) {
+          for (const sdoc of snap.docs) {
+            try {
+              const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
+              const possible = data && (data['Regio Omschrijving'] || data.RegioOmschrijving || data.regioOmschrijving || data.regio || data.region || data.regionName || data.regionnaam || data.regio_omschrijving);
+              if (possible && String(possible).trim()) set.add(String(possible).trim());
+            } catch(_){ }
+          }
+        }
+        const out = Array.from(set).sort();
+        try { cacheWrite(cacheKey, out, 10*60*1000); } catch(_){ }
+        return out;
+      } catch(_) { return []; }
     }
 
-    // Deterministic color per region name, with explicit mapping for known regio's
+    // Fetch counts per region for each selected year
+    async function fetchCountsByRegionPerYear(selectedYears) {
+      try {
+        const out = {};
+        for (const y of selectedYears) out[String(y)] = { total: 0, regions: {} };
+        const cacheKey = 'members_region_counts_' + String(selectedYears.slice().sort().join(','));
+        const cached = cacheRead(cacheKey); if (cached) return cached;
+        try { await initFirebase(); } catch(_){ }
+        if (!db) return out;
+        const coll = collection(db, 'members');
+        const snap = await getDocs(coll).catch(()=>null);
+        if (!snap || !Array.isArray(snap.docs)) return out;
+        for (const sdoc of snap.docs) {
+          try {
+            const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
+            const raw = data && (data.ScanDatums || data.scandatums || data.scans) ? (data.ScanDatums || data.scandatums || data.scans) : null;
+            if (!Array.isArray(raw)) continue;
+            // determine member region for this document
+            let memberRegion = 'Onbekend';
+            try {
+              const possible = data && (data['Regio Omschrijving'] || data.RegioOmschrijving || data.regioOmschrijving || data.regio || data.region || data.regionName || data.regionnaam || data.regio_omschrijving);
+              if (possible && String(possible).trim()) memberRegion = String(possible).trim();
+            } catch(_){ }
+            for (const entry of raw) {
+              try {
+                const yr = extractYear(entry);
+                if (!yr) continue;
+                const ys = String(yr);
+                if (!Object.prototype.hasOwnProperty.call(out, ys)) continue;
+                out[ys].total = (out[ys].total || 0) + 1;
+                out[ys].regions[memberRegion] = (out[ys].regions[memberRegion] || 0) + 1;
+              } catch(_){ }
+            }
+          } catch(_){ }
+        }
+        try { cacheWrite(cacheKey, out, 60*1000); } catch(_){ }
+        return out;
+      } catch(_) { return selectedYears.reduce((acc,y)=>(acc[String(y)]={total:0,regions:{}},acc),{}); }
+    }
+
+    // Chart rendering
+    let yearChartInstance = null;
+    let perRideChartInstance = null;
+    async function renderChartForYears(selectedYears) {
+      try {
+        const chartContainer = document.getElementById('ride-years-chart') || (function(){ const c = document.getElementById('ride-years-chart-container'); if (c) return c.appendChild(document.createElement('div')) && document.getElementById('ride-years-chart'); return null; })();
+        const container = document.getElementById('ride-years-chart-container') || chartContainer || document.body;
+        // Ensure any existing chart on this canvas is destroyed and canvas removed, then create a fresh canvas
+        try {
+          const existingCanvas = document.getElementById('yearSummaryChart');
+          if (existingCanvas) {
+            try { const existingChart = (typeof Chart !== 'undefined' && Chart && typeof Chart.getChart === 'function') ? Chart.getChart(existingCanvas) : null; if (existingChart) try{ existingChart.destroy(); }catch(_){} } catch(_){}
+            try { existingCanvas.remove(); } catch(_){}
+          }
+        } catch(_){}
+        let canvas = document.createElement('canvas'); canvas.id = 'yearSummaryChart'; canvas.style.width='100%'; canvas.style.height='100%'; container.innerHTML = ''; container.appendChild(canvas);
+        if (!Array.isArray(selectedYears) || selectedYears.length === 0) {
+          if (yearChartInstance) try{ yearChartInstance.destroy(); }catch(_){}
+          yearChartInstance=null;
+          try { const existing = (typeof Chart !== 'undefined' && Chart && typeof Chart.getChart === 'function') ? Chart.getChart(canvas) : null; if (existing) try{ existing.destroy(); }catch(_){ } } catch(_){}
+          container.innerHTML = '<div class="chart-empty">Geen jaar geselecteerd</div>';
+          return;
+        }
+        const yearsToShow = selectedYears.slice().sort((a,b)=>Number(a)-Number(b));
+        const counts = await fetchCountsForYears(yearsToShow);
+        const dataArr = yearsToShow.map(y => Number(counts[String(y)] || 0));
+        if (yearChartInstance) try{ yearChartInstance.destroy(); }catch(_){} yearChartInstance = null;
+        // build region breakdown for tooltips
+        const regionBreakdown = await fetchCountsByRegionPerYear(yearsToShow).catch(()=>({}));
+
+        // build stacked datasets per region so each year bar shows region distribution
+        const regions = await fetchMemberRegions().catch(()=>[]);
+        const regionList = Array.isArray(regions) && regions.length ? regions : (function(){
+          // fallback: derive regions from regionBreakdown
+          const s = new Set();
+          for (const y of yearsToShow) {
+            const r = regionBreakdown && regionBreakdown[y] && regionBreakdown[y].regions ? Object.keys(regionBreakdown[y].regions) : [];
+            for (const k of r) s.add(k);
+          }
+          return Array.from(s);
+        })();
+
+        const regionDatasets = regionList.map(rname => {
+          const data = yearsToShow.map(y => (regionBreakdown && regionBreakdown[y] && regionBreakdown[y].regions && typeof regionBreakdown[y].regions[rname] !== 'undefined') ? regionBreakdown[y].regions[rname] : 0);
+          return { label: rname || 'Onbekend', data, backgroundColor: getColorForRegion(rname) };
+        });
+
+        // size canvas appropriately
+        try { ensureCanvasHeight(canvas, 180); } catch(_){}
+        // compute stacked max to keep y-axis integer ticks
+        let maxStack = 0;
+        try {
+          for (let i=0;i<yearsToShow.length;i++) {
+            let s = 0;
+            for (const ds of regionDatasets) s += Number(ds.data && ds.data[i] ? ds.data[i] : 0);
+            if (s > maxStack) maxStack = s;
+          }
+        } catch(_) { maxStack = Math.max.apply(null, dataArr.concat([0])); }
+        const suggestedMaxYear = Math.max(1, Math.ceil(maxStack));
+
+        yearChartInstance = new Chart(canvas, {
+          type: 'bar',
+          data: { labels: yearsToShow, datasets: regionDatasets },
+          options: {
+            plugins: {
+              title: { display: true, text: (document.getElementById('ride-years-chart-title')||{}).textContent || 'Inschrijvingen per jaar' },
+              legend: { display: true },
+              tooltip: {
+                displayColors: false,
+                callbacks: {
+                  label: function(context) {
+                    try {
+                      const year = String(context.label || context.raw);
+                      const info = regionBreakdown && regionBreakdown[year] ? regionBreakdown[year] : null;
+                      if (info && info.regions) {
+                        const regs = Object.keys(info.regions).sort((a,b)=> (info.regions[b]||0) - (info.regions[a]||0));
+                        const lines = [];
+                        for (const r of regs) lines.push(r + ': ' + (info.regions[r]||0));
+                        return lines;
+                      }
+                      return '';
+                    } catch(_) { return ''; }
+                  }
+                }
+              }
+            },
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true, beginAtZero: true, suggestedMax: suggestedMaxYear, ticks: { stepSize: 1, precision: 0 } } }
+          }
+        });
+        // (regions legend removed)
+      } catch(e){ console.warn('renderChartForYears error', e); }
+    }
+
+    // Fetch counts per ride index across selected years (produce per-year arrays)
+    async function fetchCountsPerRide(selectedYears) {
+      try {
+        const years = (Array.isArray(selectedYears) ? selectedYears.slice().sort((a,b)=>Number(a)-Number(b)) : []).map(String);
+        const cacheKey = 'members_per_ride_counts_' + years.join(',');
+        const cached = cacheRead(cacheKey); if (cached) return cached;
+        try { await initFirebase(); } catch(_){ }
+        const out = { labels: [], years: years, countsByYear: {}, breakdown: {} };
+        if (!db) return out;
+        function plannedDatesForYear(y) {
+          try {
+            if (!cfg || typeof cfg !== 'object') return [];
+            if (cfg[String(y)] && typeof cfg[String(y)] === 'object') {
+              const keys = Object.keys(cfg[String(y)]).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)); keys.sort(); return keys;
+            }
+            if (Array.isArray(cfg.plannedDates)) {
+              return cfg.plannedDates.filter(d => String(d).indexOf(String(y)) === 0);
+            }
+            if (cfg.regions && typeof cfg.regions === 'object') {
+              const keys = Object.keys(cfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)); return keys.filter(k=>String(k).indexOf(String(y))===0).sort();
+            }
+            return [];
+          } catch(_) { return []; }
+        }
+        // prepare planned dates per year and determine max rides
+        const plannedByYear = {};
+        let maxRides = 0;
+        for (const y of years) {
+          const pd = plannedDatesForYear(y) || [];
+          plannedByYear[y] = pd;
+          if (pd.length > maxRides) maxRides = pd.length;
+        }
+        // labels
+        for (let i=0;i<maxRides;i++) out.labels.push('Rit ' + (i+1));
+        // init per-year arrays and breakdown structure
+        for (const y of years) {
+          out.countsByYear[y] = new Array(maxRides).fill(0);
+          out.breakdown[y] = new Array(maxRides).fill(null).map(()=>({ total:0, regions: {} }));
+        }
+        out.plannedByYear = plannedByYear;
+
+        const coll = collection(db, 'members');
+        const snap = await getDocs(coll).catch(()=>null);
+        if (!snap || !Array.isArray(snap.docs)) { try { cacheWrite(cacheKey, out, 30*1000); } catch(_){} return out; }
+        for (const sdoc of snap.docs) {
+          try {
+            const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
+            const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums : (Array.isArray(data.scandatums) ? data.scandatums : (Array.isArray(data.scans) ? data.scans : []));
+            if (!Array.isArray(scans) || scans.length === 0) continue;
+            let memberRegion = 'Onbekend';
+            try {
+              const possible = data && (data['Regio Omschrijving'] || data.RegioOmschrijving || data.regioOmschrijving || data.regio || data.region || data.regionName || data.regionnaam || data.regio_omschrijving);
+              if (possible && String(possible).trim()) memberRegion = String(possible).trim();
+            } catch(_){}
+            const norm = new Set(scans.map(s => {
+              try { const d = new Date(s); if (!isNaN(d)) return d.toISOString().slice(0,10); if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) return s; return String(s).slice(0,10); } catch(_) { return String(s); }
+            }));
+            for (const y of years) {
+              const pd = plannedByYear[y] || [];
+              for (let i=0;i<pd.length;i++) {
+                const d = pd[i]; if (!d) continue;
+                if (norm.has(String(d))) {
+                  out.countsByYear[y][i] = (out.countsByYear[y][i] || 0) + 1;
+                  out.breakdown[y][i].total = (out.breakdown[y][i].total || 0) + 1;
+                  out.breakdown[y][i].regions[memberRegion] = (out.breakdown[y][i].regions[memberRegion] || 0) + 1;
+                }
+              }
+            }
+          } catch(_){}
+        }
+        try { cacheWrite(cacheKey, out, 60*1000); } catch(_){}
+        return out;
+      } catch(_) { return { labels: [], years: [], countsByYear: {}, breakdown: {} }; }
+    }
+
+    // Fetch counts per ride index grouped by region for tooltip breakdown (per year)
+    async function fetchCountsByRegionPerRide(selectedYears) {
+      try {
+        const years = (Array.isArray(selectedYears) ? selectedYears.slice().sort((a,b)=>Number(a)-Number(b)) : []).map(String);
+        const cacheKey = 'members_per_ride_region_counts_' + years.join(',');
+        const cached = cacheRead(cacheKey); if (cached) return cached;
+        try { await initFirebase(); } catch(_){ }
+        const out = { labels: [], years: years, countsByYear: {}, breakdown: {} };
+        if (!db) return out;
+        function plannedDatesForYear(y) {
+          try {
+            if (!cfg || typeof cfg !== 'object') return [];
+            if (cfg[String(y)] && typeof cfg[String(y)] === 'object') {
+              const keys = Object.keys(cfg[String(y)]).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)); keys.sort(); return keys;
+            }
+            if (Array.isArray(cfg.plannedDates)) {
+              return cfg.plannedDates.filter(d => String(d).indexOf(String(y)) === 0);
+            }
+            if (cfg.regions && typeof cfg.regions === 'object') {
+              const keys = Object.keys(cfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)); return keys.filter(k=>String(k).indexOf(String(y))===0).sort();
+            }
+            return [];
+          } catch(_) { return []; }
+        }
+        const plannedByYear = {};
+        let maxRides = 0;
+        for (const y of years) {
+          const pd = plannedDatesForYear(y) || [];
+          plannedByYear[y] = pd;
+          if (pd.length > maxRides) maxRides = pd.length;
+        }
+        for (let i=0;i<maxRides;i++) out.labels.push('Rit ' + (i+1));
+        for (const y of years) {
+          out.countsByYear[y] = new Array(maxRides).fill(0);
+          out.breakdown[y] = new Array(maxRides).fill(null).map(()=>({ total:0, regions: {} }));
+        }
+
+        const coll = collection(db, 'members');
+        const snap = await getDocs(coll).catch(()=>null);
+        if (!snap || !Array.isArray(snap.docs)) { try { cacheWrite(cacheKey, out, 30*1000); } catch(_){} return out; }
+        for (const sdoc of snap.docs) {
+          try {
+            const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
+            const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums : (Array.isArray(data.scandatums) ? data.scandatums : (Array.isArray(data.scans) ? data.scans : []));
+            if (!Array.isArray(scans) || scans.length === 0) continue;
+            let memberRegion = 'Onbekend';
+            try {
+              const possible = data && (data['Regio Omschrijving'] || data.RegioOmschrijving || data.regioOmschrijving || data.regio || data.region || data.regionName || data.regionnaam || data.regio_omschrijving);
+              if (possible && String(possible).trim()) memberRegion = String(possible).trim();
+            } catch(_){}
+            const norm = new Set(scans.map(s => { try { const d = new Date(s); if (!isNaN(d)) return d.toISOString().slice(0,10); if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) return s; return String(s).slice(0,10); } catch(_) { return String(s); } }));
+            for (const y of years) {
+              const pd = plannedByYear[y] || [];
+              for (let i=0;i<pd.length;i++) {
+                const d = pd[i]; if (!d) continue;
+                if (norm.has(String(d))) {
+                  out.countsByYear[y][i] = (out.countsByYear[y][i]||0) + 1;
+                  out.breakdown[y][i].total = (out.breakdown[y][i].total || 0) + 1;
+                  out.breakdown[y][i].regions[memberRegion] = (out.breakdown[y][i].regions[memberRegion] || 0) + 1;
+                }
+              }
+            }
+          } catch(_){}
+        }
+        try { cacheWrite(cacheKey, out, 60*1000); } catch(_){}
+        return out;
+      } catch(_) { return { labels: [], years: [], countsByYear: {}, breakdown: {} }; }
+    }
+
+    // Render per-ride chart (x-axis Rit 1, Rit 2, ...)
+    async function renderPerRideChart(selectedYears) {
+      try {
+        const container = document.getElementById('per-ride-chart-container') || document.body;
+        // Ensure existing perRide canvas/chart removed so Chart.js won't complain about reusing canvas
+        try {
+          const existingCanvas = document.getElementById('perRideChart');
+          if (existingCanvas) {
+            try { const existingChart = (typeof Chart !== 'undefined' && Chart && typeof Chart.getChart === 'function') ? Chart.getChart(existingCanvas) : null; if (existingChart) try{ existingChart.destroy(); }catch(_){} } catch(_){}
+            try { existingCanvas.remove(); } catch(_){}
+          }
+        } catch(_){}
+        let canvas = document.createElement('canvas'); canvas.id = 'perRideChart'; canvas.style.width='100%'; canvas.style.height='240px'; container.innerHTML = ''; container.appendChild(canvas);
+        if (!Array.isArray(selectedYears) || selectedYears.length === 0) {
+          if (perRideChartInstance) try{ perRideChartInstance.destroy(); }catch(_){}
+          perRideChartInstance=null;
+          try { const existing = (typeof Chart !== 'undefined' && Chart && typeof Chart.getChart === 'function') ? Chart.getChart(canvas) : null; if (existing) try{ existing.destroy(); }catch(_){ } } catch(_){}
+          container.innerHTML = '<div class="chart-empty">Geen rit geselecteerd</div>';
+          return;
+        }
+        const data = await fetchCountsPerRide(selectedYears);
+        let labels = Array.isArray(data.labels) ? data.labels.slice() : [];
+          // determine sort mode (segmented control or legacy select)
+          const sortEl = document.getElementById('per-ride-sort-mode');
+          let sortMode = 'chronologisch';
+          try {
+            if (sortEl) {
+              // segmented control: look for active button
+              const activeBtn = sortEl.querySelector && sortEl.querySelector('.seg-btn.active');
+              if (activeBtn && activeBtn.dataset && activeBtn.dataset.mode) sortMode = String(activeBtn.dataset.mode || 'chronologisch');
+              else if (typeof sortEl.value === 'string' && sortEl.value) sortMode = String(sortEl.value);
+            }
+          } catch(_){ sortMode = 'chronologisch'; }
+          // build per-ride region breakdown for tooltips
+        const counts = Array.isArray(data.counts) ? data.counts : [];
+        // build per-ride region breakdown for tooltips
+        const perRideDetail = await fetchCountsByRegionPerRide(selectedYears).catch(()=>({ breakdown: {} }));
+            // If sorting by region, aggregate rides by their ride-region per year and use regions as x-axis
+            let datasets = [];
+            if (sortMode === 'regio' && Array.isArray(perRideDetail.years) && perRideDetail.years.length) {
+              const plannedByYear = data && data.plannedByYear ? data.plannedByYear : {};
+              const regionSet = new Set();
+              for (const y of perRideDetail.years) {
+                const planned = Array.isArray(plannedByYear[y]) ? plannedByYear[y] : [];
+                for (const date of planned) {
+                  try {
+                    let rr = 'Onbekend';
+                    if (cfg && cfg[y] && typeof cfg[y] === 'object' && typeof cfg[y][date] !== 'undefined') rr = String(cfg[y][date] || 'Onbekend');
+                    else if (cfg && cfg.regions && typeof cfg.regions === 'object' && typeof cfg.regions[date] !== 'undefined') rr = String(cfg.regions[date] || 'Onbekend');
+                    regionSet.add(rr || 'Onbekend');
+                  } catch(_) { regionSet.add('Onbekend'); }
+                }
+              }
+              const regionList = Array.from(regionSet).sort((a,b)=> a.localeCompare(b));
+              labels = regionList.slice();
+
+              const aggregatedBreakdown = {};
+              for (const y of perRideDetail.years) {
+                aggregatedBreakdown[y] = [];
+                const planned = Array.isArray(plannedByYear[y]) ? plannedByYear[y] : [];
+                for (let ri=0; ri<regionList.length; ri++) {
+                  const rname = regionList[ri];
+                  let total = 0;
+                  const membersByRegion = {};
+                  for (let i=0;i<planned.length;i++) {
+                    const date = planned[i];
+                    let rideRegion = 'Onbekend';
+                    try {
+                      if (cfg && cfg[y] && typeof cfg[y] === 'object' && typeof cfg[y][date] !== 'undefined') rideRegion = String(cfg[y][date] || 'Onbekend');
+                      else if (cfg && cfg.regions && typeof cfg.regions === 'object' && typeof cfg.regions[date] !== 'undefined') rideRegion = String(cfg.regions[date] || 'Onbekend');
+                    } catch(_){}
+                    if ((rideRegion || 'Onbekend') !== rname) continue;
+                    const cnt = (perRideDetail.countsByYear && perRideDetail.countsByYear[y] && typeof perRideDetail.countsByYear[y][i] !== 'undefined') ? Number(perRideDetail.countsByYear[y][i]||0) : 0;
+                    total += cnt;
+                    try {
+                      const info = perRideDetail.breakdown && perRideDetail.breakdown[y] && perRideDetail.breakdown[y][i] ? perRideDetail.breakdown[y][i] : null;
+                      if (info && info.regions) {
+                        for (const mr of Object.keys(info.regions)) membersByRegion[mr] = (membersByRegion[mr]||0) + (info.regions[mr]||0);
+                      }
+                    } catch(_){}
+                  }
+                  aggregatedBreakdown[y].push({ total: total, regions: membersByRegion });
+                }
+              }
+
+              datasets = (perRideDetail.years || []).map(y => {
+                const arr = (aggregatedBreakdown[y] || []).map(o => Number(o.total || 0));
+                return { label: String(y), data: arr, backgroundColor: getColorForYear(y), aggregatedBreakdown: aggregatedBreakdown[y] };
+              });
+            } else {
+              datasets = (perRideDetail.years || []).map((y, di) => {
+                const d = perRideDetail.countsByYear && perRideDetail.countsByYear[y] ? perRideDetail.countsByYear[y].slice() : [];
+                return { label: String(y), data: d, backgroundColor: getColorForYear(y) };
+              });
+            }
+        try { ensureCanvasHeight(canvas, 300); } catch(_){}
+        // compute max for per-ride datasets so y-axis keeps whole numbers
+        let maxPerRide = 0;
+        try { for (const ds of datasets) { for (const v of (ds.data||[])) { if (Number(v) > maxPerRide) maxPerRide = Number(v); } } } catch(_){ maxPerRide = 0; }
+        const suggestedMaxPerRide = Math.max(1, Math.ceil(maxPerRide));
+
+        perRideChartInstance = new Chart(canvas, {
+          type: 'bar',
+          data: { labels: labels, datasets: datasets },
+          options: {
+            plugins: {
+              legend: { display: true },
+              title: { display: true, text: 'Inschrijvingen per rit' },
+              tooltip: {
+                displayColors: false,
+                callbacks: {
+                  label: function(context) {
+                    try {
+                      const datasetIndex = typeof context.datasetIndex === 'number' ? context.datasetIndex : 0;
+                      const dataIndex = typeof context.dataIndex === 'number' ? context.dataIndex : (parseInt(String(context.label||'').replace(/\D/g,''),10)-1);
+                      const year = (perRideDetail.years && perRideDetail.years[datasetIndex]) ? perRideDetail.years[datasetIndex] : null;
+                      // if datasets include aggregatedBreakdown (regio mode), use it
+                      const ds = (perRideChartInstance && perRideChartInstance.data && perRideChartInstance.data.datasets && perRideChartInstance.data.datasets[datasetIndex]) ? perRideChartInstance.data.datasets[datasetIndex] : null;
+                      let info = null;
+                      if (ds && ds.aggregatedBreakdown && Array.isArray(ds.aggregatedBreakdown) && typeof ds.aggregatedBreakdown[dataIndex] !== 'undefined') {
+                        info = ds.aggregatedBreakdown[dataIndex];
+                      } else {
+                        // fallback to original perRideDetail mapping (chronological)
+                        const origIndex = dataIndex;
+                        info = year && perRideDetail.breakdown && perRideDetail.breakdown[year] && perRideDetail.breakdown[year][origIndex] ? perRideDetail.breakdown[year][origIndex] : null;
+                      }
+                      if (info && info.regions) {
+                        const regs = Object.keys(info.regions).sort((a,b)=> (info.regions[b]||0) - (info.regions[a]||0));
+                        const lines = [];
+                        for (const r of regs) lines.push(r + ': ' + (info.regions[r]||0));
+                        return lines;
+                      }
+                      return '';
+                    } catch(_) { return '' }
+                  }
+                }
+              }
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, suggestedMax: suggestedMaxPerRide, ticks: { stepSize: 1, precision: 0 } } }
+          }
+        });
+      } catch(e){ console.warn('renderPerRideChart error', e); }
+    }
+
+    // helper color function
+    function getColorForYear(y) { try { const yr = Number(y)||0; const h = (yr * 47) % 360; return `hsl(${h},65%,50%)`; } catch(_) { return 'rgba(54,162,235,0.85)'; } }
+
     function getColorForRegion(name) {
       try {
         if (!name) return 'rgba(201,203,207,0.85)';
-        // Normalize name to a compact key (lowercase, remove spaces/hyphens/etc.)
-        const key = String(name).toLowerCase().replace(/[^a-z0-9]/g,'');
-        // CMYK -> RGB hex conversions provided by design
-        const regionColors = {
-          'zuidwest': '#ff4214', // CMYK 0/74/92/0 -> rgb(255,66,20)
-          'midden':   '#59ff00', // CMYK 65/0/100/0 -> rgb(89,255,0)
-          'zuid':     '#ff0d14', // CMYK 0/95/92/0 -> rgb(255,13,20)
-          'noordoost':'#6effd9', // CMYK 57/0/15/0 -> rgb(110,255,217)
-          'noordwest':'#3d1fff'  // CMYK 76/88/0/0 -> rgb(61,31,255)
-        };
-        if (regionColors[key]) return regionColors[key];
-
-        // Fallback: deterministic HSL based on name hash
         let n = 0;
         for (let i = 0; i < name.length; i++) n = (n * 31 + name.charCodeAt(i)) & 0xffffffff;
         const h = Math.abs(n) % 360;
@@ -241,641 +580,190 @@ function extractDateGlobal(val) {
       } catch(_) { return 'rgba(153,102,255,0.85)'; }
     }
 
-    // Render a global legend under the year chips. Regions: array of names, colors: parallel array
-    function renderGlobalLegend(regions, colors) {
+    // Ensure canvas has an appropriate height for mobile/desktop so touch interactions are easier
+    function ensureCanvasHeight(canvas, preferHeight) {
       try {
-        if (!Array.isArray(regions)) regions = [];
-        const legendId = 'data-legend';
-        let legend = document.getElementById(legendId);
-        if (!legend) {
-          legend = document.createElement('div');
-          legend.id = legendId;
-          legend.className = 'data-legend';
-          // insert after the year strip
-          try {
-            const parent = strip && strip.parentNode ? strip.parentNode : document.body;
-            if (strip && strip.nextSibling) parent.insertBefore(legend, strip.nextSibling);
-            else parent.appendChild(legend);
-          } catch(_) { document.body.insertBefore(legend, document.body.firstChild); }
-        }
-        legend.innerHTML = '';
-        const wrap = document.createElement('div');
-        wrap.className = 'data-legend-inner';
-        for (let i = 0; i < regions.length; i++) {
-          const name = regions[i] || 'Onbekend';
-          const color = (Array.isArray(colors) && colors[i]) ? colors[i] : getColorForRegion(name);
-          const item = document.createElement('div');
-          item.className = 'legend-item';
-          const sw = document.createElement('span');
-          sw.className = 'legend-swatch';
-          sw.style.background = color;
-          const lbl = document.createElement('span');
-          lbl.className = 'legend-label';
-          lbl.textContent = name;
-          item.appendChild(sw);
-          item.appendChild(lbl);
-          wrap.appendChild(item);
-        }
-        legend.appendChild(wrap);
+        const w = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1024;
+        let h = typeof preferHeight === 'number' ? preferHeight : 220;
+        if (w <= 420) h = Math.max(h, 320);
+        else if (w <= 768) h = Math.max(h, 280);
+        else h = Math.max(h, 220);
+        canvas.style.height = String(h) + 'px';
+        // Set element height attribute too for Chart.js sizing
+        try { canvas.height = h; } catch(_){}
       } catch(_){}
     }
-    // Helper: fetch participant counts for given years from members/*/ScanDatums
-    async function fetchCountsForYears(selectedYears) {
-      try {
-        const out = {};
-        for (const y of selectedYears) out[y] = 0;
-        // Try cached per-member year counts first
-        let membersCache = cacheRead('members_year_counts');
-        if (!membersCache) {
-          // fetch and build cache
-          let init = null;
-          try { init = await initFirebase(); } catch (_) { init = { app: null, db: null }; }
-          const usedDb = (init && init.db) ? init.db : db;
-          if (!usedDb) return out;
-          const coll = collection(usedDb, 'members');
-          let snap = null;
-          try { snap = await getDocs(coll); } catch(_) { snap = null; }
-          if (!snap || !Array.isArray(snap.docs)) return out;
 
-          membersCache = [];
-          for (const sdoc of snap.docs) {
-            try {
-              const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
-              const rawArr = data && (data.ScanDatums || data.scandatums || data.scans) ? (data.ScanDatums || data.scandatums || data.scans) : null;
-              if (!rawArr || !Array.isArray(rawArr)) { membersCache.push({ id: sdoc.id || null, yearCounts: {} }); continue; }
-              const yc = {};
-              for (const entry of rawArr) {
-                try {
-                  const yr = extractYear(entry);
-                  if (!yr) continue;
-                  const ystr = String(yr);
-                  yc[ystr] = (yc[ystr] || 0) + 1;
-                } catch(_){}
-              }
-              membersCache.push({ id: sdoc.id || null, yearCounts: yc });
-            } catch(_) { membersCache.push({ id: (sdoc && sdoc.id) || null, yearCounts: {} }); }
-          }
-          try { cacheWrite('members_year_counts', membersCache); } catch(_){ }
-        }
+    // renderRegionsLegend removed — legend container and rendering are no longer used
 
-        // Sum cached counts
-        for (const m of membersCache) {
+    document.addEventListener('ride:years:changed', (ev)=>{ try{ const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : []; try{ console.debug('ride:years:changed -> renderChartForYears', yrs); }catch(_){} renderChartForYears(yrs); }catch(_){}});
+
+    // Also render per-ride chart on years change
+    document.addEventListener('ride:years:changed', (ev)=>{ try{ const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : []; try{ console.debug('ride:years:changed -> renderPerRideChart', yrs); }catch(_){} renderPerRideChart(yrs); }catch(_){}});
+
+    // Also render stars chart on years change
+    document.addEventListener('ride:years:changed', (ev)=>{ try{ const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : []; try{ console.debug('ride:years:changed -> renderStarsChart', yrs); }catch(_){} renderStarsChart(yrs); }catch(_){}});
+
+    // Re-render per-ride chart when sort mode changes (segmented control)
+    try {
+      const sortContainer = document.getElementById('per-ride-sort-mode');
+      if (sortContainer) {
+        sortContainer.addEventListener('click', (ev)=>{
           try {
-            const yc = m && m.yearCounts ? m.yearCounts : {};
-            for (const y of selectedYears) {
-              const c = yc[String(y)] || 0;
-              out[String(y)] = (out[String(y)] || 0) + c;
+            const btn = ev.target && ev.target.closest && ev.target.closest('.seg-btn');
+            if (!btn) return;
+            // toggle active state among siblings
+            const siblings = Array.from(sortContainer.querySelectorAll('.seg-btn'));
+            for (const s of siblings) {
+              s.classList.remove('active');
+              s.setAttribute('aria-pressed','false');
             }
-          } catch(_){}
-        }
-
-        return out;
-      } catch (e) { return selectedYears.reduce((acc,y)=>(acc[y]=0,acc),{}); }
-    }
-
-    // Render chart given selected years (array) using Chart.js. Bars left->right in ascending year order.
-    let yearChartInstance = null;
-    async function renderChartForYears(selectedYears) {
-      try {
-        if (!Array.isArray(selectedYears) || selectedYears.length === 0) {
-          if (yearChartInstance) { try { yearChartInstance.destroy(); } catch(_){} yearChartInstance = null; }
-          chart.innerHTML = '<div class="chart-empty">Geen jaar geselecteerd</div>';
-          return;
-        }
-        const yearsToShow = selectedYears.slice().sort((a,b)=>Number(a)-Number(b));
-        // ensure chart container is cleared and canvas exists
-        chart.innerHTML = '';
-        let canvas = document.getElementById('yearSummaryChart');
-        if (!canvas) {
-          canvas = document.createElement('canvas');
-          canvas.id = 'yearSummaryChart';
-          canvas.style.width = '100%';
-          canvas.style.height = '100%';
-          chart.appendChild(canvas);
-        } else {
-          // ensure canvas is inside our chart container for consistent sizing
-          if (canvas.parentNode !== chart) chart.appendChild(canvas);
-        }
-
-        // Move page title into Chart.js title plugin (hide external title div)
-        const yearTitleEl = document.getElementById('ride-years-chart-title');
-        const yearTitleText = yearTitleEl ? (yearTitleEl.textContent || '').trim() : '';
-        try { if (yearTitleEl) yearTitleEl.style.display = 'none'; } catch(_){}
-
-        // Build stacked per-region data by using per-ride mapping
-        const counts = await fetchCountsForYears(yearsToShow);
-        // also get per-position region mapping and counts via fetchCountsPerRide (cached)
-        const perRide = await fetchCountsPerRide(yearsToShow).catch(()=>({ yearRegions: {}, countsByYear: {} }));
-        const yearRegions = perRide.yearRegions || {};
-        const countsByYear = perRide.countsByYear || {};
-
-        // Build datasets grouped by member-region (not ride-config region). Prefer the
-        // memberRegions array returned by fetchCountsPerRide; fallback to scanning
-        // yearPosRegionCounts to discover member-region names.
-        let memberRegions = (perRide && Array.isArray(perRide.memberRegions) && perRide.memberRegions.length) ? perRide.memberRegions.slice() : [];
-        if (!memberRegions.length) {
-          const mrSet = new Set();
-          for (const y of yearsToShow) {
-            const ystr = String(y);
-            const posMaps = (perRide && perRide.yearPosRegionCounts && perRide.yearPosRegionCounts[ystr]) ? perRide.yearPosRegionCounts[ystr] : [];
-            for (const pm of posMaps) for (const k of Object.keys(pm || {})) mrSet.add(k || 'Onbekend');
-          }
-          memberRegions = Array.from(mrSet).sort();
-        }
-
-        // For each member-region, build data array across years by summing the
-        // counts found in yearPosRegionCounts for that member-region.
-        const regionDatasets = memberRegions.map((r) => {
-          const dataArr = yearsToShow.map((y) => {
-            const ystr = String(y);
-            const posMaps = (perRide && perRide.yearPosRegionCounts && perRide.yearPosRegionCounts[ystr]) ? perRide.yearPosRegionCounts[ystr] : [];
-            let sum = 0;
-            for (let i = 0; i < posMaps.length; i++) {
-              try { sum += (posMaps[i][r] || 0); } catch(_){ }
-            }
-            return sum;
-          });
-          return { label: r, data: dataArr, backgroundColor: getColorForRegion(r), borderRadius: 0, stack: 'regions' };
+            btn.classList.add('active');
+            btn.setAttribute('aria-pressed','true');
+            const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year);
+            renderPerRideChart(selectedYears);
+          } catch(_){ }
         });
+      }
+    } catch(_){ }
 
-        if (yearChartInstance) { try { yearChartInstance.destroy(); } catch(_){} yearChartInstance = null; }
-
-        yearChartInstance = new Chart(canvas, {
-          type: 'bar',
-          data: {
-            labels: yearsToShow,
-            datasets: regionDatasets
-          },
-          options: {
-            plugins: { title: { display: !!yearTitleText, text: yearTitleText, padding: { top: 6, bottom: 8 }, font: { size: 16 } },
-                      legend: { display: false }, tooltip: { enabled: true } },
-            layout: { padding: { left: 8, right: 8, top: 8, bottom: 20 } },
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              x: { beginAtZero: true, ticks: { precision: 0 }, title: { display: false }, stacked: true },
-              y: { title: { display: false }, stacked: true }
-            }
-          }
-        });
-
-        // Render a shared legend under the year chips for the whole page.
-        // Prefer memberRegions (from members collection) when available so the
-        // legend reflects actual member-level ‘Regio Omschrijving’ values.
-        try {
-          const memberRegions = (perRide && Array.isArray(perRide.memberRegions) && perRide.memberRegions.length) ? perRide.memberRegions : null;
-          if (memberRegions && memberRegions.length) {
-            renderGlobalLegend(memberRegions, memberRegions.map(n => getColorForRegion(n)));
-          } else {
-            const colors = regionDatasets.map(r => r.backgroundColor);
-            renderGlobalLegend(regions, colors);
-          }
-        } catch(_){}
-
-        // ensure parent has compact height proportional to number of years (compact multi-year view)
-        try {
-          const p = canvas.parentElement;
-          if (p) {
-            // make year-summary taller for readability: larger per-year row and higher min height
-            const h = Math.min(Math.max(yearsToShow.length * 70, 240), 1100);
-            p.style.height = h + 'px';
-          }
-        } catch(_){ }
-      } catch (e) { try { if (yearChartInstance) { yearChartInstance.destroy(); yearChartInstance = null; } chart.innerHTML = '<div class="chart-error">Kan niet laden</div>'; } catch(_){} }
-    }
-
-    // Fetch per-ride counts broken down per selected year and per position (Rit index)
-    async function fetchCountsPerRide(selectedYears) {
+    // Fetch and bucket stars (1..5) for members with Jaarhanger == Ja
+    // Returns per-year buckets so multi-year rendering can show one dataset per year
+    async function fetchStarsByYear(selectedYears) {
       try {
-        const out = { labels: [], countsByYear: {}, datesPerPosition: [] };
-        if (!Array.isArray(selectedYears) || selectedYears.length === 0) return out;
-
-        // Cache per-combination of years to avoid repeated heavy scans
-        const yearsKey = String(selectedYears.slice().sort().join(','));
-        const cacheKey = 'perride_counts_' + yearsKey;
+        const years = (Array.isArray(selectedYears) ? selectedYears.slice().map(String) : []).filter(Boolean);
+        // normalize and sort years for cache key
+        const uniqYears = Array.from(new Set(years)).sort((a,b)=>Number(a)-Number(b));
+        const cacheKey = 'members_stars_counts_by_year_' + uniqYears.join(',');
         const cached = cacheRead(cacheKey);
-        if (cached) return cached;
-
-        // Load rideConfig from cache or Firestore
-        let cfg = (dataCache && dataCache.rideConfig) ? dataCache.rideConfig : null;
-        if (!cfg) {
-          try { cfg = await getRideConfig(); } catch(_) { cfg = null; }
+        try { console.debug('fetchStarsByYear start', { selectedYears, uniqYears, cacheKey, cached: !!cached }); } catch(_){}
+        if (cached) {
+          try { console.debug('fetchStarsByYear using cached result', cacheKey, cached); } catch(_){}
+          return cached;
         }
-
-        // Build ordered date arrays per year based on the config insertion/order (do NOT sort)
-        const yearDates = {};
-        const yearRegions = {};
-        let maxLen = 0;
-        for (const y of selectedYears) {
-          try {
-            const ym = cfg && cfg[String(y)];
-            if (ym && typeof ym === 'object') {
-              // ensure deterministic order: sort ISO date keys so positions remain stable across reloads
-              const keys = Object.keys(ym).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
-              yearDates[String(y)] = keys;
-              // region names per position
-              try {
-                yearRegions[String(y)] = keys.map(k => {
-                  try {
-                    const v = ym[k];
-                    if (v === null || typeof v === 'undefined') return 'Onbekend';
-                    if (typeof v === 'object') return (v.value || v.name || String(v) || 'Onbekend');
-                    return String(v);
-                  } catch(_) { return 'Onbekend'; }
-                });
-              } catch(_) { yearRegions[String(y)] = keys.map(()=> 'Onbekend'); }
-              if (keys.length > maxLen) maxLen = keys.length;
-            } else {
-              const reg = cfg && cfg.regions && typeof cfg.regions === 'object' ? Object.keys(cfg.regions).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && String(k).indexOf(String(y))===0).sort() : [];
-              yearDates[String(y)] = reg;
-              try {
-                yearRegions[String(y)] = reg.map(k => {
-                  try {
-                    const v = cfg.regions[k];
-                    if (v === null || typeof v === 'undefined') return 'Onbekend';
-                    if (typeof v === 'object') return (v.value || v.name || String(v) || 'Onbekend');
-                    return String(v);
-                  } catch(_) { return 'Onbekend'; }
-                });
-              } catch(_) { yearRegions[String(y)] = reg.map(()=> 'Onbekend'); }
-              if (reg.length > maxLen) maxLen = reg.length;
-            }
-          } catch(_) { yearDates[String(y)] = []; yearRegions[String(y)] = []; }
-        }
-
-        if (maxLen === 0) return out;
-
-        // Build map date -> list of { year, pos }
-        const dateMap = Object.create(null);
-        for (const y of selectedYears) {
-          const arr = yearDates[String(y)] || [];
-          for (let idx = 0; idx < arr.length; idx++) {
-            const d = arr[idx];
-            if (!d) continue;
-            dateMap[d] = dateMap[d] || [];
-            dateMap[d].push({ year: String(y), pos: idx });
-          }
-        }
-
-        // Initialize counts per year/position
-        const countsByYear = {};
-        // year -> array[pos] = total count
-        for (const y of selectedYears) countsByYear[String(y)] = new Array(maxLen).fill(0);
-        // year -> array[pos] -> { regionName: count }
-        const yearPosRegionCounts = {};
-        for (const y of selectedYears) yearPosRegionCounts[String(y)] = new Array(maxLen).fill(null).map(()=> ({}));
-        // collect all member-level regions seen while scanning members
-        const memberRegionSet = new Set();
-
-        // Scan members and increment counts for positions based on the dateMap
-        try {
-          try { await initFirebase(); } catch(_){}
-          if (!db) return out;
-          const coll = collection(db, 'members');
-          const snap = await getDocs(coll).catch(()=>null);
-          if (snap && Array.isArray(snap.docs)) {
-            for (const sdoc of snap.docs) {
-              try {
-                const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
-                const rawArr = data && (data.ScanDatums || data.scandatums || data.scans) ? (data.ScanDatums || data.scandatums || data.scans) : null;
-                if (!Array.isArray(rawArr)) continue;
-                for (const entry of rawArr) {
-                  try {
-                    const dateStr = extractDate(entry);
-                    if (!dateStr) continue;
-                    const map = dateMap[dateStr];
-                    if (!map) continue;
-                    // Determine member-level region from document field 'Regio Omschrijving' (fallbacks supported)
-                    let memberRegion = 'Onbekend';
-                    try {
-                      const possible = data['Regio Omschrijving'] || data.RegioOmschrijving || data.regioOmschrijving || data.regio || data.region || data.regionName || data.regionnaam || data.regio_omschrijving;
-                      if (possible && String(possible).trim()) memberRegion = String(possible).trim();
-                    } catch(_){ }
-                    try { memberRegionSet.add(memberRegion); } catch(_){ }
-                    for (const it of map) {
-                      try {
-                        countsByYear[it.year][it.pos] = (countsByYear[it.year][it.pos] || 0) + 1;
-                        const yp = yearPosRegionCounts[it.year] && yearPosRegionCounts[it.year][it.pos] ? yearPosRegionCounts[it.year][it.pos] : null;
-                        if (yp) yp[memberRegion] = (yp[memberRegion] || 0) + 1;
-                      } catch(_){ }
-                    }
-                  } catch(_){}
-                }
-              } catch(_){}
-            }
-          }
-        } catch(_){}
-
-        out.labels = new Array(maxLen).fill(0).map((_,i)=>`Rit ${i+1}`);
-        out.countsByYear = countsByYear;
-        // representative date per position: first date found for that position across years
-        const repDates = new Array(maxLen).fill(null);
-        for (const d of Object.keys(dateMap)) {
-          try {
-            for (const it of dateMap[d]) if (!repDates[it.pos]) repDates[it.pos] = d;
-          } catch(_){}
-        }
-        out.datesPerPosition = repDates;
-        out.yearDates = yearDates;
-        out.yearRegions = yearRegions;
-        out.yearPosRegionCounts = yearPosRegionCounts;
-        out.memberRegions = Array.from(memberRegionSet).sort();
-        try { cacheWrite(cacheKey, out); } catch(_){ }
-        return out;
-      } catch(_) { return { labels: [], countsByYear: {}, datesPerPosition: [] }; }
-    }
-
-    // Mode for per-ride chart: 'rit' or 'regio'
-    let perRideMode = 'rit';
-
-    // Render per-ride chart (vertical bars). X-axis = Rit 1..N or Regio names, left = amount.
-    let perRideChartInstance = null;
-    function ensurePerRideModeControls(container, onChange) {
-      try {
-        if (!container) return;
-        let ctrl = container.querySelector('.perride-mode');
-        if (!ctrl) {
-          ctrl = document.createElement('div');
-          ctrl.className = 'perride-mode';
-          ctrl.style.display = 'flex';
-          ctrl.style.gap = '8px';
-          ctrl.style.alignItems = 'center';
-          const btnRit = document.createElement('button');
-          btnRit.type = 'button';
-          btnRit.textContent = 'Rit';
-          btnRit.className = 'mode-btn rit';
-          const btnRegio = document.createElement('button');
-          btnRegio.type = 'button';
-          btnRegio.textContent = 'Regio';
-          btnRegio.className = 'mode-btn regio';
-          ctrl.appendChild(btnRit);
-          ctrl.appendChild(btnRegio);
-          container.insertBefore(ctrl, container.firstChild);
-          const setActive = (m, invoke=true) => {
-            perRideMode = m;
-            try { btnRit.classList.toggle('active', m==='rit'); btnRegio.classList.toggle('active', m==='regio'); } catch(_){ }
-            if (invoke) {
-              try { if (typeof onChange === 'function') onChange(); } catch(_){ }
-            }
-          };
-          btnRit.addEventListener('click', ()=>setActive('rit', true));
-          btnRegio.addEventListener('click', ()=>setActive('regio', true));
-          // initial (do not invoke onChange during setup)
-          setActive(perRideMode, false);
-        }
-      } catch(_){ }
-    }
-
-    async function renderPerRideChart(selectedYears) {
-      try {
-        const container = document.getElementById('ride-perride-chart-container') || chart;
-        // ensure mode controls exist and will trigger re-render on change
-        try { ensurePerRideModeControls(container, ()=>{ try { const yrs = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year); renderPerRideChart(yrs); } catch(_){} }); } catch(_){ }
-        if (!container) return;
-        // handle empty selection
-        if (!Array.isArray(selectedYears) || selectedYears.length === 0) {
-          if (perRideChartInstance) { try { perRideChartInstance.destroy(); } catch(_){} perRideChartInstance = null; }
-          const existingCanvas = document.getElementById('perRideChart');
-          if (existingCanvas && existingCanvas.parentNode !== container) container.appendChild(existingCanvas);
-          return;
-        }
-        const res = await fetchCountsPerRide(selectedYears);
-        const labels = res.labels || [];
-        const countsByYear = res.countsByYear || {};
-        const yearDates = res.yearDates || {};
-        const yearRegions = res.yearRegions || {};
-        const yearPosRegionCounts = res.yearPosRegionCounts || {};
-        // prefer memberRegions derived from the members collection (global) so legend/colors
-        // and stacking include all member-level region values
-        const allMemberRegions = Array.isArray(res.memberRegions) ? res.memberRegions.slice() : [];
-
-        // Move per-ride page title into Chart.js title and hide external title div
-        const perRideTitleEl = document.getElementById('ride-perride-chart-title');
-        const perRideTitleText = perRideTitleEl ? (perRideTitleEl.textContent || '').trim() : '';
-        try { if (perRideTitleEl) perRideTitleEl.style.display = 'none'; } catch(_){}
-
-        // prepare canvas
-        let canvas = document.getElementById('perRideChart');
-        if (!canvas) {
-          canvas = document.createElement('canvas');
-          canvas.id = 'perRideChart';
-          canvas.style.width = '100%';
-          canvas.style.height = '100%';
-          container.appendChild(canvas);
-        } else {
-          if (canvas.parentNode !== container) container.appendChild(canvas);
-        }
-
-        // If mode is 'regio', aggregate positions into region buckets
-        let finalLabels = labels;
-        let finalCountsByYear = countsByYear;
-        // placeholders for computed aggregations when needed
-        let computedMemberRegions = [];
-        let computedPerYearMemberCounts = {};
-
-        if (perRideMode === 'regio') {
-          // X-axis labels = ride regions (from ride-config yearRegions). Bars/segments = member regions (from member data).
-          const rideRegionSet = new Set();
-          // collect ride regions across years
-          for (const y of selectedYears) {
-            const ystr = String(y);
-            const regs = (yearRegions[ystr] && Array.isArray(yearRegions[ystr])) ? yearRegions[ystr] : [];
-            regs.forEach(r => rideRegionSet.add((r || 'Onbekend')));
-          }
-          const rideRegions = Array.from(rideRegionSet).sort();
-          finalLabels = rideRegions;
-
-          // Use the global member region list when available; otherwise fall back to
-          // member-region values observed in the selected years.
-          let memberRegions = allMemberRegions.length ? allMemberRegions.slice() : [];
-          if (!memberRegions.length) {
-            const memberRegionSet = new Set();
-            for (const y of selectedYears) {
-              const ystr = String(y);
-              const posMaps = yearPosRegionCounts[ystr] || [];
-              for (const m of posMaps) for (const k of Object.keys(m||{})) memberRegionSet.add((k||'Onbekend'));
-            }
-            memberRegions = Array.from(memberRegionSet).sort();
-          }
-
-          // Build per-year, per-memberRegion datasets aggregated by rideRegion
-          const perYearMemberCounts = {};
-          for (const y of selectedYears) {
-            const ystr = String(y);
-            perYearMemberCounts[ystr] = {};
-            const posMaps = yearPosRegionCounts[ystr] || [];
-            const regs = (yearRegions[ystr] && Array.isArray(yearRegions[ystr])) ? yearRegions[ystr] : [];
-            for (let i = 0; i < regs.length; i++) {
-              const rideR = (regs[i] || 'Onbekend');
-              const m = posMaps[i] || {};
-              for (const memRegion of Object.keys(m||{})) {
-                perYearMemberCounts[ystr][rideR] = perYearMemberCounts[ystr][rideR] || {};
-                perYearMemberCounts[ystr][rideR][memRegion] = (perYearMemberCounts[ystr][rideR][memRegion] || 0) + (m[memRegion] || 0);
-              }
-            }
-          }
-
-          // finalCountsByYear will be built from perYearMemberCounts when creating datasets below
-          finalCountsByYear = {};
-          for (const y of selectedYears) {
-            const ystr = String(y);
-            finalCountsByYear[ystr] = rideRegions.map(rr => {
-              const map = (perYearMemberCounts[ystr] && perYearMemberCounts[ystr][rr]) ? perYearMemberCounts[ystr][rr] : {};
-              // total across member regions for this rideRegion
-              return Object.values(map).reduce((a,b)=>a+(b||0),0);
-            });
-          }
-          // keep memberRegions and perYearMemberCounts available for dataset building below
-          computedMemberRegions = memberRegions;
-          computedPerYearMemberCounts = perYearMemberCounts;
-        }
-
-        // build datasets: if we're in 'rit' mode, create stacked region segments per year
-        let datasets = [];
-        if (perRideMode === 'rit') {
-          // collect all region names across selected years from member-level counts
-          const regionSet = new Set();
-          for (const y of selectedYears) {
-            const ystr = String(y);
-            const posMaps = yearPosRegionCounts[ystr] || [];
-            for (const m of posMaps) for (const k of Object.keys(m||{})) regionSet.add((k||'Onbekend'));
-          }
-          const regions = Array.from(regionSet).sort();
-          // For each year, create a stack of datasets (one dataset per region) so stacks are grouped by year
-          for (const y of selectedYears) {
-            const ystr = String(y);
-            const posMaps = yearPosRegionCounts[ystr] || [];
-            for (const r of regions) {
-              const dataArr = new Array(finalLabels.length).fill(0);
-              for (let i = 0; i < finalLabels.length; i++) {
-                try {
-                  const m = (posMaps[i] || {});
-                  dataArr[i] = (m[r] || 0);
-                } catch(_){ }
-              }
-              datasets.push({ label: `${ystr}-${r}`, data: dataArr, backgroundColor: getColorForRegion(r), stack: 'year_' + ystr, borderRadius: 4 });
-            }
-          }
-        } else {
-          // default: grouped by year or aggregated by region
-          if (perRideMode === 'regio') {
-            // For 'regio' mode we want one stacked bar per ride-region showing the
-            // distribution of member-regions across the selected years. Build one
-            // dataset per member-region aggregated over all selected years and use
-            // the same stack id so the colors stack on top of each other.
-            const memberRegions = computedMemberRegions && computedMemberRegions.length ? computedMemberRegions.slice() : [];
-            for (const mr of memberRegions) {
-              const arr = new Array(finalLabels.length).fill(0);
-              for (let idx = 0; idx < finalLabels.length; idx++) {
-                try {
-                  const rideR = finalLabels[idx];
-                  let sum = 0;
-                  for (const y of selectedYears) {
-                    const ystr = String(y);
-                    const val = (computedPerYearMemberCounts[ystr] && computedPerYearMemberCounts[ystr][rideR] && computedPerYearMemberCounts[ystr][rideR][mr]) ? computedPerYearMemberCounts[ystr][rideR][mr] : 0;
-                    sum += (val || 0);
-                  }
-                  arr[idx] = sum;
-                } catch(_) { arr[idx] = 0; }
-              }
-              datasets.push({ label: mr, data: arr, backgroundColor: getColorForRegion(mr), stack: 'regio', borderRadius: 4 });
-            }
-          } else {
-            // grouped by year (original behavior)
-            for (const y of selectedYears) {
-              const ystr = String(y);
-              const dataArr = finalCountsByYear[ystr] || new Array(finalLabels.length).fill(0);
-              datasets.push({ label: ystr, data: dataArr, backgroundColor: getColorForYear(ystr), borderRadius: 4 });
-            }
-          }
-        }
-
-        if (perRideChartInstance) { try { perRideChartInstance.destroy(); } catch(_){} perRideChartInstance = null; }
-
-        perRideChartInstance = new Chart(canvas, {
-          type: 'bar',
-          data: { labels: finalLabels, datasets: datasets },
-          options: {
-            plugins: { title: { display: !!perRideTitleText, text: perRideTitleText, padding: { top: 6, bottom: 8 }, font: { size: 16 } }, legend: { display: false } },
-            layout: { padding: { left: 8, right: 8, top: 8, bottom: 48 } },
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              x: { title: { display: false }, stacked: false },
-              y: { beginAtZero: true, ticks: { precision: 0 }, stacked: (perRideMode === 'rit' || perRideMode === 'regio') }
-            }
-          }
-        });
-
-        // Update global legend to show member-region colors when available
-        try {
-          const legendNames = (allMemberRegions && allMemberRegions.length) ? allMemberRegions : ((perRideMode === 'regio' || perRideMode === 'rit') ? (computedMemberRegions || []) : finalLabels);
-          const legendColors = Array.isArray(legendNames) ? legendNames.map(n => getColorForRegion(n)) : [];
-          if (legendNames && legendNames.length) renderGlobalLegend(legendNames, legendColors);
-        } catch(_){ }
-
-        try { const p = canvas.parentElement; if (p) p.style.height = Math.min(Math.max((finalLabels.length||1) * 56, 320), 1100) + 'px'; } catch(_){ }
-      } catch(_) { try { if (perRideChartInstance) { perRideChartInstance.destroy(); perRideChartInstance = null; } } catch(_){} }
-    }
-
-    // Fetch per-date registration counts for a given year
-    async function fetchDateCountsForYear(year) {
-      try {
-        const out = {};
-        const cacheKey = 'datecounts_' + String(year);
-        const cached = cacheRead(cacheKey);
-        if (cached) return cached;
-        // Ensure Firebase available
         try { await initFirebase(); } catch(_){ }
-        const usedDb = (typeof db !== 'undefined' && db) ? db : null;
-        if (!usedDb) return out;
-        const collRef = collection(usedDb, 'members');
-        let snap = null;
-        try { snap = await getDocs(collRef); } catch(_) { snap = null; }
-        if (!snap || !Array.isArray(snap.docs)) return out;
+        const out = { years: uniqYears, bucketsByYear: {} };
+        for (const y of uniqYears) out.bucketsByYear[y] = { '1':0,'2':0,'3':0,'4':0,'5':0, totalMembers:0 };
+        if (!db) return out;
+        const coll = collection(db, 'members');
+        const snap = await getDocs(coll).catch(()=>null);
+        if (!snap || !Array.isArray(snap.docs)) { try { cacheWrite(cacheKey, out, 30*1000); } catch(_){} return out; }
         for (const sdoc of snap.docs) {
           try {
             const data = typeof sdoc.data === 'function' ? sdoc.data() : sdoc;
-            const rawArr = data && (data.ScanDatums || data.scandatums || data.scans) ? (data.ScanDatums || data.scandatums || data.scans) : null;
-            if (!Array.isArray(rawArr)) continue;
-            for (const entry of rawArr) {
+            // determine Jaarhanger truthy value per requested year (accept 'Ja', 'ja', true)
+            const jaarEnabled = {};
+            try {
+              // prefer per-year stored object like { Jaarhanger: { '2025': 'ja' } }
+              if (data && data.Jaarhanger && typeof data.Jaarhanger === 'object') {
+                for (const y of uniqYears) {
+                  try {
+                    const vv = data.Jaarhanger && (data.Jaarhanger[y] || data.Jaarhanger[String(y)]);
+                    let ok = false;
+                    if (typeof vv === 'string' && vv.toLowerCase().indexOf('j') === 0) ok = true;
+                    else if (typeof vv === 'boolean' && vv) ok = true;
+                    else if (typeof vv === 'number' && vv === 1) ok = true;
+                    jaarEnabled[String(y)] = ok;
+                  } catch(_){ jaarEnabled[String(y)] = false; }
+                }
+              } else {
+                // fallback to legacy top-level Jaarhanger field (apply same value for all requested years)
+                const v = data && (data.Jaarhanger || data.jaarhanger || data.JaarHanger || data.jaarHanger);
+                let ok = false;
+                if (typeof v === 'string') { if (v.toLowerCase().indexOf('j') === 0) ok = true; }
+                else if (typeof v === 'boolean') { ok = Boolean(v); }
+                else if (typeof v === 'number') { ok = v === 1; }
+                for (const y of uniqYears) jaarEnabled[String(y)] = ok;
+              }
+            } catch(_){ for (const y of uniqYears) jaarEnabled[String(y)] = false; }
+            // collect scans
+            const scans = Array.isArray(data.ScanDatums) ? data.ScanDatums : (Array.isArray(data.scandatums) ? data.scandatums : (Array.isArray(data.scans) ? data.scans : []));
+            if (!Array.isArray(scans) || scans.length === 0) continue;
+            // build normalized set of scan years for this member
+            const scanYears = new Map();
+            for (const s of scans) {
+              try { const yr = extractYear(s); if (yr) scanYears.set(String(yr), (scanYears.get(String(yr))||0) + 1); } catch(_){}
+            }
+            // for each requested year, compute count and bucket only if Jaarhanger enabled for that year
+            for (const y of uniqYears) {
               try {
-                const dateStr = extractDate(entry);
-                if (!dateStr || String(dateStr).indexOf(String(year)) !== 0) continue;
-                out[dateStr] = (out[dateStr] || 0) + 1;
+                if (!jaarEnabled[String(y)]) {
+                  try { console.debug('fetchStarsByYear skip member for year (no Jaarhanger)', { year: y, memberId: (sdoc.id||sdoc._id||null) }); } catch(_){ }
+                  continue;
+                }
+                const count = scanYears.get(y) || 0;
+                if (count <= 0) continue;
+                const bucket = count >= 5 ? '5' : String(Math.max(1, Math.min(5, Math.floor(count))));
+                out.bucketsByYear[y][bucket] = (out.bucketsByYear[y][bucket] || 0) + 1;
+                out.bucketsByYear[y].totalMembers = (out.bucketsByYear[y].totalMembers || 0) + 1;
+                try { console.debug('fetchStarsByYear counted member', { year: y, memberId: (sdoc.id||sdoc._id||null), count, bucket }); } catch(_){ }
               } catch(_){ }
             }
           } catch(_){ }
         }
-        try { cacheWrite(cacheKey, out); } catch(_){}
+        try { cacheWrite(cacheKey, out, 60*1000); } catch(_){ }
+        try { console.debug('fetchStarsByYear result', out); } catch(_){}
         return out;
-      } catch(_) { return {}; }
+      } catch(_) { return { years: [], bucketsByYear: {} }; }
     }
 
-    // Listen for aggregated year changes and update chart
-    document.addEventListener('ride:years:changed', (ev) => {
+    // Render stars chart
+    let starsChartInstance = null;
+    async function renderStarsChart(selectedYears) {
       try {
-        const yrs = (ev && ev.detail && Array.isArray(ev.detail.years)) ? ev.detail.years : [];
-        console.log('ride:years:changed event received, years=', yrs);
-        renderChartForYears(yrs);
-        try { renderPerRideChart(yrs); } catch(_){}
-      } catch(err){ console.error('ride:years:changed handler error', err); }
-    });
-
-    // Initial render: use any already-selected chips (auto-select code may have set one),
-    // otherwise render with empty selection placeholder.
-    try {
-      const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el => el.dataset.year);
-      if (selectedYears && selectedYears.length > 0) {
-        renderChartForYears(selectedYears);
-        try { renderPerRideChart(selectedYears); } catch(_){ }
-      } else {
-        renderChartForYears([]);
-        try { renderPerRideChart([]); } catch(_){ }
-      }
-    } catch (e) {
-      renderChartForYears([]);
+        const container = document.getElementById('stars-chart-container') || document.body;
+        try {
+          const existingCanvas = document.getElementById('starsChart');
+          if (existingCanvas) {
+            try { const existingChart = (typeof Chart !== 'undefined' && Chart && typeof Chart.getChart === 'function') ? Chart.getChart(existingCanvas) : null; if (existingChart) try{ existingChart.destroy(); }catch(_){} } catch(_){ }
+            try { existingCanvas.remove(); } catch(_){ }
+          }
+        } catch(_){ }
+        const canvas = document.createElement('canvas'); canvas.id = 'starsChart'; canvas.style.width='100%'; canvas.style.height='260px'; container.innerHTML = ''; container.appendChild(canvas);
+        if (!Array.isArray(selectedYears) || selectedYears.length === 0) {
+          if (starsChartInstance) try{ starsChartInstance.destroy(); }catch(_){ }
+          starsChartInstance = null;
+          container.innerHTML = '<div class="chart-empty">Geen jaar geselecteerd</div>';
+          return;
+        }
+        const info = await fetchStarsByYear(selectedYears).catch(()=>({ years: [], bucketsByYear: {} }));
+        const labels = ['1','2','3','4','5'];
+        try { ensureCanvasHeight(canvas, 240); } catch(_){ }
+        // determine years to show: prefer the explicit selectedYears argument
+        const yearsToShow = (Array.isArray(selectedYears) && selectedYears.length) ? Array.from(new Set(selectedYears.map(String))).sort((a,b)=>Number(a)-Number(b)) : (Array.isArray(info.years) ? info.years.slice() : []);
+        if (!yearsToShow || yearsToShow.length === 0) {
+          container.innerHTML = '<div class="chart-empty">Geen jaar geselecteerd</div>';
+          return;
+        }
+        // build datasets (one per year) using returned buckets when available, otherwise zeros
+        const datasets = [];
+        for (const y of yearsToShow) {
+          const by = info.bucketsByYear && info.bucketsByYear[y] ? info.bucketsByYear[y] : { '1':0,'2':0,'3':0,'4':0,'5':0 };
+          const dataArr = labels.map(l => Number(by[l] || 0));
+          datasets.push({ label: String(y), data: dataArr, backgroundColor: getColorForYear(y) });
+        }
+        // compute max across datasets
+        let maxv = 0; for (const ds of datasets) for (const v of (ds.data||[])) if (Number(v) > maxv) maxv = Number(v);
+        const suggestedMax = Math.max(1, Math.ceil(maxv));
+        if (starsChartInstance) try{ starsChartInstance.destroy(); }catch(_){ }
+        starsChartInstance = new Chart(canvas, {
+          type: 'bar',
+          data: { labels: labels.map(s=>s + ' sterren'), datasets: datasets },
+          options: {
+            indexAxis: 'y',
+            plugins: { legend:{ display:true }, title:{ display:true, text: 'Jaarhanger sterren' } },
+            responsive:true, maintainAspectRatio:false,
+            scales: {
+              x: { beginAtZero:true, suggestedMax: suggestedMax, ticks:{ stepSize:1, precision:0 } },
+              y: { beginAtZero:false }
+            }
+          }
+        });
+      } catch(e){ console.warn('renderStarsChart error', e); }
     }
-  } catch (e) { console.warn('populate ride years failed', e); }
+
+    // initial render
+    try { const selectedYears = Array.from(strip.querySelectorAll('.year-chip.selected')).map(el=>el.dataset.year); if (selectedYears && selectedYears.length) { renderChartForYears(selectedYears); renderPerRideChart(selectedYears); renderStarsChart(selectedYears); } else { renderChartForYears([]); renderPerRideChart([]); renderStarsChart([]); } } catch(_){ renderChartForYears([]); renderPerRideChart([]); renderStarsChart([]); }
+
+  } catch(e){ console.warn('populate ride years failed', e); }
 })();
