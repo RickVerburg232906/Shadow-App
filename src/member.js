@@ -1854,6 +1854,34 @@ async function renderLunchPreview() {
 			prev = sorted[sorted.length - 1];
 		}
 
+		// Update the top choice section: show the "Eet je mee vandaag?" question
+		// only when today is a planned ride. Otherwise show the ride date there
+		// and hide the radio choices so members don't submit a wrong day.
+		try {
+			const choiceSection = document.querySelector('.choice-section');
+			const choiceTitleEl = choiceSection ? choiceSection.querySelector('.choice-title') : null;
+			const choiceGrid = choiceSection ? choiceSection.querySelector('.choice-grid') : null;
+			const isTodayRide = Array.isArray(sorted) && sorted.indexOf(todayIso) !== -1;
+			if (choiceTitleEl) {
+				if (isTodayRide) {
+					choiceTitleEl.textContent = 'Eet je mee vandaag?';
+				} else if (next) {
+					const d = new Date(next + 'T00:00:00');
+					const dd = d.getDate();
+					const months = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+					const monthName = months[d.getMonth()] || '';
+					choiceTitleEl.textContent = `Eet je mee ${dd} ${monthName}?`;
+				} else {
+					choiceTitleEl.textContent = 'Geen geplande rit';
+				}
+			}
+			if (choiceGrid) {
+				choiceGrid.style.display = '';
+			}
+			// Do not disable the agree button based solely on whether today is a ride.
+			// Higher-level logic (e.g. lunch not established) may still block submissions.
+		} catch(_) {}
+
 		// fetch lunch doc to read updatedAt (server timestamp)
 		let lunchUpdatedIso = null;
 		try {
